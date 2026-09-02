@@ -226,11 +226,30 @@ func TestProposedLedgerRecordsHaveNotLandedYet(t *testing.T) {
 	}
 }
 
-// DIV-06 says the port's 101 response omits the two fields shipped Java adds.
-// That claim is about a file in this tree, so it is checked against that file.
-// If the omission is fixed, this fails and says so: the sweep document then
-// describes a port that no longer exists.
-func TestDIV06IsStillTrueOfThePortSourceItNames(t *testing.T) {
+// DIV06ClosureDraft is where the closure of DIV-06 is recorded for the owner.
+// The sweep document itself is NOT edited when a divergence is fixed: it is a
+// measurement of one run against one build (`subject_commit` 518b77aa), and
+// that measurement stays true of that build forever. What changed is the
+// PORT, and that change needs its own record.
+const DIV06ClosureDraft = "drafts/ledger-proposals/div06-handshake-response.json"
+
+// DIV-06 said the port's 101 response omitted the two fields shipped Java
+// adds and did not sort its header names. That claim was about a file in this
+// tree, so it is checked against that file — and it is now CLOSED: the port
+// site DIV-06 names writes all five of Java's fields, in Java's order.
+//
+// This check used to be a tripwire that fired when the port was fixed. It has
+// been turned around rather than deleted, because the reason it existed has
+// not gone away: the sweep document describes a port, the port can move under
+// it, and nothing else in this package reads the port's source. It now fails
+// if the fix REGRESSES, if the fix stops being recorded, or if it stops
+// reading what it thinks it is reading.
+//
+// It asserts source structure, not behaviour. The behaviour is proved where
+// it can be observed: rust/ws-core/tests/handshake_server_response.rs pins the
+// head byte-for-byte against the pinned jar's own output, and
+// rust/ws-testee/tests/loopback.rs reads it off a real socket.
+func TestDIV06IsClosedInThePortSourceItNames(t *testing.T) {
 	root := repoRoot(t)
 	source, err := os.ReadFile(filepath.Join(root, "rust/ws-core/src/handshake/server.rs"))
 	if err != nil {
@@ -246,14 +265,46 @@ func TestDIV06IsStillTrueOfThePortSourceItNames(t *testing.T) {
 		t.Fatal("could not delimit accept_response")
 	}
 	body := text[start : start+end]
-	for _, field := range []string{"Server", "Date"} {
-		if strings.Contains(body, field+": ") {
-			t.Fatalf("accept_response now writes a %s field: DIV-06 in %s describes a port that has changed, so recompute and re-review it",
-				field, DocumentPath)
+
+	// Java's five response fields, in the order String.CASE_INSENSITIVE_ORDER
+	// puts them in (HandshakedataImpl1.java:50 -> Draft.java:275-283). The
+	// port writes them in that same order, so their positions in the source
+	// must be strictly increasing.
+	previous := -1
+	for _, field := range []string{"Connection", "Date", "Sec-WebSocket-Accept", "Server", "Upgrade"} {
+		at := strings.Index(body, field+": ")
+		if at < 0 {
+			t.Fatalf("accept_response no longer writes a %s field: DIV-06 was closed by making the port emit all five of Java's response fields (Draft_6455.java:431-452), and %s records that closure. This is a regression, not a new finding.",
+				field, DIV06ClosureDraft)
 		}
+		if at <= previous {
+			t.Fatalf("accept_response writes %s out of order: shipped Java emits Connection, Date, Sec-WebSocket-Accept, Server, Upgrade — case-insensitive alphabetical, because HandshakedataImpl1.java:50 is a TreeMap with String.CASE_INSENSITIVE_ORDER and Draft.java:275-283 writes its key set in iteration order",
+				field)
+		}
+		previous = at
 	}
-	if !strings.Contains(body, "Sec-WebSocket-Accept: ") {
-		t.Fatal("accept_response no longer writes Sec-WebSocket-Accept, so this check is no longer reading what it thinks it is")
+
+	// The Connection VALUE is echoed from the request (Draft_6455.java:435-436),
+	// not a literal. A hard-coded value would pass every check above and every
+	// case the recorded Autobahn run contains, because the suite always sends
+	// exactly "Connection: Upgrade".
+	if strings.Contains(body, `b"Connection: Upgrade`) {
+		t.Fatal("accept_response hard-codes Connection: Upgrade again. Draft_6455.java:435-436 is response.put(CONNECTION, request.getFieldValue(CONNECTION)) — the value is the REQUEST's, echoed. No case in the recorded run can catch this, which is why it is checked here.")
+	}
+
+	// The guard on this check reading what it thinks it is reading. If the
+	// port site were renamed or emptied, every assertion above would still be
+	// satisfiable by an empty body.
+	if !strings.Contains(body, "HTTP/1.1 101 Web Socket Protocol Handshake") {
+		t.Fatal("accept_response no longer writes the 101 status line, so this check is no longer reading what it thinks it is")
+	}
+
+	// And the closure must stay recorded. A fix whose record has been deleted
+	// leaves the sweep document as the only surviving description of the port,
+	// and that description is now stale by design.
+	if _, err := os.Stat(filepath.Join(root, DIV06ClosureDraft)); err != nil {
+		t.Fatalf("the port site DIV-06 names has been fixed but %s does not exist: %v. %s still reports DIV-06 as measured on subject_commit 518b77aa, which is correct for that run and no longer describes mainline; the closure needs its own record.",
+			DIV06ClosureDraft, err, DocumentPath)
 	}
 }
 

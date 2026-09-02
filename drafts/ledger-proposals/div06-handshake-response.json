@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0.0",
+  "draft_kind": "divergence-closure-record",
+  "draft_status": "NOT APPENDED — record of a closure, and a proposal to WITHDRAW a pending ledger draft",
+  "drafted_at": "2026-09-02",
+  "drafted_by": "claude/div06-handshake-response",
+  "closes_sweep_class": "DIV-06-server-101-headers",
+  "sweep_recommendation_taken": "FIX_IN_PORT",
+
+  "why_this_is_a_draft_and_not_an_append": "Two reasons, and neither is the usual one. FIRST, this is not a behaviour-delta ledger record at all: DIV-06's recommendation was FIX_IN_PORT, meaning the port was WRONG rather than deliberately different, and a fidelity fix is not a disclosed divergence. There is nothing here to append to evidence/java/behavior-delta-ledger.json. SECOND, the thing this record DOES ask of the owner is a withdrawal — drafts/ledger-proposals/divergence-sweep-5.json currently proposes a ledger record for DIV-06 with disposition `unresolved`, offering the owner a fork between fixing the port and ledgering the omission as an intentional correction. That fork is now resolved on the fixing side, so appending divergence-sweep-5.json would enter a divergence into the ledger that no longer exists. The ledger is owned by another track this wave, so nothing here is appended, edited or withdrawn; this file states the position.",
+
+  "what_java_actually_does": {
+    "authority": "SOURCE CITATION into the pinned tree, plus an OFFLINE COMPUTATION over the pinned jar. Neither is a live socket observation: no Java server was started for this work, and this repository's java-oracle is a JSONL request/response oracle that never opens a server socket.",
+    "pinned_source": ".quarantine/Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "pinned_source_archive_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "pinned_source_verified": "The archive was re-digested (matches evidence/intake/source-pins.json) and re-extracted, and `diff -r` against the committed extraction returned exit 0 with zero lines, so the tree read here is the tree the pin names.",
+    "method_citation": "org.java_websocket.drafts.Draft_6455.postProcessHandshakeResponseAsServer, src/main/java/org/java_websocket/drafts/Draft_6455.java:431-452",
+    "fields_the_method_writes": [
+      {"java_line": 434, "field": "Upgrade", "value": "the literal \"websocket\""},
+      {"java_line": "435-436", "field": "Connection", "value": "request.getFieldValue(CONNECTION) — the REQUEST's value, ECHOED, with the comment `// to respond to a Connection keep alives`"},
+      {"java_line": 441, "field": "Sec-WebSocket-Accept", "value": "generateFinalKey(seckey)"},
+      {"java_line": 449, "field": "Server", "value": "the literal \"TooTallNate Java-WebSocket\""},
+      {"java_line": 450, "field": "Date", "value": "getServerTime() — a wall-clock read, Draft_6455.java:818-824"}
+    ],
+    "fields_that_are_conditional_and_absent_here": "Sec-WebSocket-Extensions (:442-444) and Sec-WebSocket-Protocol (:445-447) are written only when non-empty. Under DefaultExtension (extensions/DefaultExtension.java:76-78 returns \"\") and the default protocol both are empty, so neither reaches the wire, and this port configures neither.",
+    "not_a_field": "Draft_6455.java:448 sets the status MESSAGE \"Web Socket Protocol Handshake\", which Draft.java:270 renders into the status line.",
+    "what_determines_wire_order": "org.java_websocket.handshake.HandshakedataImpl1:50 stores fields in `new TreeMap<>(String.CASE_INSENSITIVE_ORDER)`; iterateHttpFields (:55-57) walks that key set; Draft.createHandshake (drafts/Draft.java:275-283) writes them in exactly that iteration order. The wire order is therefore case-insensitive alphabetical and NOT insertion order: Connection, Date, Sec-WebSocket-Accept, Server, Upgrade.",
+    "response_field_names_are_javas_constants": "Draft_6455.java:96-106. Measured: a request spelling `connection:` in lowercase still receives `Connection:` in the response.",
+    "offline_corroboration": "A program driving the same three calls WebSocketImpl.java:300-301 makes — Draft.translateHandshakeHttp, postProcessHandshakeResponseAsServer, Draft.createHandshake — on the pinned Java-WebSocket-1.6.0.jar under the pinned JDK 17.0.19+10 printed the exact response bytes for six requests. Its source and full transcript are in drafts/self-review/div06-handshake-response-round-1.md. For the byte-exact request the Autobahn suite sent in the recorded native run it reproduced `Sec-WebSocket-Accept: Hq135RN2s62Ig7vP5+0RjcM2Ies=`, the value that run's httpResponse actually carries, which is what binds this offline computation to the one socket observation that exists."
+  },
+
+  "what_the_sweep_had_missed": {
+    "finding": "DIV-06 named two missing fields and an unsorted order. There is a THIRD difference in the same method that the sweep did not name and the recorded run could not have caught: the port hard-coded `Connection: Upgrade`, while Draft_6455.java:435-436 ECHOES the request's Connection value.",
+    "why_the_run_could_not_see_it": "The Autobahn suite sends exactly `Connection: Upgrade` on every one of the 247 cases, so the echoed value and the hard-coded value are byte-identical in every case measured. The port's value looked right because the input made it right — the same shape of defect DIV-06 itself was reported as.",
+    "measured_difference": "Against the pinned jar: request `Connection: keep-alive, Upgrade` gets `Connection: keep-alive, Upgrade`; duplicate request Connection headers join with \"; \" (Draft.java:120-125) and get `Connection: Upgrade; close`; an ABSENT request Connection still gets a field, `Connection: ` with an empty value, because HandshakedataImpl1.getFieldValue (:59-65) returns \"\" rather than null and put(\"Connection\", \"\") still inserts the key.",
+    "status": "Fixed in the same change. Pinned by rust/ws-core/tests/handshake_server_response.rs::the_connection_field_echoes_the_requests_value_rather_than_a_literal and guarded against silent regression by internal/divergencesweep's TestDIV06IsClosedInThePortSourceItNames."
+  },
+
+  "the_incomplete_citation_that_hid_it": {
+    "defect_class": "existence standing in for identity — a citation that names a real Java method but binds only part of what that method does.",
+    "first_instance": "rust/ws-core/src/handshake/server.rs::accept_response carried the doc comment `Upgrade/Connection/Sec-WebSocket-Accept per postProcessHandshakeResponseAsServer`. The named method writes FIVE fields. The citation was true of the method's existence and false of its content.",
+    "second_instance_found_during_this_work": "The same file's ServerHandshakeOutcome::Accept doc said Java `appends non-deterministic Date and Server fields at the I/O shell`. Wrong twice over: Server is a fixed literal and not non-deterministic, and NEITHER field is added at an I/O shell — both are written by postProcessHandshakeResponseAsServer, the very method the file cites three lines earlier. The doc had relocated the fields to a layer where they would be somebody else's problem.",
+    "correction": "The doc comment on accept_response is now a field-by-field table with a Java line number per field, plus a separate paragraph citing the TreeMap that determines wire order, and it states which two conditional fields are absent and why. A reader can now check the citation against the method rather than against its name."
+  },
+
+  "the_fix": {
+    "port_sites": [
+      "rust/ws-core/src/handshake/server.rs — accept_response now emits all five fields in String.CASE_INSENSITIVE_ORDER and echoes the request's Connection value; java_server_time is a new pure function reproducing Draft_6455.getServerTime's format.",
+      "rust/ws-core/src/config.rs — ConnectionConfig gains server_date_epoch_seconds, the injected instant, alongside the mask_key_seed precedent.",
+      "rust/ws-core/src/connection.rs — the server handshake machine is built with the configured instant.",
+      "rust/ws-testee/src/server.rs — THE one clock read, per accepted connection.",
+      "rust/ws-oracle-harness/src/handshake_adapter.rs — a fixed instant, because that oracle scores the accept/reject verdict and the accept value and discards the response head entirely."
+    ],
+    "sans_io_stance": "ws-core is dependency-free and clockless by contract (rust/ws-core/Cargo.toml: `no sockets, no clocks, no callbacks`). That contract is kept: the core owns the FORMAT, which is Java behaviour and belongs in the port, and the owner supplies the INSTANT. This is the same seam mask_key_seed already uses for the port's only other non-deterministic input. There is deliberately no clockless constructor for ServerHandshake — a default instant would emit a plausible-looking Date that no clock produced."
+  },
+
+  "the_date_normalization_decision": {
+    "question": "Date is a clock reading. Should it be made byte-reproducible, and how should a differential treat it?",
+    "answer": "It cannot be byte-reproducible and it is NOT normalized away.",
+    "reasoning": "Date is non-reproducible by construction: Java's getServerTime calls Calendar.getInstance(). It is not merely theoretical — the recorded native run shows NINE distinct Date values across the 247 Java server cases, so the field genuinely varies within a single run of a single build. A differential that normalized it (dropped the field, or rewrote both sides to a constant) would erase a real difference, which is the failure DIV-02 taught this repository. What is done instead is to SPLIT the field along the line where determinism actually falls: the FORMAT does not vary and is pinned byte-for-byte, and the INSTANT does vary and is checked as a property.",
+    "what_is_pinned_byte_for_byte": "The formatter, over 22 instants, in rust/ws-core/tests/handshake_server_response.rs. Every expectation is a string PRINTED by the pinned JDK evaluating the same SimpleDateFormat expression getServerTime builds, not derived by hand. Two of those instants are the epochs that render the two Date values the recorded Autobahn run observed on the wire. The table was produced under two different host default timezones (-Duser.timezone=UTC and -Duser.timezone=Asia/Kolkata) and came out identical, so the format depends on the instant alone.",
+    "what_is_checked_as_a_property": "That the instant is the PRESENT, in rust/ws-testee/tests/loopback.rs::the_servers_101_date_field_carries_a_live_clock_not_a_fixed_instant. It brackets the handshake with two wall-clock readings and requires the emitted Date to be some instant inside that interval — a wall-clock window, never an iteration count (finding F005). A companion test, each_accepted_connection_stamps_its_own_date_not_the_fixtures, serves two connections from ONE fixture across a second boundary and requires the two Date values to differ, because Java reads its clock per handshake and a per-fixture read would be unfaithful while passing every other check.",
+    "what_no_gate_should_do": "No byte-equality digest over a 101 response head can include the Date VALUE. Nothing in this repository currently digests that head — the corpus differential and the handshake exam both score the accept/reject verdict and the Sec-WebSocket-Accept value, and the Autobahn sweep's subject_handshake_header_names dimension compares field NAMES in order, which is exactly the deterministic part. So no existing gate needed changing, and that is stated here so a future gate does not quietly add one."
+  },
+
+  "known_and_disclosed_non_fidelity": {
+    "gregorian_julian_cutover": "java_server_time is proleptic Gregorian. Java's GregorianCalendar switches to the JULIAN calendar strictly before 1582-10-15T00:00:00Z (epoch -12219292800), where the two disagree by the historical 10-day gap; measured on the pinned JDK, epoch -12219292801 renders as `Thu, 04 Oct 1582 23:59:59 GMT`. The port claims byte-identity at and after the cutover only. No server clock reaches that region, and adding a Julian branch nothing exercises would be speculative code, so the gap is DISCLOSED in the function's doc comment rather than closed. The function is total over every i64 regardless — no input panics."
+  },
+
+  "evidence": {
+    "red_reading": "Both DIV-06 assertions were run against UNMODIFIED mainline source before any fix and failed, exit 101, with messages naming the divergence and printing the port's actual head. Transcript in drafts/self-review/div06-handshake-response-round-1.md.",
+    "deletion_attacks": "Each new check was attacked by removing the thing it protects; the round is recorded in drafts/self-review/div06-handshake-response-round-1.md with the exit code and failure text for each.",
+    "differential_and_exam": "Re-run because rust/ws-core/src and rust/ws-testee/src changed. Readings recorded in the self-review round."
+  },
+
+  "for_the_owner": [
+    "WITHDRAW drafts/ledger-proposals/divergence-sweep-5.json rather than appending it: it proposes a ledger record for a divergence that no longer exists. Its measured_extent remains a true statement about subject_commit 518b77aa and is worth keeping as history, but its proposed_record should not enter the ledger.",
+    "evidence/java/observed-close-divergences.json is NOT edited by this work and should not be. It is a measurement of one run against one build; that measurement stays true of that build. internal/divergencesweep's TestDIV06IsClosedInThePortSourceItNames now carries the fact that mainline has moved past it.",
+    "The 247-case sweep was NOT re-run: re-running Autobahn is an owner gate. What is claimed here is what the pinned Java source and jar do, what the port's source and tests now do, and that the corpus differential and handshake exam are unmoved. Whether a fresh Autobahn run would now show 0/247 on subject_handshake_header_names for the server role is UNMEASURED."
+  ]
+}

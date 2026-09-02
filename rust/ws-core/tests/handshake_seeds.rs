@@ -39,8 +39,13 @@ enum Expect {
     Incomplete,
 }
 
+/// Neither helper here reads the 101 head, so the instant the machine
+/// stamps into `Date` (Draft_6455.java:450) only has to be fixed. The head
+/// is examined in `handshake_server_response.rs`.
+const FIXED_INSTANT: i64 = 1_787_943_099;
+
 fn judge_server(raw: &[u8]) -> Expect {
-    let mut machine = ServerHandshake::new(HandshakeLimits::hard_ceilings());
+    let mut machine = ServerHandshake::new(HandshakeLimits::hard_ceilings(), FIXED_INSTANT);
     match machine.consume(raw) {
         ServerHandshakeOutcome::Incomplete => Expect::Incomplete,
         ServerHandshakeOutcome::Accept { .. } => Expect::Accept,
@@ -50,7 +55,7 @@ fn judge_server(raw: &[u8]) -> Expect {
 }
 
 fn server_accept_key(raw: &[u8]) -> String {
-    let mut machine = ServerHandshake::new(HandshakeLimits::hard_ceilings());
+    let mut machine = ServerHandshake::new(HandshakeLimits::hard_ceilings(), FIXED_INSTANT);
     match machine.consume(raw) {
         ServerHandshakeOutcome::Accept { accept_key, .. } => accept_key,
         other => panic!("expected accept, got {other:?}"),

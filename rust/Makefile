@@ -4,15 +4,44 @@
 # The root Makefile is intentionally untouched; wiring these targets into the
 # root build is a follow-up owned by the pipeline stories.
 
-.PHONY: gates fmt-check clippy test test-release ac1-gates ledger-gates
+.PHONY: gates fmt-check clippy fixture-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
-gates: fmt-check clippy test test-release ac1-gates ledger-gates
+gates: fmt-check clippy fixture-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
 fmt-check:
 	cargo fmt --all -- --check
 
 clippy:
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+# Count-shaped liveness guards in Rust test fixtures. This program has filed
+# the SAME defect three times — F002 (a backpressure fixture sized to a host's
+# socket buffer), F004 (`refusals_before_the_drop < 4096`, 2 red runs in 5 with
+# ws-core byte-identical), F005 (`polls < POLL_BUDGET`, a red `test-release`
+# with `left: 179 right: 200` under load and no defect anywhere) — and each
+# time the remedy was a paragraph in drafts/self-review/findings/ that bound
+# nothing. F005's own bin note says so: "a portable rule that lives only in a
+# findings file does not bind anything". This target is the binding.
+#
+# It runs BOTH halves on purpose, for the reason ledger-gates records below:
+#   * `go test` executes the fine-grained polarity assertions (the waiver
+#     ceiling, the empty-scan refusal, the drifted-manifest refusal). Five of
+#     the fourteen recorded deletion attacks on this detector are caught ONLY
+#     here, so leaving the tests out of a release path would leave those five
+#     parts deletable in silence.
+#   * `go run` applies the rule to the live tree and re-runs the historical
+#     polarity control in production code, printing what fired on the pre-fix
+#     text of F004 and F005 and refusing to PASS if the scan matched no files
+#     or no loops.
+#
+# -max-waivers is the escape hatch's ceiling and is currently 0. A fixture that
+# genuinely needs a count guard carries an in-source
+# `// FIXTURE-COUNT-GUARD-ALLOWED: <justification>` AND a raise of this number
+# in the same change, so the pile is visible in review instead of growing
+# quietly. Raising it is a decision, not a formality.
+fixture-guard:
+	cd .. && go test ./cmd/fixtureguardctl/
+	cd .. && go run ./cmd/fixtureguardctl -root . -max-waivers 0
 
 test:
 	cargo test --workspace --all-targets --all-features
@@ -65,3 +94,26 @@ ac1-gates:
 # previously bound only by internal/corpora's tests, which no release path runs.
 ledger-gates:
 	cd .. && go run ./cmd/deltaledgerctl --root . --check
+
+# US-020 AC2 oracle hierarchy. AC2 says RFC 6455 is rank one, in-scope Autobahn
+# rank two, independent neutral expectations rank three, Java observation rank
+# four and Rust observation rank five, and that agreement between Java and Rust
+# cannot override a higher oracle. A criteria audit found that sentence had no
+# mechanism anywhere in the tree: one prose string in
+# internal/deltaledger/definitions_gap_closure.go, no type, no field, no check.
+# The consequence was concrete -- the 74/74 public-corpus differential and the
+# 247-case Autobahn per-case comparison this repository cites as parity are both
+# rank-four-against-rank-five comparisons, exactly the comparison AC2 says
+# cannot settle a question on its own.
+#
+# internal/oraclerank is the mechanism and this target executes it.
+# `oraclerankctl --check` recomputes the adjudication register from the
+# committed evidence (the register is never an input to its own recomputation),
+# refuses any difference, and then checks the adjudication rules themselves:
+# every Java/Rust agreement a higher oracle overrides is enrolled, no enrolled
+# entry is unexhibited, the guarded parity reading refuses on every overridden
+# agreement, no rank is declared and then silent, and the pure
+# rank-four-against-rank-five family exhibits no override at all. It exits
+# nonzero on any failure, which fails this target and `gates` with it.
+oracle-hierarchy-gates:
+	cd .. && go run ./cmd/oraclerankctl --root . --check

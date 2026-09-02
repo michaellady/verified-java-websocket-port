@@ -1,0 +1,247 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-021",
+  "ac": 3,
+  "ac_verbatim": "Each target has a pinned engine/toolchain, dictionary/corpus digest, minimum bounded campaign, timeout/OOM/crash policy, artifact capture, replay command, and exact target manifest; unavailable tooling blocks instead of skipping.",
+  "digest_scheme": "CANONICAL_PATH_SHA256_V1",
+  "note": "This manifest is the AC3 exact target manifest AND the honest AC2 census. It is CHECKED, not asserted: cmd/fuzzpinctl -check re-derives every digest from the tree, requires each declared entrypoint to be a real #[test] fn in the named file, and requires each declared campaign size and generator seed to appear VERBATIM as the loop literal in that source. The defect class it exists to stop is existence standing in for identity -- a seed corpus on disk is not a campaign, a property test is not a fuzz target, and a replay command nobody ran is a string. Three of AC2's seven named target families have NO generative fuzz target and are recorded ABSENT, which BLOCKS. The coverage-guided engine (cargo-fuzz/libFuzzer) is not installed in this environment and is recorded UNAVAILABLE, which BLOCKS. Neither is skipped and neither is claimed.",
+  "engines": [
+    {
+      "id": "splitmix64-in-repo-v1",
+      "kind": "in_repo_deterministic",
+      "probe_command": ["rustc", "--version"],
+      "probe_dir": "rust",
+      "toolchain": {
+        "channel": "1.95.0",
+        "pin_file": "rust/rust-toolchain.toml",
+        "pin_digest": "sha256:4a1f489390955d744175143193edbda0d1182083902f3aaac6fd78fc394922cb"
+      },
+      "source_files": [
+        "rust/ws-core/tests/adversarial_fuzz.rs",
+        "rust/ws-core/tests/adversarial_properties.rs"
+      ],
+      "source_digest": "sha256:b844597a443d7587777963c411e9e63c4cbb66d348e4201c661a9bace82e56ec"
+    },
+    {
+      "id": "cargo-fuzz-libfuzzer",
+      "kind": "coverage_guided",
+      "probe_command": ["cargo", "fuzz", "--version"],
+      "probe_dir": "rust",
+      "toolchain": {
+        "channel": "nightly (cargo-fuzz requires -Z sanitizer)",
+        "pin_file": "",
+        "pin_digest": ""
+      },
+      "source_files": [],
+      "source_digest": ""
+    }
+  ],
+  "targets": [
+    {
+      "id": "handshake-client",
+      "ac2_family": "handshake-client",
+      "status": "ABSENT",
+      "engine": "splitmix64-in-repo-v1",
+      "rationale": "rust/ws-core/fuzz-seeds/us010 holds 11 committed handshake-client seeds and rust/ws-core/tests/handshake_seeds.rs replays them at FIXED expectations. That is a regression corpus, not a fuzz target: no byte of handshake input is ever GENERATED. rust/ws-core/tests/adversarial_fuzz.rs contains zero handshake drives (its only occurrence of the word is the MaxHandshakeBytes limit field). rust/ws-core/tests/handshake_client.rs is fixed-example unit testing. No generator, no campaign, no artifact capture, no replay of a generated case exists for ClientHandshake.",
+      "entrypoints": [],
+      "corpus": {
+        "paths": ["rust/ws-core/fuzz-seeds/us010"],
+        "file_count": 11,
+        "digest": "sha256:85f839f6790143f26130d324a3287e121f0a5a451c8aa21b95a54cc8fd2ec194"
+      },
+      "campaign": {
+        "kind": "none",
+        "total_cases": 0,
+        "liveness_guard": {"kind": "none", "deadline_seconds": 0, "note": "no campaign exists to bound"}
+      },
+      "policy": {"crash": "", "timeout": "", "oom": ""},
+      "artifacts": {"dir": ""},
+      "replay": {"dir": "", "command": []}
+    },
+    {
+      "id": "handshake-server",
+      "ac2_family": "handshake-server",
+      "status": "ABSENT",
+      "engine": "splitmix64-in-repo-v1",
+      "rationale": "Same shape as handshake-client one parser over: rust/ws-core/fuzz-seeds/us011 holds 17 committed server seeds replayed at fixed expectations by rust/ws-core/tests/handshake_seeds.rs, and rust/ws-core/tests/handshake_server.rs is fixed-example unit testing. ServerHandshake never receives a generated request. Note that family_seed_corpus_anchors in adversarial_fuzz.rs DOES read the us010/us011 hex files, but it feeds them to ConnectionCore as post-handshake FRAME bytes; that exercises the frame decoder over handshake-shaped bytes and gives the handshake parsers no coverage at all.",
+      "entrypoints": [],
+      "corpus": {
+        "paths": ["rust/ws-core/fuzz-seeds/us011"],
+        "file_count": 17,
+        "digest": "sha256:55dc79210a22a10879e01704102465228f8c1c7052a093191251f84d005764eb"
+      },
+      "campaign": {
+        "kind": "none",
+        "total_cases": 0,
+        "liveness_guard": {"kind": "none", "deadline_seconds": 0, "note": "no campaign exists to bound"}
+      },
+      "policy": {"crash": "", "timeout": "", "oom": ""},
+      "artifacts": {"dir": ""},
+      "replay": {"dir": "", "command": []}
+    },
+    {
+      "id": "frame-decode",
+      "ac2_family": "frame-decode",
+      "status": "PINNED",
+      "engine": "splitmix64-in-repo-v1",
+      "rationale": "A real generative target: rust/ws-core/tests/adversarial_fuzz.rs draws random transport chunks and structured adversarial frames from a hand-rolled SplitMix64 PRNG at fixed committed seeds, independently of the shipped encoder, and drives ConnectionCore under catch_unwind with no-panic, bounded-allocation, determinism, and rechunk-invariance oracles. This is a DETERMINISTIC BOUNDED generative campaign, NOT coverage-guided fuzzing: it has no coverage feedback, no corpus evolution, and no crash-artifact minimizer. Claim grade: bounded. total_cases counts only entrypoints with a fixed generated-case loop; family_seed_corpus_anchors (corpus replay across 3 setups x 3 chunkings) and family_declared_length_headers (9 curated declarations x 2 roles) carry cases:0 because they generate no case loop, and their drives are therefore NOT in the 29,000.",
+      "entrypoints": [
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_byte_soup_no_panic_bounded_deterministic", "cases": 10000, "case_literal": "for case in 0..10_000u32", "seed": "SplitMix64::new(0xe1f0_0001)"},
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_frame_soup_no_panic_bounded_deterministic", "cases": 10000, "case_literal": "for case in 0..10_000u32", "seed": "SplitMix64::new(0xe1f0_0002)"},
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_rechunk_invariance_single_frame", "cases": 2000, "case_literal": "for case in 0..2_000u32", "seed": "SplitMix64::new(0xe1f0_0013)"},
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_rechunk_invariance_multi_frame", "cases": 4000, "case_literal": "for case in 0..4_000u32", "seed": "SplitMix64::new(0xe1f0_0003)"},
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_config_boundaries", "cases": 2000, "case_literal": "for case in 0..2_000u32", "seed": "SplitMix64::new(0xe1f0_0005)"},
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_queue_pressure_typed_backpressure", "cases": 1000, "case_literal": "for case in 0..1_000u32", "seed": "SplitMix64::new(0xe1f0_0006)"},
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_seed_corpus_anchors", "cases": 0, "case_literal": "", "seed": "SplitMix64::new(0x5eed_0000 + strategy)"},
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_declared_length_headers", "cases": 0, "case_literal": "", "seed": ""}
+      ],
+      "corpus": {
+        "paths": ["rust/ws-core/fuzz-seeds"],
+        "file_count": 104,
+        "digest": "sha256:c2b8b2f478439cf92ecc38b8ff90710a36bb25abc777122960bae9e885c807a9",
+        "note": "family_seed_corpus_anchors reads every *.hex file under this tree (98 of the 104 files; the six us016 *.seed scenario files are scenario names, not hex bytes), so the whole tree is the pinned corpus."
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 29000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 900,
+          "note": "F005: the guard against non-termination is a generous wall-clock deadline, never a count. The 29,000 deterministic cases are WORK (they fix what is explored, so digests reproduce); they are not the liveness bound. 900s is roughly 380x the 2.4s observed on an unloaded run of this host, chosen so seven concurrent agents cannot turn slowness into a spurious failure."
+        }
+      },
+      "policy": {
+        "crash": "A panic inside ConnectionCore is caught by catch_unwind in drive_checked and FAILS the case with its seed label; the test binary then exits nonzero and the campaign fails. Panics are never swallowed.",
+        "timeout": "cmd/fuzzpinctl kills the replay process at the declared wall-clock deadline via context.WithTimeout and records deadline_hit=true, which FAILS the campaign. A killed run is never reported as a pass.",
+        "oom": "Bounded-allocation oracles inside the target assert that drained events/writes never exceed the configured queue capacities and that counts respect max_input_bytes and max_buffered_bytes (+ the pinned Q24 wire slack). An OOM kill leaves no ProcessState exit 0, so it fails through the same path as any nonzero exit; the runner reads the exit code from the real process state and never invents one."
+      },
+      "artifacts": {"dir": "assurance/fuzz/campaign/frame-decode"},
+      "replay": {"dir": "rust", "command": ["cargo", "test", "--locked", "-p", "ws-core", "--test", "adversarial_fuzz"]}
+    },
+    {
+      "id": "message-utf8",
+      "ac2_family": "message-utf8",
+      "status": "PINNED",
+      "engine": "splitmix64-in-repo-v1",
+      "rationale": "A real generative DIFFERENTIAL target: rust/ws-core/tests/adversarial_properties.rs generates random byte soup and corrupted/truncated encoded strings and compares the shipped incremental UTF-8 validator against an independent in-test reference scanner. Generated, not replayed. Claim grade: differential over a model, bounded by the campaign size.",
+      "entrypoints": [
+        {"file": "rust/ws-core/tests/adversarial_properties.rs", "test": "utf8_differential_random_byte_soup", "cases": 20000, "case_literal": "for case in 0..20_000u32", "seed": "SplitMix64::new(0xe1a1_0001)"},
+        {"file": "rust/ws-core/tests/adversarial_properties.rs", "test": "utf8_differential_encoded_strings_corruptions_and_truncations", "cases": 5000, "case_literal": "for case in 0..5_000u32", "seed": "SplitMix64::new(0xe1a1_0002)"},
+        {"file": "rust/ws-core/tests/adversarial_properties.rs", "test": "masking_equation_involution_and_chunked_equivalence", "cases": 2000, "case_literal": "for case in 0..2_000u32", "seed": "SplitMix64::new(0xe1a1_0003)"},
+        {"file": "rust/ws-core/tests/adversarial_properties.rs", "test": "utf8_curated_malformed_corpus", "cases": 0, "case_literal": "", "seed": ""}
+      ],
+      "corpus": {
+        "paths": ["rust/ws-core/fuzz-seeds/us013"],
+        "file_count": 20,
+        "digest": "sha256:4db552b4ccb915193602daf3bcdfd955b5982b52b382c4088ff579382b6cf1a0"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 27000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 900,
+          "note": "F005: wall-clock deadline, never a case count. See frame-decode."
+        }
+      },
+      "policy": {
+        "crash": "A differential mismatch or a panic in the shipped validator fails the case with its label and exits the test binary nonzero.",
+        "timeout": "Killed at the declared wall-clock deadline by cmd/fuzzpinctl; deadline_hit FAILS the campaign.",
+        "oom": "Generated inputs are length-bounded inside the generator; an OOM kill produces a nonzero process state, which fails the run through the exit-code path."
+      },
+      "artifacts": {"dir": "assurance/fuzz/campaign/message-utf8"},
+      "replay": {"dir": "rust", "command": ["cargo", "test", "--locked", "-p", "ws-core", "--test", "adversarial_properties"]}
+    },
+    {
+      "id": "fragment-control-sequences",
+      "ac2_family": "fragment-control-sequences",
+      "status": "SHARED_NO_DEDICATED_TARGET",
+      "engine": "splitmix64-in-repo-v1",
+      "rationale": "Fragment and control sequences ARE generated -- draw_frame in adversarial_fuzz.rs draws continuation/text/binary/close/ping/pong and reserved opcodes, clears FIN one time in five, sets RSV bits, and draw_stream concatenates one to ten such frames with optional garbage tails and truncations. But they are generated only INSIDE the frame-decode target: this family has no target of its own, no campaign bound of its own, and no separately captured artifact. Recorded as shared coverage, not as a dedicated target, so the record cannot be read as more than it is.",
+      "entrypoints": [
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_frame_soup_no_panic_bounded_deterministic", "cases": 10000, "case_literal": "for case in 0..10_000u32", "seed": "SplitMix64::new(0xe1f0_0002)"}
+      ],
+      "corpus": {
+        "paths": ["rust/ws-core/fuzz-seeds/us014", "rust/ws-core/fuzz-seeds/us015"],
+        "file_count": 30,
+        "digest": "sha256:e4caef95b82326225789edc47473af7d15c2d147ba47c7868cb1332db086896a"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded_shared",
+        "total_cases": 10000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 900,
+          "note": "F005: wall-clock deadline. Shares the frame-decode binary, so this is the same process bound."
+        }
+      },
+      "policy": {
+        "crash": "Inherited from frame-decode: catch_unwind fails the case, the binary exits nonzero.",
+        "timeout": "Inherited from frame-decode: wall-clock deadline kill fails the campaign.",
+        "oom": "Inherited from frame-decode: bounded-allocation oracles plus the exit-code path."
+      },
+      "artifacts": {"dir": "assurance/fuzz/campaign/fragment-control-sequences"},
+      "replay": {"dir": "rust", "command": ["cargo", "test", "--locked", "-p", "ws-core", "--test", "adversarial_fuzz"]}
+    },
+    {
+      "id": "close-eof",
+      "ac2_family": "close-eof",
+      "status": "SHARED_NO_DEDICATED_TARGET",
+      "engine": "splitmix64-in-repo-v1",
+      "rationale": "Close payloads ARE generated: draw_close_payload draws empty, one-byte, and hostile code/reason pairs across a 14-code table plus uniformly random u16 codes, with invalid-UTF-8 reasons. Transport EOF IS generated, but only inside family_command_interleave (one step in ten, over 5,000 cases) -- byte_soup and frame_soup never emit EOF at all. So close/EOF has no dedicated target and EOF in particular is exercised by exactly one family. Recorded as shared coverage.",
+      "entrypoints": [
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "family_command_interleave_no_panic_deterministic", "cases": 5000, "case_literal": "for case in 0..5_000u32", "seed": "SplitMix64::new(0xe1f0_0004)"},
+        {"file": "rust/ws-core/tests/adversarial_fuzz.rs", "test": "close_ack_emits_the_close_event_before_the_terminal_transition", "cases": 0, "case_literal": "", "seed": ""},
+        {"file": "rust/ws-core/tests/adversarial_properties.rs", "test": "close_payload_parse_round_trips", "cases": 0, "case_literal": "", "seed": "SplitMix64::new(0xe1a1_0005)"}
+      ],
+      "corpus": {
+        "paths": ["rust/ws-core/fuzz-seeds/us016"],
+        "file_count": 6,
+        "digest": "sha256:5170fea6a8b4afbc846b7e7e9215bd94bf8927022dfb14d2f7d2614adde07412"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded_shared",
+        "total_cases": 5000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 900,
+          "note": "F005: wall-clock deadline. Shares the frame-decode binary."
+        }
+      },
+      "policy": {
+        "crash": "Inherited from frame-decode: catch_unwind fails the case; the exactly-once terminal oracle fails a double transition to Closed.",
+        "timeout": "Inherited from frame-decode: wall-clock deadline kill fails the campaign.",
+        "oom": "Inherited from frame-decode: bounded-allocation oracles plus the exit-code path."
+      },
+      "artifacts": {"dir": "assurance/fuzz/campaign/close-eof"},
+      "replay": {"dir": "rust", "command": ["cargo", "test", "--locked", "-p", "ws-core", "--test", "adversarial_fuzz"]}
+    },
+    {
+      "id": "owner-driver-command-byte-schedules",
+      "ac2_family": "owner-driver-command-byte-schedules",
+      "status": "ABSENT",
+      "engine": "splitmix64-in-repo-v1",
+      "rationale": "Nothing generates command/byte schedules at the ws-driver seam. rust/ws-driver/tests/schedule_exploration.rs EXHAUSTIVELY ENUMERATES every interleaving of five fixed actor programs within a context-switch bound -- systematic, deterministic, and valuable, but not generative fuzzing: it draws nothing and has no random or evolving input. The retained rust/ws-driver/fuzz-seeds/us017 corpus (16 files) is consumed as byte-for-byte EXPECTED OUTPUT of the minimizer, not as fuzz seeds fed to a generator. family_command_interleave in adversarial_fuzz.rs does interleave generated commands with bytes, but at the ws-core seam, against ConnectionCore, with no ConnectionDriver, no owner poll loop, and no transport write path -- a different seam from the one AC2 names.",
+      "entrypoints": [],
+      "corpus": {
+        "paths": ["rust/ws-driver/fuzz-seeds/us017"],
+        "file_count": 16,
+        "digest": "sha256:90f45220c9b341eb3bebf176e520a99bc2e7708cf319de4e9b688f6d0da01cf8"
+      },
+      "campaign": {
+        "kind": "none",
+        "total_cases": 0,
+        "liveness_guard": {"kind": "none", "deadline_seconds": 0, "note": "no campaign exists to bound"}
+      },
+      "policy": {"crash": "", "timeout": "", "oom": ""},
+      "artifacts": {"dir": ""},
+      "replay": {"dir": "", "command": []}
+    }
+  ],
+  "claim": {
+    "ac2_met": false,
+    "ac3_met": false,
+    "claim_grade": "bounded",
+    "honest_state": "AC2 NOT MET: 3 of 7 named target families (handshake-client, handshake-server, owner-driver-command-byte-schedules) have no generative fuzz target at all, and 2 more (fragment-control-sequences, close-eof) have no dedicated target. AC3 NOT MET: the coverage-guided engine class AC3's vocabulary presumes (pinned engine, dictionary, crash-artifact capture, replay of a minimized crashing input) is not installed here, so it BLOCKS rather than skipping. What IS pinned and executed is the in-repo deterministic generative campaign over frame-decode and message-utf8, which is bounded evidence -- never proof, and never a substitute for the three absent targets."
+  }
+}

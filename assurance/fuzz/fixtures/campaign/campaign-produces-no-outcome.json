@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-021",
+  "ac": 3,
+  "ac_verbatim": "campaign-runner fixture",
+  "digest_scheme": "CANONICAL_PATH_SHA256_V1",
+  "note": "Synthetic validator input for cmd/fuzzpinctl -campaign-fixtures. Never a claim artifact.",
+  "engines": [],
+  "targets": [
+    {
+      "id": "campaign-fixture",
+      "ac2_family": "frame-decode",
+      "status": "PINNED",
+      "engine": "fixture-engine",
+      "rationale": "synthetic campaign target",
+      "entrypoints": [],
+      "corpus": {
+        "paths": [],
+        "file_count": 0,
+        "digest": ""
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 1,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 60,
+          "note": "F005: wall clock, never a count"
+        }
+      },
+      "policy": {
+        "crash": "x",
+        "timeout": "x",
+        "oom": "x"
+      },
+      "artifacts": {
+        "dir": "assurance/fuzz/fixtures/campaign/artifacts"
+      },
+      "replay": {
+        "dir": "",
+        "command": [
+          "sh",
+          "-c",
+          "true"
+        ]
+      }
+    }
+  ],
+  "claim": {
+    "ac2_met": false,
+    "ac3_met": false,
+    "claim_grade": "bounded",
+    "honest_state": "fixture"
+  }
+}

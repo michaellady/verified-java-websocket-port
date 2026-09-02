@@ -194,11 +194,24 @@ enum Observable {
     Incomplete,
 }
 
+/// The instant this oracle stamps into 101 heads it never emits (epoch 0).
+/// Fixed so a transcript is reproducible; see the use site.
+const HANDSHAKE_ORACLE_INSTANT: i64 = 0;
+
 fn judge(request: &HandshakeRequest) -> Result<Observable, ProtocolError> {
     let limits = HandshakeLimits::hard_ceilings();
     match request.direction {
         Direction::ClientRequest => {
-            let mut machine = ServerHandshake::new(limits);
+            // A FIXED instant, deliberately. This oracle scores
+            // `java_observable`, `reject_channel`, `close_code` and
+            // `sec_websocket_accept` — never the response head, which it
+            // discards below. Reading a real clock here would put a value in
+            // this harness's answers that nothing compares and that would
+            // make its transcripts irreproducible. The `Date` field's
+            // fidelity is examined where it is actually observable:
+            // `ws-core/tests/handshake_server_response.rs` for the format
+            // and `ws-testee/tests/loopback.rs` for the live clock.
+            let mut machine = ServerHandshake::new(limits, HANDSHAKE_ORACLE_INSTANT);
             match machine.consume(&request.raw) {
                 ServerHandshakeOutcome::Incomplete => Ok(Observable::Incomplete),
                 ServerHandshakeOutcome::Accept { accept_key, .. } => Ok(Observable::Accept {

@@ -239,6 +239,7 @@ pub struct ConnectionConfig {
     command_queue_capacity: usize,
     write_queue_capacity: usize,
     mask_key_seed: u64,
+    server_date_epoch_seconds: i64,
 }
 
 impl ConnectionConfig {
@@ -335,6 +336,41 @@ impl ConnectionConfig {
     pub fn mask_key_seed(&self) -> u64 {
         self.mask_key_seed
     }
+
+    /// The instant a SERVER stamps into its 101 response's `Date` field, as
+    /// a Unix epoch second.
+    ///
+    /// Java reads the wall clock there (`Draft_6455.java:450` calls
+    /// `getServerTime`, `:818-824`). This core is clockless by design, so
+    /// the one read is injected, exactly as `mask_key_seed` injects the one
+    /// other non-deterministic input the port has. See
+    /// [`crate::handshake::server::java_server_time`].
+    ///
+    /// The default is 0 (`Thu, 01 Jan 1970 00:00:00 GMT`) — deliberately an
+    /// obviously-wrong instant rather than a plausible one, so an owner who
+    /// never supplies a clock is visible on the wire instead of silently
+    /// believable.
+    #[must_use]
+    pub fn server_date_epoch_seconds(&self) -> i64 {
+        self.server_date_epoch_seconds
+    }
+
+    /// Stamp a fresh instant onto an already-built config.
+    ///
+    /// Java reads its clock ONCE PER HANDSHAKE, so a server that reused one
+    /// instant for every connection would not be faithful. Every other field
+    /// here is a checked limit that a builder validates once and a whole run
+    /// shares; this one is a clock reading whose value is expected to differ
+    /// per connection, so it gets an infallible setter on the built value —
+    /// every `i64` is a valid instant, and [`java_server_time`] is total, so
+    /// there is nothing to validate.
+    ///
+    /// [`java_server_time`]: crate::handshake::server::java_server_time
+    #[must_use]
+    pub fn with_server_date_epoch_seconds(mut self, epoch_seconds: i64) -> Self {
+        self.server_date_epoch_seconds = epoch_seconds;
+        self
+    }
 }
 
 impl Default for ConnectionConfig {
@@ -358,6 +394,7 @@ impl Default for ConnectionConfig {
             command_queue_capacity: LimitField::CommandQueueCapacity.default_value() as usize,
             write_queue_capacity: LimitField::WriteQueueCapacity.default_value() as usize,
             mask_key_seed: 0,
+            server_date_epoch_seconds: 0,
         }
     }
 }
@@ -371,6 +408,7 @@ impl Default for ConnectionConfig {
 pub struct ConnectionConfigBuilder {
     raw: [Option<u64>; 13],
     mask_key_seed: u64,
+    server_date_epoch_seconds: i64,
 }
 
 impl ConnectionConfigBuilder {
@@ -477,6 +515,15 @@ impl ConnectionConfigBuilder {
         self
     }
 
+    /// Set the instant a server stamps into its 101 `Date` field (any value
+    /// is valid; not a limit). See
+    /// [`ConnectionConfig::server_date_epoch_seconds`].
+    #[must_use]
+    pub fn server_date_epoch_seconds(mut self, epoch_seconds: i64) -> Self {
+        self.server_date_epoch_seconds = epoch_seconds;
+        self
+    }
+
     /// Validate one field and convert it checked into `usize`.
     fn checked_usize(field: LimitField, value: u64) -> Result<usize, ConfigError> {
         Self::validate(field, value)?;
@@ -574,6 +621,7 @@ impl ConnectionConfigBuilder {
                 self.value_of(F::WriteQueueCapacity),
             )?,
             mask_key_seed: self.mask_key_seed,
+            server_date_epoch_seconds: self.server_date_epoch_seconds,
         })
     }
 }
