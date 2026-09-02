@@ -362,6 +362,26 @@ fn send_close_invalid_code_rejects_without_a_frame() {
     // the CloseFrame.isValid chain (Q13, via close_code_rejection) with
     // reported code 1002; NO frame is emitted, the state stays open, the
     // action is counted.
+    //
+    // THE `ReadyState::Open` ASSERTION BELOW IS LOAD-BEARING AND CONTESTED.
+    // Shipped WebSocketImpl.close(code, message, remote):463-506 does NOT
+    // behave this way: it catches isValid's InvalidDataException (:488), runs
+    // flushAndClose(ABNORMAL_CLOSE, "generated frame is invalid", false)
+    // (:491), and then unconditionally sets readyState = CLOSING (:503). The
+    // owner therefore ruled MATCH JAVA'S BEHAVIOR
+    // (protected/us012-us016-owner-decisions-2026-08-28-formal.json, sha256
+    // d7a54e2c…, decision rejected-close-transition-divergence), with an
+    // explicit escape clause for a contradicting live observable.
+    //
+    // The escape clause fired. This corpus command mirrors
+    // OracleEngine.sendClose:461-475 — a DIFFERENT Java entry point, which
+    // constructs a CloseFrame directly and lets isValid's InvalidDataException
+    // propagate out of the method, so WebSocketImpl.close() (and its :503) is
+    // never reached. The real pinned Java-WebSocket 1.6.0 oracle recorded
+    // final_state "open" for this very case. Flipping this arm to Closing was
+    // implemented and measured: the public corpus dropped to 73/74 with
+    // "us005.pub.0000: final_state closing, expected open". The port keeps the
+    // live-confirmed behavior; the divergence is ledgered rather than coded.
     let mut core = open_core(Role::Client);
     let err = core
         .handle(Input::Command(LocalCommand::SendClose {

@@ -4,3 +4,4 @@ mutation=swap-committed-writes
 event_queue_capacity=8
 schedule=enqueue-ping-b,enqueue-close-b
 counterexample=wire-order-swapped
+found_index=17

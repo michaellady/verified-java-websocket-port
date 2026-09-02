@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us012-actual-code-verification-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "attempt_id": "us007-sbx-output-live-0129",
+  "sandbox_name": "us012-kani-0129",
+  "story": "US-012 AC5: execute the Kani actual-code verification of the shipped ws_core source INSIDE the accepted US-007 sandbox profile — 16 verification harnesses over the real functions plus the 19 negative-control harness runs that carry the 15 planted defects, 35 harness outcomes in total — and compare them outcome-for-outcome with the host run recorded in drafts/actual-code-verification-receipt.json.",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-28T14:30:47Z",
+  "authorized_at_provenance": "Captured from `date -u` immediately before writing this record (standing no-estimates rule).",
+  "owner": "mikelady",
+  "authorization_basis": "EXPLICIT OWNER DECISION, already granted. protected/us012-actual-code-verification-owner-decision-2026-08-28.json (sha256 b4f6891da432e3d13ad6bcef6064c05cb3e7501fd72781fe8c06a80732313c69, recomputed and verified at read by this driver; the prefix b4f6891d cited in the coordinator brief matches). Its decision text reads: 'QUALIFY AN ACTUAL-CODE RUST VERIFIER as a new external verification vehicle, on the same terms as the TLC precedent: acquired with published-checksum verification, digest-pinned, executed inside the accepted US-007 sandbox profile under a fresh attempt id, with a negative control proving it detects planted defects before any positive claim is made.' This attempt exists to satisfy the sandbox-execution condition of that decision, which the host-only Kani lane explicitly and correctly disclosed it had NOT met.",
+  "why_a_fresh_attempt_is_required": "The Kani lane (branch claude/actual-code-verification, commit 8ec01ba) met the digest-verified-acquisition condition and produced 35/35 matching harness outcomes on the HOST, but refused to run protected/us007-sbx-launcher because that launcher is hard-wired to the Codex plane's repo and protected paths and requires an owner ed25519 signing secret this plane does not hold. Using it would have meant writing the Codex plane. The refusal was correct. The owner has since ruled that a plane-local launcher be built first and the verification re-run inside it; this record authorizes that re-run.",
+  "launcher": {
+    "path": "cmd/sbxlaunch (this plane, this repository)",
+    "relationship_to_the_other_launcher": "NEW AND INDEPENDENT. protected/us007-sbx-launcher is not invoked, not imported, not copied, and not modified. No file under workspace/orchestrator/verified-java-websocket-port/ (the Codex plane) and no file in the Codex repository is read for control flow or written at any point.",
+    "signing_stance": "UNSIGNED, DISCLOSED. The Codex-plane launcher mints an ed25519 executable-promotion record and a signed sbx launch authorization using VERIFIED_JAVA_WEBSOCKET_US001_OWNER_ED25519_PRIVATE_KEY. This plane does not hold that secret, and no substitute signature is invented. The receipts this attempt produces are unsigned and say so on their face. Authority for the attempt comes from this record and the owner decision it cites; the launcher supplies only mechanical evidence."
+  },
+  "tool_acquisition": {
+    "policy": "Network is denied inside the sandbox, so every artifact is fetched on the HOST and verified against a PUBLISHED checksum before transfer — the attempt-0126 (Rust toolchain) and 0125/0127/0128 (tla2tools.jar) precedents.",
+    "artifacts": [
+      {
+        "artifact": "kani-0.67.0-aarch64-unknown-linux-gnu.tar.gz",
+        "published_sha256": "974128f44dd43618a06d21e5fe6d9ff67188de5986fe0bc57b534b0e4639efb9",
+        "published_by": "GitHub release API asset digest field, model-checking/kani releases/tags/kani-0.67.0, asset id 341228073",
+        "correction_to_the_coordinator_brief": "The brief instructed verification against release-bundle digest 7fd0b711..., which is the digest of the aarch64-APPLE-DARWIN bundle (asset id 341228123) that the host Kani lane used. The sandbox template is linux/arm64, so the required artifact is the aarch64-unknown-linux-gnu bundle, whose published digest is the value above. The eight per-binary digests the Kani lane recorded are likewise darwin binaries and cannot verify the linux ones. The linux digest was obtained by probing the GitHub release API directly rather than inferred."
+      },
+      {
+        "artifact": "rust-nightly-aarch64-unknown-linux-gnu.tar.gz (2025-11-21)",
+        "published_sha256": "7af72ca89dfb0434f68e48deb5456af430206a51b59b50e533c45d84523e3339",
+        "published_by": "https://static.rust-lang.org/dist/2025-11-21/rust-nightly-aarch64-unknown-linux-gnu.tar.gz.sha256",
+        "note": "This is STRONGER than the host lane's arrangement, which installed the nightly through rustup and recorded binary digests after the fact with no published per-binary checksum. Here the toolchain tarball itself carries a published sidecar digest that is verified before transfer."
+      },
+      {
+        "artifact": "37-package gcc + libc6-dev apt closure for Ubuntu 26.04 arm64",
+        "published_by": "SHA256 field of the signed Ubuntu apt index, resolved inside a pristine container of the pinned template image",
+        "note": "Required because Kani's goto-cc execs `gcc` to preprocess kani_lib.c and the pinned template ships no C compiler. Extracted UNPRIVILEGED with dpkg-deb -x into a user prefix, per the attempt-0126 precedent; no root is used at any point."
+      }
+    ]
+  },
+  "constraints": [
+    "One live sandbox attempt; receipts extracted BEFORE `sbx rm` on every path, including a FAILED run",
+    "Sandbox unprivileged uid 1000 (agent), non-root, --deny-network '**', clone mode, pinned template digest, sbx v0.39.0 — each constraint read back from the LIVE sandbox and compared, not asserted from this record",
+    "sbx cp exit codes untrusted per the 0124 finding: every transfer digest-verified in BOTH directions",
+    "Every exit code read from the real process; never `go run`; never inferred from output text",
+    "The driver's own stdout is written INTO the output directory so recorded exit codes are bound to bytes that leave the sandbox",
+    "Host capture paths carry the sandbox name, so no two runs can overwrite each other's evidence (the E3 lane's loss)",
+    "The bar is outcome parity: 35 harness outcomes must match their declared expectations in-sandbox exactly as they did on the host. A DIFFERENCE IS THE FINDING and is reported, never reconciled.",
+    "Codex plane untouched; production=false, signing=false, publication=false"
+  ],
+  "failure_is_an_acceptable_outcome": "Carried forward verbatim from the owner decision: if the toolchain conflict or tool maturity makes this infeasible, report that quickly with evidence and stop. A fast, honest negative result is the expected alternative to success.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false,
+  "driver": "claude-opus-5"
+}

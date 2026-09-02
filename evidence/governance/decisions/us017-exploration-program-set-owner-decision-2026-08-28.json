@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-exploration-program-set",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T13:30:08Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "owner": "mikelady",
+  "context": "Fixing the fifth instance of the silent-loss defect (pending EOF notifications coalescing into a pair of booleans) removed EVERY cleanly-converging schedule from the US-017 bounded exploration. Cause: every schedule runs both an actor program ending in TransportEof and one ending in Shutdown, so with coalescing fixed the second notification always reaches an already-Closed core and halts the run. THE MATERIAL FINDING: the clean-convergence populations recorded in every previous results.json revision — 52924, then 50221, then 30372 — existed ONLY because notifications were being coalesced. They were partly artifacts of the defect rather than evidence of clean convergence. The lane left the gates RED rather than weakening an assertion, relaxing an invariant, adding or removing a program to go green, or re-baselining anything. PROGRAMS is verified NOT pinned in assurance/concurrency/plan.json, so changing the set does not violate the preregistered plan.",
+  "decision": "ADD A CLEAN-FINISH SCENARIO. Extend the actor program set with a program that terminates the connection ONCE, so clean convergence is genuinely reachable rather than reachable only through a defect. This changes what US-017's concurrency evidence covers — honestly, and in the direction of covering more.",
+  "requirements": [
+    "The new program must be justified as a shape a real adapter produces, not reverse-engineered to make the gates green.",
+    "Re-run the full exploration and re-transcribe every counter from the run; the previous revisions' clean-convergence figures must NOT be carried forward, and the artifact must record that they were defect-influenced.",
+    "The retention suite must detect its named faults again; if a fault is no longer reachable under the new set, say so rather than removing it.",
+    "results.json counters currently marked STALE with invariant outcomes downgraded to NOT_ESTABLISHED_THIS_REVISION may only be re-established from the new run."
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

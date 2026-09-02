@@ -14,7 +14,14 @@ const (
 	JavaTestEvidenceSchema    = "../../schemas/java-test-manifest-1.0.0.schema.json"
 	JavaDefaultPolicySchema   = "../../schemas/java-default-policy-behavior-1.0.0.schema.json"
 	AutobahnEvidenceSchema    = "../../schemas/autobahn-baseline-1.0.0.schema.json"
-	BehaviorLedgerSchema      = "../../schemas/behavior-delta-ledger-1.0.0.schema.json"
+	// BehaviorLedgerSchema is the LEDGER DOCUMENT schema, bumped to 1.1.0 under
+	// the owner ruling of 2026-08-28 so the document can carry a first-class
+	// `supersessions` array that this package's readiness gate consumes. The
+	// PER-RECORD schema_version stays 1.0.0: it is inside every record's digest
+	// preimage, so bumping it would rewrite the hash chain from sequence 1 and
+	// break the frozen prefix the same ruling protects.
+	BehaviorLedgerSchema        = "../../schemas/behavior-delta-ledger-1.1.0.schema.json"
+	BehaviorLedgerSchemaVersion = "1.1.0"
 )
 
 const (
@@ -355,12 +362,17 @@ type autobahnEvidenceAttempt struct {
 
 type ledgerEvidence struct {
 	evidenceEnvelope
-	Status                  string                 `json:"status"`
-	NormativeAuthority      string                 `json:"normative_authority"`
-	Head                    string                 `json:"head"`
-	Records                 []BehaviorLedgerRecord `json:"records"`
-	AppendImplementation    string                 `json:"append_implementation"`
-	UnledgeredDisagreements int                    `json:"unledgered_disagreements"`
+	Status               string                 `json:"status"`
+	NormativeAuthority   string                 `json:"normative_authority"`
+	Head                 string                 `json:"head"`
+	Records              []BehaviorLedgerRecord `json:"records"`
+	AppendImplementation string                 `json:"append_implementation"`
+	// Supersessions is the 1.1.0 addition. It is DECLARED by the document and
+	// CHECKED against what the record chain's own hashed rationales carry, so a
+	// consumer never has to choose between trusting the declaration and
+	// re-deriving it.
+	Supersessions           []SupersessionLink `json:"supersessions"`
+	UnledgeredDisagreements int                `json:"unledgered_disagreements"`
 }
 
 // VerifyBaselineEvidence is the single fail-closed readiness decision. Every
@@ -451,12 +463,27 @@ func VerifyBaselineEvidence(expectedRoot string, documents BaselineEvidenceDocum
 	return EvidenceReadiness{SchemaVersion: "1.0.0", Status: "BLOCKED", Blockers: blockers}, nil
 }
 
+// validateAggregateDisagreementLedger requires every non-OK terminal Autobahn
+// behavior to be bound by an AUTHORITATIVE ledger record.
+//
+// ROUND-2 FINDING 6, reproduced before this line changed: the coverage map was
+// built from `ledger.Records` — every record, superseded or not — so a
+// WITHDRAWN record went on covering a live Autobahn failure and readiness said
+// READY. internal/deltaledger had made supersession machine-visible and this,
+// the one consumer that decides release readiness, could not see it. The map is
+// now built from AuthoritativeRecords, so a record the chain records as
+// superseded covers nothing, exactly as the censuses in internal/deltaledger
+// already treat it.
 func validateAggregateDisagreementLedger(autobahn autobahnEvidence, ledger ledgerEvidence) error {
 	if autobahn.Status != "PASS" {
 		return nil
 	}
-	ledgered := make(map[string]struct{}, len(ledger.Records))
-	for _, record := range ledger.Records {
+	authoritative, err := AuthoritativeRecords(ledger.Records)
+	if err != nil {
+		return finding("INVALID_BEHAVIOR_LEDGER", "$.ledger.supersessions", err.Error())
+	}
+	ledgered := make(map[string]struct{}, len(authoritative))
+	for _, record := range authoritative {
 		ledgered[record.Delta.AutobahnResultDigest] = struct{}{}
 	}
 	for mode, results := range map[string][]AutobahnResult{"client": autobahn.Client.Results, "server": autobahn.Server.Results} {
@@ -473,7 +500,14 @@ func validateAggregateDisagreementLedger(autobahn autobahnEvidence, ledger ledge
 }
 
 func validateEnvelope(envelope evidenceEnvelope, schema, kind string) error {
-	if envelope.Schema != schema || envelope.SchemaVersion != "1.0.0" || envelope.EvidenceKind != kind || !isDigest(envelope.AcceptedRootDigest) {
+	return validateVersionedEnvelope(envelope, schema, kind, "1.0.0")
+}
+
+// validateVersionedEnvelope exists because the behavior-delta ledger DOCUMENT
+// is at 1.1.0 while every other baseline document is at 1.0.0. The version is
+// an argument rather than a constant so the two cannot silently swap.
+func validateVersionedEnvelope(envelope evidenceEnvelope, schema, kind, version string) error {
+	if envelope.Schema != schema || envelope.SchemaVersion != version || envelope.EvidenceKind != kind || !isDigest(envelope.AcceptedRootDigest) {
 		return finding("INVALID_EVIDENCE_ENVELOPE", "$", "schema path, version, evidence kind, and root digest must be exact")
 	}
 	return nil
@@ -760,7 +794,8 @@ func stringsBefore(value, separator string) string {
 }
 
 func validateLedgerEvidence(value ledgerEvidence) error {
-	if err := validateEnvelope(value.evidenceEnvelope, BehaviorLedgerSchema, "behavior-delta-ledger"); err != nil {
+	if err := validateVersionedEnvelope(value.evidenceEnvelope, BehaviorLedgerSchema, "behavior-delta-ledger",
+		BehaviorLedgerSchemaVersion); err != nil {
 		return err
 	}
 	if value.NormativeAuthority != "rfc6455" || value.AppendImplementation != "hash-chained-cas" || !isDigest(value.Head) || value.UnledgeredDisagreements < 0 {
@@ -772,6 +807,25 @@ func validateLedgerEvidence(value ledgerEvidence) error {
 	}
 	if head != value.Head {
 		return finding("BEHAVIOR_LEDGER_HASH_MISMATCH", "$.ledger.head", "declared head does not equal the verified record chain")
+	}
+	// THE 1.1.0 ADDITION. The declared supersession array must equal the one the
+	// records' own hashed rationales carry. Deriving it here rather than
+	// believing the declaration is what makes the next check load-bearing: the
+	// gate cannot be told that nothing is superseded.
+	carried, err := ReadSupersessionLinks(value.Records)
+	if err != nil {
+		return finding("INVALID_BEHAVIOR_LEDGER", "$.ledger.supersessions", err.Error())
+	}
+	declared := value.Supersessions
+	if declared == nil {
+		declared = []SupersessionLink{}
+	}
+	if carried == nil {
+		carried = []SupersessionLink{}
+	}
+	if !SupersessionLinksEqual(declared, carried) {
+		return finding("BEHAVIOR_LEDGER_SUPERSESSION_MISMATCH", "$.ledger.supersessions",
+			"declared supersessions do not equal the links the record chain's hashed rationales carry")
 	}
 	if value.UnledgeredDisagreements != 0 {
 		return finding("UNLEDGERED_BEHAVIOR_DISAGREEMENT", "$.ledger.unledgered_disagreements", "readiness requires every observed disagreement to be ledgered")

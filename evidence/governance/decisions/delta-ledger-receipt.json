@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "delta-ledger-population-receipt",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "recorded_at": "2026-08-27T22:13:51Z",
+  "recorded_at_provenance": "date -u +%Y-%m-%dT%H:%M:%SZ read in the working shell immediately after the commit and final gate reads",
+  "mandate": {
+    "owner_decision": "workspace/orchestrator/verified-java-websocket-port-claude/protected/us010-016-ac-amendment-owner-decision-2026-08-27.json",
+    "owner_decision_sha256": "26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974",
+    "clause": "Each Java-vs-RFC divergence MUST be recorded in the behavior delta ledger (per the original normativity decision; population now mandatory before story acceptance)."
+  },
+  "worktree": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-delta-ledger",
+  "branch": "claude/delta-ledger",
+  "base_commit": "5fc92fe",
+  "commit": "238139411c6c4fa14cffb1704b626b72e11aab43",
+  "pushed": false,
+  "ledger_path": "evidence/java/behavior-delta-ledger.json",
+  "ledger_head": "sha256:b7a8492493d2752b8826a5d85d817f1dc90c7d6fa644ffdeb9b4886b3e99516e",
+  "record_count": 32,
+  "per_source_tallies": {
+    "us005_live_handshake_exam": {
+      "records": 16,
+      "sequence_range": "1-16",
+      "cases": ["us005.hs.0013", "us005.hs.0014", "us005.hs.0015", "us005.hs.0016", "us005.hs.0017", "us005.hs.0019", "us005.hs.0020", "us005.hs.0021", "us005.hs.0022", "us005.hs.0027", "us005.hs.0029", "us005.hs.0030", "us005.hs.0034", "us005.hs.0046", "us005.hs.0047", "us005.hs.0048"],
+      "sources": "evidence/us005-handshake-live-mapping.json divergent rows; corpora/handshake/cases.jsonl LIVE_EXECUTED census; protected/us005-corpora/live/handshake transcripts (rerun byte-identical); batch-B 49/49 direct differential; batch-C 49/49 regression"
+    },
+    "borrow_receipt_batch_a_framing": {
+      "records": 8,
+      "sequence_range": "17-24",
+      "divergences": ["noncanonical-extended-length (16+64 bit)", "mask-by-role-acceptance", "length-64bit-high-bit -> 1009 site 10", "post-payload-rejection-site (RSV + control-fin)", "control-extended-length-marker byte-2 site", "Q25 consumed_bytes sites", "Q15 two-stage UTF-8 timing", "Q23 overflow split"],
+      "sources": "protected/borrow-receipt-batch-a.json stripped_or_corrected + honesty_notes; internal/corpora/derive.go cited line sites; corpus-visible sites LIVE-ORACLE-CONFIRMED via us-live-oracle-confirmation-receipt.json (74/74)"
+    },
+    "borrow_receipt_batch_c_close_control": {
+      "records": 7,
+      "sequence_range": "25-31",
+      "divergences": ["Q18 no core auto-pong", "Q17 no send-path control payload cap", "Q11 one-byte close payload valid 1002", "Q10/Q19 constructor-payload echo (one record)", "Q20 EOF-as-ordinary-close vocabulary", "Q13 CloseFrame.isValid rejection chain", "Q14 setCode 1015->1005 normalization"],
+      "sources": "protected/borrow-receipt-batch-c.json (also in-repo drafts/borrow-receipt-batch-c.json); rust/ws-core/src/close.rs US-009 pure fns; derive.go closeIsValidRejection:618-635, sendClose:888-897, ping arm 671-674; the 18 batch-C corpus flips are inside the 74/74 live-oracle-confirmed run"
+    },
+    "completeness_census_addition": {
+      "records": 1,
+      "sequence_range": "32",
+      "divergences": ["Q12 invalid-UTF-8 close reason -> JAVA_RUNTIME_REJECTION with no close code (RFC expects 1007)"],
+      "sources": "surfaced by the mechanical quirk census (it appears in rust/ws-core/src with an RFC counterpart but was in none of the three task source lists); pinned by close_eof.rs::invalid_utf8_close_reason_is_the_java_runtime_rejection"
+    }
+  },
+  "coverage_rule": "One record per live-recorded divergent handshake-exam case (16, the E13 set), one per batch-A framing divergence bullet (8), one per batch-C close/control divergence (7, with Q10/Q19 as the single constructor-payload-echo divergence), PLUS a mechanical completeness census: every Q-series quirk token appearing in rust/ws-core/src/**/*.rs must be cited by a ledger-record rationale or appear in an explicit no-RFC-counterpart allowlist with a per-quirk justification (Q9 reject-channel granularity only, Q16 local send-DFA vocabulary, Q24 limit arithmetic with no RFC counterpart, Q26 local state gates with RFC-compatible wire effect, Q28 port-only mask seam). The census is enforced deterministically by internal/deltaledger TestEveryShippedQuirkWithAnRFCCounterpartIsLedgered and surfaced exactly one addition (Q12, record 32).",
+  "ledger_status": {
+    "value": "BLOCKED_PENDING_BASELINE (unchanged)",
+    "honesty": "The ledger's own aggregate READY gate (internal/lab VerifyBaselineEvidence) requires the build/adapter/tests/Autobahn baselines all PASS before status READY; the Autobahn baseline is BLOCKED (0/247 both modes, NO_FURTHER_RERUNS_AUTHORIZED), so flipping status would be rejected by the frozen machinery and would be dishonest. The baseline that now exists (live-oracle-confirmed 74/74 public corpus + 49/49 live handshake exam) is the FIDELITY authority for the records' observations and is cited per record; it is not the aggregate baseline the status field was designed to wait for. Population with records under BLOCKED_PENDING_BASELINE is schema-legal and chain-verified.",
+    "schema_constraint_note": "The frozen 1.0.0 delta vocabulary admits only disposition unresolved|rfc-governs and const normative_authority rfc6455; every record uses disposition 'unresolved' with the owner-decision citation in its rationale stating the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. Autobahn digest legs bind an explicit AUTOBAHN_NOT_EXECUTED marker (baseline BLOCKED 0/247), never fabricated observations; autobahn_refs are nominal case anchors."
+  },
+  "implementation": {
+    "definitions_and_builder": "internal/deltaledger (definitions.go, definitions_framing.go, definitions_close.go, build.go) — digest preimages committed in-source; records built through the canonical internal/lab hash-chained CAS (AppendBehaviorDelta/ReadBehaviorLedger), so every delta passed lab.BehaviorDelta.Validate and the chain is CAS-verified",
+    "generator": "cmd/deltaledgerctl --root <repo> [--check]; deterministic (post-write --check re-ran byte-identical)",
+    "tests": "internal/deltaledger/ledger_test.go: regeneration equality, chain verification, referential integrity (every cited us005.hs/us005.pub case, Q-series token, seed and rust/ws-core path resolves in-repo; all 16 mandated handshake cases cited), quirk-census coverage rule",
+    "tdd_red_first": "Test written and run before population: TestCommittedLedgerMatchesTheRecordedDivergenceDefinitions failed RED with 'committed ledger has 0 records, the recorded divergence definitions build 32'; GREEN after deltaledgerctl wrote the ledger"
+  },
+  "cross_document_updates": {
+    "assurance/concurrency/plan.json": "behavior_delta_ledger binding updated to the populated on-disk state (observed_head, observed_record_count 32); append_state remains APPEND_BLOCKED_PENDING_BASELINE scoped to the plan's own two planned port-vs-Java deltas, which stay unappended per their recorded gate (append when the aggregate baseline lands); append_blocker rewritten to state that scope and the owner-mandated population explicitly",
+    "assurance/replay/fixtures/us006-cases.json": "SANCTION DEVIATION, DISCLOSED: the US-006 fixture trees copy_file the live plan.json and behavior-delta-ledger.json, so populating ledger DATA changed the realized tree digests and required US006_REGENERATE=1 (the task sanction predicted ledger data would not require it; that prediction did not hold for this fixture design). Zero rust sources changed (git diff: only the three data files plus new Go files). The refreeze rewrote ONLY realized_tree_sha256 pins (22 re-pins, verified in the diff), and the regeneration run still executed every real-CLI verdict assertion (exit codes, states, findings, obligation counters) and passed, so no behavioral expectation was loosened."
+  },
+  "back_pressure": {
+    "go_build": "exit 0",
+    "go_test": "go test -count=1 ./... exit 0 (25 ok, 0 FAIL) — read from the command's own exit status and log /tmp/delta-ledger-final-gotest.log",
+    "rust_gates": "make -C rust gates exit 0; ac1-gates verdict=PASS gates_passed=7/7 — read from /tmp/delta-ledger-final-rustgates.log",
+    "baseline_before_changes": "go test exit 0 (24 ok), rust gates exit 0 recorded before any edit; one contention-only flake (internal/portplan TestDeriveReproducesCommittedEvidence) occurred ONLY while go test and rust gates ran concurrently and passed in isolation and in both clean sequential full runs",
+    "wired_public_corpus": "not re-run: no rust source, corpora, internal/corpora, or harness file was touched (commit touches evidence/assurance data + new internal/deltaledger + cmd/deltaledgerctl only), so the committed batch-C 74/74 baseline is unaffected"
+  },
+  "constraints_honored": {
+    "protected_store": "read-only throughout (owner decision, borrow receipts, live mapping reads only)",
+    "codex_plane": "never touched",
+    "no_push": true
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5 (delta-ledger worker)"
+}

@@ -157,7 +157,7 @@ func closeControlDefinitions() []Definition {
 				"order: 1007-with-empty-reason rejects AS 1007; 1005-with-reason rejects 1002; 1016..2999 rejects 1002; 1006, " +
 				"1015, 1005, 1004, <1000 and >4999 reject 1002; everything else (including all of 3000-4999 and 1000-1003, " +
 				"1007-1014 pairs that pass the chain) is wire-legal.",
-			JavaValue: "isvalid-chain: Java's ordered rejection chain with its reported codes (1007 special-case; otherwise 1002)",
+			JavaValue:    "isvalid-chain: Java's ordered rejection chain with its reported codes (1007 special-case; otherwise 1002)",
 			AutobahnRefs: []string{"autobahn-v25.10.1:7.9.1"},
 			Rationale: "DIVERGENCE (close-code table semantics): the RFC's registry classes and Java's isValid chain " +
 				"disagree in both membership granularity and the REPORTED code (Java reports the 1007-empty-reason rejection " +

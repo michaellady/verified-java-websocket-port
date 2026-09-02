@@ -157,3 +157,158 @@ fn owner_drains_the_channel_into_the_core_it_exclusively_owns() {
         ws_core::error::FailureCode::StateViolation
     );
 }
+
+/// US-017 AC2 receiver-drop, at the seam that owns it (story review
+/// BLOCKING-1, session 01a04626).
+///
+/// The bounded channel's acceptance is a promise that the sole owner will
+/// apply the command. Once the owner half is dropped that promise cannot be
+/// kept, so `try_send` must refuse with its own typed reason instead of
+/// admitting the command into a queue nobody drains. Refusal stays
+/// non-blocking and returns the command intact, exactly like `Full`.
+#[test]
+fn dropping_the_owner_half_makes_every_later_send_a_typed_receiver_drop_refusal() {
+    let config = config_with_capacity(2);
+    let (queue, sender) = CommandQueue::new(&config);
+    let clone = sender.clone();
+    // While the owner is alive, capacity behaves exactly as before.
+    assert!(sender.try_send(tagged("a")).is_ok());
+    drop(queue);
+    for handle in [&sender, &clone] {
+        let refused = handle
+            .try_send(tagged("after-drop"))
+            .expect_err("no send is accepted once the sole owner is gone");
+        assert_eq!(
+            refused.reason,
+            ws_core::connection::CommandRefusalReason::ReceiverDropped,
+            "receiver-drop is its own typed disposition"
+        );
+        assert_eq!(tag_of(&refused.command), "after-drop");
+    }
+    // Free capacity does not resurrect acceptance: the refusal is terminal,
+    // not backpressure to retry.
+    let again = sender
+        .try_send(tagged("still-refused"))
+        .expect_err("terminal refusal");
+    assert_eq!(
+        again.reason,
+        ws_core::connection::CommandRefusalReason::ReceiverDropped
+    );
+}
+
+/// The receiver-drop signal is published under the queue lock, so a
+/// producer racing the drop from another thread either wins the push before
+/// the owner goes away or observes the typed refusal. It never blocks and
+/// never reports accepted after the drop has been published.
+///
+/// VACUITY NOTE (pre-landing review finding 3, session 01a04960). The prior
+/// version of this test ended at `accepted <= 8` and `receiver_dropped <= 1`,
+/// which the reviewer showed to be vacuous — and the deletion was executed
+/// to confirm it: with the whole `ReceiverDropped` arm removed from
+/// `CommandSender::try_send`, the producer filled the queue, saw only
+/// `Full`, returned `(8, 0)`, and this test still reported `ok` (the
+/// deterministic `dropping_the_owner_half_...` test above was the only
+/// failure in the file). The race is now REQUIRED to produce a typed
+/// post-drop observation: `dropped_published` is set only after
+/// `drop(queue)` has returned, so the send that follows it has no
+/// interleaving left in which the owner might still be alive — a `Full` or
+/// an `Ok` there is a real failure, and `receiver_dropped` is pinned to
+/// exactly one rather than at most one.
+#[test]
+fn a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accept() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    for _ in 0..64 {
+        let config = config_with_capacity(8);
+        let (queue, sender) = CommandQueue::new(&config);
+        // Published by this thread only AFTER `drop(queue)` has returned,
+        // so a send that observes it is unambiguously post-drop.
+        let dropped_published = Arc::new(AtomicBool::new(false));
+        let observer = Arc::clone(&dropped_published);
+        let producer = thread::spawn(move || {
+            let mut accepted = 0usize;
+            let mut receiver_dropped = 0usize;
+            let mut refusals_before_the_drop = 0usize;
+            // The spin is bounded by WALL CLOCK, not by an iteration count.
+            // The count this used to be (4096 refusals) was a host-speed
+            // assumption: on a loaded Linux host the owner thread's
+            // `drop(queue)` can be descheduled for longer than 4096 lock
+            // round-trips take, and the test failed 2 runs in 5 with no
+            // defect anywhere (goal-loop 2026-09-02, gates on the
+            // us019-native-run forward merge; ws-core untouched). What the
+            // bound guards is that the producer cannot spin FOREVER, and a
+            // generous deadline says exactly that without saying anything
+            // about how fast this machine is.
+            let started = std::time::Instant::now();
+            loop {
+                // The racing window: this send may land before, during, or
+                // after the owner goes away.
+                match sender.try_send(tagged("race")) {
+                    Ok(()) => accepted += 1,
+                    Err(refused) => {
+                        assert_eq!(
+                            tag_of(&refused.command),
+                            "race",
+                            "every refusal hands the command back intact"
+                        );
+                        if refused.reason
+                            == ws_core::connection::CommandRefusalReason::ReceiverDropped
+                        {
+                            receiver_dropped += 1;
+                            // Terminal: every later send refuses the same
+                            // way, and never with a different reason.
+                            let again = sender
+                                .try_send(tagged("post"))
+                                .expect_err("the receiver-drop refusal is terminal");
+                            assert_eq!(
+                                again.reason,
+                                ws_core::connection::CommandRefusalReason::ReceiverDropped,
+                                "the terminal reason does not decay back to Full"
+                            );
+                            break;
+                        }
+                        refusals_before_the_drop += 1;
+                        // Give the owner thread a turn: a refused send is
+                        // the producer learning the queue is full, and the
+                        // race is about the DROP landing, not about how many
+                        // times a full queue can be asked.
+                        thread::yield_now();
+                    }
+                }
+                if observer.load(Ordering::Acquire) {
+                    // The owner is DEFINITELY gone and the queue lock is
+                    // definitely free, so the next send has exactly one
+                    // admissible answer.
+                    let refused = sender
+                        .try_send(tagged("race"))
+                        .expect_err("no send is accepted once the sole owner has been dropped");
+                    assert_eq!(
+                        refused.reason,
+                        ws_core::connection::CommandRefusalReason::ReceiverDropped,
+                        "a post-drop send refuses with the TYPED receiver-drop reason, \
+                         not capacity backpressure"
+                    );
+                    receiver_dropped += 1;
+                    break;
+                }
+                assert!(
+                    started.elapsed() < std::time::Duration::from_secs(30),
+                    "the producer must never spin unboundedly before the drop lands \
+                     ({refusals_before_the_drop} refusals and the drop still not observed)"
+                );
+            }
+            (accepted, receiver_dropped)
+        });
+        drop(queue);
+        dropped_published.store(true, Ordering::Release);
+        let (accepted, receiver_dropped) = producer.join().expect("producer thread");
+        // Whatever the interleaving, acceptance never happens after the
+        // drop is observed, and the channel is bounded either way.
+        assert!(accepted <= 8, "bounded capacity held: {accepted}");
+        assert_eq!(
+            receiver_dropped, 1,
+            "the race MUST end in exactly one typed receiver-drop observation"
+        );
+    }
+}

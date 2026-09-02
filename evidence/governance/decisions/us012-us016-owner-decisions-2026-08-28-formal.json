@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decisions-formal-lane",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T00:15:16Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior (standing no-estimates rule).",
+  "owner": "mikelady",
+  "decisions": [
+    {
+      "id": "sbx-tlc-standing-authority",
+      "context": "The E3 formal lane disclosed that the standing us006_tlc_in_sbx decision literally authorized ONE attempt, consumed by attempt 0125. Attempt us007-sbx-output-live-0127 was a second attempt of the same authorized class (TLA+/TLC model checking inside the accepted US-007 sandbox profile), run at the orchestrator's direction and disclosed in its authorization_scope_disclosure field rather than concealed.",
+      "decision": "RATIFY 0127 AND GRANT STANDING AUTHORITY: attempt us007-sbx-output-live-0127 and its results are ratified. Repeated runs of this same already-approved class — TLA+/TLC model checking within the accepted US-007 sandbox profile, using the pinned tla2tools.jar — are authorized on a standing basis and do not require a fresh owner decision per attempt. Each attempt still mints a fresh attempt id and its own receipt under protected/, keeps the profile constraints (unprivileged uid, deny-network, pinned template digest), and digest-verifies transfers in both directions. This standing authority covers ONLY this class; other tool classes or profile changes still require an owner decision."
+    },
+    {
+      "id": "rejected-close-transition-divergence",
+      "context": "The close model surfaced a genuine divergence with no ledger record: when a local close command is REJECTED, the port does not transition, while shipped Java WebSocketImpl.java:488-503 enters CLOSING. The port follows derive.go, its named fidelity authority.",
+      "decision": "MATCH JAVA'S BEHAVIOR: change the port so a rejected local close follows shipped Java and enters CLOSING, then re-verify the full downstream chain (public corpus, live-oracle differential, Autobahn, formal close model, handshake exam). If re-verification shows the change would break a LIVE-CONFIRMED observable (i.e. live Java's own recorded behavior contradicts the source reading), STOP and surface that conflict to the owner rather than forcing the change. Whatever the outcome, the divergence and its resolution get a behavior-delta-ledger record."
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5 (session continued under claude-opus-5)"
+}

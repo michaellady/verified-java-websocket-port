@@ -514,6 +514,11 @@ func evaluateFormal(request PreflightRequest) (PreflightVerdict, error) {
 	evaluateProofTargetsDeep(evaluation)
 	evaluateConcurrencyPlanDeep(evaluation)
 	evaluateCloseDeliveryConsistency(evaluation)
+	// US-012 AC5 / US-016 AC4: any model artifact present in the tree must
+	// carry a substantiated executed record (modelresults.go). Bindings whose
+	// model artifact is absent contribute nothing, so trees that predate
+	// these models are unchanged.
+	evaluateModelResults(evaluation, &verdict)
 
 	sort.SliceStable(evaluation.findings, func(left, right int) bool {
 		if evaluation.findings[left].Code != evaluation.findings[right].Code {

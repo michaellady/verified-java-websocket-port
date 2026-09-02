@@ -75,14 +75,37 @@ func DeriveExpected(core ScenarioCore) (Expected, error) {
 	return DeriveExpectedWith(core, ReferenceBehavior())
 }
 
+// DeriveExpectedAndFailingStep derives a scenario's expectation under the
+// reference model AND reports the INDEX OF THE STEP THE RUN STOPPED ON, or -1
+// when the run completed. The index comes from EXECUTING the scenario's own
+// steps, so it is a fact about the scenario program rather than a fact restated
+// beside it.
+//
+// It exists because internal/deltaledger needs to know which step failed in
+// order to decide protocol-rejection-class membership, and review round 3
+// established that deriving that from `expected.counts` lets whoever writes the
+// scenario choose the answer: a valid inbound frame followed by a rejected
+// local `send_close` recorded as `input_bytes=5, actions=0` makes the counts
+// name the bytes prefix uniquely, so the ambiguity refusal never fires and a
+// locally caused failure is enrolled as an inbound decode rejection. Executing
+// the steps cannot be talked into that, because the counts are not consulted.
+func DeriveExpectedAndFailingStep(core ScenarioCore) (Expected, int, error) {
+	return deriveExpected(core, ReferenceBehavior())
+}
+
 // DeriveExpectedWith derives an expectation under an explicit behavior, used
 // by calibration to measure whether the corpus kills reference mutants.
 // Both outcomes carry exact counts: the oracle's failure responses include
 // the counters, so error expectations assert them too.
 func DeriveExpectedWith(core ScenarioCore, behavior Behavior) (Expected, error) {
+	expected, _, err := deriveExpected(core, behavior)
+	return expected, err
+}
+
+func deriveExpected(core ScenarioCore, behavior Behavior) (Expected, int, error) {
 	d, err := newDeriver(core, behavior)
 	if err != nil {
-		return Expected{}, err
+		return Expected{}, 0, err
 	}
 	runErr := d.run()
 	counts := d.counts()
@@ -95,7 +118,7 @@ func DeriveExpectedWith(core ScenarioCore, behavior Behavior) (Expected, error) 
 			Transitions: d.transitions,
 			Close:       d.closeDetail,
 			Counts:      &counts,
-		}, nil
+		}, -1, nil
 	}
 	if scErr, ok := runErr.(scenarioError); ok {
 		return Expected{
@@ -103,9 +126,9 @@ func DeriveExpectedWith(core ScenarioCore, behavior Behavior) (Expected, error) 
 			FinalState: d.state,
 			Error:      &ExpectedError{Code: scErr.code, CloseCode: scErr.closeCode},
 			Counts:     &counts,
-		}, nil
+		}, d.failingStep, nil
 	}
-	return Expected{}, runErr
+	return Expected{}, 0, runErr
 }
 
 type decodedFrame struct {
@@ -141,6 +164,12 @@ type deriver struct {
 	events      []map[string]any
 	transitions []map[string]any
 	closeDetail map[string]any
+
+	// failingStep is the index of the step whose execution returned the error
+	// that stopped the run, or -1 while the run is still going. It is set by
+	// run() at the single place a step's error propagates, so it cannot fall
+	// out of step with which step actually failed.
+	failingStep int
 }
 
 func newDeriver(core ScenarioCore, behavior Behavior) (*deriver, error) {
@@ -166,22 +195,24 @@ func newDeriver(core ScenarioCore, behavior Behavior) (*deriver, error) {
 		events:      []map[string]any{},
 		frames:      []map[string]any{},
 		transitions: []map[string]any{},
+		failingStep: -1,
 	}, nil
 }
 
 func (d *deriver) run() error {
 	for index, step := range d.steps {
+		var err error
 		switch step.Kind {
 		case "bytes":
-			if err := d.inputStep(step, index); err != nil {
-				return err
-			}
+			err = d.inputStep(step, index)
 		case "action":
-			if err := d.actionStep(step, index); err != nil {
-				return err
-			}
+			err = d.actionStep(step, index)
 		default:
-			return unsupportedError{fmt.Sprintf("step kind %q", step.Kind)}
+			err = unsupportedError{fmt.Sprintf("step kind %q", step.Kind)}
+		}
+		if err != nil {
+			d.failingStep = index
+			return err
 		}
 	}
 	return nil

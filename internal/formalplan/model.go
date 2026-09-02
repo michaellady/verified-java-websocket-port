@@ -36,9 +36,28 @@ const (
 	// staging note that this validator requires.
 	ModelModuleName = "ConnectionModel"
 
+	// FrameModelModuleName and CloseModelModuleName are the US-012 AC5 and
+	// US-016 AC4 model modules. They are validated by exactly the same
+	// structural rules as the connection model (same falsification-note,
+	// citation, cfg-coverage, and proof-only-duplicate checks); only the
+	// module name and therefore the staging note differ.
+	FrameModelModuleName = "FrameModel"
+	CloseModelModuleName = "CloseModel"
+
 	mpMaxArtifactBytes = 1 << 20
-	mpStagingNote      = "STAGE AS: ConnectionModel.tla"
 )
+
+// mpStagingNote is the staging directive a model artifact must carry,
+// because TLA+ module identifiers cannot contain the hyphen the shipped
+// file names use.
+func mpStagingNote(moduleName string) string {
+	return "STAGE AS: " + moduleName + ".tla"
+}
+
+// mpModuleHeaderPattern builds the module-header matcher for one module.
+func mpModuleHeaderPattern(moduleName string) *regexp.Regexp {
+	return regexp.MustCompile(`(?m)^----+ MODULE ` + regexp.QuoteMeta(moduleName) + ` ----+$`)
+}
 
 // ModelValidationLimits documents, honestly, what this static validator does
 // NOT establish. String-shape validation was an identified gap in the first-
@@ -58,7 +77,6 @@ const ModelValidationLimits = "Static checks only: no SANY parse (grammar and " 
 
 var (
 	mpDefinitionStart = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_]*)(\([A-Za-z0-9_, ]*\))? ==`)
-	mpModuleHeader    = regexp.MustCompile(`(?m)^----+ MODULE ` + ModelModuleName + ` ----+$`)
 	mpCitationPattern = regexp.MustCompile(`^([A-Za-z0-9_][A-Za-z0-9_/]*\.java):([0-9]+)(?:-([0-9]+))?$`)
 	mpConstantsLine   = regexp.MustCompile(`^CONSTANTS?\s+(.*)$`)
 	mpCfgAssignment   = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_]*)\s*=\s*(.+)$`)
@@ -282,6 +300,15 @@ func mpResolveCitation(javaRoot, citation string) error {
 // when empty or absent, citation resolution is reported as an advisory
 // finding instead of silently passing.
 func ValidateConnectionModel(tlaPath, cfgPath, quarantineJavaRoot string) []ModelFinding {
+	return ValidateTLAModel(ModelModuleName, tlaPath, cfgPath, quarantineJavaRoot)
+}
+
+// ValidateTLAModel is the module-parameterised form of the connection-model
+// validator. The US-012 frame model and the US-016 close model are held to
+// the identical structural contract — one shared rule set, no parallel
+// validation stack — so a new model artifact cannot ship with weaker
+// checking than the incumbent one.
+func ValidateTLAModel(moduleName, tlaPath, cfgPath, quarantineJavaRoot string) []ModelFinding {
 	var findings []ModelFinding
 
 	tlaText, failure := mpReadText(tlaPath)
@@ -300,13 +327,14 @@ func ValidateConnectionModel(tlaPath, cfgPath, quarantineJavaRoot string) []Mode
 		findings = append(findings, mpFinding("TLA_BLOCK_COMMENT_UNSUPPORTED", tlaPath,
 			"block comments defeat this validator's line-based comment stripping; use \\* comments only"))
 	}
-	if !mpModuleHeader.MatchString(tlaText) {
+	if !mpModuleHeaderPattern(moduleName).MatchString(tlaText) {
 		findings = append(findings, mpFinding("MODEL_HEADER_MISSING", tlaPath,
-			"module header ---- MODULE "+ModelModuleName+" ---- not found"))
+			"module header ---- MODULE "+moduleName+" ---- not found"))
 	}
-	if !strings.Contains(tlaText, mpStagingNote) {
+	stagingNote := mpStagingNote(moduleName)
+	if !strings.Contains(tlaText, stagingNote) {
 		findings = append(findings, mpFinding("MODEL_STAGING_NOTE_MISSING", tlaPath,
-			"the artifact must carry the staging note '"+mpStagingNote+"' because TLA+ module names cannot contain hyphens"))
+			"the artifact must carry the staging note '"+stagingNote+"' because TLA+ module names cannot contain hyphens"))
 	}
 	if !strings.Contains(tlaText, `\* MODEL_CHECK:`) {
 		findings = append(findings, mpFinding("MODEL_CHECK_STATUS_MISSING", tlaPath,

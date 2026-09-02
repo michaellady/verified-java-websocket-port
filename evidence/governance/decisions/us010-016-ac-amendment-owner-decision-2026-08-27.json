@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-us010-016-ac-amendment",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-27T21:42:50Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior (standing no-estimates rule).",
+  "owner": "mikelady",
+  "context": "The AC-closure audit (drafts/us010-016-ac-closure-dossier.md) found a structural stance conflict: multiple AC clauses of US-010..US-016 encode RFC-strict behaviors (mask/noncanonical-length rejection, RFC close-code table + echo matching, RFC handshake validation gate, automatic-pong policy, control payload caps) while the owner's recorded normativity decision for this plane is JAVA_FAITHFUL_PLUS_SAFE and the merged, review-passed implementation follows it (74/74 public corpus now LIVE-ORACLE-CONFIRMED against the real pinned Java-WebSocket 1.6.0; 49/49 live handshake exam).",
+  "decision": "AMEND ACs TO JAVA-FAITHFUL: every AC clause of US-010..US-016 that requires rejecting, transforming, or augmenting behavior which the pinned live-verified Java-WebSocket 1.6.0 exhibits is amended to bind instead to the recorded fidelity authority (internal/corpora/derive.go reference model + live oracle/handshake confirmations). Each Java-vs-RFC divergence MUST be recorded in the behavior delta ledger (per the original normativity decision; population now mandatory before story acceptance). Safety-critical bounds are NOT relaxed: forbid(unsafe_code), bounded allocation/backpressure, checked config limits, and the hard safety ceilings retained in the merged design all remain binding. Evidence-machinery clauses (fuzz/property/mutation campaigns, linkage graphs, formal runs, Autobahn where named) are NOT waived by this amendment — only the behavioral stance is amended.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

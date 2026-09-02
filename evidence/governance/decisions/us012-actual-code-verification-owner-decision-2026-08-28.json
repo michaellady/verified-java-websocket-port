@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-actual-code-formal-verification",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T02:34:07Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion and its follow-up immediately prior.",
+  "owner": "mikelady",
+  "context": "US-012 AC5 requires formal runs against ACTUAL CODE. The E3 lane delivered executed TLC model checking, but against ABSTRACT TLA+ models: no ProofObligation rises above model_observation and no production Rust symbol is exercised, so its claim ceiling is proved-model. The coordinator initially framed the zero-dependency gate as prohibiting verification tooling. That framing was WRONG and is corrected here: rustgatectl's audit and dependency-inventory gates constrain SHIPPED non-path dependencies linked into the artifact, not external tools that analyse source. Three external verification vehicles are already precedented on this plane and run digest-pinned inside the accepted sandbox profile: tla2tools.jar (TLC), the crossbario/autobahn-testsuite image, and the pinned Java-WebSocket 1.6.0 oracle jar. The genuine obstacle is separate: verifiers such as Kani require their own toolchain, which conflicts with the digest-qualified rustc 1.95.0 pin that exists for fmt/clippy/test reproducibility.",
+  "decision": "QUALIFY AN ACTUAL-CODE RUST VERIFIER as a new external verification vehicle, on the same terms as the TLC precedent: acquired with published-checksum verification, digest-pinned, executed inside the accepted US-007 sandbox profile under a fresh attempt id, with a negative control proving it detects planted defects before any positive claim is made. It is authorized to run under its OWN pinned toolchain as a separate verification pass; it must NOT alter, float, or replace the shipped rust-toolchain.toml 1.95.0 pin used by the build and quality gates, and it must NOT add any non-path dependency to any shipped crate.",
+  "scope": {
+    "targets": "the pure, self-contained functions where bounded verification is tractable — close-code tables (normalize_send_close_code, close_code_rejection), the UTF-8 validator, masking round-trip, length decoding, and frame-header decode. The full ConnectionCore state machine is expected to be out of reach and must not be claimed.",
+    "claim_ceiling": "bounded verification proves properties up to an explicit bound, not universally. Any resulting claim must state its bounds, and must never be reported as unbounded proof.",
+    "failure_is_an_acceptable_outcome": "if the toolchain conflict or tool maturity makes this infeasible, report that quickly with evidence and stop. A fast, honest negative result is the expected alternative to success, not a failure of the lane."
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

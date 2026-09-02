@@ -1,0 +1,223 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "close-transition",
+  "kind": "owner-mandated-port-change-attempt-and-escape-clause",
+  "recorded_at": "2026-08-28T02:01:48Z",
+  "recorded_at_provenance": "date -u +%Y-%m-%dT%H:%M:%SZ read in the same shell as the final-tree corpus re-run; no estimated or invented timestamps appear anywhere in this receipt",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "branch": "claude/close-transition",
+  "worktree": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-close-transition",
+  "base_commit": "7b82d22",
+
+  "mission": "Implement the OWNER-MANDATED port change in protected/us012-us016-owner-decisions-2026-08-28-formal.json (sha256 d7a54e2c…, decision id rejected-close-transition-divergence): make a rejected local close enter CLOSING per shipped Java, re-verify the full downstream chain, and STOP rather than force the change if re-verification would break a LIVE-CONFIRMED observable. Ledger the divergence and its resolution either way.",
+
+  "owner_decision": {
+    "path": "workspace/orchestrator/verified-java-websocket-port-claude/protected/us012-us016-owner-decisions-2026-08-28-formal.json",
+    "sha256_read": "d7a54e2c5aac48cc9ef1b3afa19d14593555e1fce7cb49fed69484ba24bfc352",
+    "sha256_prefix_matched_brief": true,
+    "decision_id": "rejected-close-transition-divergence",
+    "escape_clause_verbatim": "If re-verification shows the change would break a LIVE-CONFIRMED observable (i.e. live Java's own recorded behavior contradicts the source reading), STOP and surface that conflict to the owner rather than forcing the change."
+  },
+
+  "premise_verification": {
+    "verdict": "PREMISE HOLDS AT THE SHIPPED-LIBRARY ENTRY POINT AND FAILS AT THE ENTRY POINT THE CORPUS ACTUALLY MEASURES. 'Rejected local close' is NOT one uniform case: the pinned 1.6.0 tree has two local-close entry points that disagree with each other, and the coordinator's brief conflated them. derive.go does NOT disagree with Java; it agrees with the Java path the oracle actually executes.",
+
+    "java_sites_read": {
+      "quarantine_root": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-us005/.quarantine/Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667/src/main/java/org/java_websocket",
+      "entry_point_A_shipped_library": {
+        "site": "WebSocketImpl.java:463-507 close(int code, String message, boolean remote)",
+        "reading": "From OPEN with a non-1006 code and a TWOWAY draft, :472-487 builds the close frame inside a try block (new CloseFrame(); setReason; setCode; isValid(); sendFrame at :482-486). CloseFrame.isValid (framing/CloseFrame.java:226-243) throws for a reserved code — the 'closecode must not be sent over the wire' InvalidFrameException at framing/CloseFrame.java:241. That exception is CAUGHT at WebSocketImpl.java:488, which logs, calls onWebsocketError, and calls flushAndClose(CloseFrame.ABNORMAL_CLOSE, \"generated frame is invalid\", false) at :491. flushAndClose (:584-606) sets closecode/closemessage/closedremotely, flips flushandclosestate, calls onWriteDemand and onWebsocketClosing, and RETURNS — it never calls closeConnection, so readyState is not set to CLOSED. Control then reaches the method's unconditional tail at :503, readyState = ReadyState.CLOSING.",
+        "conclusion": "CONFIRMED: via this entry point a rejected local close DOES end in CLOSING. The brief's citation of :488-503 is correct for this path.",
+        "additional_paths_checked_not_one_uniform_case": [
+          "code == ABNORMAL_CLOSE (1006) from OPEN: :466-471 sets readyState = CLOSING at :468 and RETURNS at :470 — it reaches CLOSING WITHOUT ever building or validating a CloseFrame, so it is not a 'rejection' path at all even though close_code_rejection(1006, …) rejects in the port.",
+          "readyState NOT OPEN (NOT_YET_CONNECTED): :495-501 runs the flush ladder (FLASHPOLICY / PROTOCOL_ERROR / NEVER_CONNECTED) and then also falls to :503 CLOSING. No CloseFrame is built, so the validity chain never runs on this arm.",
+          "readyState already CLOSING or CLOSED: the :464 guard makes the whole method a no-op.",
+          "closeConnection (:530-567) and eot (:608-624) were read to confirm flushAndClose does not synchronously reach CLOSED and therefore cannot be overwritten by :503."
+        ]
+      },
+      "entry_point_B_pinned_oracle_adapter": {
+        "site": "java-oracle/src/main/java/OracleEngine.java:461-475 sendClose(Map step, int index)",
+        "reading": "Declares 'throws ProtocolException, InvalidDataException'. It calls requireOpen, then constructs the CloseFrame ITSELF — new CloseFrame(); setCode(code); setReason(reason); frame.isValid() at OracleEngine.java:470 — and does NOT wrap that call. The same InvalidDataException therefore PROPAGATES OUT of the method. WebSocketImpl.close is never invoked and its line 503 is never reached, so emitOutbound (:471), the close-detail assignment (:472), the close_initiated event (:473) and transition(State.CLOSING, …) (:474) are all skipped.",
+        "state_variable_caveat_disclosed": "OracleEngine does instantiate a real WebSocketImpl (OracleEngine.java:307), but the response's final_state is serialized from the adapter's own 'private enum State { OPEN, CLOSING, CLOSED }' (OracleEngine.java:263) at OracleEngine.java:578 and :602 — NOT from socket.getReadyState(). Stated plainly: the live corpus does not directly observe WebSocketImpl.readyState at this action. What it observes is the real jar's isValid rejection plus the adapter's own state, and that pair is the plane's designated behavioral authority for corpus actions.",
+        "conclusion": "CONFIRMED: via the entry point the corpus measures, a rejected local close does NOT reach CLOSING."
+      }
+    },
+
+    "derive_go_comparison": {
+      "site": "internal/corpora/derive.go:890-912 sendClose",
+      "self_described_authority": "The function's own doc comment reads 'sendClose mirrors OracleEngine.sendClose over CloseFrame.setCode (which normalizes 1015 to 1005), setReason, and isValid' — it names OracleEngine, NOT WebSocketImpl, as the thing it mirrors.",
+      "behavior": "Applies the 1015->1005 normalization, then closeIsValidRejection (derive.go:618-634); on rejection it returns javaInvalid(failCode) at derive.go:900 BEFORE emitOutbound, so no frame, no close detail, no close_initiated event, and NO transition. The transition to closing is at derive.go:910, downstream of the rejection return.",
+      "agreement_verdict": "derive.go AGREES with OracleEngine.sendClose (entry point B) and with the live transcript. It DISAGREES with WebSocketImpl.close (entry point A). So the port did not 'follow derive.go instead of Java' — it follows the Java path the oracle executes. The two authorities do not disagree with each other; two different Java call sites disagree with each other, and derive.go tracks the correct one for this action.",
+      "correction_to_the_brief": "The owner decision's context field says 'the port follows derive.go, its named fidelity authority' as if that were an alternative to following Java. It is not. This is offered as a factual correction, not as a reason to disregard the decision — the decision was executed as written and stopped on its own escape clause."
+    },
+
+    "port_site_before": {
+      "file": "rust/ws-core/src/connection.rs",
+      "function": "send_close (the LocalCommand::SendClose arm)",
+      "behavior": "normalize_send_close_code, then close_code_rejection; on Some(reported) it returns Err(TypedProtocolFailure::java_invalid_data(reported)) with no frame, no detail, no event and no transition. The pre-open arm handle_pre_open_command already mirrors entry point A (WebSocketImpl.java:463-506) and DOES transition to Closing, so the port already carried both mirrors deliberately, at different sites."
+    }
+  },
+
+  "implemented": {
+    "value": false,
+    "why": "The change was fully implemented and measured, then REVERTED because the owner decision's escape clause fired on measurement. Making a rejected local close enter Closing breaks the live-Java public-corpus differential on us005.pub.0000. Per the decision, the source reading loses to the live observable.",
+    "tdd_red_first_performed": true,
+    "red_phase": {
+      "test_added": "rust/ws-core/tests/close_eof.rs::rejected_local_close_enters_closing_per_shipped_java",
+      "red_output_read": "assertion `left == right` failed: WebSocketImpl.java:503 sets readyState = CLOSING on the caught InvalidDataException path; left: Open, right: Closing (close_eof.rs:401). test result: FAILED. 0 passed; 1 failed."
+    },
+    "green_phase": {
+      "change": "rust/ws-core/src/connection.rs send_close rejection arm: set close_detail to the abnormal-close detail (code 1006, reason \"generated frame is invalid\", origin Local, remote false, handshake_complete false) and transition(ReadyState::Closing, TransitionCause::SendClose) before returning the typed failure. This is exactly the shape assurance/formal/close-model.tla's seeded defect defect.close.rejected-send-transitions declares.",
+      "result_read": "cargo test -p ws-core --test close_eof: 28 passed; 1 failed. The new test PASSED. The single failure was the pre-existing send_close_invalid_code_rejects_without_a_frame, whose left: Closing / right: Open is the live-confirmed corpus expectation for us005.pub.0000.",
+      "constraints_held": "forbid(unsafe_code) untouched; zero new dependencies; no protected/ writes; no Codex-plane writes."
+    },
+    "revert": "The send_close logic is byte-for-byte the pre-change logic again. The final diff to rust/ws-core is COMMENTS ONLY (37 inserted lines, 0 deleted, across connection.rs and close_eof.rs), which is independently proven by the release harness binary reproducing a bit-identical transcript including its own embedded runtime sha256."
+  },
+
+  "chain_results": {
+    "1_public_corpus": {
+      "pipeline": "corporactl oracle-requests --tier public -> ws-oracle-harness (release) -> corporactl evaluate --tier public, protected root workspace/orchestrator/verified-java-websocket-port-claude/protected",
+      "requests_sha256_read": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85 (unchanged throughout)",
+      "baseline_before_change": {
+        "transcript_sha256_read": "fd3f7a1c1eb0eeed0a7b214eac2dc517ab169511ce266d98280f7eff571f2326",
+        "matches_brief_baseline": true,
+        "evaluate_counts_read": {"executed": 74, "passed": 74, "failed": 0, "missing": 0, "unmatched": 0},
+        "evaluate_exit_read": 0
+      },
+      "with_the_owner_mandated_change": {
+        "transcript_sha256_read": "207eaf0b79624f5894c00af9e0231e46e0c45b7b2aaa35bd1d24d7eb90b5abce",
+        "transcript_changed": true,
+        "evaluate_counts_read": {"executed": 74, "passed": 73, "failed": 1, "missing": 0, "unmatched": 0},
+        "evaluate_exit_read": 1,
+        "failure_text_read": "us005.pub.0000: final_state closing, expected open",
+        "blast_radius_measured": "Across all 74 cases, final_state on us005.pub.0000 was the ONLY non-runtime field to change. Verified programmatically: every other case's record differed from baseline only in the embedded runtime object (the rebuilt harness binary's sha256)."
+      },
+      "live_java_comparison_the_critical_step": {
+        "live_transcript": "protected/us005-corpora/live/public/transcript.jsonl",
+        "live_provenance_read": "us-live-oracle-confirmation-receipt.json: the REAL pinned Java-WebSocket 1.6.0 oracle (runtime jar sha256 eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f, adapter self-verified at startup via OracleMain.verifyRuntime, no download performed) executed all 74 public cases; corporactl evaluate reconciled 74/74; the fresh live transcript was byte-identical to the recorded protected one.",
+        "case": "us005.pub.0000 — initial_state open, role client, single step {action: send_close, code: 999, reason: \"bad\"}",
+        "live_java_record_read": {"outcome": "error", "final_state": "open", "error.code": "JAVA_INVALID_DATA", "error.close_code": 1002, "error.detail": "closecode must not be sent over the wire: 999", "counts.frames": 0, "counts.actions": 1},
+        "rust_baseline_record_read": {"outcome": "error", "final_state": "open", "error.code": "JAVA_INVALID_DATA", "error.close_code": 1002, "counts.frames": 0, "counts.actions": 1},
+        "rust_changed_record_read": {"outcome": "error", "final_state": "closing", "error.code": "JAVA_INVALID_DATA", "error.close_code": 1002, "counts.frames": 0, "counts.actions": 1},
+        "verdict": "CONFLICT CONFIRMED. Baseline Rust agrees with live Java on final_state; changed Rust does not. The only other field on which any of these three differ is error.detail, the free-text diagnostic the live-oracle-confirmation receipt already documents as non-semantic and which the evaluator never compares. Per the owner's escape clause, the source reading loses to the live observable and the change was reverted.",
+        "honesty_qualifier": "Stated precisely so the owner is not over-sold: the live 'final_state' is the OracleEngine adapter's own state enum, not a direct read of WebSocketImpl.readyState (see premise_verification.java_sites_read.entry_point_B.state_variable_caveat_disclosed). The conflict is therefore between the shipped library's internal readyState and the recorded behavior of the plane's designated live oracle. It is a real, measured, gate-level conflict either way — the corpus differential is the contract the port is held to — but it is not a claim that anyone observed WebSocketImpl.readyState stay OPEN."
+      },
+      "final_tree_after_revert": {
+        "transcript_sha256_read": "fd3f7a1c1eb0eeed0a7b214eac2dc517ab169511ce266d98280f7eff571f2326",
+        "byte_identical_to_baseline_including_runtime_object": true,
+        "evaluate_counts_read": {"executed": 74, "passed": 74, "failed": 0, "missing": 0, "unmatched": 0},
+        "evaluate_exit_read": 0
+      },
+      "custodian_note": "Only the public and handshake tiers were touched. cmd/corporactl/main.go:217-219 makes heldOutTier(tier) true only for hidden and sealed, so neither invocation opened the custodian ledger. The standing warning in evidence/us005-sbx-candidate-plan.json (hidden and sealed digests each sit at 2 of the 3-repeat latch threshold) was read and respected; no hidden or sealed oracle-requests ran."
+    },
+
+    "2_handshake_exam": {
+      "method": "ws-oracle-harness (release, final tree) over protected/us005-corpora/live/handshake/requests.jsonl, then a field-by-field diff of all 49 records against protected/us005-corpora/live/handshake/transcript-rerun.jsonl excluding only 'runtime'.",
+      "harness_exit_read": 0,
+      "records": 49,
+      "result_read": "49/49 identical excluding runtime; 0 differing records. Compared keys: case_id, java_observable, protocol, request_digest, sec_websocket_accept, version.",
+      "disclosure_of_a_wrong_turn": "An initial attempt used 'corporactl evaluate --tier handshake' against the Rust harness output and reported executed 49 / passed 0 / failed 49. That was MY tool misuse, not a regression: the handshake evaluator scores the Java verdict transcript's rfc-vs-java classification, not the Rust harness's record format. It is disclosed rather than dropped. The exam as the brief specified it — the field diff — is the result above."
+    },
+
+    "3_autobahn": {
+      "scope_run": "The full 7.* close family, which is the family the change could touch.",
+      "machinery": "crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074, --pull=never (image confirmed present locally by digest before the run), fuzzingclient mode against 'ws-testee serve 127.0.0.1:9010'.",
+      "wstest_exit_read": 0,
+      "counts_read": {"cases_executed": 37, "OK": 34, "NON_STRICT": 0, "INFORMATIONAL": 3, "FAILED": 0},
+      "baseline_comparison_read": "Per-case behavior classes compared against evidence/rust/autobahn-e5b/index-run1.json restricted to 7.*: 37 cases both sides, same case set (0 missing, 0 extra), 34 OK / 3 INFORMATIONAL both sides, and ZERO cases whose behavior class changed. No regression.",
+      "serve_outcomes_read": {"sessions": 37, "Terminal": 19, "ProtocolFailure": 18},
+      "evidence_committed": "evidence/rust/autobahn-close-transition/{index.json,fuzzingclient.json,wstest.log,serve.log}; index.json sha256 019ac0d7ee9fb397d0941b5d21efd275eda33d131cb444cdb592610c258fbba0",
+      "honesty_note": "This run was made at the FINAL (reverted) tree, so it confirms non-regression, not the cost of the change. It is also not probative for the divergence itself: wstest drives close behavior from the wire and never asks the application to initiate a close with a reserved status code, so no Autobahn case exercises the rejected-local-close arm. The other families (1.*, 2.*, 3.*, 4.*, 5.*, 6.*, 10.*) were NOT re-run, because the final tree's ws-core diff is comments only and the release binary reproduced a bit-identical corpus transcript including its own embedded self-hash. The brief's full-suite baseline (233 OK / 11 NON-STRICT / 3 INFORMATIONAL / 0 FAILED, Java class agreement 246/247) is therefore carried forward from E5b UNRE-EXECUTED and is labelled as such rather than restated as if measured here."
+    },
+
+    "4_close_model_handoff": {
+      "status": "REQUIRING RE-RUN — reported as required, NOT as re-run. Nothing under assurance/formal was read-modified by this lane; the E3 lane owns those files and is actively editing them on claude/e3-formal.",
+      "files_not_touched": ["assurance/formal/close-model.tla", "assurance/formal/close-model.cfg", "assurance/formal/close-model-results.json", "assurance/formal/model-mutations.json"],
+      "e3_handoff_note": {
+        "headline": "THE INSTRUCTION E3 RECORDED IS NOW INVERTED BY EVIDENCE. Do NOT invert RejectedSendDoesNotTransition. The port change that would have required the inversion was implemented, measured, and reverted on the owner's own escape clause.",
+        "what_e3_currently_says": "close-model-results.json records RejectedSendDoesNotTransition as 'a TRUE-TODAY, EXPIRING invariant: when the port change lands it must be INVERTED and this model re-run', and states 'THAT PORT CHANGE HAS NOT BEEN MADE'. model-mutations.json seeds defect.close.rejected-send-transitions to encode the post-change behavior, with the note that 'the mutant TLC kills today is the shape the model must assert tomorrow'.",
+        "what_actually_happened": "The port change was attempted at rust/ws-core/src/connection.rs send_close in exactly the shape the seeded defect declares (state' = Closing plus the abnormal-close detail). corporactl evaluate --tier public then read executed 74 / passed 73 / failed 1, exit 1, failure 'us005.pub.0000: final_state closing, expected open', against the live Java transcript. The change was reverted. The shipped port still does not transition.",
+        "required_changes_precise": [
+          "assurance/formal/close-model.tla — NO CHANGE to the invariant body. RejectedSendDoesNotTransition should keep asserting state = \"Open\" /\\ closeDetail.origin = \"none\" /\\ lastOutbound.kind = \"none\" /\\ poisoned. It remains TRUE of the shipped port.",
+          "assurance/formal/close-model.tla — REPLACE the expiry commentary (the block around lines 118-135 and the FALSIFIED BY note above line 674) so it no longer says the invariant expires when the port change lands. Replace with: the owner ruled MATCH JAVA at protected/us012-us016-owner-decisions-2026-08-28-formal.json (sha256 d7a54e2c…), the change was implemented and measured on branch claude/close-transition, the public corpus fell to 73/74 against the live Java transcript on us005.pub.0000, the decision's escape clause fired, and the invariant is now TRUE AND NOT EXPIRING.",
+          "assurance/formal/model-mutations.json — KEEP defect.close.rejected-send-transitions exactly as seeded. Do NOT invert it. It already models shipped WebSocketImpl.close's behavior, TLC must still kill it, and it now carries extra weight: it is the executable statement of the behavior the owner decision asked for and the corpus refused.",
+          "assurance/formal/close-model-results.json — REWRITE the finding.close.rejected-send-does-not-transition statement and the caveat that begins 'RejectedSendDoesNotTransition is TRUE TODAY AND EXPIRING'. Record that the owner ruling was EXECUTED, that re-verification contradicted it on a live-recorded case, and that the divergence is now ledgered as delta-9dd3ab86744b6c2dc69a0452ea51ec26c5d170dc50e15b923bcb507af8a0b1ae rather than resolved in code. Add the two-entry-point distinction (WebSocketImpl.java:463-507 vs OracleEngine.java:461-475) — E3's current statement attributes the divergence to the port when it is really a disagreement between two Java call sites.",
+          "RE-RUN the close model after those edits. The invariant body is unchanged, so TLC should still pass and the seeded defect should still be killed; the re-run is to prove the document is not stale, since its own caveat says reading it after the port change without re-running would be reading a stale claim."
+        ],
+        "open_question_for_e3": "The attempted implementation set the close detail but did NOT emit a close_initiated semantic event, matching the seeded defect's declared shape (state + close detail only). Shipped Java's flushAndClose does call wsl.onWebsocketClosing on that path (WebSocketImpl.java:597). If E3 ever re-models this arm, that event is the one modeling choice this lane made without a live observable to pin it, and it is flagged rather than buried.",
+        "routing": "Coordinator to route after both branches merge. This lane made zero edits under assurance/formal."
+      }
+    },
+
+    "5_delta_ledger": {
+      "path_used": "canonical cmd/deltaledgerctl generator path; no ledger bytes were hand-edited",
+      "definition_added": "internal/deltaledger/definitions_close_transition.go — closeTransitionDefinitions(), appended LAST in internal/deltaledger/definitions.go so the committed chain prefix is undisturbed",
+      "record_id": "delta-9dd3ab86744b6c2dc69a0452ea51ec26c5d170dc50e15b923bcb507af8a0b1ae",
+      "sequence": 35,
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.rejected-local-close-readystate:provisional-v1",
+      "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:close",
+      "disposition": "unresolved",
+      "head_before_read": "sha256:a8bf37b4b9e40dd803b6d36386f5bd50e3035e1d8e51c26e6f3d04b1b4e08f11 (34 records)",
+      "head_after_read": "sha256:3fcd461cfea72e049628a0031bfbb90addecea2f2bb6997e62280cad1962656d (35 records)",
+      "chain_prefix_unchanged": "verified programmatically: the 35-record chain's first 34 records are byte-identical to the committed 34",
+      "generator_exits_read": {"deltaledgerctl_write": 0, "deltaledgerctl_check": 0},
+      "check_output_read": "ok: evidence/java/behavior-delta-ledger.json equals the regeneration (35 records, head sha256:3fcd461c…)",
+      "content_note": "The record carries the full two-entry-point Java reading with file:line, the live us005.pub.0000 recording, the measured 73/74 failure and both transcript digests, and states plainly that the Autobahn refs are a non-regression anchor and NOT probative for this site. unledgered_disagreements remains 0; ledger status remains BLOCKED_PENDING_BASELINE (unchanged by this record)."
+    }
+  },
+
+  "gates": {
+    "rust_gates": {"command": "make -C rust gates", "exit_read": 0, "detail_read": "ac1-gates verdict=PASS gates_passed=8/8; adapter-linkage PASS (5 production sources, edges exact, no protocol surface or parser branch); canaries PASS with polarity proven"},
+    "go_build": {"command": "go build ./...", "exit_read": 0},
+    "go_test": {"command": "go test -count=1 ./...", "exit_read": 0, "detail_read": "28 packages ok, 0 FAIL lines"},
+    "drift_gates_disclosed": {
+      "policy": "Both flows below are the sanctioned regeneration paths named in the brief; both are disclosed rather than run silently, and each was re-verified WITHOUT the flag afterwards.",
+      "linkage": {
+        "why": "rust/ws-core/src/connection.rs changed (comments), so its recorded symbol digests drifted",
+        "pre_state_read": "TestLinkageArtifactsMatchTheTree: LINKAGE_VERIFICATION_DRIFTED + LINKAGE_DAG_DRIFTED; symbol ws_core::connection::ConnectionCore and ws_core::connection::CommandQueue digests stale",
+        "command": "LINKAGE_REGENERATE=1 go test ./internal/linkage/",
+        "post_verify_read": "go test -count=1 ./internal/linkage/ -> ok",
+        "files_regenerated": ["evidence/linkage/evidence-dag.json", "evidence/linkage/rust-identity-verification.json"]
+      },
+      "formalplan": {
+        "why": "the new ledger record moved the ledger head and record count, which assurance/concurrency/plan.json binds",
+        "pre_state_read": "PLAN_LEDGER_BINDING_MISMATCH x2 (plan records head sha256:a8bf37b4… / 34 records, ledger says sha256:3fcd461c… / 35) failing TestConcurrencyPlanArtifactValidates, TestFormalPreflightBaseTreeDeepClean, TestFormalPreflightRealDocumentDeepRulesClean; plus the frozen US006 fixture digest",
+        "step_1_binding_update": "assurance/concurrency/plan.json behavior_delta_ledger.observed_head -> sha256:3fcd461c…, observed_record_count -> 35, and the append_blocker prose extended to name delta-9dd3ab86 and the measured escape-clause outcome. This is the plan re-observing the ledger, which the gate itself requires; it is not a hand-edit of ledger bytes.",
+        "step_2_command": "US006_REGENERATE=1 go test ./internal/formalplan/",
+        "post_verify_read": "go test -count=1 ./internal/formalplan/ -> ok (run again without the flag)",
+        "files_regenerated": ["assurance/replay/fixtures/us006-cases.json"]
+      }
+    }
+  },
+
+  "before_after_behavior": {
+    "before": "rust/ws-core/src/connection.rs send_close: a close code failing close_code_rejection returns TypedProtocolFailure::java_invalid_data(reported) with no frame, no close detail, no semantic event and no state transition; the connection stays Open (and is poisoned by the fatal failure).",
+    "after": "IDENTICAL. The behavior is deliberately unchanged. What changed is the record around it: the rejection arm and the pinning test now carry the owner decision, the two-entry-point Java reading, and the measured corpus result, so a later lane cannot 'fix' the arm from the shipped source alone without re-reading the evidence.",
+    "counterfactual_measured": "Had the change landed: us005.pub.0000 final_state open -> closing, public corpus 74/74 -> 73/74, evaluate exit 0 -> 1, transcript fd3f7a1c… -> 207eaf0b…, and the Rust core would disagree with the recorded live Java oracle on a case where it currently agrees."
+  },
+
+  "back_pressure": {
+    "autobahn_serve": "37 sessions served, 0 WriteStalled, 0 BudgetExhausted, 0 SocketError; outcome split Terminal 19 / ProtocolFailure 18, the ProtocolFailure count being expected for the 7.* family, which deliberately poisons the protocol",
+    "harness": "ws-oracle-harness exit 0 on every one of the 5 runs (2 baseline, 1 changed, 1 post-revert, 1 final-tree) with empty stderr",
+    "queues": "no queue-full or refusal paths were exercised or modified by this lane"
+  },
+
+  "honesty_notes": [
+    "IMPLEMENTED IS FALSE. The owner-mandated behavior change is NOT in the committed tree. The mandate was executed to completion and then reverted under the decision's own escape clause; nobody should read this receipt as 'the port now matches Java on rejected closes'.",
+    "The brief's premise is HALF RIGHT and the half that is wrong matters. WebSocketImpl.java:488-503 really does reach CLOSING. But 'rejected local close' is not one uniform case, and the case the corpus measures runs through OracleEngine.sendClose, which never calls WebSocketImpl.close at all.",
+    "derive.go and the shipped Java source do NOT disagree in the way the decision's context field implies. derive.go's own doc comment names OracleEngine.sendClose as what it mirrors, and it mirrors it correctly. The disagreement is between two Java entry points.",
+    "The live 'final_state' is the oracle adapter's state enum (OracleEngine.java:263, serialized at :578/:602), not a direct read of WebSocketImpl.readyState. The conflict is real and gate-level, but this receipt does not claim anyone watched a live WebSocketImpl stay OPEN.",
+    "error.detail differs between Rust and live Java on us005.pub.0000 (and on 25 other cases) both before and after the change. That is the pre-existing, documented, non-semantic diagnostic-wording difference the evaluator never compares — it is NOT a divergence introduced here, and it is stated so it is not mistaken for one.",
+    "Autobahn was re-run for 7.* ONLY, at the final reverted tree. The full-suite figures in the brief (233/11/3/0, 246/247) are carried forward from E5b UNRE-EXECUTED by this lane. No Autobahn case exercises the rejected-local-close arm, so the run proves non-regression and nothing more.",
+    "The close model is reported as REQUIRING RE-RUN. It was not re-run, and no file under assurance/formal was modified. The handoff note reverses E3's recorded 'invert it' instruction, which is a substantive change to another lane's plan and needs coordinator routing rather than silent adoption.",
+    "I ran corporactl evaluate --tier handshake against the Rust harness output and got 49 failures before realizing it was the wrong tool for that transcript format. Disclosed above rather than dropped from the record.",
+    "assurance/concurrency/plan.json was edited by hand (its ledger head/count binding and the surrounding prose). The gate requires that binding to track the ledger, and no generator owns that file; the ledger bytes themselves were produced only by cmd/deltaledgerctl.",
+    "Two regeneration flags were used, both sanctioned by the brief and both re-verified without the flag afterwards. No gate was bypassed, skipped, or loosened, and no test was weakened — in particular send_close_invalid_code_rejects_without_a_frame was NOT edited to accommodate the change."
+  ],
+
+  "blockers": [
+    "OWNER DECISION REQUIRED: rejected-close-transition-divergence cannot be satisfied as written. Matching shipped WebSocketImpl.close costs the live-Java public-corpus differential (74/74 -> 73/74 on us005.pub.0000). The owner should choose among: (a) ACCEPT the escape clause, keep the port as-is, and treat delta-9dd3ab86 as the resolution — the option this lane took and the only one requiring no further work; (b) re-scope the mandate to the LIBRARY-level close entry point only, i.e. leave the corpus-facing send_close command alone and add a separate WebSocketImpl.close-faithful close API above or beside it, which changes no live-confirmed observable; or (c) re-baseline the corpus expectation for us005.pub.0000, which would require re-running the pinned Java oracle and is the only option that touches live-recorded evidence.",
+    "E3 ROUTING REQUIRED: assurance/formal currently instructs a future reader to invert RejectedSendDoesNotTransition when the port change lands. That instruction is now wrong and will mislead whoever reads it next. The precise edits are in chain_results.4_close_model_handoff.e3_handoff_note and must be routed to the E3 lane after both branches merge."
+  ]
+}

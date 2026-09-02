@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us006-model-check-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "attempt_id": "us007-sbx-output-live-0125",
+  "sandbox_name": "us006-tlc-0125",
+  "story": "US-006 (discharge MODEL_CHECK_PENDING_TOOL: SANY grammar check + TLC model check of assurance/formal/connection-model.tla with the shipped cfg; seeded-defect counterexample execution as time permits)",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-27T03:30:29Z",
+  "authorized_at_provenance": "Captured from `date -u` immediately before writing (standing no-estimates rule).",
+  "owner": "mikelady",
+  "authorization_basis": "Owner explicit AskUserQuestion decision recorded at protected/us009-us008-owner-decisions-2026-08-27.json (us006_tlc_in_sbx = AUTHORIZED, 2026-08-27T03:21:08Z): 'Yes, run it \u2014 One sandbox attempt: fetch the pinned checker tool, verify its fingerprint, run it on the model, record results.' The tool download is explicitly owner-approved in that decision; its source URL and sha256 are recorded AT FETCH below per probe-before-wire. Same accepted-profile shape and per-attempt authorization pattern as attempts 0101-0124.",
+  "tool_fetch": {
+    "artifact": "tla2tools.jar (TLA+ tools: SANY + TLC)",
+    "pinned_release": "tlaplus v1.8.0 'The Clarke release'",
+    "source_url": "https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar",
+    "sha256_at_fetch": "eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a",
+    "note": "Digest recorded by the driver immediately after the host-side fetch completes; the jar enters the sandbox only via digest-verified copy.",
+    "bytes_at_fetch": 4487757,
+    "fetched_at": "BOUNDED, not captured: the fetch completed after the record's captured authorized_at (2026-08-27T03:30:29Z) and before 2026-08-27T03:37:04Z (captured via date -u when this correction was written). A prior revision briefly recorded an ESTIMATED time (03:30:45Z) in violation of the standing no-estimates rule; caught and corrected by the driver in the same session before any consumer read it. The digest and byte count are computed facts, unaffected."
+  },
+  "constraints": [
+    "One live sandbox attempt; failures preserved immutably; a model error found by SANY/TLC is a finding to fix and re-review, never to hide",
+    "Sandbox unprivileged, non-root, --deny-network '**' (tool fetched host-side first), clone-mode source, template digest per the 0124 receipt",
+    "MODEL_CHECK_PENDING_TOOL flips to EXECUTED only for what genuinely ran, with verbatim output receipts",
+    "Java runtime inside the template (openjdk 25.x) recorded honestly as the TLC host JVM",
+    "Codex plane untouched; production=false, signing=false, publication=false"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

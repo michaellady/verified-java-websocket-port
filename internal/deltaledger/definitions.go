@@ -67,6 +67,13 @@ type Definition struct {
 	// fidelity evidence, ws_core implementation site, safety note, and the
 	// owner-decision citation.
 	Rationale string
+	// Supersedes names the earlier ledger records this record CORRECTS, as
+	// structured data rather than as prose. The builder emits a canonical
+	// machine-parsable token for each at the head of the rationale, which is
+	// a hashed digest preimage, and cmd/deltaledgerctl renders the resulting
+	// map to evidence/java/ledger-supersessions.json. See supersede.go for
+	// why the link lives in the rationale rather than in a record field.
+	Supersedes []Supersession
 }
 
 // AutobahnResultMarker is the digest preimage for autobahn_result_digest on
@@ -89,6 +96,49 @@ const ownerDecision = " OWNER DECISION: us010-016-ac-amendment-owner-decision-20
 	"disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately " +
 	"retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, " +
 	"NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+
+// rfc6455Section104Verbatim is RFC 6455 section 10.4 (Implementation-Specific
+// Limits), quoted in full and byte-exactly from the RFC Editor's canonical text
+// (https://www.rfc-editor.org/rfc/rfc6455.txt, section 10.4, page 52),
+// retrieved and diffed against the shipped records on 2026-08-28.
+//
+// IT IS A SHARED CONSTANT ON PURPOSE. Review BLOCKING 9 found that six records
+// bound, as a VERBATIM quotation of this section, a sentence that does not
+// appear anywhere in RFC 6455: "Implementations of WebSocket clients and
+// servers may implement limits on the sizes of frames and messages they are
+// willing to accept. This specification provides no required minimum size that
+// endpoints are obligated to support." That was a fabricated quotation sealed
+// into hashed evidence, and it was fabricated independently in two files, so
+// nothing could notice the two copies agreeing with each other and not with the
+// RFC. Every record that quotes 10.4 now quotes THIS constant, so the six
+// copies cannot drift apart, and the verbatim text sits next to its retrieval
+// provenance.
+const rfc6455Section104Verbatim = "Implementations that have implementation- and/or platform-specific limitations " +
+	"regarding the frame size or total message size after reassembly from multiple frames MUST protect themselves " +
+	"against exceeding those limits. (For example, a malicious endpoint can try to exhaust its peer's memory or " +
+	"mount a denial-of-service attack by sending either a single big frame (e.g., of size 2**60) or by sending a " +
+	"long stream of small frames that are a part of a fragmented message.) Such an implementation SHOULD impose a " +
+	"limit on frame sizes and the total message size after reassembly from multiple frames."
+
+// rfc6455NoHandshakeBudget is the shared, CORRECTED normative statement about
+// handshake budgets. The conclusion the superseded records got wrong is
+// unchanged — RFC 6455 mandates no handshake size, header-count or header-line
+// budget — but it now rests on the SCOPE of section 10.4 rather than on a false
+// claim about its modality. 10.4 is not purely permissive: it places a MUST on
+// an implementation that has such a limitation, and a SHOULD on imposing
+// frame/message limits. It is simply not about the opening handshake, which is
+// an HTTP message exchanged before any frame exists.
+const rfc6455NoHandshakeBudget = "RFC 6455 imposes NO limit on the opening handshake's total size, header count, " +
+	"or header-line length, in either direction. The only clause in the RFC that speaks about limits at all is " +
+	"section 10.4 (Implementation-Specific Limits), which reads, verbatim and in full: \"" +
+	rfc6455Section104Verbatim + "\" READ THAT CAREFULLY, BECAUSE AN EARLIER READING OF IT WAS WRONG AND IS " +
+	"CORRECTED HERE: 10.4 is NOT purely permissive — it places a MUST on an implementation that has a " +
+	"frame-size or reassembled-message-size limitation, and a SHOULD on imposing frame and message limits. The " +
+	"conclusion nevertheless holds, and it holds on SCOPE: every obligation in 10.4 is scoped to FRAMES and to " +
+	"TOTAL MESSAGE SIZE AFTER REASSEMBLY. The opening handshake is neither; it is an HTTP message exchanged " +
+	"before any frame exists. A search of the whole RFC finds no clause mandating a handshake size, header-count " +
+	"or header-line budget, and the wider HTTP layer likewise leaves any field-section bound to the " +
+	"implementation. There is therefore no RFC requirement here for shipped Java to fall short of."
 
 // liveExamEvidence is the shared live handshake exam evidence citation.
 const liveExamEvidence = "FIDELITY EVIDENCE: live handshake exam case %CASE% (corpora/handshake/cases.jsonl, LIVE_EXECUTED " +
@@ -144,6 +194,21 @@ func Definitions() []Definition {
 	// Appended last so the committed hash chain's existing prefix is
 	// unchanged by the E5/E5b Autobahn follow-ups.
 	definitions = append(definitions, autobahnCompositionDefinitions()...)
+	// Appended last for the same reason: the owner-mandated
+	// rejected-close-transition record must not disturb the committed
+	// 34-record prefix.
+	definitions = append(definitions, closeTransitionDefinitions()...)
+	// Appended last for the same reason again: the G3c/G3d/G3e gap-closure
+	// records must not disturb the committed 35-record prefix.
+	definitions = append(definitions, gapClosureDefinitions()...)
+	// Appended last for the same reason again: the owner-ruled superseding
+	// corrections for sequences 14-16 must not disturb the frozen prefix
+	// they correct (protected/ledger-frozen-prefix-owner-decision-2026-08-28.json,
+	// sha256 bb3cd0da7f4aed01...: SUPERSEDE, DO NOT REWRITE).
+	definitions = append(definitions, prefixCorrectionDefinitions()...)
+	// Appended after those so the prefix they correct, and the corrections
+	// themselves, are both undisturbed by the protocol-rejection class record.
+	definitions = append(definitions, protocolRejectionStateDefinitions()...)
 	return definitions
 }
 

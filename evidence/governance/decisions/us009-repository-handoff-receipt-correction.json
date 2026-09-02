@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us009-repository-handoff-receipt-correction",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "corrects": "protected/us009-repository-handoff-receipt.json",
+  "recorded_at": "2026-08-27T17:39:42Z",
+  "recorded_at_provenance": "Captured from `date -u` immediately before writing (standing no-estimates rule); the fresh GitHub probe below ran in the same command.",
+  "finding": "US-009 reality review (session 01a04447-5476-78c1-96da-488d2380f5b8) found the original receipt wrong on three points: (1) its claim that no 'laboratory manifest' or 'program registry' artifact exists was FALSE — the laboratory manifest exists at companies/open-source-projects/projects/verified-java-to-rust-port/laboratories/java-websocket/manifest.json (recording default_branch: main) and the repository authorization exists at companies/open-source-projects/projects/verified-java-websocket-port/research/repository-authorization.json (binding default_branch: main, identifying feature/verified-java-websocket-port separately); (2) the receipt recorded default_branch feature/verified-java-websocket-port from a STALE local origin/HEAD ref instead of probing GitHub; (3) the claimed program-registry location (companies/manifest.yaml) does not list this repository.",
+  "root_cause": "The driver searched only the Claude plane's own repo tree for the named artifacts and probed the default branch from the local clone's origin/HEAD symbolic ref rather than the remote API. The original receipt is preserved unmodified per protected-store immutability; this sidecar is the authoritative binding.",
+  "corrected_binding": {
+    "default_branch": "main — probed fresh 2026-08-27T17:39:42Z via `gh repo view michaellady/verified-java-websocket-port --json defaultBranchRef` => main; license probe in the same call => apache-2.0. This AGREES with the laboratory manifest and the repository authorization. The stale local origin/HEAD pointed at feature/verified-java-websocket-port and was wrong.",
+    "laboratory_manifest": "companies/open-source-projects/projects/verified-java-to-rust-port/laboratories/java-websocket/manifest.json (open-source-projects plane; read-only to this session's company binding — its content facts here are taken from the reviewer's direct reads: default_branch main, non-Claude local path). The manifest describes the ORIGINAL plane's clone; this Claude plane's clone at repos/public/verified-java-websocket-port-claude is the duplicate authorized at project start (owner decision: same GitHub repo, claude/* branches) and re-authorized in the original receipt.",
+    "repository_authorization": "companies/open-source-projects/projects/verified-java-websocket-port/research/repository-authorization.json — binds default_branch main for the shared repo and names feature/verified-java-websocket-port as a separate working branch, consistent with this plane's discipline (main never pushed by either plane; claude/* only for this plane).",
+    "program_registry": "The repository is absent from companies/manifest.yaml's registry. For THIS plane, the registry entry is the EVC project record (companies/enterprise-vibe-code/projects/verified-java-websocket-port-claude/prd.json metadata.repoPath/branchName) created by the owner-authorized company move. Whether the shared repo should ALSO be registered in companies/manifest.yaml is an HQ-level bookkeeping question outside this story's repo; recorded honestly as open, not fabricated as done.",
+    "write_scope_unchanged": "claude/* branches only; main and the Codex plane's branches are never written by this plane."
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

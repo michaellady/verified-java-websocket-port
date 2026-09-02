@@ -1,0 +1,44 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+TLC2 Version 2026.08.21.155922 (rev: 9787e65)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 121 and seed -5010777328645025656 with 1 worker on 2 cores with 512MB heap and 64MB offheap memory [pid: 285] (Linux 7.0.12 aarch64, Ubuntu 25.0.3 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/agent/tlc/work/mut/defect.frame.type-domain-escape/FrameModel.tla
+Parsing file /tmp/tlc-12333103163150476218/Integers.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-12333103163150476218/Sequences.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-12333103163150476218/_TLCTrace.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-12333103163150476218/Naturals.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-12333103163150476218/TLC.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-12333103163150476218/TLCExt.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-12333103163150476218/FiniteSets.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module FrameModel
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module FrameModel
+Starting... (2026-08-28 00:41:31)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Error: Invariant TypeInvariant is violated by the initial state:
+/\ phase = "idle"
+/\ wirePayload = <<>>
+/\ allocated = 0
+/\ framesDone = 0
+/\ semanticPayload = <<>>
+/\ maskKey = <<0, 0, 0, 0>>
+/\ frame = [ opcode |-> "data",
+  marker |-> "inline",
+  length |-> "zero",
+  masked |-> FALSE,
+  fin |-> TRUE,
+  rsv |-> FALSE ]
+/\ track = "decode"
+/\ verdict = [status |-> "none", code |-> 1007, consumed |-> 0]
+
+Finished in 00s at (2026-08-28 00:41:31)

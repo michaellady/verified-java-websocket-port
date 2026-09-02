@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-c6-layer-split",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T16:12:08Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "resolves": "the B1 blocker raised by the post-failure implementation lane, and completes the C6 ruling in protected/us017-post-failure-owner-decisions-2026-08-28.json (sha 612546e8)",
+  "owner": "mikelady",
+  "context": "C6 (MATCH JAVA FULLY on the reaction axis) was implemented in ws-core, measured, and tripped its own hard-stop condition exactly as predicted. The lane wrote a prediction BEFORE its first source edit, with git status empty, naming the 18 cases that would move, the fields (final_state open->closing, counts.frames +1), that final_state would land on 'closing' rather than 'closed', and that evaluate would read 74/56/18 exit 1. All seven falsifiable points held. Scored-field disagreement with live Java went from ZERO to 18 of 74. Root cause: the corpus pins the ORACLE layer, which takes no action on a protocol violation, while C6 mandates the SHIPPED WebSocketImpl layer, which sends a 1002 close frame and transitions. Both cannot hold at the ws-core seam. The change was reverted (ws-core verified byte-identical to base by the coordinator) and preserved as drafts/post-failure-c6-ws-core-reaction.patch, 7023 bytes.",
+  "decision": "PLACE THE REACTION IN THE ADAPTER, NOT THE CORE. Implement the Java-faithful protocol-violation reaction in rust/ws-testee's io_loop rather than in ws-core. Rationale, in the lane's own framing: the corpus harness declares only ws-core and ws-driver dependencies and never references ws-testee, so this placement STRUCTURALLY cannot move a corpus byte — while it does fix the divergence where it is externally observable, on the wire at the Autobahn seam. The oracle agreement the corpus pins is preserved, and the shipped-library fidelity is gained at the layer that actually faces a peer.",
+  "requirements": [
+    "ws-core stays byte-identical; the preserved patch is NOT applied to it.",
+    "Public corpus stays 74/74 with the transcript byte-identical modulo runtime, and scored-field disagreement with live Java stays ZERO. If the placement moves either, that contradicts the structural argument and is a finding — stop and surface it.",
+    "Re-run Autobahn to MEASURE the improvement rather than reasoning about it: the 17 section-3/4 cases currently show close_frames=0 and remoteCloseCode None with 'peer dropped the TCP connection without previous WebSocket closing handshake'. Report what they show after.",
+    "Record the resulting layer split in the behavior-delta ledger: ws-core and ws-driver are oracle-faithful by design, ws-testee is shipped-library-faithful at the wire, and the reason each is correct at its own layer."
+  ],
+  "carried_follow_up": "BP1 from the same lane is treated as a real follow-up, not a footnote: the C5 fix cuts clean-convergence exploration runs from 1108 to 49 (failure_halted 80072 -> 81131, sum 81180 both ways), a 96 percent coverage drop on one branch, measured on both sides. It belongs to the interpreter's halt model rather than the driver.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

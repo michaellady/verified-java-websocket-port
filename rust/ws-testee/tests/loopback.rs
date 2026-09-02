@@ -359,13 +359,42 @@ fn non_loopback_addresses_are_refused() {
 fn stalled_peer_reader_trips_the_bounded_write_deadline() {
     // REAL socket backpressure (US-018 AC2 slow reader, review round 2):
     // the peer completes a genuine ws_core handshake and then STOPS READING
-    // FOREVER. The client floods 48 x 64 KiB binary messages (3 MiB, under
-    // the core's 4 MiB output ceiling and 64 KiB message limit); loopback
-    // kernel socket buffers (macOS ~128 KiB snd + ~128 KiB rcv defaults;
-    // std cannot shrink SO_SNDBUF/SO_RCVBUF, so the kernel default IS the
-    // documented bound) absorb well under that, the socket write actually
-    // blocks, and the bounded write deadline must fire with the typed
-    // WriteStalled outcome instead of hanging forever.
+    // FOREVER. A producer thread keeps the bounded command queue topped up
+    // with 64 KiB binary messages (the core's message limit) for as long as
+    // the adapter runs, so the kernel -- not a flood size chosen in advance
+    // -- decides when the socket write stops making progress. Once the
+    // loopback socket buffers are exhausted the write actually blocks, and
+    // the bounded write deadline must fire with the typed WriteStalled
+    // outcome instead of hanging forever.
+    //
+    // Why the flood is open-ended (fixture change 2026-09-02): the original
+    // fixture sent a fixed 48 x 64 KiB (3 MiB), sized against macOS
+    // loopback defaults of ~128 KiB send + ~128 KiB receive. Linux autotunes
+    // the send buffer up to net.ipv4.tcp_wmem[2] (4 MiB by default): a
+    // Claude Code cloud host (Linux 6.18 x86_64) absorbed 4.05 MiB of a
+    // never-read loopback connection under this adapter's own write pattern
+    // before the first write blocked, so the 3 MiB flood drained without
+    // ever stalling, the client idled on read timeouts, and when the peer's
+    // 60 s hold expired and dropped a socket with unread data the kernel
+    // answered with RST -- SocketError("ConnectionReset") instead of
+    // WriteStalled. The US-018 closure receipt's Linux legs ran inside
+    // Docker linuxkit VMs and did not meet that profile. std cannot shrink
+    // SO_SNDBUF/SO_RCVBUF, so the kernel default IS the documented bound;
+    // feeding until the kernel refuses is the only fixture that holds on
+    // every buffer size. The property under test is unchanged.
+    //
+    // Budget note: the core's max_output_bytes is not enforced on the send
+    // path; what bounds an open-ended flood are the per-connection scenario
+    // budgets max_frames and max_actions (default 64 each, derive.go
+    // fidelity). At the defaults the core stops after 64 frames (4.0 MiB on
+    // the wire), which this kernel absorbs with ~50 KiB to spare, and every
+    // later command becomes a Rejected disposition that the adapter loop
+    // drops without touching the socket -- so nothing ever stalled. The
+    // client config below raises both budgets to their ceilings: 1024
+    // actions x 64 KiB is 64 MiB of headroom, sixteen times the Linux
+    // default send-buffer cap. The driver applies the next queued command
+    // only after the offered write drains, so pending output never exceeds
+    // one message however long the producer runs.
     //
     // Java-fidelity note: shipped Java has NO socket-layer write deadline —
     // WebSocketClient.WebsocketWriteThread blocks in ostream.write()
@@ -373,7 +402,8 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
     // bound is the adapter-layer connectionLostTimeout keepalive. The
     // bounded write deadline here is US-018 adapter SAFETY policy (AC2
     // bounded write resources), a disclosed divergence, not core protocol.
-    use std::sync::mpsc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, mpsc};
     use std::time::Instant;
 
     let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
@@ -421,10 +451,13 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
     });
 
     let mut stream = TcpStream::connect(address).expect("connect");
-    let (sender, mut driver) = ws_driver::connection_driver(
-        ConnectionConfig::default(),
-        ws_core::connection::Role::Client,
-    );
+    let client_config = ConnectionConfig::builder()
+        .max_actions(1024)
+        .max_frames(4096)
+        .build()
+        .expect("ceiling-valued scenario budgets are a valid config");
+    let (sender, mut driver) =
+        ws_driver::connection_driver(client_config, ws_core::connection::Role::Client);
     driver
         .begin_client_handshake("/chat", "localhost")
         .expect("handshake start");
@@ -437,16 +470,37 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
     };
     let mut report = ws_testee::io_loop::empty_report();
     assert!(
-        ws_testee::io_loop::drive_until_open(&mut driver, &mut stream, &bounds, &mut report,)
-            .opened
+        ws_testee::io_loop::drive_until_open(&mut driver, &mut stream, &bounds, &mut report).opened
     );
-    for _ in 0..48 {
-        sender
-            .try_send(ws_core::LocalCommand::SendBinary {
+    // Producer: refill the bounded queue (capacity 64) whenever the owner
+    // drains it, through the same try-send-only handle real producers use.
+    // A refusal (full or momentarily contended) is retried after a short
+    // yield; the flag stops the producer once the adapter has returned.
+    let stop = Arc::new(AtomicBool::new(false));
+    let producer = {
+        let sender = sender.clone();
+        let stop = Arc::clone(&stop);
+        thread::spawn(move || {
+            let message = || ws_core::LocalCommand::SendBinary {
                 data: vec![0x42u8; 65_536],
-            })
-            .expect("command queue admits the flood (capacity 64)");
-    }
+            };
+            let mut admitted: u64 = 0;
+            let mut next = message();
+            while !stop.load(Ordering::Acquire) {
+                match sender.try_send(next) {
+                    Ok(()) => {
+                        admitted += 1;
+                        next = message();
+                    }
+                    Err(refused) => {
+                        next = refused.command;
+                        thread::sleep(Duration::from_micros(200));
+                    }
+                }
+            }
+            admitted
+        })
+    };
     let started = Instant::now();
     let mut policy = ws_testee::io_loop::ObserveOnly;
     ws_testee::io_loop::drive_connection(
@@ -458,14 +512,17 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
         &mut report,
     );
     let elapsed = started.elapsed();
+    stop.store(true, Ordering::Release);
+    let admitted = producer.join().expect("producer thread");
     let _ = release_tx.send(());
     peer.join().expect("peer thread");
 
     assert_eq!(
         report.outcome,
         LoopOutcome::WriteStalled,
-        "stalled write must trip the typed deadline outcome: {}",
-        report.summary()
+        "stalled write must trip the typed deadline outcome: {} (producer admitted {admitted} x 64 KiB commands; {} polls in {elapsed:?})",
+        report.summary(),
+        report.polls
     );
     assert!(!report.clean());
     assert!(
@@ -496,6 +553,221 @@ fn budget_exhaustion_is_reported_honestly() {
     let report = server.join().expect("server thread");
     assert_eq!(report.outcome, LoopOutcome::BudgetExhausted);
     assert!(!report.clean());
+}
+
+// ---------------------------------------------------------------------------
+// Pre-landing review findings 2 and 4 (session 01a04960): every adapter exit
+// that ends transport service must pump `DriverInput::Shutdown` before the
+// caller drops the driver, and the `ConnectionReport`'s dropped-write
+// accounting must have a FAILING WITNESS. Before these tests, deleting both
+// `dropped_write_frames`/`dropped_write_bytes` increments in `io_loop::pump`
+// left `make -C rust gates` at exit 0 (75 `test result: ok`, ac1-gates 8/8):
+// nothing in the tree read either field.
+// ---------------------------------------------------------------------------
+
+/// A real connected loopback TCP pair. The peer end is returned so the
+/// caller keeps it alive (dropping it would close the connection).
+fn socket_pair() -> (TcpStream, TcpStream) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let near = TcpStream::connect(address).expect("connect");
+    let (far, _peer) = listener.accept().expect("accept");
+    (near, far)
+}
+
+/// Drive the open driver until its next committed frame is OFFERED, and
+/// return those wire bytes.
+fn offered_frame(driver: &mut ws_driver::ConnectionDriver) -> Vec<u8> {
+    for _ in 0..64 {
+        match driver.poll(ws_driver::DriverInput::Wake).output {
+            ws_driver::DriverOutput::Write(suffix) => return suffix.to_vec(),
+            ws_driver::DriverOutput::Idle => panic!("no committed write was offered"),
+            _ => {}
+        }
+    }
+    panic!("no committed write was offered within the drain bound");
+}
+
+#[test]
+fn an_exhausted_poll_budget_shuts_down_and_reports_the_abandoned_committed_writes() {
+    // Finding 2's budget exit, with finding 4's failing witness on top: the
+    // connected loop's `while report.polls < bounds.max_polls` condition is
+    // itself an exit that ends transport service, and what it abandons must
+    // come back in the returned `ConnectionReport`.
+    use std::io::Write as _;
+
+    for partial in [false, true] {
+        let (mut stream, _peer) = socket_pair();
+        let (sender, mut driver) = ws_driver::connection_driver_in_state(
+            ConnectionConfig::default(),
+            ws_core::connection::Role::Server,
+            ws_core::connection::InitialState::Open,
+        );
+        sender
+            .try_send(ws_core::LocalCommand::SendText {
+                text: "abandoned".to_owned(),
+            })
+            .expect("enqueue");
+        let frame = offered_frame(&mut driver);
+        assert_eq!(
+            frame.len(),
+            11,
+            "server text frame [0x81,0x09,\"abandoned\"]"
+        );
+        let mut on_the_wire = 0usize;
+        if partial {
+            // One byte GENUINELY reaches the wire, so only the suffix is
+            // lost — the partial-front polarity.
+            on_the_wire = stream.write(&frame[..1]).expect("one byte to a live peer");
+            assert_eq!(on_the_wire, 1);
+            let _ = driver.poll(ws_driver::DriverInput::WriteProgress { bytes: on_the_wire });
+        }
+
+        // A budget already spent (by the handshake phase, as the fixtures
+        // seed it) means the connected loop exits without a single poll.
+        let mut report = ws_testee::io_loop::empty_report();
+        let bounds = IoBounds {
+            max_polls: 0,
+            ..IoBounds::default()
+        };
+        let mut policy = ws_testee::io_loop::ObserveOnly;
+        ws_testee::io_loop::drive_connection(
+            &mut driver,
+            &sender,
+            &mut stream,
+            &bounds,
+            &mut policy,
+            &mut report,
+        );
+
+        assert_eq!(report.outcome, LoopOutcome::BudgetExhausted);
+        assert_eq!(
+            report.dropped_write_frames, 1,
+            "the abandoned committed frame is reported (partial={partial})"
+        );
+        assert_eq!(
+            report.dropped_write_bytes,
+            (frame.len() - on_the_wire) as u64,
+            "only the UNDELIVERED suffix is lost (partial={partial})"
+        );
+    }
+}
+
+#[test]
+fn a_shutdown_report_carrying_two_frames_is_accounted_whole_by_the_adapter() {
+    // The plural arm of the driver's `abort_pending_writes` reaches the
+    // adapter's accounting too: an automatic pong is committed while a
+    // semantic event is being returned (so it never occupies the offered
+    // slot), and the next poll applies a producer command behind it.
+    use std::io::Write as _;
+
+    let (mut stream, _peer) = socket_pair();
+    let (sender, mut driver) = ws_driver::connection_driver_in_state(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Server,
+        ws_core::connection::InitialState::Open,
+    );
+    // Masked (client-to-server) ping with an all-zero mask key.
+    let ping = [0x89u8, 0x83, 0, 0, 0, 0, 1, 2, 3];
+    assert!(matches!(
+        driver.poll(ws_driver::DriverInput::Inbound(&ping)).input,
+        ws_driver::InputDisposition::Consumed { .. }
+    ));
+    let mut delivered = false;
+    for _ in 0..8 {
+        if let ws_driver::DriverOutput::Event(event) =
+            driver.poll(ws_driver::DriverInput::Wake).output
+            && matches!(event.kind, ws_core::SemanticEventKind::Ping { .. })
+        {
+            delivered = true;
+            break;
+        }
+    }
+    assert!(delivered, "the Ping semantic event is delivered");
+    sender
+        .try_send(ws_core::LocalCommand::SendText {
+            text: "behind-the-pong".to_owned(),
+        })
+        .expect("enqueue");
+    let pong = offered_frame(&mut driver);
+    assert_eq!(pong, [0x8A, 0x03, 1, 2, 3], "the automatic pong is offered");
+    let on_the_wire = stream.write(&pong[..2]).expect("two bytes to a live peer");
+    assert_eq!(on_the_wire, 2);
+    let _ = driver.poll(ws_driver::DriverInput::WriteProgress { bytes: on_the_wire });
+
+    let mut report = ws_testee::io_loop::empty_report();
+    let bounds = IoBounds {
+        max_polls: 0,
+        ..IoBounds::default()
+    };
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &bounds,
+        &mut policy,
+        &mut report,
+    );
+
+    assert_eq!(report.outcome, LoopOutcome::BudgetExhausted);
+    assert_eq!(
+        report.dropped_write_frames, 2,
+        "the partially written pong AND the whole text frame behind it"
+    );
+    assert_eq!(
+        report.dropped_write_bytes,
+        // 5-byte pong less the 2 bytes on the wire, plus the 17-byte text
+        // frame [0x81,0x0F,"behind-the-pong"].
+        (5 - 2) + 17,
+        "exactly the undelivered bytes across both frames"
+    );
+}
+
+#[test]
+fn a_hard_handshake_write_error_shuts_down_and_reports_the_committed_request() {
+    // Finding 2's named path: `drive_until_open` used to `return false` on a
+    // hard write error WITHOUT pumping `Shutdown`, and `run_client_once`
+    // then dropped the driver — losing the committed handshake frame with no
+    // `WritesDropped` of any kind. Shutting the LOCAL write half makes the
+    // very first socket write fail with `BrokenPipe` deterministically, with
+    // zero bytes on the wire.
+    let (mut stream, _peer) = socket_pair();
+    stream
+        .shutdown(std::net::Shutdown::Write)
+        .expect("close the local write half");
+    let (_sender, mut driver) = ws_driver::connection_driver(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Client,
+    );
+    driver
+        .begin_client_handshake("/chat", "localhost")
+        .expect("handshake start commits the request frame");
+    let mut report = ws_testee::io_loop::empty_report();
+    let bounds = IoBounds {
+        read_timeout: Duration::from_millis(5),
+        max_polls: 64,
+        ..IoBounds::default()
+    };
+    let opened =
+        ws_testee::io_loop::drive_until_open(&mut driver, &mut stream, &bounds, &mut report).opened;
+    assert!(
+        !opened,
+        "the handshake cannot complete on a dead write half"
+    );
+    assert!(
+        matches!(report.outcome, LoopOutcome::SocketError(_)),
+        "hard write error, not a retryable stall: {}",
+        report.summary()
+    );
+    assert_eq!(
+        report.dropped_write_frames, 1,
+        "the committed handshake request is reported, not abandoned"
+    );
+    assert!(
+        report.dropped_write_bytes > 0,
+        "no byte of the request reached the wire, so the whole frame is lost"
+    );
 }
 
 #[test]
@@ -611,4 +883,211 @@ fn autobahn_7_3_2_wire_reply_is_1002_end_to_end() {
         "the core's governing close (delta-d509ac38)"
     );
     assert!(close.remote);
+}
+
+// ---------------------------------------------------------------------------
+// Pre-landing review ROUND 2 (session 01a04960 re-review): "the protocol-
+// failure exception still leaks committed writes". A fatal core step can
+// COMMIT a wire write and FAIL in the same step, and the adapter halts at its
+// first `Failure` by contract — so the committed bytes were abandoned with
+// nothing counted. Reproduced before the fix, over real sockets, through the
+// real adapter:
+//
+//   PROBE-C (server open, one chunk = masked close + masked text):
+//     peer received 0 post-handshake bytes
+//     report outcome=ProtocolFailure(StateViolation) dropped_frames=0
+//
+// The committed close echo the peer was waiting for was gone and unreported.
+// The fix orders `DriverOutput::Failure` strictly AFTER the committed write
+// stream, so the exception now covers only connections that have already
+// handed over every committed byte. These three tests are the failing
+// witnesses at the PEER, which is the only place "delivered" is observable.
+// ---------------------------------------------------------------------------
+
+/// A well-formed HTTP GET that is NOT a websocket upgrade: the version-only
+/// draft match fails, so the server core queues its error head and returns
+/// the fatal `JavaInvalidData` in the same step.
+const NON_UPGRADE_REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: localhost\r\n\r\n";
+
+/// The deterministic rejection head `ws_core` commits for that request.
+const REJECT_HEAD: &[u8] = b"HTTP/1.1 404 Not Found\r\n\r\n";
+
+/// A minimal valid client upgrade request, hand-written so the peer in these
+/// tests is raw TCP rather than a second adapter.
+fn upgrade_request() -> Vec<u8> {
+    let mut request = Vec::new();
+    request.extend_from_slice(b"GET /chat HTTP/1.1\r\n");
+    request.extend_from_slice(b"Host: localhost\r\n");
+    request.extend_from_slice(b"Upgrade: websocket\r\n");
+    request.extend_from_slice(b"Connection: Upgrade\r\n");
+    request.extend_from_slice(b"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n");
+    request.extend_from_slice(b"Sec-WebSocket-Version: 13\r\n\r\n");
+    request
+}
+
+/// Read from `peer` until EOF or the read timeout expires.
+fn read_to_end_or_timeout(peer: &mut TcpStream) -> Vec<u8> {
+    use std::io::Read as _;
+    let mut received = Vec::new();
+    let mut buffer = [0u8; 4096];
+    loop {
+        match peer.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => received.extend_from_slice(&buffer[..n]),
+            Err(_) => break,
+        }
+    }
+    received
+}
+
+#[test]
+fn a_rejected_server_handshake_delivers_its_committed_error_head_before_failing() {
+    use std::io::Write as _;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let bounds = IoBounds {
+        max_polls: 4_000,
+        ..IoBounds::default()
+    };
+    let server = server_thread(listener, bounds);
+
+    let mut peer = TcpStream::connect(address).expect("connect");
+    peer.set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("read timeout");
+    peer.write_all(NON_UPGRADE_REQUEST).expect("write request");
+    peer.flush().expect("flush");
+    let received = read_to_end_or_timeout(&mut peer);
+    let report = server.join().expect("server thread");
+
+    assert_eq!(
+        received, REJECT_HEAD,
+        "the rejection head the core COMMITTED must reach the peer, not be abandoned with the failure"
+    );
+    match &report.outcome {
+        LoopOutcome::ProtocolFailure(failure) => assert_eq!(
+            failure.code,
+            ws_core::FailureCode::JavaInvalidData,
+            "the rejection's typed failure"
+        ),
+        other => panic!(
+            "a rejected handshake must end on its typed protocol failure, not {other:?}; \
+             before the fix the ignored Failure left this run spinning to BudgetExhausted"
+        ),
+    }
+    assert_eq!(
+        (report.dropped_write_frames, report.dropped_write_bytes),
+        (0, 0),
+        "nothing is owed once the head is delivered"
+    );
+}
+
+#[test]
+fn a_protocol_failure_after_a_committed_close_echo_still_delivers_the_echo() {
+    use std::io::{Read as _, Write as _};
+    use ws_core::framing::{Draft6455, Opcode};
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = server_thread(listener, IoBounds::default());
+
+    let mut peer = TcpStream::connect(address).expect("connect");
+    peer.set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("read timeout");
+    peer.write_all(&upgrade_request()).expect("request");
+    peer.flush().expect("flush");
+    let mut head = [0u8; 4096];
+    let head_len = peer.read(&mut head).expect("101 head");
+    assert!(
+        head[..head_len].starts_with(b"HTTP/1.1 101 "),
+        "the handshake must complete before the failure case"
+    );
+
+    // ONE chunk, TWO frames: the close is processed while Open and COMMITS
+    // the Q19 echo write; the text frame that follows is refused by the
+    // Closing state gate with the fatal `StateViolation`. Both effects come
+    // out of the same `ConnectionCore::handle` call, which is what makes the
+    // echo a committed-but-undelivered write at the failure instant.
+    let key = [0x11u8, 0x22, 0x33, 0x44];
+    let mut chunk = Draft6455::encode_frame(true, Opcode::Closing, &[0x03, 0xE8], Some(key));
+    chunk.extend_from_slice(&Draft6455::encode_frame(
+        true,
+        Opcode::Text,
+        b"late",
+        Some(key),
+    ));
+    peer.write_all(&chunk).expect("write the two-frame chunk");
+    peer.flush().expect("flush");
+
+    let received = read_to_end_or_timeout(&mut peer);
+    let report = server.join().expect("server thread");
+
+    assert_eq!(
+        received,
+        vec![0x88, 0x02, 0x03, 0xE8],
+        "the committed close echo must reach the peer before the connection fails \
+         (it read as 0 bytes before the fix)"
+    );
+    match &report.outcome {
+        LoopOutcome::ProtocolFailure(failure) => assert_eq!(
+            failure.code,
+            ws_core::FailureCode::StateViolation,
+            "the refused post-close data frame's typed failure"
+        ),
+        other => panic!("expected the typed protocol failure, got {other:?}"),
+    }
+    assert_eq!(
+        (report.dropped_write_frames, report.dropped_write_bytes),
+        (0, 0),
+        "a delivered write is not a dropped one"
+    );
+}
+
+#[test]
+fn a_protocol_failure_whose_committed_write_cannot_be_delivered_is_accounted() {
+    // The other polarity: when the transport cannot carry the committed
+    // write, the adapter must ACCOUNT for it rather than lose it. The local
+    // write side is shut down before driving, so `stream.write` fails
+    // deterministically with a hard error instead of racing a peer teardown.
+    use std::io::Write as _;
+
+    let (mut near, peer) = socket_pair();
+    let mut writer = peer;
+    writer.write_all(NON_UPGRADE_REQUEST).expect("request");
+    writer.flush().expect("flush");
+    near.shutdown(std::net::Shutdown::Write)
+        .expect("local write shutdown");
+
+    let (_sender, mut driver) = ws_driver::connection_driver(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Server,
+    );
+    let mut report = ws_testee::io_loop::empty_report();
+    let opened = ws_testee::io_loop::drive_until_open(
+        &mut driver,
+        &mut near,
+        &IoBounds::default(),
+        &mut report,
+    )
+    .opened;
+    drop(writer);
+
+    assert!(!opened, "a rejected handshake never opens");
+    // The transport died BEFORE the held failure could surface, so the
+    // governing outcome is the socket error rather than the protocol failure
+    // — and that exit is one of the ones round 1 routed through
+    // `end_transport_service`, which is what turns the undeliverable head
+    // into the typed disposition instead of a silent loss.
+    assert_eq!(
+        report.outcome,
+        LoopOutcome::SocketError("BrokenPipe".to_owned()),
+        "{}",
+        report.summary()
+    );
+    assert_eq!(
+        (report.dropped_write_frames, report.dropped_write_bytes),
+        (1, REJECT_HEAD.len() as u64),
+        "an undeliverable committed head is reported, not silently abandoned: {}",
+        report.summary()
+    );
 }
