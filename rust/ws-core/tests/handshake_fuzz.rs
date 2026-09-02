@@ -543,7 +543,10 @@ fn assert_matches_model(label: &str, actual: &Verdict, expected: &Verdict) {
                 "{label}: head length disagrees with the model"
             );
         }
-        _ => assert_eq!(actual, expected, "{label}: verdict disagrees with the model"),
+        _ => assert_eq!(
+            actual, expected,
+            "{label}: verdict disagrees with the model"
+        ),
     }
 }
 
@@ -576,7 +579,17 @@ const STATUS_CODES: [&str; 10] = [
     "101", "200", "404", " 101", "101 ", "1010", "0101", "", "\t101", "101\t",
 ];
 const VERSION_VALUES: [&str; 12] = [
-    "13", " 13", "13 ", " 13 ", "+13", "0013", "13x", "", "8", "-13", "99999999999999999999",
+    "13",
+    " 13",
+    "13 ",
+    " 13 ",
+    "+13",
+    "0013",
+    "13x",
+    "",
+    "8",
+    "-13",
+    "99999999999999999999",
     "1 3",
 ];
 const KEY_VALUES: [&str; 8] = [
@@ -589,7 +602,14 @@ const KEY_VALUES: [&str; 8] = [
     "dGhlIHNhbXBsZSBub25jZQ",
     "0123456789abcdef0123456789abcdef",
 ];
-const UPGRADE_VALUES: [&str; 6] = ["websocket", "WebSocket", "WEBSOCKET", "websockets", "", "web"];
+const UPGRADE_VALUES: [&str; 6] = [
+    "websocket",
+    "WebSocket",
+    "WEBSOCKET",
+    "websockets",
+    "",
+    "web",
+];
 const CONNECTION_VALUES: [&str; 7] = [
     "Upgrade",
     "upgrade",
@@ -660,7 +680,9 @@ fn server_header_alphabet() -> Vec<(&'static str, &'static [&'static str])> {
     ]
 }
 
-fn client_header_alphabet(accepts: &'static [&'static str]) -> Vec<(&'static str, &'static [&'static str])> {
+fn client_header_alphabet(
+    accepts: &'static [&'static str],
+) -> Vec<(&'static str, &'static [&'static str])> {
     vec![
         ("Upgrade", &UPGRADE_VALUES[..]),
         ("Connection", &CONNECTION_VALUES[..]),
@@ -750,10 +772,7 @@ fn draw_request_model(rng: &mut SplitMix64) -> HeadModel {
             // Deliberately wrong token count (0, 1, 2, or 4+ spaces). Java
             // splits with limit 3, so 4 tokens still yields 3.
             let words = rng.below(3);
-            (0..=words)
-                .map(|_| "tok")
-                .collect::<Vec<_>>()
-                .join(" ")
+            (0..=words).map(|_| "tok").collect::<Vec<_>>().join(" ")
         }
         1 => String::new(),
         _ => {
@@ -792,7 +811,12 @@ fn draw_response_model(rng: &mut SplitMix64) -> HeadModel {
         _ => {
             let version = *rng.pick(&HTTP_VERSIONS);
             let status = *rng.pick(&STATUS_CODES);
-            let message = *rng.pick(&["Switching Protocols", "Web Socket Protocol Handshake", "OK", ""]);
+            let message = *rng.pick(&[
+                "Switching Protocols",
+                "Web Socket Protocol Handshake",
+                "OK",
+                "",
+            ]);
             format!("{version} {status} {message}")
         }
     };
@@ -896,7 +920,11 @@ fn draw_limits(rng: &mut SplitMix64) -> HandshakeLimits {
 /// Every budget refusal must name a budget it could actually have hit, and
 /// its `attempted` value may exceed that budget by at most one (the
 /// accumulator refuses BEFORE buffering the byte that would breach).
-fn assert_refusal_is_bounded(label: &str, refusal: HandshakeLimitExceeded, limits: HandshakeLimits) {
+fn assert_refusal_is_bounded(
+    label: &str,
+    refusal: HandshakeLimitExceeded,
+    limits: HandshakeLimits,
+) {
     let budget = match refusal.limit {
         HandshakeLimitKind::TotalBytes => limits.max_handshake_bytes,
         HandshakeLimitKind::HeaderCount => limits.max_header_count,
@@ -1161,7 +1189,8 @@ fn handshake_server_modeled_requests() {
         }
         let limits = HandshakeLimits::hard_ceilings();
         let label = format!("handshake_server modeled case {case}");
-        let verdict = server_verdict_across_chunkings(&label, &bytes, limits, 0x51ce_0000 + u64::from(case));
+        let verdict =
+            server_verdict_across_chunkings(&label, &bytes, limits, 0x51ce_0000 + u64::from(case));
 
         // Determinism: an independent replay of the whole-chunk drive.
         let replay = judge_server_checked(&label, &[bytes.clone()], limits);
@@ -1191,7 +1220,7 @@ fn handshake_server_seed_mutations() {
         let label = format!("handshake_server mutant case {case} of {name}");
         let verdict =
             server_verdict_across_chunkings(&label, &bytes, limits, 0x52ce_0000 + u64::from(case));
-        let replay = judge_server_checked(&label, &[bytes.clone()], limits);
+        let replay = judge_server_checked(&label, std::slice::from_ref(&bytes), limits);
         assert_eq!(verdict, replay, "{label}: determinism");
     }
 }
@@ -1283,7 +1312,7 @@ fn handshake_client_seed_mutations() {
             limits,
             0x52c1_0000 + u64::from(case),
         );
-        let replay = judge_client_checked(&label, &[bytes.clone()], key, limits);
+        let replay = judge_client_checked(&label, std::slice::from_ref(&bytes), key, limits);
         assert_eq!(verdict, replay, "{label}: determinism");
     }
 }
@@ -1303,13 +1332,8 @@ fn handshake_client_budget_refusals() {
         let key = *rng.pick(&CLIENT_KEYS);
         let limits = draw_limits(&mut rng);
         let label = format!("handshake_client budget case {case}");
-        let (verdict, _) = client_budget_relation(
-            &label,
-            &bytes,
-            key,
-            limits,
-            0x53c1_0000 + u64::from(case),
-        );
+        let (verdict, _) =
+            client_budget_relation(&label, &bytes, key, limits, 0x53c1_0000 + u64::from(case));
         if let Verdict::Limit(refusal) = verdict {
             assert_refusal_is_bounded(&label, refusal, limits);
             refusals += 1;
@@ -1559,8 +1583,12 @@ fn handshake_shrinker_normal_forms_are_pinned() {
 
     // A 101 whose Upgrade header is wrong is the NotMatched channel; the
     // status line and terminator must survive.
-    let bad_upgrade = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: h2c\r\nConnection: Upgrade\r\n\r\n";
-    assert_eq!(client(bad_upgrade), Verdict::Reject(RejectChannel::NotMatched));
+    let bad_upgrade =
+        b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: h2c\r\nConnection: Upgrade\r\n\r\n";
+    assert_eq!(
+        client(bad_upgrade),
+        Verdict::Reject(RejectChannel::NotMatched)
+    );
     let shrunk = shrink_to_1_minimal(bad_upgrade, &client);
     assert_eq!(
         shrunk,

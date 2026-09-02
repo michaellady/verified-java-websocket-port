@@ -347,7 +347,10 @@ fn draw_command(rng: &mut SplitMix64) -> LocalCommand {
 enum Step {
     /// Producer A or B enqueues a drawn command through the shared bounded
     /// `CommandSender`.
-    Enqueue { producer: u8, command: LocalCommand },
+    Enqueue {
+        producer: u8,
+        command: LocalCommand,
+    },
     /// Drawn inbound transport bytes.
     Inbound(Vec<u8>),
     /// The transport accepted this many bytes of the offered suffix. Drawn
@@ -837,9 +840,7 @@ impl Run {
                 self.absorb(label, owned);
                 continue;
             }
-            if self.trace.outputs.len() == before + 1
-                && self.trace.outputs[before] == "idle"
-            {
+            if self.trace.outputs.len() == before + 1 && self.trace.outputs[before] == "idle" {
                 return;
             }
         }
@@ -898,7 +899,11 @@ fn execute_checked(
 }
 
 fn draw_role(rng: &mut SplitMix64) -> Role {
-    if rng.chance(2) { Role::Client } else { Role::Server }
+    if rng.chance(2) {
+        Role::Client
+    } else {
+        Role::Server
+    }
 }
 
 fn draw_policies(rng: &mut SplitMix64) -> (AutoResponsePolicy, CloseEchoPolicy) {
