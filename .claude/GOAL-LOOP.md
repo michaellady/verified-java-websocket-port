@@ -340,15 +340,57 @@ owner-attested scope and Codex's README states its maximum result is
 | US-016 | Complete close, EOF, and terminal-state behavior | e4/e5b merged; owner decisions retained | PRD done (owner-attested); contract | closure receipt |
 | US-017 | Drive bounded concurrent commands through one owner | closure receipt in drafts; `us017-ac2` (PASS r4) landed 2026-09-02 as 7262a29: typed receiver-drop and dropped-write dispositions, concurrency results bound to the tree by a checked gate; `evidence-validation` (r5) landed 2026-09-02 as 35edf8c: `results.json` cites both the exploration line and the five fatal-termination sweep lines, both compared by the harness and re-derived by `internal/formalplan`; 71 inert leaves of 327 remain, listed, record stays PARTIAL | PRD done (owner-attested); contract | judge against PRD criteria when they land |
 | US-018 | Add thin blocking TCP client and server adapters | passes; fixture made kernel-independent 2026-09-02 | PRD done (owner-attested); contract | receipt correction is owner's |
-| US-019 | Pass both pinned Autobahn conformance modes | `us019-autobahn` 1 ahead; `us019-native-run` BLOCK; AC1 owner gate (AWS) | PRD done (owner-attested); readiness only, no current-subject run | P1 self-review, then owner gate |
+| US-019 | Pass both pinned Autobahn conformance modes | `us019-autobahn` 1 ahead; `us019-native-run` at 4c45c6c (rounds 1–2 done: amended AC3 bar implemented and met at 246/247 both roles; finding 7 narrowed). Open against the criteria: AC1's bounded-resources clause unmet; AC4's mutant discrimination OUTSTANDING for no-echo and opcode-swap; **and a clause nobody had recorded — child US-009 AC1 requires "final promoted evidence must replay the complete Rust gate in that [Docker sbx] profile before US-019 or release acceptance", which this Linux cloud session cannot satisfy** | PRD done (owner-attested); readiness only, no current-subject run | P1 self-review, then owner gate |
 | US-020 | Close Java and Rust differential divergences | ledger-integrity landed 2026-09-02: delta ledger 48 records, 3 supersessions, unledgered_disagreements recomputed = 0 behind `ledger-gates`; public differential 74/74 for port and live Java; not yet judged against the PRD criteria | PRD done (owner-attested); 4 files | P2 gaps, then criteria |
-| US-021 | Close property, fuzz, and runtime evidence | not started | PRD done (owner-attested); 5 files | P3 |
+| US-021 | Close property, fuzz, and runtime evidence | NOT "not started" — corrected 2026-09-02 against the real criteria: `rust/ws-core/tests/adversarial_properties.rs` holds 28 tests over 685 lines, `rust/ws-driver/fuzz-seeds/us017/` holds the retained corpus, and the gates run debug and release. What is missing is not the evidence but the JUDGMENT: AC3 demands a pinned engine/toolchain, dictionary/corpus digest, a minimum bounded campaign, timeout/OOM/crash policy, artifact capture, replay command and an exact target manifest per target, and none of that has been assembled or checked. Status: evidence exists, unjudged against AC1–AC5 | PRD done (owner-attested); 5 files | P3 |
 | US-022 | Pass normalized mutation and protected evaluation | not started | PRD done (owner-attested); 6 files | P3 |
 | US-023 | Freeze the complete parity candidate | not started | PRD done (owner-attested); 9 files; every gate BLOCKED in its own register | P3 |
 | US-024 | Refine idiomatic Rust without changing parity | not started | PRD done (owner-attested); "complete" for owner-relaxed mechanics; 8 blockers | P3 |
 | US-025 | Decide every preregistered resource envelope | not started | PRD done (owner-attested); 1 file | P3, owner gate on hosts |
 | US-026 | Rehearse shadow, canary, soak, and Java rollback | not started | PRD done (owner-attested); contracts only | P3 |
 | US-027 | Independently accept and project the complete child snapshot | not started | PRD done (owner-attested); receipts: codex/reality owner-attested, human NOT_EXECUTED | P3, owner gate |
+
+## Criteria audit (first pass, 2026-09-02, after the PRD pack completed)
+
+The board was PROVISIONAL until part 7 arrived. This is the first pass reading
+the 27 rows against the real criteria rather than a reconstruction. It is a
+first pass, not a full re-judgment: only findings that change what the board
+says are recorded, and every row still marked "passes" from the pre-PRD era
+remains unjudged against its criteria unless named below.
+
+1. **US-021 was wrong, and in the direction that flatters us.** The row said
+   "not started". The tree holds 28 property tests over 685 lines, the
+   retained `us017` fuzz corpus, and debug plus release runtime checks in the
+   gates. The gap is judgment, not evidence: AC3 requires a pinned engine and
+   toolchain, a dictionary or corpus digest, a minimum bounded campaign, a
+   timeout/OOM/crash policy, artifact capture, a replay command and an exact
+   target manifest FOR EACH target, and none of that has been assembled. The
+   row now says "evidence exists, unjudged", which is the honest state.
+
+2. **A cross-story gate on US-019 that nobody had recorded.** Child US-009's
+   first criterion ends: "final promoted evidence must replay the complete
+   Rust gate in that profile before US-019 or release acceptance" — the
+   profile being the accepted US-007 Docker sbx one. So US-019 acceptance
+   depends on an sbx replay of the whole Rust gate, on top of its own AC1 and
+   AC4 gaps. Two self-review rounds ran on that branch today without this in
+   view. **Owner action: the sbx profile is the verified macOS one and this is
+   a Linux cloud session, so either the replay happens on the owner's macOS
+   host, or an equivalent runtime is qualified per the PRD's own fallback
+   policy ("qualify a semantically equivalent runtime with adversarial
+   canaries or block the affected claim; do not silently weaken controls").**
+
+3. **Four stories require BOTH blocking platforms and this session has one.**
+   US-017 AC4 (native-thread stress across both), US-018 AC2 (adapter
+   behaviour on macOS arm64 AND Linux x86_64), US-021 AC4 (runtime checks on
+   both) and US-023 AC1 (builds and tests pass on both) all name the pair.
+   This session is Linux x86_64 only. Every "passes" on those rows therefore
+   rests on evidence produced where macOS was available; nothing this session
+   validates can complete them on its own. Recorded so a future round does not
+   read a green Linux gate as satisfying a two-platform criterion.
+
+Not audited yet, and named rather than implied: US-001 to US-016, US-020, and
+US-022 to US-027 keep their pre-PRD statuses. Judging each against its
+criteria is future work, one story at a time.
 
 ## Plane comparison (read 2026-09-02)
 
@@ -396,3 +438,4 @@ a close echo (open, unledgered).
 - 2026-09-02T14:43:46Z routine: P1 self-review round 1 on claude/us019-native-run → 51c9fb4. Implemented the amended AC3 bar (owner decision 2026-08-28) as a checked verdict computed from both runs' report bytes: measured 246/247 agreement on BOTH roles, one residual difference (case 5.15), amended verdict MET, literal verdict still NEGATIVE and still computed; new autobahnsuitectl amended-ac3 prints both. Four findings on my own work, each fixed: (1) the first ledger check was existence-standing-in-for-identity — a planted regression on case 1.1.1 was ACCEPTED because the ledger cites that case for an unrelated handshake correction (sequence 47); replaced with an exact two-directional divergence register; (2) two of six checks were not isolated by any probe (the register's stale-entry direction, the document's value comparison) — both stayed GREEN when deleted, both now red via isolating probes; (3) the owner decision's own figures (client 245/247) are not what this tree holds — measured 246 on both roles, nothing adjusted to match; (4) the native evidence tree was UNPINNED (digest manifest pinned 1,506 emulated files, zero native) — new native-digest-manifest.json pins 1,048 with two consumers. Gates 8/8 + ledger ok, adapter-linkage over 6 sources; go 31 ok (+lab/portplan env); LINKAGE_REGENERATE=1 exit 0 then verify 0, no DAG delta; differential/exam not re-run and cannot have moved (no Rust byte changed). Not landed: three items remain, two of them owner gates (bounded-resources re-run; completing the two incomplete mutant runs). Mainline head 7c96266 before this record commit.
 - 2026-09-02T16:33:03Z routine: P1 self-review round 2 on claude/us019-native-run → 4c45c6c, review 01a04961 finding 7. The manifest was snapshot-derived (BuildManifest expands it from the reports it then judges; verify-manifest re-expanded the same sources and compared bytes). Now bound to four independent sources: internal/lab's frozen family policy and case-identity grammar (static-parsed from pinned suite source), internal/lab's pinned selected-case count cross-checked against this package's own constant, and the three committed wstest configs the legs were launched with — nothing had compared configs to policy before. Nine attacks accepted before this round are refused now (dropped case, duplicate keeping the count, excluded-family case, vanished family, narrowed declaration, dropped exclusion, malformed identity, divergent config, no config at all). ONE survives: a fabricated identity of the right shape in a selected family with the count intact — nothing here knows which identities the suite defines. Finding 7 is NARROWED NOT CLOSED and is not reported closed: TestTheResidualOfFinding7IsMeasuredNotClaimed asserts the gap and fails the day it closes. Closing it needs the pinned Autobahn source archive in the quarantine (403 through this proxy; upstream repo outside session scope) — OWNER ACTION; the registry parser to consume it already exists. Gates 8/8 + ledger ok; go 31 ok (+lab/portplan env); verify-manifest exit 0 with independent-constraints=ok; no Rust byte changed so differential/exam cannot have moved. Mainline head 6adf8f8 before this record commit.
 - 2026-09-02T17:38:03Z interactive: PRD pack COMPLETE — parts 5, 6a, 6b, 6c, 7a, 7b, 7c all received and stored verbatim under docs/prd-pack/. Part 5 = master US-010..US-019 (all passes:false behind US-008). Parts 6a-6c = the PRD metadata: 18 quality gates, reviewPolicy (fallbackAllowed:false, actualRuntimeReceiptRequired:true), nonGoals (which confirm this lab's exclusions: TLS/WSS, RFC 7692, proxies, reconnect, Android, Java API parity), the five assurance labels, the six readiness states, and the 21 owner decisions. Parts 7a-7c = THE CHILD PRD, this repository's own 27 stories with full acceptance criteria — the board is no longer PROVISIONAL. Recorded two reading cautions in the board header: master US-019 (retrospective) is not child US-019 (Autobahn conformance), and the child's 27 passes:true are owner-attested STORY_EXECUTION_COMPLETE while master US-008 reads 0/26 strongly accepted. Child US-019 AC3 confirms the literal strict-pass clause the owner amended on 2026-08-28, so the amended-bar work landed this session is judged against the right text. Mainline head 8a7f713 before this record commit.
+- 2026-09-02T18:24:10Z routine: criteria audit, first pass, now that the PRD pack is complete and the board is no longer PROVISIONAL. Did NOT take a top-of-queue unit: post-failure, the server-close parity gap, the divergence sweep and the Java formal bindings are all in flight with parallel agents, and duplicating them was the wrong move. Three findings recorded in a new 'Criteria audit' section: (1) US-021 was wrong in the flattering direction — the row said 'not started' but the tree holds 28 property tests over 685 lines plus the retained us017 fuzz corpus and debug/release runtime checks; the real gap is that AC3's per-target pinning (engine, corpus digest, bounded campaign, crash policy, artifact capture, replay command, target manifest) has never been assembled, so the row now reads 'evidence exists, unjudged'. (2) A cross-story gate on US-019 nobody had recorded: child US-009 AC1 requires the complete Rust gate to be replayed in the Docker sbx profile before US-019 or release acceptance — two self-review rounds ran on that branch today without it in view; OWNER ACTION, since sbx is the verified macOS profile and this is a Linux session. (3) Four stories (US-017 AC4, US-018 AC2, US-021 AC4, US-023 AC1) require BOTH macOS arm64 and Linux x86_64; this session has one, so no green Linux gate here can complete them. US-001..016, US-020 and US-022..027 keep their pre-PRD statuses and are named as not yet audited. Mainline head 6c88487 before this record commit.
