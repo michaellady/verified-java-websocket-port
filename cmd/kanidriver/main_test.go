@@ -629,3 +629,85 @@ func TestHarnessPackageIsNotSerializedIntoReceipts(t *testing.T) {
 		t.Fatalf("harness plan leaked its package into evidence JSON: %s", body)
 	}
 }
+
+// Plan sets were previously selected by comparing slice length, so a receipt was
+// validated against whichever registry generation happened to have the same number
+// of entries. Identity must come from content, never from a count.
+func TestPlanSetsAreSelectedByIdentityNotByCount(t *testing.T) {
+	// Every era must have a distinct identity, otherwise selection is ambiguous.
+	harnessSeen := map[string]string{}
+	for _, era := range harnessEras() {
+		identity, err := harnessPlanIdentity(era.Plans)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if previous, clash := harnessSeen[identity]; clash {
+			t.Errorf("harness eras %s and %s share an identity", previous, era.Key)
+		}
+		harnessSeen[identity] = era.Key
+	}
+	mutationSeen := map[string]string{}
+	for _, era := range mutationEras() {
+		identity, err := mutationPlanIdentity(era.Plans)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if previous, clash := mutationSeen[identity]; clash {
+			t.Errorf("mutation eras %s and %s share an identity", previous, era.Key)
+		}
+		mutationSeen[identity] = era.Key
+	}
+
+	// Each era resolves to itself.
+	for _, era := range harnessEras() {
+		resolved, ok := harnessPlansForReceipt(era.Plans)
+		if !ok || len(resolved) != len(era.Plans) {
+			t.Errorf("harness era %s does not resolve to itself", era.Key)
+		}
+	}
+	for _, era := range mutationEras() {
+		results := make([]mutationResult, len(era.Plans))
+		for index, plan := range era.Plans {
+			results[index] = mutationResult{
+				CanaryID: plan.CanaryID, HarnessID: plan.HarnessID, SourcePath: plan.SourcePath,
+				Mutation: plan.Description, ObligationIDs: plan.Obligations,
+			}
+		}
+		resolved, ok := mutationPlansForReceipt(results)
+		if !ok || len(resolved) != len(era.Plans) {
+			t.Errorf("mutation era %s does not resolve to itself", era.Key)
+		}
+	}
+
+	// A set with a valid count but foreign contents must be rejected outright.
+	// Under length matching this was silently accepted.
+	imposterHarnesses := append([]harnessPlan(nil), harnessPlans()...)
+	imposterHarnesses[0].TargetSymbol = "websocket_core::not::the::bound::symbol"
+	if _, ok := harnessPlansForReceipt(imposterHarnesses); ok {
+		t.Error("a harness set with the right count but wrong contents was accepted")
+	}
+
+	imposterMutations := make([]mutationResult, 0, len(mutationPlans()))
+	for _, plan := range mutationPlans() {
+		imposterMutations = append(imposterMutations, mutationResult{
+			CanaryID: plan.CanaryID, HarnessID: plan.HarnessID, SourcePath: plan.SourcePath,
+			Mutation: plan.Description, ObligationIDs: plan.Obligations,
+		})
+	}
+	imposterMutations[0].CanaryID = "canary.not-in-any-era"
+	if _, ok := mutationPlansForReceipt(imposterMutations); ok {
+		t.Error("a canary set with the right count but wrong contents was accepted")
+	}
+
+	// The specific historical hazard: a seventeenth harness must not let a
+	// sixteen-entry receipt resolve to a foreign era. Truncating the current era
+	// to an older era's length must not resolve unless the contents also match.
+	truncated := harnessPlans()[:len(priorHarnessPlans())]
+	if resolved, ok := harnessPlansForReceipt(truncated); ok {
+		identity, _ := harnessPlanIdentity(resolved)
+		expected, _ := harnessPlanIdentity(truncated)
+		if identity != expected {
+			t.Error("a truncated plan set resolved to a different era of the same length")
+		}
+	}
+}

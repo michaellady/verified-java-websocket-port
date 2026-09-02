@@ -549,10 +549,53 @@ func legacyHarnessPlans() []harnessPlan {
 	return result
 }
 
+// harnessEra names one retained generation of the harness registry. Eras carry an
+// explicit key and are selected by a content digest over the receipt-visible plan
+// fields. They are never selected by entry count: a count is not an identity, and
+// two different registry generations can share one.
+type harnessEra struct {
+	Key   string
+	Plans []harnessPlan
+}
+
+// harnessEras lists every registry generation a retained receipt may have been
+// produced under, newest first. Adding a harness means adding a new era at the
+// front and leaving the existing entries untouched, so historical receipts keep
+// resolving to the exact plan set they were produced under.
+func harnessEras() []harnessEra {
+	return []harnessEra{
+		{Key: "era.harness.protocol-fault", Plans: harnessPlans()},
+		{Key: "era.harness.close-terminal", Plans: priorHarnessPlans()},
+		{Key: "era.harness.control-ping-pong", Plans: preCloseHarnessPlans()},
+		{Key: "era.harness.fragment-assembly", Plans: preControlHarnessPlans()},
+		{Key: "era.harness.frame-encoder", Plans: preFragmentHarnessPlans()},
+		{Key: "era.harness.legacy-eleven", Plans: legacyHarnessPlans()},
+	}
+}
+
+// harnessPlanIdentity digests the receipt-visible harness plan fields. The same
+// function is applied to the registry and to the receipt, so a receipt resolves to
+// the era whose contents it actually records.
+func harnessPlanIdentity(plans []harnessPlan) (string, error) {
+	body, err := json.Marshal(plans)
+	if err != nil {
+		return "", err
+	}
+	return digestBytes(body), nil
+}
+
 func harnessPlansForReceipt(actual []harnessPlan) ([]harnessPlan, bool) {
-	for _, plans := range [][]harnessPlan{harnessPlans(), priorHarnessPlans(), preCloseHarnessPlans(), preControlHarnessPlans(), preFragmentHarnessPlans(), legacyHarnessPlans()} {
-		if equalHarnessPlans(actual, plans) {
-			return plans, true
+	observed, err := harnessPlanIdentity(actual)
+	if err != nil {
+		return nil, false
+	}
+	for _, era := range harnessEras() {
+		expected, eraErr := harnessPlanIdentity(era.Plans)
+		if eraErr != nil {
+			return nil, false
+		}
+		if expected == observed {
+			return era.Plans, true
 		}
 	}
 	return nil, false
@@ -669,10 +712,80 @@ func withoutObligations(actual []string, removed ...string) []string {
 	return result
 }
 
+// mutationEra names one retained generation of the mutation-canary registry.
+type mutationEra struct {
+	Key   string
+	Plans []mutationPlan
+}
+
+// mutationEras lists every canary registry generation a retained receipt may have
+// been produced under, newest first.
+func mutationEras() []mutationEra {
+	return []mutationEra{
+		{Key: "era.mutation.protocol-fault", Plans: mutationPlans()},
+		{Key: "era.mutation.close-flush", Plans: priorMutationPlans()},
+		{Key: "era.mutation.auto-pong", Plans: preCloseMutationPlans()},
+		{Key: "era.mutation.fragment-assembly", Plans: preControlMutationPlans()},
+		{Key: "era.mutation.frame-fin-bit", Plans: preFragmentMutationPlans()},
+		{Key: "era.mutation.legacy-thirteen", Plans: legacyThirteenMutationPlans()},
+		{Key: "era.mutation.legacy-eleven", Plans: legacyMutationPlans()},
+	}
+}
+
+// mutationIdentity is the receipt-visible projection of a canary. The retained
+// receipts do not record Find/Replace, so identity is taken over exactly the
+// fields a receipt does carry; those fields are separately reconciled against the
+// bound production source later in validateReceipt.
+type mutationIdentity struct {
+	CanaryID      string   `json:"canary_id"`
+	HarnessID     string   `json:"harness_id"`
+	SourcePath    string   `json:"source_path"`
+	Mutation      string   `json:"mutation"`
+	ObligationIDs []string `json:"obligation_ids"`
+}
+
+func mutationPlanIdentity(plans []mutationPlan) (string, error) {
+	projection := make([]mutationIdentity, len(plans))
+	for index, plan := range plans {
+		projection[index] = mutationIdentity{
+			CanaryID: plan.CanaryID, HarnessID: plan.HarnessID, SourcePath: plan.SourcePath,
+			Mutation: plan.Description, ObligationIDs: plan.Obligations,
+		}
+	}
+	body, err := json.Marshal(projection)
+	if err != nil {
+		return "", err
+	}
+	return digestBytes(body), nil
+}
+
+func mutationResultIdentity(results []mutationResult) (string, error) {
+	projection := make([]mutationIdentity, len(results))
+	for index, result := range results {
+		projection[index] = mutationIdentity{
+			CanaryID: result.CanaryID, HarnessID: result.HarnessID, SourcePath: result.SourcePath,
+			Mutation: result.Mutation, ObligationIDs: result.ObligationIDs,
+		}
+	}
+	body, err := json.Marshal(projection)
+	if err != nil {
+		return "", err
+	}
+	return digestBytes(body), nil
+}
+
 func mutationPlansForReceipt(results []mutationResult) ([]mutationPlan, bool) {
-	for _, plans := range [][]mutationPlan{mutationPlans(), priorMutationPlans(), preCloseMutationPlans(), preControlMutationPlans(), preFragmentMutationPlans(), legacyThirteenMutationPlans(), legacyMutationPlans()} {
-		if len(results) == len(plans) {
-			return plans, true
+	observed, err := mutationResultIdentity(results)
+	if err != nil {
+		return nil, false
+	}
+	for _, era := range mutationEras() {
+		expected, eraErr := mutationPlanIdentity(era.Plans)
+		if eraErr != nil {
+			return nil, false
+		}
+		if expected == observed {
+			return era.Plans, true
 		}
 	}
 	return nil, false
@@ -1406,8 +1519,6 @@ func equalStrings(left, right []string) bool {
 	return true
 }
 
-func equalHarnessPlans(left, right []harnessPlan) bool {
-	leftBody, leftErr := json.Marshal(left)
-	rightBody, rightErr := json.Marshal(right)
-	return leftErr == nil && rightErr == nil && bytes.Equal(leftBody, rightBody)
-}
+// equalHarnessPlans was the previous ad-hoc pairwise comparison used to pick a
+// plan set. Era selection now runs through harnessPlanIdentity, which digests the
+// same receipt-visible fields but keys them to an explicit era.
