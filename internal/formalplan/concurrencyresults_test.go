@@ -1724,3 +1724,323 @@ func TestConcurrencyResultsRefusesAnUnrecognisedRunField(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// The post-failure landing review's two findings
+// ---------------------------------------------------------------------------
+
+// crTestRevisionHistory returns the decoded revision_history array, so a case
+// can mutate one paragraph without re-deriving the path each time.
+func crTestRevisionHistory(t *testing.T, document map[string]any) []any {
+	t.Helper()
+	history, ok := document["revision_history"].([]any)
+	if !ok || len(history) < 2 {
+		t.Fatal("results document carries no revision_history with at least two paragraphs")
+	}
+	return history
+}
+
+func crTestRevisionEntry(t *testing.T, document map[string]any, index int) map[string]any {
+	t.Helper()
+	history := crTestRevisionHistory(t, document)
+	if index < 0 {
+		index += len(history)
+	}
+	entry, ok := history[index].(map[string]any)
+	if !ok {
+		t.Fatalf("revision_history[%d] is not an object", index)
+	}
+	return entry
+}
+
+// TestConcurrencyResultsRefusesARevisionHistoryThatIsNotOne is finding 2 of
+// drafts/self-review/post-failure-landing-review.md, turned into checks.
+//
+// THE FINDING. `revision_note` was one undifferentiated string, and the only
+// rule any validator applied to it was that it not be empty. At the
+// post-failure landing it therefore asserted, in the present tense, "79,920
+// schedules ... 56,777/23,143 closed/halted" while the document beside it
+// recorded 81,180 / 49 / 81,131, and no check could say so. Four rounds of the
+// leaf enumeration listed the field INERT.
+//
+// EACH CASE BELOW WAS RUN AGAINST THE VALIDATOR WITH crValidateRevisionHistory
+// UNREGISTERED AND OBSERVED TO PASS AT ZERO FINDINGS, so none of them is a
+// case that reports clean because the document happens to be fine. The
+// deletion was of the CALL, not of the function, so the package still compiled
+// and the reading is a real one - see
+// drafts/self-review/concurrency-coverage-disclosure.md.
+func TestConcurrencyResultsRefusesARevisionHistoryThatIsNotOne(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			// THE EXACT SHAPE OF FINDING 2: the current paragraph quotes the
+			// counters of a predecessor. This is the edit that produced the
+			// finding, and before this field existed nothing in the tree
+			// disagreed with it.
+			name: "the current paragraph quotes superseded counters",
+			mutate: func(t *testing.T, document map[string]any) {
+				entry := crTestRevisionEntry(t, document, -1)
+				entry["counters_quoted"] = map[string]any{
+					"schedules": float64(79920), "closed_terminal_runs": float64(56777),
+					"failure_halted_runs": float64(23143),
+				}
+			},
+		},
+		{
+			// The masquerade in the other direction: a block wearing a
+			// history label while quoting today's reading is not history.
+			name: "a superseded paragraph quotes the current counters",
+			mutate: func(t *testing.T, document map[string]any) {
+				current := crTestRevisionEntry(t, document, -1)
+				crTestRevisionEntry(t, document, 0)["counters_quoted"] = current["counters_quoted"]
+			},
+		},
+		{
+			name: "the counters quoted are not an exploration reading",
+			mutate: func(t *testing.T, document map[string]any) {
+				counters, ok := crTestRevisionEntry(t, document, 0)["counters_quoted"].(map[string]any)
+				if !ok {
+					t.Fatal("revision_history[0] carries no counters_quoted object")
+				}
+				counters["closed_terminal_runs"] = counters["closed_terminal_runs"].(float64) + 1
+			},
+		},
+		{
+			name: "the history does not chain",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestRevisionEntry(t, document, 0)["superseded_by"] = crTestRevisionEntry(t, document, -1)["revision"]
+			},
+		},
+		{
+			name: "two paragraphs claim to describe the document",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestRevisionEntry(t, document, 0)["status"] = "CURRENT"
+			},
+		},
+		{
+			name: "no paragraph describes the document",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestRevisionEntry(t, document, -1)["status"] = "SUPERSEDED"
+			},
+		},
+		{
+			// The paragraph is cut short. A containment or non-empty rule
+			// accepts this; the closing stamp does not.
+			name: "a paragraph is truncated",
+			mutate: func(t *testing.T, document map[string]any) {
+				entry := crTestRevisionEntry(t, document, 0)
+				note, ok := entry["note"].(string)
+				if !ok {
+					t.Fatal("revision_history[0] carries no note")
+				}
+				entry["note"] = note[:len(note)/2]
+			},
+		},
+		{
+			// A neighbour's paragraph moved into this entry. Both are real
+			// prose from this same document, which is what makes it the
+			// plausible forgery rather than an obviously wrong one.
+			name: "a paragraph is swapped for its neighbour's",
+			mutate: func(t *testing.T, document map[string]any) {
+				first, second := crTestRevisionEntry(t, document, 0), crTestRevisionEntry(t, document, 1)
+				first["note"] = second["note"]
+			},
+		},
+		{
+			name: "a paragraph has no quotable identity",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestRevisionEntry(t, document, 0)["revision"] = "ROUND 2"
+			},
+		},
+		{
+			name: "the whole history is dropped",
+			mutate: func(t *testing.T, document map[string]any) {
+				document["revision_history"] = []any{}
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_REVISION_HISTORY_UNSOUND")
+		})
+	}
+}
+
+// TestConcurrencyResultsDerivesScenarioProseFromTheHarness is the other half
+// of the revision_note class: prose that reads as a justification and rests on
+// nothing. bounds.scenario_shapes[*].models and .why_explored say what a
+// scenario stands for and why it is explored - the sentences that make a
+// scenario a real adapter shape rather than one chosen to make a gate green -
+// and until this branch they were attested.
+//
+// Run with crValidateScenarioProse unregistered: every case passed at zero
+// findings.
+func TestConcurrencyResultsDerivesScenarioProseFromTheHarness(t *testing.T) {
+	shapeAt := func(t *testing.T, document map[string]any, index int) map[string]any {
+		t.Helper()
+		shapes, ok := crTestSection(t, document, "bounds")["scenario_shapes"].([]any)
+		if !ok || len(shapes) < 2 {
+			t.Fatal("bounds carries no scenario_shapes array with at least two entries")
+		}
+		shape, ok := shapes[index].(map[string]any)
+		if !ok {
+			t.Fatalf("bounds.scenario_shapes[%d] is not an object", index)
+		}
+		return shape
+	}
+	for _, testCase := range []struct {
+		name   string
+		code   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			// The softening the enumeration lists as a live candidate: half a
+			// justification still reads as a justification, and a containment
+			// check accepts it.
+			name: "the justification is truncated",
+			code: "RESULTS_SCENARIO_PROSE_CONTRADICTED",
+			mutate: func(t *testing.T, document map[string]any) {
+				shape := shapeAt(t, document, 0)
+				text, ok := shape["why_explored"].(string)
+				if !ok {
+					t.Fatal("scenario_shapes[0] carries no why_explored")
+				}
+				shape["why_explored"] = text[:len(text)/2]
+			},
+		},
+		{
+			name: "a neighbour scenario's prose is used",
+			code: "RESULTS_SCENARIO_PROSE_CONTRADICTED",
+			mutate: func(t *testing.T, document map[string]any) {
+				shapeAt(t, document, 0)["models"] = shapeAt(t, document, 1)["models"]
+			},
+		},
+		{
+			name: "a number inside the justification is moved",
+			code: "RESULTS_SCENARIO_PROSE_CONTRADICTED",
+			mutate: func(t *testing.T, document map[string]any) {
+				shape := shapeAt(t, document, 1)
+				text, ok := shape["why_explored"].(string)
+				if !ok {
+					t.Fatal("scenario_shapes[1] carries no why_explored")
+				}
+				shape["why_explored"] = strings.Replace(text, "1260", "1261", 1)
+			},
+		},
+		{
+			// A scenario the harness's SCENARIOS table does not bind: its
+			// prose derives from nothing, which must be refused rather than
+			// skipped.
+			name: "the scenario is not one the harness enumerates",
+			code: "RESULTS_SCENARIO_PROSE_UNDERIVED",
+			mutate: func(t *testing.T, document map[string]any) {
+				shapeAt(t, document, 0)["name"] = "clean-finish-inbound-pong"
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, testCase.code)
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesACleanRouteReadingThatIsImpossible is finding 1
+// of the same review, on the accounting side. The review's whole point is that
+// a RUN count is not a coverage reading, so the coverage readings are recorded
+// beside it - and a recorded number is only as good as the relations it has to
+// satisfy.
+//
+// Run with the clean-route block of crValidateAccounting deleted: every case
+// passed at zero findings.
+func TestConcurrencyResultsRefusesACleanRouteReadingThatIsImpossible(t *testing.T) {
+	for _, testCase := range []struct {
+		name  string
+		field string
+		value float64
+	}{
+		{"more distinct clean traces than clean runs", "distinct_clean_terminal_digests", 2000},
+		{"clean runs that carry no trace at all", "distinct_clean_terminal_digests", 0},
+		{"clean runs belonging to no scenario", "clean_terminal_scenarios", 0},
+		{"a clean terminal reached in more scenarios than exist", "clean_terminal_scenarios", 9},
+		{"more halted terminals than halted runs", "halted_terminals", 99999},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			crTestSection(t, document, "execution")[testCase.field] = testCase.value
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_ACCOUNTING_CONTRADICTION")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesADroppedCleanRouteCeiling is the finding-1
+// disclosure itself. The review checked all twelve limitations and none
+// mentioned the collapse; the thirteenth states it, so it must not be
+// removable, renameable or quietly re-numbered.
+//
+// Run with the limitations.clean_route_ceiling expectation deleted from
+// crValidateQuotedCounters: every case passed at zero findings.
+func TestConcurrencyResultsRefusesADroppedCleanRouteCeiling(t *testing.T) {
+	locate := func(t *testing.T, document map[string]any) ([]any, int) {
+		t.Helper()
+		limitations, ok := document["limitations"].([]any)
+		if !ok {
+			t.Fatal("results document carries no limitations array")
+		}
+		for index, entry := range limitations {
+			if text, ok := entry.(string); ok && strings.HasPrefix(strings.TrimSpace(text), "CLEAN-ROUTE COVERAGE CEILING:") {
+				return limitations, index
+			}
+		}
+		t.Fatal("no limitation states the clean-route coverage ceiling")
+		return nil, -1
+	}
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			name: "the ceiling is deleted outright",
+			mutate: func(t *testing.T, document map[string]any) {
+				limitations, index := locate(t, document)
+				document["limitations"] = append(append([]any{}, limitations[:index]...), limitations[index+1:]...)
+			},
+		},
+		{
+			name: "the ceiling loses the heading that makes it findable",
+			mutate: func(t *testing.T, document map[string]any) {
+				limitations, index := locate(t, document)
+				limitations[index] = "COVERAGE NOTE: " + limitations[index].(string)
+			},
+		},
+		{
+			name: "the ceiling understates the halted remainder",
+			mutate: func(t *testing.T, document map[string]any) {
+				limitations, index := locate(t, document)
+				limitations[index] = strings.Replace(limitations[index].(string), "90984", "9084", 1)
+			},
+		},
+		{
+			name: "the ceiling is softened to its first half",
+			mutate: func(t *testing.T, document map[string]any) {
+				limitations, index := locate(t, document)
+				text := limitations[index].(string)
+				limitations[index] = text[:len(text)/2]
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_PROSE_CONTRADICTS_COUNTERS")
+		})
+	}
+}

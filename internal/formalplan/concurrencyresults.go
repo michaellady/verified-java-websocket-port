@@ -307,15 +307,15 @@ type crExecutedRun struct {
 }
 
 type crExecution struct {
-	ExploredSchedules       int                     `json:"explored_schedules"`
-	ExhaustiveWithinBound   bool                    `json:"exhaustive_within_bound"`
-	Truncated               bool                    `json:"truncated"`
-	EnumerationBranches     int                     `json:"enumeration_branches"`
-	DistinctScheduleDigests int                     `json:"distinct_schedule_digests"`
-	Executions              int                     `json:"executions"`
-	ReplayDeterminism       string                  `json:"replay_determinism"`
-	DistinctTraceDigests    int                     `json:"distinct_semantic_trace_digests"`
-	ClosedTerminalRuns      int                     `json:"closed_terminal_runs"`
+	ExploredSchedules       int    `json:"explored_schedules"`
+	ExhaustiveWithinBound   bool   `json:"exhaustive_within_bound"`
+	Truncated               bool   `json:"truncated"`
+	EnumerationBranches     int    `json:"enumeration_branches"`
+	DistinctScheduleDigests int    `json:"distinct_schedule_digests"`
+	Executions              int    `json:"executions"`
+	ReplayDeterminism       string `json:"replay_determinism"`
+	DistinctTraceDigests    int    `json:"distinct_semantic_trace_digests"`
+	ClosedTerminalRuns      int    `json:"closed_terminal_runs"`
 	// CleanTerminalDigests, CleanTerminalScenarios and HaltedTerminals are
 	// the clean-route COVERAGE readings, added on
 	// claude/concurrency-coverage-disclosure in answer to the post-failure
@@ -329,18 +329,18 @@ type crExecution struct {
 	// recorded beside it and re-derived from the same cited line. HaltedTerminals
 	// is the clean Terminal taken by a run that LATER halted: the harness has
 	// always computed it and always thrown it away.
-	CleanTerminalDigests   int `json:"distinct_clean_terminal_digests"`
-	CleanTerminalScenarios int `json:"clean_terminal_scenarios"`
-	HaltedTerminals        int `json:"halted_terminals"`
-	FailureHaltedRuns      int `json:"failure_halted_runs"`
-	TerminalExclusivity     string                  `json:"terminal_disposition_exclusivity"`
-	Counters                crCounters              `json:"counters"`
-	WeakFairness            []string                `json:"weak_fairness"`
-	ProducerAdmissionClaim  bool                    `json:"producer_admission_fairness_claimed"`
-	ExecutedRun             *crExecutedRun          `json:"executed_run"`
-	Outcome                 string                  `json:"outcome"`
-	NewDispositionCoverage  string                  `json:"new_disposition_coverage"`
-	FatalTerminationSweep   crFatalTerminationSweep `json:"fatal_termination_sweep"`
+	CleanTerminalDigests   int                     `json:"distinct_clean_terminal_digests"`
+	CleanTerminalScenarios int                     `json:"clean_terminal_scenarios"`
+	HaltedTerminals        int                     `json:"halted_terminals"`
+	FailureHaltedRuns      int                     `json:"failure_halted_runs"`
+	TerminalExclusivity    string                  `json:"terminal_disposition_exclusivity"`
+	Counters               crCounters              `json:"counters"`
+	WeakFairness           []string                `json:"weak_fairness"`
+	ProducerAdmissionClaim bool                    `json:"producer_admission_fairness_claimed"`
+	ExecutedRun            *crExecutedRun          `json:"executed_run"`
+	Outcome                string                  `json:"outcome"`
+	NewDispositionCoverage string                  `json:"new_disposition_coverage"`
+	FatalTerminationSweep  crFatalTerminationSweep `json:"fatal_termination_sweep"`
 }
 
 // crFatalTerminationSweep models the US-017 AC2 fatal-termination sweep block
@@ -466,32 +466,32 @@ type crNativeStress struct {
 }
 
 type crResults struct {
-	SchemaVersion        string              `json:"schema_version"`
-	EvidenceKind         string              `json:"evidence_kind"`
-	StoryID              string              `json:"story_id"`
-	State                string              `json:"state"`
-	ClaimScope           string              `json:"claim_scope"`
-	ClaimScopeStatement  string              `json:"claim_scope_statement"`
-	RecordedAt           string              `json:"recorded_at"`
-	RecordedAtProvenance string              `json:"recorded_at_provenance"`
+	SchemaVersion        string `json:"schema_version"`
+	EvidenceKind         string `json:"evidence_kind"`
+	StoryID              string `json:"story_id"`
+	State                string `json:"state"`
+	ClaimScope           string `json:"claim_scope"`
+	ClaimScopeStatement  string `json:"claim_scope_statement"`
+	RecordedAt           string `json:"recorded_at"`
+	RecordedAtProvenance string `json:"recorded_at_provenance"`
 	// RevisionHistory replaces the single `revision_note` string that carried
 	// every accumulated paragraph undifferentiated. See crRevision.
-	RevisionHistory      []crRevision        `json:"revision_history"`
-	Target               crTarget            `json:"target"`
-	PreregisteredPlan    crPreregisteredPlan `json:"preregistered_plan"`
-	Bounds               crBounds            `json:"bounds"`
-	AdapterModel         string              `json:"adapter_model"`
-	Execution            crExecution         `json:"execution"`
-	Invariants           []crInvariant       `json:"invariants"`
-	TerminalModel        string              `json:"terminal_disposition_model"`
-	DefectsFoundFixed    []crDefect          `json:"defects_found_and_fixed"`
-	Retention            crRetention         `json:"retention"`
-	NativeStress         crNativeStress      `json:"native_stress"`
-	Limitations          []string            `json:"limitations"`
-	Assurance            string              `json:"assurance"`
-	IndependentReview    bool                `json:"independent_review_claimed"`
-	Production           bool                `json:"production"`
-	Publication          bool                `json:"publication"`
+	RevisionHistory   []crRevision        `json:"revision_history"`
+	Target            crTarget            `json:"target"`
+	PreregisteredPlan crPreregisteredPlan `json:"preregistered_plan"`
+	Bounds            crBounds            `json:"bounds"`
+	AdapterModel      string              `json:"adapter_model"`
+	Execution         crExecution         `json:"execution"`
+	Invariants        []crInvariant       `json:"invariants"`
+	TerminalModel     string              `json:"terminal_disposition_model"`
+	DefectsFoundFixed []crDefect          `json:"defects_found_and_fixed"`
+	Retention         crRetention         `json:"retention"`
+	NativeStress      crNativeStress      `json:"native_stress"`
+	Limitations       []string            `json:"limitations"`
+	Assurance         string              `json:"assurance"`
+	IndependentReview bool                `json:"independent_review_claimed"`
+	Production        bool                `json:"production"`
+	Publication       bool                `json:"publication"`
 }
 
 // ValidateConcurrencyResults reports every way the committed exploration
@@ -819,15 +819,15 @@ var crRunFieldToCounter = map[string]string{
 	// 7 and editing the small-number prose passed both validators at exit 0.
 	// The exploration holds all four as constants, so it now prints them and
 	// they are re-derived like every other number.
-	"command_queue_capacity":  "bounds.command_queue_capacity",
-	"write_queue_capacity":    "bounds.write_queue_capacity",
-	"event_queue_capacity":    "bounds.event_queue_capacity",
-	"drain_budget_polls":      "bounds.drain_budget_polls",
-	"schedules":               "execution.explored_schedules",
-	"branches":                "execution.enumeration_branches",
-	"executions":              "execution.executions",
-	"distinct_trace_digests":  "execution.distinct_semantic_trace_digests",
-	"closed_terminal_runs":    "execution.closed_terminal_runs",
+	"command_queue_capacity": "bounds.command_queue_capacity",
+	"write_queue_capacity":   "bounds.write_queue_capacity",
+	"event_queue_capacity":   "bounds.event_queue_capacity",
+	"drain_budget_polls":     "bounds.drain_budget_polls",
+	"schedules":              "execution.explored_schedules",
+	"branches":               "execution.enumeration_branches",
+	"executions":             "execution.executions",
+	"distinct_trace_digests": "execution.distinct_semantic_trace_digests",
+	"closed_terminal_runs":   "execution.closed_terminal_runs",
 	// The clean-route coverage readings the harness prints since
 	// claude/concurrency-coverage-disclosure. They are re-derived like every
 	// other counter, which is what stops the record saying "1176 clean runs"
@@ -836,17 +836,17 @@ var crRunFieldToCounter = map[string]string{
 	"clean_terminal_scenarios": "execution.clean_terminal_scenarios",
 	"halted_terminals":         "execution.halted_terminals",
 	"failure_halted_runs":      "execution.failure_halted_runs",
-	"accepted":                "execution.counters.accepted_commands",
-	"refused_full":            "execution.counters.queue_full_refusals",
-	"applied":                 "execution.counters.applied",
-	"rejected":                "execution.counters.typed_rejections",
-	"events":                  "execution.counters.events_drained",
-	"failures":                "execution.counters.surfaced_typed_failures",
-	"deferred_output_pending": "execution.counters.deferred_output_pending",
-	"deferred_command_turn":   "execution.counters.deferred_command_turn",
-	"deferred_backpressure":   "execution.counters.deferred_backpressure",
-	"rejected_inputs":         "execution.counters.typed_input_rejections",
-	"max_drain_polls":         "execution.counters.max_drain_polls_observed",
+	"accepted":                 "execution.counters.accepted_commands",
+	"refused_full":             "execution.counters.queue_full_refusals",
+	"applied":                  "execution.counters.applied",
+	"rejected":                 "execution.counters.typed_rejections",
+	"events":                   "execution.counters.events_drained",
+	"failures":                 "execution.counters.surfaced_typed_failures",
+	"deferred_output_pending":  "execution.counters.deferred_output_pending",
+	"deferred_command_turn":    "execution.counters.deferred_command_turn",
+	"deferred_backpressure":    "execution.counters.deferred_backpressure",
+	"rejected_inputs":          "execution.counters.typed_input_rejections",
+	"max_drain_polls":          "execution.counters.max_drain_polls_observed",
 	// The six write-drop and receiver-drop tokens the harness prints since
 	// claude/us017-ac2 (landed 7262a29): each re-derives the counter the
 	// document records under execution.counters, so a document that keeps the
@@ -1947,8 +1947,8 @@ func crValidateQuotedCounters(results crResults, path string) []ModelFinding {
 			// tree no longer produces, and they are bound instead by
 			// crRunFieldToCounter and by revision_history's superseded
 			// entries respectively.
-			name:     "limitations.clean_route_ceiling",
-			text:     crCleanRouteLimitation(results),
+			name: "limitations.clean_route_ceiling",
+			text: crCleanRouteLimitation(results),
 			expected: []int{
 				execution.ExploredSchedules, execution.ClosedTerminalRuns,
 				execution.FailureHaltedRuns, execution.DistinctTraceDigests,
