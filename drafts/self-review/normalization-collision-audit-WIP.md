@@ -55,3 +55,26 @@ the whole scored surface is: `java_observable` ∈ {accept,reject,incomplete},
 head is discarded — the adapter says so in its own comment.
 
 Status: WIP, pushed early. Next: constructive probes.
+
+## Confirmed by construction (2026-09-02)
+
+### NC-01 — error rows erase all four observation streams
+`[send_text "AA", send_close 999]` vs `[send_text "BB", send_close 999]`.
+WITNESS (drop the failing step): the two `ok` rows differ at
+`frames[0].payload_base64` (`QUE=` vs `QkI=`) — the distinction IS
+representable. COLLISION: the two `error` rows are identical apart from
+`request_id`/`request_digest`. A differing outbound text payload is invisible.
+
+### NC-02 — the output-limit projection erases EVERYTHING, `runtime` included
+`max_output_bytes: 512`. `[send_text "AAAA"]` vs `[send_close 1000 "z"]` —
+behaviours that differ in `final_state` (open vs closing), in `close`
+(null vs an object), in `transitions` (empty vs one) and in every event.
+Both collapse to the same six keys with a CONSTANT detail string.
+`runtime` is absent, so a Java row and a Rust row for the same request are
+byte-identical: the differential cannot tell which artifact answered.
+
+### NC-03 — mask keys are globally unrepresentable (quirk Q28)
+Wire `818201020304696b` vs `8182aabbccddc2d2` — different octets, same
+unmasked payload. Responses identical modulo identity. No field in the
+observation vocabulary can EVER carry a mask key, so no witness exists;
+this is a global erasure, not a projection-local one.
