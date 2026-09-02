@@ -20,6 +20,13 @@
 //	    tree file unpinned. This is the digest manifest's CONSUMER: without
 //	    it the manifest is a generated artifact nothing ever reads.
 //
+//	amended-ac3 -manifest FILE -role R -subject-index FILE -subject-cases DIR
+//	    -baseline-index FILE -baseline-cases DIR -register FILE -ledger FILE
+//	    The AC3 bar as the owner amended it on 2026-08-28: per-case
+//	    behavior-class agreement with the pinned Java baseline, every residual
+//	    difference registered with the ledger record that analyses it. Prints
+//	    the literal reading too, which stays NEGATIVE on this run.
+//
 //	reconcile -manifest FILE -index FILE [-cases DIR] [-subject S]
 //	          [-require-agent NAME] [-out FILE]
 //	    Count a report against the manifest in every dimension and print the
@@ -66,6 +73,8 @@ func run(arguments []string) int {
 		return reconcile(arguments[1:])
 	case "digest-manifest":
 		return digestManifest(arguments[1:])
+	case "amended-ac3":
+		return amendedAC3(os.Args[2:])
 	case "verify-digest-manifest":
 		return verifyDigestManifest(arguments[1:])
 	default:
@@ -169,6 +178,109 @@ func buildManifest(arguments []string, write bool) int {
 	}
 	fmt.Printf("manifest=%s VERIFIED cases=%d\n", *manifestPath, manifest.ExpectedCaseCount)
 	return exitOK
+}
+
+// amendedAC3 computes the amended AC3 verdict from two runs' own reports.
+//
+// Every input is required. A default would arm nothing: without the baseline
+// there is nothing to agree with, without the register a divergence is
+// unaccounted for rather than waived, and without the ledger the register's
+// analysis claim resolves to nothing.
+func amendedAC3(arguments []string) int {
+	flags := flag.NewFlagSet("amended-ac3", flag.ContinueOnError)
+	manifestPath := flags.String("manifest", "autobahn/case-manifest.json", "manifest path")
+	role := flags.String("role", "", "client|server")
+	subjectIndex := flags.String("subject-index", "", "the port's wstest index.json")
+	subjectCases := flags.String("subject-cases", "", "the port's per-case report directory")
+	baselineIndex := flags.String("baseline-index", "", "the pinned Java baseline's index.json")
+	baselineCases := flags.String("baseline-cases", "", "the baseline's per-case report directory")
+	registerPath := flags.String("register", autobahnsuite.DivergenceRegisterPath,
+		"committed divergence register")
+	ledgerPath := flags.String("ledger", "evidence/java/behavior-delta-ledger.json",
+		"behavior-delta ledger the register's entries must resolve in")
+	if err := flags.Parse(arguments); err != nil {
+		return exitUsage
+	}
+	for name, value := range map[string]string{
+		"-role": *role, "-subject-index": *subjectIndex, "-subject-cases": *subjectCases,
+		"-baseline-index": *baselineIndex, "-baseline-cases": *baselineCases,
+	} {
+		if value == "" {
+			fmt.Fprintf(os.Stderr, "amended-ac3: %s is required\n", name)
+			return exitUsage
+		}
+	}
+	raw, err := os.ReadFile(*manifestPath) //nolint:gosec // operator-supplied path
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "amended-ac3: %v\n", err)
+		return exitGate
+	}
+	var manifest autobahnsuite.Manifest
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		fmt.Fprintf(os.Stderr, "amended-ac3: parse manifest: %v\n", err)
+		return exitGate
+	}
+	register, err := autobahnsuite.ReadDivergenceRegister(*registerPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "amended-ac3: %v\n", err)
+		return exitGate
+	}
+	problems, err := autobahnsuite.VerifyRegisterAgainstLedger(register, *ledgerPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "amended-ac3: %v\n", err)
+		return exitGate
+	}
+	status := exitOK
+	for _, problem := range problems {
+		fmt.Fprintf(os.Stderr, "register-ledger %s\n", problem)
+		status = exitGate
+	}
+	subjectLedger, err := autobahnsuite.Reconcile(&manifest, *subjectIndex, *subjectCases, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "amended-ac3: subject: %v\n", err)
+		return exitGate
+	}
+	baselineLedger, err := autobahnsuite.Reconcile(&manifest, *baselineIndex, *baselineCases, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "amended-ac3: baseline: %v\n", err)
+		return exitGate
+	}
+	agreement, err := autobahnsuite.CompareToBaseline(&manifest, autobahnsuite.Role(*role),
+		*subjectIndex, *baselineIndex, register)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "amended-ac3: %v\n", err)
+		return exitGate
+	}
+	for _, problem := range autobahnsuite.VerifyRegisterIsExact(register, agreement) {
+		fmt.Fprintf(os.Stderr, "register-exactness %s\n", problem)
+		status = exitGate
+	}
+	for _, identity := range agreement.Identities {
+		fmt.Printf("identity %s\n", identity)
+	}
+	for _, detail := range agreement.DivergenceDetail {
+		fmt.Printf("divergence %s\n", detail)
+	}
+	fmt.Printf(
+		"agreement role=%s subject=%s baseline=%s agree=%d subject_stricter=%d "+
+			"subject_weaker=%d differ=%d unobserved=%d registered=%d unregistered=%d of %d\n",
+		agreement.Role, agreement.SubjectAgent, agreement.BaselineAgent, agreement.Agree,
+		agreement.SubjectStricter, agreement.SubjectWeaker, agreement.Differ,
+		agreement.Unobserved, agreement.RegisteredDelta, agreement.UnregisteredDelta,
+		agreement.Expected)
+	// BOTH readings are printed. The amendment did not repeal the literal
+	// clause; it changed which one AC3 is judged by, and a reader is owed
+	// the other.
+	literal := autobahnsuite.Discriminate(autobahnsuite.SubjectUnderTest, subjectLedger)
+	fmt.Printf("verdict reading=literal as_expected=%t reason=%q\n",
+		literal.AsExpected, literal.Reason)
+	amended := autobahnsuite.DiscriminateAgainstBaseline(subjectLedger, baselineLedger, agreement)
+	fmt.Printf("verdict reading=amended as_expected=%t reason=%q\n",
+		amended.AsExpected, amended.Reason)
+	if !amended.AsExpected {
+		status = exitGate
+	}
+	return status
 }
 
 func reconcile(arguments []string) int {

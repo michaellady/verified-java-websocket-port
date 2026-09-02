@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,6 +27,13 @@ func repoRoot(t *testing.T) string {
 const (
 	devTree           = "evidence/autobahn/dev-aarch64-nonauthoritative"
 	devDigestManifest = "evidence/autobahn/digest-manifest.json"
+	// The NATIVE x86_64 tree carries the AC1/AC5 provenance run, the pinned
+	// Java baseline, and the comparison the amended AC3 bar rests on. It was
+	// unpinned until the 2026-09-02 self-review round: the digest manifest
+	// pinned only the emulated tree, so every file the bar depends on could
+	// be edited or replaced with no gate noticing.
+	nativeTree           = "evidence/autobahn/native-x86_64-provenance"
+	nativeDigestManifest = "evidence/autobahn/native-digest-manifest.json"
 )
 
 // TestTheCommittedDigestManifestStillDescribesTheTree is the digest
@@ -50,6 +58,66 @@ func TestTheCommittedDigestManifestStillDescribesTheTree(t *testing.T) {
 	if status != exitOK {
 		t.Errorf("verify-digest-manifest exited %d, want %d: the committed digests no "+
 			"longer describe the evidence tree", status, exitOK)
+	}
+}
+
+// TestTheNativeDigestManifestStillDescribesTheTree is the same consumer for
+// the native x86_64 evidence.
+//
+// The amended AC3 bar is computed from four index files in this tree and
+// checked against a register and a comparison document that also live in it.
+// Pinning the emulated tree and not this one left exactly the evidence the
+// bar rests on unbound.
+func TestTheNativeDigestManifestStillDescribesTheTree(t *testing.T) {
+	root := repoRoot(t)
+	manifest := filepath.Join(root, nativeDigestManifest)
+	if _, err := os.Stat(manifest); err != nil {
+		t.Fatalf("load-bearing digest manifest is missing, so this gate would "+
+			"otherwise pass while verifying nothing: %v", err)
+	}
+	status := run([]string{
+		"verify-digest-manifest",
+		"-root", root,
+		"-tree", nativeTree,
+		"-manifest", nativeDigestManifest,
+	})
+	if status != exitOK {
+		t.Errorf("verify-digest-manifest exited %d, want %d: the committed digests no "+
+			"longer describe the native evidence tree", status, exitOK)
+	}
+}
+
+// TestTheNativeManifestPinsTheFilesTheAmendedBarReads names the files the
+// amended AC3 verdict is computed from and requires each to be pinned.
+//
+// A manifest that pins a thousand files and misses the four that matter
+// would verify clean and protect nothing that the bar depends on.
+func TestTheNativeManifestPinsTheFilesTheAmendedBarReads(t *testing.T) {
+	root := repoRoot(t)
+	raw, err := os.ReadFile(filepath.Join(root, nativeDigestManifest))
+	if err != nil {
+		t.Fatalf("read native digest manifest: %v", err)
+	}
+	var manifest digestManifestDocument
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatalf("parse native digest manifest: %v", err)
+	}
+	pinned := map[string]bool{}
+	for _, entry := range manifest.Files {
+		pinned[entry.Path] = true
+	}
+	for _, required := range []string{
+		nativeTree + "/rust/fuzzingserver-run1/index.json",
+		nativeTree + "/rust/fuzzingclient-run1/index.json",
+		nativeTree + "/java/fuzzingserver-run1/index.json",
+		nativeTree + "/java/fuzzingclient-run1/index.json",
+		nativeTree + "/comparison/java-vs-rust-per-case.json",
+		nativeTree + "/comparison/behavior-class-divergences.json",
+	} {
+		if !pinned[required] {
+			t.Errorf("the amended AC3 bar reads %s and the digest manifest does not pin it",
+				required)
+		}
 	}
 }
 
