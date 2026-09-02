@@ -1249,7 +1249,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/client.rs",
       "line": 85,
-      "sha256": "sha256:c09b83b2ded83909f69e09c9fe1862428afeffa03a3056b466a74960f16a1f6a"
+      "sha256": "sha256:2c86f1f7f249e2431d40c590882ce2eaffe35ff07f2098a8b4645bc439b66251"
     },
     {
       "id": "ws_testee::io_loop::IoBounds",
@@ -1258,7 +1258,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 20,
-      "sha256": "sha256:cbd15c1661992c54df7a213463c3c3ee7d2487388460de499c71f024db642356"
+      "sha256": "sha256:6cdc350fe87b1faea5927c7baf39f4c713c3eda3663c71c137a75d1e0719f2bc"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome",
@@ -1267,7 +1267,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 64,
-      "sha256": "sha256:cbd15c1661992c54df7a213463c3c3ee7d2487388460de499c71f024db642356"
+      "sha256": "sha256:6cdc350fe87b1faea5927c7baf39f4c713c3eda3663c71c137a75d1e0719f2bc"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome::SocketError",
@@ -1276,7 +1276,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 71,
-      "sha256": "sha256:cbd15c1661992c54df7a213463c3c3ee7d2487388460de499c71f024db642356"
+      "sha256": "sha256:6cdc350fe87b1faea5927c7baf39f4c713c3eda3663c71c137a75d1e0719f2bc"
     },
     {
       "id": "ws_testee::io_loop::drive_connection",
@@ -1284,8 +1284,8 @@
       "rust_path": "ws_testee::io_loop::drive_connection",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/io_loop.rs",
-      "line": 159,
-      "sha256": "sha256:cbd15c1661992c54df7a213463c3c3ee7d2487388460de499c71f024db642356"
+      "line": 164,
+      "sha256": "sha256:6cdc350fe87b1faea5927c7baf39f4c713c3eda3663c71c137a75d1e0719f2bc"
     },
     {
       "id": "ws_testee::server::run_server_once",
@@ -1294,7 +1294,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/server.rs",
       "line": 74,
-      "sha256": "sha256:aa3a84572bd5148671414c3bfac223bec966d9d508a8d2d09e9f59b0c9de4d4d"
+      "sha256": "sha256:4fd163954b36857297c744d8f0e104990ad29737078b654ae0ee576e315648f2"
     }
   ],
   "edges": [
