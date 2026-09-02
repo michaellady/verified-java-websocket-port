@@ -1,0 +1,710 @@
+{
+  "schema_version": "1.0.0",
+  "document_id": "us023-denominator-reconciliation",
+  "entity_type": "FormalDenominatorReconciliation",
+  "statement": "A checked mapping between the two formal denominators this repository carries: the immutable 24-obligation catalog (assurance/formal/obligation-catalog.json, vendored from the Codex plane) and the 10-target US-006 proof-target plan (assurance/formal/proof-targets.json). Every obligation maps to zero or more targets and every target to zero or more obligations. Obligations with no target and targets with no obligation are published as named lists, never summarised into a percentage.",
+  "join_rule": "Join key: the pinned-Java construct key `DeclaringType#memberName`, derived from the catalog's java_bindings[].production_symbol on one side and the plan's targets[].production_symbols[].java_authority_members[] on the other. The parameter list is deliberately NOT part of the key: the catalog's JVM descriptors are known to disagree with the pinned source's actual parameter lists (docs/java-formal-binding-design.md section 3.2), so joining on them would silently shrink the mapping. The Rust symbols are NOT a join key and are not used as one — see catalog_rust_binding_checks for why.",
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  },
+  "catalog": {
+    "path": "assurance/formal/obligation-catalog.json",
+    "sha256": "sha256:21112518f48443b4e20ecae537bed72b8c9e19167ad00bc6f325bff9374cdf59",
+    "git_blob": "be929320dc8f6e52a357a6124bc17fa1db197d2b"
+  },
+  "proof_targets": {
+    "path": "assurance/formal/proof-targets.json",
+    "sha256": "sha256:bad1e0697d0f4428a4cc6572549e4528ca4f0328c15163beddd4deb31c59a205",
+    "git_blob": "cbbaa730291d2d53be6ac20bc54e31ebe57ba981"
+  },
+  "shared_java_anchor": {
+    "catalog_java_binding_archive_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "proof_target_quarantined_archive_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "agree": true,
+    "catalog_distinct_java_source_digests": 1,
+    "proof_target_distinct_java_file_digests": 6,
+    "note": "Both denominators are anchored to the same digest-pinned Java-WebSocket archive, which is what makes the Java-construct join legitimate. They are not anchored to it with the same resolution: the catalog gives all 24 java_bindings one whole-archive digest, so its Java column distinguishes no two obligations by content, while the proof-target plan gives its Java authority per-file digests and file:line spans."
+  },
+  "catalog_declared_basis_pins": [
+    {
+      "path": "assurance/developer-tools/port-seam-dossier.json",
+      "catalog_declared_sha256": "sha256:544a27f292e687f9ada44306d4aea6f119bfd3bbc6a2e29259e68c24d5684f1d",
+      "catalog_declared_git_blob": "4a61b63cc1f3bf0812a3837f96fe3087428e40ef",
+      "on_disk_sha256": "sha256:544a27f292e687f9ada44306d4aea6f119bfd3bbc6a2e29259e68c24d5684f1d",
+      "on_disk_git_blob": "4a61b63cc1f3bf0812a3837f96fe3087428e40ef",
+      "agreement": "BASIS_PIN_MATCHES_FILE_ON_DISK"
+    },
+    {
+      "path": "assurance/formal/proof-targets.json",
+      "catalog_declared_sha256": "sha256:fa75348c37f607ac27edf41f13f075a6731b925628d9e9dcda7de39f0ea236e6",
+      "catalog_declared_git_blob": "cb1baec1c1171dff015d02f64c522bc0b572400e",
+      "on_disk_sha256": "sha256:bad1e0697d0f4428a4cc6572549e4528ca4f0328c15163beddd4deb31c59a205",
+      "on_disk_git_blob": "cbbaa730291d2d53be6ac20bc54e31ebe57ba981",
+      "agreement": "BASIS_PIN_DOES_NOT_MATCH_FILE_ON_DISK"
+    },
+    {
+      "path": "corpora/frame/codec.json",
+      "catalog_declared_sha256": "sha256:984e59e8533d909bd50c9042bfc1a7503cdc098e5be4e32f287be140b1b4d606",
+      "catalog_declared_git_blob": "da9a7d0734b9db12a44e123ff1c33df2849fdef6",
+      "on_disk_sha256": "READ_FAILED",
+      "on_disk_git_blob": "",
+      "agreement": "BASIS_PIN_DOES_NOT_MATCH_FILE_ON_DISK"
+    },
+    {
+      "path": "evidence/intake/compatibility-surface.json",
+      "catalog_declared_sha256": "sha256:0117560795fbfbe92e1c11a999bcec937c4ab27950ba6e5a1d0f0c73a286602c",
+      "catalog_declared_git_blob": "d2a22ab2cd188113814307a3ac3388cac31360a2",
+      "on_disk_sha256": "sha256:802de5c6d1291c8253aa07b1a051a8e20acc3a00cc72ee1d4852a7f18c216b0c",
+      "on_disk_git_blob": "17c8210a38c8ddd86e34d7b9553059f7e7875365",
+      "agreement": "BASIS_PIN_DOES_NOT_MATCH_FILE_ON_DISK"
+    },
+    {
+      "path": "evidence/intake/semantic-id-migration-map.json",
+      "catalog_declared_sha256": "sha256:e884fd06a785b0273a0e23b3dc6841ebcc33c2a81d1fc81fb0b1945d46421e7b",
+      "catalog_declared_git_blob": "abc33635fd5c47124b0827d11cb0f0e5909705a0",
+      "on_disk_sha256": "sha256:63837479dad43b20c540daa6a99cb6ae3db1a22beedd8ba4a08fdff4de7e9517",
+      "on_disk_git_blob": "d76e7f35513ab7094b19ea680a14ca3e96f41f4c",
+      "agreement": "BASIS_PIN_DOES_NOT_MATCH_FILE_ON_DISK"
+    }
+  ],
+  "counts": {
+    "obligations": 24,
+    "proof_targets": 10,
+    "obligations_mapped_to_at_least_one_target": 11,
+    "obligations_with_no_proof_target": 13,
+    "targets_named_by_at_least_one_obligation": 6,
+    "targets_named_by_no_obligation": 4,
+    "catalog_distinct_java_keys": 15,
+    "proof_target_distinct_java_keys": 27,
+    "java_keys_in_both": 5,
+    "java_keys_catalog_only": 10,
+    "java_keys_proof_target_only": 22,
+    "property_claim_references": 11,
+    "distinct_property_claim_references": 11,
+    "planned_production_symbols": 21,
+    "planned_symbols_resolver_verified": 0,
+    "migration_bindings": 98,
+    "migration_bindings_rust_identity_verified": 0,
+    "catalog_rust_binding_rows_whose_source_path_is_absent": 24,
+    "catalog_rust_binding_rows_whose_namespace_is_absent": 24
+  },
+  "obligations": [
+    {
+      "obligation_id": "obligation.checked-header-arithmetic",
+      "surface_ids": [
+        "surface.limits.allocation"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "java_key": "Draft_6455#translateSingleFrame",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.allocation.decode-guarded-allocation",
+        "sym.framing.apply-mask",
+        "sym.framing.decode-frame-header"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "obligation.control-fin-and-length",
+      "surface_ids": [
+        "surface.control.ping-pong"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.framing.ControlFrame.isValid()V",
+      "java_key": "ControlFrame#isValid",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "obligation.length-canonical-16",
+      "surface_ids": [
+        "surface.framing.frame-octets"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "java_key": "Draft_6455#translateSingleFrame",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.allocation.decode-guarded-allocation",
+        "sym.framing.apply-mask",
+        "sym.framing.decode-frame-header"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "obligation.length-canonical-64-high-bit-zero",
+      "surface_ids": [
+        "surface.framing.frame-octets"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "java_key": "Draft_6455#translateSingleFrame",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.allocation.decode-guarded-allocation",
+        "sym.framing.apply-mask",
+        "sym.framing.decode-frame-header"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "obligation.length-canonical-7",
+      "surface_ids": [
+        "surface.framing.frame-octets"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.createBinaryFrame(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+      "java_key": "Draft_6455#createBinaryFrame",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "obligation.mask-equation",
+      "surface_ids": [
+        "surface.framing.masking"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+      "java_key": "Charsetfunctions#utf8Bytes",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "obligation.mask-involution",
+      "surface_ids": [
+        "surface.framing.masking"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+      "java_key": "Charsetfunctions#utf8Bytes",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "obligation.preallocation-cap",
+      "surface_ids": [
+        "surface.limits.allocation"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "java_key": "Draft_6455#translateSingleFrame",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.allocation.decode-guarded-allocation",
+        "sym.framing.apply-mask",
+        "sym.framing.decode-frame-header"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "obligation.role-masking",
+      "surface_ids": [
+        "surface.framing.masking"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "java_key": "Draft_6455#translateSingleFrame",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.allocation.decode-guarded-allocation",
+        "sym.framing.apply-mask",
+        "sym.framing.decode-frame-header"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "surface.adapter.byte-stream",
+      "surface_ids": [
+        "surface.adapter.byte-stream"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.WebSocketImpl.decode(Ljava/nio/ByteBuffer;)V",
+      "java_key": "WebSocketImpl#decode",
+      "proof_target_ids": [
+        "target.formal.adapter.no-protocol-logic"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.adapter.decode-ingress"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "surface.close.status-code",
+      "surface_ids": [
+        "surface.close.status-code"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.framing.CloseFrame.isValid()V",
+      "java_key": "CloseFrame#isValid",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "surface.close.terminal-state",
+      "surface_ids": [
+        "surface.close.terminal-state"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.WebSocketImpl.closeConnection(ILjava/lang/String;Z)V",
+      "java_key": "WebSocketImpl#closeConnection",
+      "proof_target_ids": [
+        "target.formal.close.terminal-absorbing"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.close.close-connection"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "surface.concurrency.command-order",
+      "surface_ids": [
+        "surface.concurrency.command-order"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.WebSocketImpl.sendFrame(Ljava/util/Collection;)V",
+      "java_key": "WebSocketImpl#sendFrame",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "surface.control.ping-pong",
+      "surface_ids": [
+        "surface.control.ping-pong"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.WebSocketAdapter.onWebsocketPing(Lorg/java_websocket/WebSocket;Lorg/java_websocket/framing/Framedata;)V",
+      "java_key": "WebSocketAdapter#onWebsocketPing",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "surface.errors.protocol-fault",
+      "surface_ids": [
+        "surface.errors.protocol-fault"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.exceptions.InvalidDataException",
+      "java_key": "InvalidDataException#InvalidDataException",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "surface.fragmentation.continuation",
+      "surface_ids": [
+        "surface.fragmentation.continuation"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.processFrameContinuousAndNonFin(Lorg/java_websocket/framing/Framedata;Lorg/java_websocket/WebSocketImpl;)V",
+      "java_key": "Draft_6455#processFrameContinuousAndNonFin",
+      "proof_target_ids": [
+        "target.formal.fragmentation.no-unbounded-growth"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.fragmentation.process-continuation"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "surface.framing.frame-octets",
+      "surface_ids": [
+        "surface.framing.frame-octets"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "java_key": "Draft_6455#translateSingleFrame",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.allocation.decode-guarded-allocation",
+        "sym.framing.apply-mask",
+        "sym.framing.decode-frame-header"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "surface.framing.masking",
+      "surface_ids": [
+        "surface.framing.masking"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.createBinaryFrame(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+      "java_key": "Draft_6455#createBinaryFrame",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "surface.handshake.client-request",
+      "surface_ids": [
+        "surface.handshake.client-request"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.WebSocketImpl.startHandshake(Lorg/java_websocket/handshake/ClientHandshakeBuilder;)V",
+      "java_key": "WebSocketImpl#startHandshake",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "surface.handshake.server-response",
+      "surface_ids": [
+        "surface.handshake.server-response"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.postProcessHandshakeResponseAsServer(Lorg/java_websocket/handshake/ClientHandshake;Lorg/java_websocket/handshake/ServerHandshakeBuilder;)Lorg/java_websocket/handshake/HandshakeBuilder;",
+      "java_key": "Draft_6455#postProcessHandshakeResponseAsServer",
+      "proof_target_ids": [
+        "target.formal.handshake.accept-derivation"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.handshake.generate-accept"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "surface.limits.allocation",
+      "surface_ids": [
+        "surface.limits.allocation"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "java_key": "Draft_6455#translateSingleFrame",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "proof_target_symbol_ids": [
+        "sym.allocation.decode-guarded-allocation",
+        "sym.framing.apply-mask",
+        "sym.framing.decode-frame-header"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "obligation_id": "surface.messages.binary",
+      "surface_ids": [
+        "surface.messages.binary"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/nio/ByteBuffer;)V",
+      "java_key": "WebSocketListener#onWebsocketMessage",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "surface.messages.text-utf8",
+      "surface_ids": [
+        "surface.messages.text-utf8"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/lang/String;)V",
+      "java_key": "WebSocketListener#onWebsocketMessage",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    },
+    {
+      "obligation_id": "surface.websocket-open",
+      "surface_ids": [
+        "surface.websocket-open"
+      ],
+      "catalog_java_production_symbol": "org.java_websocket.server.WebSocketServer",
+      "java_key": "WebSocketServer#WebSocketServer",
+      "proof_target_ids": [],
+      "proof_target_symbol_ids": [],
+      "mapping_state": "UNMAPPED_OBLIGATION_NAMES_NO_PLANNED_TARGET"
+    }
+  ],
+  "targets": [
+    {
+      "target_id": "target.formal.adapter.no-protocol-logic",
+      "formal_claim_id": "formal.adapter.no-protocol-logic",
+      "property_claim_refs": [
+        "property.adapter.byte-stream-transparency"
+      ],
+      "java_keys": [
+        "WebSocketImpl#decode",
+        "WrappedIOException#WrappedIOException"
+      ],
+      "obligation_ids": [
+        "surface.adapter.byte-stream"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "target_id": "target.formal.close.terminal-absorbing",
+      "formal_claim_id": "formal.close.terminal-absorbing",
+      "property_claim_refs": [
+        "property.close.code-validity"
+      ],
+      "java_keys": [
+        "WebSocketImpl#closeConnection",
+        "WebSocketImpl#flushAndClose"
+      ],
+      "obligation_ids": [
+        "surface.close.terminal-state"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "target_id": "target.formal.concurrency.no-data-race",
+      "formal_claim_id": "formal.concurrency.no-data-race",
+      "property_claim_refs": [
+        "property.concurrency.single-owner-serialization"
+      ],
+      "java_keys": [
+        "WebSocketImpl#WebSocketImpl"
+      ],
+      "obligation_ids": [],
+      "mapping_state": "UNMAPPED_TARGET_NAMED_BY_NO_OBLIGATION"
+    },
+    {
+      "target_id": "target.formal.connection.no-terminal-escape",
+      "formal_claim_id": "formal.connection.no-terminal-escape",
+      "property_claim_refs": [
+        "property.connection.state-machine-total"
+      ],
+      "java_keys": [
+        "WebSocketImpl#close",
+        "WebSocketImpl#eot",
+        "WebSocketImpl#open"
+      ],
+      "obligation_ids": [],
+      "mapping_state": "UNMAPPED_TARGET_NAMED_BY_NO_OBLIGATION"
+    },
+    {
+      "target_id": "target.formal.control.payload-length-bound",
+      "formal_claim_id": "formal.control.payload-length-bound",
+      "property_claim_refs": [
+        "property.control.pong-echoes-ping-payload"
+      ],
+      "java_keys": [
+        "Draft_6455#processFrame",
+        "Draft_6455#translateSingleFramePayloadLength"
+      ],
+      "obligation_ids": [],
+      "mapping_state": "UNMAPPED_TARGET_NAMED_BY_NO_OBLIGATION"
+    },
+    {
+      "target_id": "target.formal.fragmentation.no-unbounded-growth",
+      "formal_claim_id": "formal.fragmentation.no-unbounded-growth",
+      "property_claim_refs": [
+        "property.fragmentation.bounded-state"
+      ],
+      "java_keys": [
+        "Draft_6455#checkBufferLimit",
+        "Draft_6455#processFrameContinuousAndNonFin",
+        "Draft_6455#processFrameIsFin",
+        "Draft_6455#processFrameIsNotFin"
+      ],
+      "obligation_ids": [
+        "surface.fragmentation.continuation"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "target_id": "target.formal.framing.allocation-limit",
+      "formal_claim_id": "formal.framing.allocation-limit",
+      "property_claim_refs": null,
+      "java_keys": [
+        "Draft#checkAlloc",
+        "Draft_6455#translateFrame",
+        "Draft_6455#translateSingleFrame"
+      ],
+      "obligation_ids": [
+        "obligation.checked-header-arithmetic",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.framing.frame-octets",
+        "surface.limits.allocation"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "target_id": "target.formal.framing.length-bounds",
+      "formal_claim_id": "formal.framing.length-bounds",
+      "property_claim_refs": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "java_keys": [
+        "Draft_6455#createByteBufferFromFramedata",
+        "Draft_6455#getSizeBytes",
+        "Draft_6455#toByteArray",
+        "Draft_6455#translateSingleFrame",
+        "Draft_6455#translateSingleFrameCheckLengthLimit",
+        "Draft_6455#translateSingleFramePayloadLength"
+      ],
+      "obligation_ids": [
+        "obligation.checked-header-arithmetic",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.framing.frame-octets",
+        "surface.limits.allocation"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "target_id": "target.formal.handshake.accept-derivation",
+      "formal_claim_id": "formal.handshake.accept-derivation",
+      "property_claim_refs": [
+        "property.handshake.key-accept-roundtrip",
+        "property.handshake.server-response-total"
+      ],
+      "java_keys": [
+        "Draft#readVersion",
+        "Draft_6455#acceptHandshakeAsServer",
+        "Draft_6455#generateFinalKey",
+        "Draft_6455#postProcessHandshakeResponseAsServer"
+      ],
+      "obligation_ids": [
+        "surface.handshake.server-response"
+      ],
+      "mapping_state": "MAPPED"
+    },
+    {
+      "target_id": "target.formal.messages.utf8-validation-total",
+      "formal_claim_id": "formal.messages.utf8-validation-total",
+      "property_claim_refs": [
+        "property.messages.utf8-strictness"
+      ],
+      "java_keys": [
+        "Charsetfunctions#isValidUTF8",
+        "Charsetfunctions#stringUtf8"
+      ],
+      "obligation_ids": [],
+      "mapping_state": "UNMAPPED_TARGET_NAMED_BY_NO_OBLIGATION"
+    }
+  ],
+  "java_keys_in_both": [
+    "Draft_6455#postProcessHandshakeResponseAsServer",
+    "Draft_6455#processFrameContinuousAndNonFin",
+    "Draft_6455#translateSingleFrame",
+    "WebSocketImpl#closeConnection",
+    "WebSocketImpl#decode"
+  ],
+  "java_keys_catalog_only": [
+    "Charsetfunctions#utf8Bytes",
+    "CloseFrame#isValid",
+    "ControlFrame#isValid",
+    "Draft_6455#createBinaryFrame",
+    "InvalidDataException#InvalidDataException",
+    "WebSocketAdapter#onWebsocketPing",
+    "WebSocketImpl#sendFrame",
+    "WebSocketImpl#startHandshake",
+    "WebSocketListener#onWebsocketMessage",
+    "WebSocketServer#WebSocketServer"
+  ],
+  "java_keys_proof_target_only": [
+    "Charsetfunctions#isValidUTF8",
+    "Charsetfunctions#stringUtf8",
+    "Draft#checkAlloc",
+    "Draft#readVersion",
+    "Draft_6455#acceptHandshakeAsServer",
+    "Draft_6455#checkBufferLimit",
+    "Draft_6455#createByteBufferFromFramedata",
+    "Draft_6455#generateFinalKey",
+    "Draft_6455#getSizeBytes",
+    "Draft_6455#processFrame",
+    "Draft_6455#processFrameIsFin",
+    "Draft_6455#processFrameIsNotFin",
+    "Draft_6455#toByteArray",
+    "Draft_6455#translateFrame",
+    "Draft_6455#translateSingleFrameCheckLengthLimit",
+    "Draft_6455#translateSingleFramePayloadLength",
+    "WebSocketImpl#WebSocketImpl",
+    "WebSocketImpl#close",
+    "WebSocketImpl#eot",
+    "WebSocketImpl#flushAndClose",
+    "WebSocketImpl#open",
+    "WrappedIOException#WrappedIOException"
+  ],
+  "catalog_rust_binding_checks": [
+    {
+      "catalog_source_path": "rust/connection-core/src/connection.rs",
+      "catalog_production_symbols": [
+        "websocket_core::ConnectionCore::step",
+        "websocket_core::FailureKind"
+      ],
+      "obligation_count": 10,
+      "path_state": "SOURCE_PATH_EXISTS_IN_NO_TREE",
+      "namespace_root": "websocket_core",
+      "namespace_state": "NAMESPACE_MATCHES_NO_SHIPPED_CRATE",
+      "shipped_crate_namespaces": [
+        "candidate_stub",
+        "ws_core",
+        "ws_driver",
+        "ws_oracle_harness",
+        "ws_testee"
+      ]
+    },
+    {
+      "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+      "catalog_production_symbols": [
+        "websocket_core::frame::decode::FrameHeaderDecoder::decode_header"
+      ],
+      "obligation_count": 9,
+      "path_state": "SOURCE_PATH_EXISTS_IN_NO_TREE",
+      "namespace_root": "websocket_core",
+      "namespace_state": "NAMESPACE_MATCHES_NO_SHIPPED_CRATE",
+      "shipped_crate_namespaces": [
+        "candidate_stub",
+        "ws_core",
+        "ws_driver",
+        "ws_oracle_harness",
+        "ws_testee"
+      ]
+    },
+    {
+      "catalog_source_path": "rust/connection-core/src/frame/mask.rs",
+      "catalog_production_symbols": [
+        "websocket_core::frame::mask::apply_mask_in_place"
+      ],
+      "obligation_count": 3,
+      "path_state": "SOURCE_PATH_EXISTS_IN_NO_TREE",
+      "namespace_root": "websocket_core",
+      "namespace_state": "NAMESPACE_MATCHES_NO_SHIPPED_CRATE",
+      "shipped_crate_namespaces": [
+        "candidate_stub",
+        "ws_core",
+        "ws_driver",
+        "ws_oracle_harness",
+        "ws_testee"
+      ]
+    },
+    {
+      "catalog_source_path": "rust/websocket-driver/src/lib.rs",
+      "catalog_production_symbols": [
+        "websocket_driver::ConnectionOwner::poll"
+      ],
+      "obligation_count": 2,
+      "path_state": "SOURCE_PATH_EXISTS_IN_NO_TREE",
+      "namespace_root": "websocket_driver",
+      "namespace_state": "NAMESPACE_MATCHES_NO_SHIPPED_CRATE",
+      "shipped_crate_namespaces": [
+        "candidate_stub",
+        "ws_core",
+        "ws_driver",
+        "ws_oracle_harness",
+        "ws_testee"
+      ]
+    }
+  ],
+  "not_claims": [
+    "A mapping is not coverage. That an obligation maps onto a proof target says only that both documents name the same pinned-Java construct; it says nothing about whether any proof exists, was executed, or reaches the required strength.",
+    "An unmapped obligation is not necessarily an uncovered behaviour, and a mapped one is not necessarily a covered one. The mapping reports what the two documents say about each other, nothing more.",
+    "The join is on the Java side only. The two documents' Rust columns do not join at all, and this artifact records that as a finding rather than papering over it with a name-normalising rule."
+  ]
+}

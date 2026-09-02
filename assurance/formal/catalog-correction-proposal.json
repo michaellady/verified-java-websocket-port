@@ -1,0 +1,425 @@
+{
+  "schema_version": "1.0.0",
+  "document_id": "us023-catalog-correction-proposal",
+  "entity_type": "FormalCatalogCorrectionProposal",
+  "statement": "Five of the immutable catalog's 24 obligations are declared against Java symbols that cannot carry them. This document diagnoses each one against the digest-pinned Java-WebSocket 1.6.0 source, names what the symbol would have to be instead, and states what would STILL be missing if the correction were adopted. It is a proposal about the catalog. It is not an edit to the catalog, and adopting it is not this branch's decision to make.",
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  },
+  "immutability": {
+    "catalog_path": "assurance/formal/obligation-catalog.json",
+    "catalog_sha256": "sha256:21112518f48443b4e20ecae537bed72b8c9e19167ad00bc6f325bff9374cdf59",
+    "catalog_git_blob": "be929320dc8f6e52a357a6124bc17fa1db197d2b",
+    "this_document_modifies_the_catalog": false,
+    "rule": "The catalog is vendored byte-identically from the read-only Codex plane and internal/javabind's tests assert both its sha256 and its git blob id. This document therefore proposes corrections in a separate file and leaves the vendored bytes untouched. internal/formalcoverage's tests assert the same two identities again, so a correction cannot be smuggled into the denominator by editing it.",
+    "why_the_constraint_is_right": [
+      "The catalog is the denominator two planes measure against. If either plane could edit it, every number computed from it would be a number about that plane's own opinion, and the two planes' results would stop being comparable — which is the entire reason a shared denominator exists.",
+      "The defects are FINDINGS. Repairing them in place would delete the evidence that they were ever there, and the standing count would silently improve without any new observation of any program. A correction that erases its own justification is not a correction.",
+      "The catalog is vendored, not authored here. Editing a vendored artifact breaks the only check that can detect drift from the plane it came from: byte equality. A repaired catalog would pass no digest comparison against Codex and could not be told apart from a corrupted one.",
+      "Adoption is an owner decision with a blast radius this branch cannot see. Changing a declared symbol changes which obligations map onto which proof targets, which mutants are obligation-specific, and what the Rust side must bind to. Proposing is in scope; deciding is not."
+    ]
+  },
+  "pinned_source": {
+    "archive_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "tree_directory": "Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "source_root": "src/main/java"
+  },
+  "corroboration_vocabulary": [
+    {
+      "code": "PROOF_TARGETS_JAVA_AUTHORITY",
+      "meaning": "This file's sha256 is independently pinned by assurance/formal/proof-targets.json's Java authority anchors, and where a corroborating member is named, that exact member string appears in that plan's java_authority_members. The correction is then not this branch's opinion: a second in-repo document already names the same construct."
+    },
+    {
+      "code": "JAVABIND_RECEIPT_SOURCE_CONSTRUCT",
+      "meaning": "This file's sha256 is independently pinned by a source construct in evidence/java/formal-bindings/receipt.json, which was produced by executing the pinned runtime, so the file identity is corroborated by an executed lane."
+    },
+    {
+      "code": "PINNED_SOURCE_ONLY",
+      "meaning": "NOTHING else in this repository pins this file's digest. The citation rests on the pinned source tree alone and is recomputed only by the formalcovere2e lane. This is the weakest label and it is asserted exactly, not merely as an absence: the checker refuses a PINNED_SOURCE_ONLY citation whose digest IS corroborated elsewhere, and refuses a corroborated label whose digest is not."
+    }
+  ],
+  "corrections": [
+    {
+      "correction_id": "correction.mask-equation",
+      "obligation_id": "obligation.mask-equation",
+      "obligation_statement": "Masking applies RFC 6455 XOR at the correct offset.",
+      "defect_family": "WRONG_SYMBOL",
+      "current": {
+        "production_symbol": "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+        "java_key": "Charsetfunctions#utf8Bytes",
+        "defect_class": "CATALOG_SYMBOL_SCOPE_MISMATCH",
+        "citations": [
+          {
+            "file": "src/main/java/org/java_websocket/util/Charsetfunctions.java",
+            "start_line": 49,
+            "end_line": 51,
+            "file_sha256": "sha256:9051e7760ca8f318238e20db952152283f278f61d8bbb2af97a5daa75b3d5311",
+            "span_sha256": "sha256:e76611dfa7216e829f93d87c6e913b43b9741ed7b04edec57462c3eb6383647a",
+            "structure_fingerprint": "sha256:f8d68192841b75ec4cbdbfbe02dc13f626e59af47a02eb1e7a9673c7a2ce8c29",
+            "corroboration": "PROOF_TARGETS_JAVA_AUTHORITY",
+            "effect_at_these_lines": "The entire declaration is `public static byte[] utf8Bytes(String s) { return s.getBytes(StandardCharsets.UTF_8); }` — 93 bytes. It contains no XOR operator, no mask key, no offset arithmetic and no reference to any frame."
+          }
+        ],
+        "why_wrong": "The declared symbol converts a String to its UTF-8 bytes. Nothing in its 93-byte span implements, guards, or is reached by the RFC 6455 masking transform. A masking witness attached to this symbol would be a false attribution, not a weak one."
+      },
+      "proposed": {
+        "descriptor_note": "Java-WebSocket 1.6.0 has no named mask function. The XOR is written out inline at two sites in one compilation unit, so the honest correction is a two-member chain, not a single symbol. This is the same decomposition the in-repo US-006 proof-target plan already made for its planned Rust `apply_mask` symbol.",
+        "chain": [
+          {
+            "role": "EMIT_SIDE_XOR",
+            "production_symbol": "org.java_websocket.drafts.Draft_6455.createByteBufferFromFramedata(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+            "java_key": "Draft_6455#createByteBufferFromFramedata",
+            "bindable_under_current_resolver": true,
+            "not_bindable_reason": "",
+            "citation": {
+              "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+              "start_line": 478,
+              "end_line": 526,
+              "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+              "span_sha256": "sha256:137f5cfffb5d25c6a12ceb634a31063ca4f7b29d09d1d4094ff6d201c31bf91a",
+              "structure_fingerprint": "sha256:c2abf22c53eb59172f7f3628956fd74d1c3910a06c5f2916e55370e53b6bdf52",
+              "corroboration": "PROOF_TARGETS_JAVA_AUTHORITY",
+              "effect_at_these_lines": "511-517 allocate the 4-byte key and run the transform; 516 is `buf.put((byte) (mes.get() ^ maskkey.get(i % 4)));` — the XOR and the `i % 4` offset the obligation names, in one expression.",
+              "corroborating_proof_target_member": "org.java_websocket.drafts.Draft_6455#createByteBufferFromFramedata(Framedata) masking XOR loop"
+            }
+          },
+          {
+            "role": "RECEIVE_SIDE_XOR",
+            "production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Lorg/java_websocket/framing/Framedata;",
+            "java_key": "Draft_6455#translateSingleFrame",
+            "bindable_under_current_resolver": true,
+            "not_bindable_reason": "",
+            "citation": {
+              "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+              "start_line": 528,
+              "end_line": 597,
+              "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+              "span_sha256": "sha256:a469fed7be335c3cf9553721d4e09de8d5ee3de55418fea5c1b135e47ac5b1e9",
+              "structure_fingerprint": "sha256:a11487846246937b0a7167384c4efa835683a50407a69b98b334b9f322c65572",
+              "corroboration": "PROOF_TARGETS_JAVA_AUTHORITY",
+              "effect_at_these_lines": "558-563 read the 4-byte key and run the inverse transform; 562 is `payload.put((byte) (buffer.get() ^ maskskey[i % 4]));` — the same XOR and the same `i % 4` offset on the receive path.",
+              "corroborating_proof_target_member": "org.java_websocket.drafts.Draft_6455#translateSingleFrame(ByteBuffer) unmasking XOR loop"
+            }
+          }
+        ]
+      },
+      "effect_if_adopted": {
+        "would_bind": "PARTIAL_AT_BEST",
+        "residual_gap": "The receive-side clause becomes witnessable through the existing java-oracle adapter: a masked client frame with a non-trivial key is delivered as the correct plaintext only if the offset is right. The emit-side clause does NOT become witnessable, because the key at line 513 is `reuseableRandom.nextInt()` and the adapter deliberately omits emitted client mask keys from its output. Correcting the symbol does not make this obligation CONNECTED.",
+        "would_map_onto_targets": [
+          "target.formal.framing.length-bounds"
+        ],
+        "target_symbol_id": "sym.framing.apply-mask"
+      }
+    },
+    {
+      "correction_id": "correction.mask-involution",
+      "obligation_id": "obligation.mask-involution",
+      "obligation_statement": "Applying the same mask twice restores the input.",
+      "defect_family": "WRONG_SYMBOL",
+      "current": {
+        "production_symbol": "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+        "java_key": "Charsetfunctions#utf8Bytes",
+        "defect_class": "CATALOG_SYMBOL_SCOPE_MISMATCH",
+        "citations": [
+          {
+            "file": "src/main/java/org/java_websocket/util/Charsetfunctions.java",
+            "start_line": 49,
+            "end_line": 51,
+            "file_sha256": "sha256:9051e7760ca8f318238e20db952152283f278f61d8bbb2af97a5daa75b3d5311",
+            "span_sha256": "sha256:e76611dfa7216e829f93d87c6e913b43b9741ed7b04edec57462c3eb6383647a",
+            "structure_fingerprint": "sha256:f8d68192841b75ec4cbdbfbe02dc13f626e59af47a02eb1e7a9673c7a2ce8c29",
+            "corroboration": "PROOF_TARGETS_JAVA_AUTHORITY",
+            "effect_at_these_lines": "Same 93-byte declaration as correction.mask-equation cites. `String.getBytes` is not an involution and is not applied twice anywhere."
+          }
+        ],
+        "why_wrong": "Identical scope mismatch to obligation.mask-equation: the catalog gives both masking obligations the same UTF-8 encoding helper."
+      },
+      "proposed": {
+        "descriptor_note": "Involution is not a property of either site alone. In Java-WebSocket 1.6.0 the XOR is applied exactly once on emit and exactly once on receive, so the involution is a property OF THE PAIR. The chain therefore names both members, and the proposal states plainly that naming them does not make the property witnessable here.",
+        "chain": [
+          {
+            "role": "EMIT_SIDE_XOR",
+            "production_symbol": "org.java_websocket.drafts.Draft_6455.createByteBufferFromFramedata(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+            "java_key": "Draft_6455#createByteBufferFromFramedata",
+            "bindable_under_current_resolver": true,
+            "not_bindable_reason": "",
+            "citation": {
+              "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+              "start_line": 478,
+              "end_line": 526,
+              "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+              "span_sha256": "sha256:137f5cfffb5d25c6a12ceb634a31063ca4f7b29d09d1d4094ff6d201c31bf91a",
+              "structure_fingerprint": "sha256:c2abf22c53eb59172f7f3628956fd74d1c3910a06c5f2916e55370e53b6bdf52",
+              "corroboration": "PROOF_TARGETS_JAVA_AUTHORITY",
+              "effect_at_these_lines": "516 applies the mask once, on emit.",
+              "corroborating_proof_target_member": "org.java_websocket.drafts.Draft_6455#createByteBufferFromFramedata(Framedata) masking XOR loop"
+            }
+          },
+          {
+            "role": "RECEIVE_SIDE_XOR",
+            "production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Lorg/java_websocket/framing/Framedata;",
+            "java_key": "Draft_6455#translateSingleFrame",
+            "bindable_under_current_resolver": true,
+            "not_bindable_reason": "",
+            "citation": {
+              "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+              "start_line": 528,
+              "end_line": 597,
+              "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+              "span_sha256": "sha256:a469fed7be335c3cf9553721d4e09de8d5ee3de55418fea5c1b135e47ac5b1e9",
+              "structure_fingerprint": "sha256:a11487846246937b0a7167384c4efa835683a50407a69b98b334b9f322c65572",
+              "corroboration": "PROOF_TARGETS_JAVA_AUTHORITY",
+              "effect_at_these_lines": "562 applies the mask a second time, on receive, recovering the plaintext.",
+              "corroborating_proof_target_member": "org.java_websocket.drafts.Draft_6455#translateSingleFrame(ByteBuffer) unmasking XOR loop"
+            }
+          }
+        ]
+      },
+      "effect_if_adopted": {
+        "would_bind": "STILL_UNBINDABLE_THROUGH_THE_CURRENT_ADAPTER",
+        "residual_gap": "Witnessing involution needs one observation that spans both applications — a client encode followed by a server decode of the same bytes. The java-oracle adapter runs one endpoint per scenario, so no single retained response can carry both halves. The correction fixes the attribution; it does not create the observation.",
+        "would_map_onto_targets": [
+          "target.formal.framing.length-bounds"
+        ],
+        "target_symbol_id": "sym.framing.apply-mask"
+      }
+    },
+    {
+      "correction_id": "correction.control-ping-pong",
+      "obligation_id": "surface.control.ping-pong",
+      "obligation_statement": "Ping and pong control behavior preserves payloads and bounds.",
+      "defect_family": "SYMBOL_NOT_ON_EXECUTED_PATH",
+      "current": {
+        "production_symbol": "org.java_websocket.WebSocketAdapter.onWebsocketPing(Lorg/java_websocket/WebSocket;Lorg/java_websocket/framing/Framedata;)V",
+        "java_key": "WebSocketAdapter#onWebsocketPing",
+        "defect_class": "CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH",
+        "citations": [
+          {
+            "file": "src/main/java/org/java_websocket/WebSocketAdapter.java",
+            "start_line": 83,
+            "end_line": 86,
+            "file_sha256": "sha256:ff3c9f4ab3aebdffaebf07bf32c367dc6dcc238f5bc24ee34c49254d90f7c297",
+            "span_sha256": "sha256:d7dffbe3869bfec279b26c8b207c12057e92265e4facbbba08f5ded2fb490005",
+            "structure_fingerprint": "sha256:0722559b3bad9ab6faf9a957965369b80ba91c9ef05f64259288c5e7b373ad8b",
+            "corroboration": "PINNED_SOURCE_ONLY",
+            "effect_at_these_lines": "`WebSocketAdapter` is abstract (line 42). Its default `onWebsocketPing` body is one statement, `conn.sendFrame(new PongFrame((PingFrame) f));` at line 85 — the automatic pong. A subclass that overrides the method without calling super never runs this line."
+          }
+        ],
+        "why_wrong": "The declaration is real and does implement the automatic pong, but it is dead under this laboratory's own adapter. java-oracle/src/main/java/OracleEngine.java line 777 declares `OracleListener extends WebSocketAdapter`, and lines 800-803 override `onWebsocketPing` with `addControl(\"ping\", frame);` and no `super` call. Line 85 is therefore never executed by any retained observation, so no observation can be attributed to it and no mutation canary inside its span can be killed.",
+        "adapter_citation": {
+          "file": "java-oracle/src/main/java/OracleEngine.java",
+          "start_line": 800,
+          "end_line": 803,
+          "effect_at_these_lines": "The override that shadows the catalog's declared symbol."
+        }
+      },
+      "proposed": {
+        "descriptor_note": "The construct that IS on the executed path and that decides ping and pong behaviour is the draft's frame dispatcher. This is the same Java authority the in-repo US-006 proof-target plan names for its planned `process_frame` symbol.",
+        "chain": [
+          {
+            "role": "CONTROL_FRAME_DISPATCH",
+            "production_symbol": "org.java_websocket.drafts.Draft_6455.processFrame(Lorg/java_websocket/WebSocketImpl;Lorg/java_websocket/framing/Framedata;)V",
+            "java_key": "Draft_6455#processFrame",
+            "bindable_under_current_resolver": true,
+            "not_bindable_reason": "",
+            "citation": {
+              "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+              "start_line": 892,
+              "end_line": 918,
+              "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+              "span_sha256": "sha256:3bbdfaabdc993fcc68e0faa9b59fc02a9170014c9cfafbb2c4d54e0d20e4d2c2",
+              "structure_fingerprint": "sha256:0e24ebcffad12e5fb0ad3dcc46b4a23c0c05551124c913503748c61073fe50b1",
+              "corroboration": "PROOF_TARGETS_JAVA_AUTHORITY",
+              "effect_at_these_lines": "898-899 route Opcode.PING to the listener with the received frame intact; 900-902 route Opcode.PONG and update the last-pong clock. This is the executed decision point for both control opcodes.",
+              "corroborating_proof_target_member": "org.java_websocket.drafts.Draft_6455#processFrame(WebSocketImpl,Framedata)"
+            }
+          }
+        ]
+      },
+      "effect_if_adopted": {
+        "would_bind": "PARTIAL_AT_BEST",
+        "residual_gap": "processFrame covers dispatch and the delivery of the received control payload. It does NOT cover the two other halves of this conjunctive obligation. The 125-octet bound is enforced at Draft_6455.java:617-620 inside translateSingleFramePayloadLength and at ControlFrame.isValid — the symbol the catalog already declares for obligation.control-fin-and-length, so crediting it here would double-count one witness. The payload-preserving automatic pong lives at WebSocketAdapter:85 and PongFrame:47-50, and reaching it needs the java-oracle listener to call super.onWebsocketPing — an ADAPTER change that would alter existing retained oracle behaviour. This proposal does not propose it.",
+        "would_map_onto_targets": [
+          "target.formal.control.payload-length-bound"
+        ],
+        "target_symbol_id": "sym.control.process-frame"
+      }
+    },
+    {
+      "correction_id": "correction.messages-binary",
+      "obligation_id": "surface.messages.binary",
+      "obligation_statement": "Binary message payloads are delivered exactly.",
+      "defect_family": "INTERFACE_DECLARATION_AND_AMBIGUOUS_OVERLOAD",
+      "current": {
+        "production_symbol": "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/nio/ByteBuffer;)V",
+        "java_key": "WebSocketListener#onWebsocketMessage",
+        "defect_class": "INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE",
+        "citations": [
+          {
+            "file": "src/main/java/org/java_websocket/WebSocketListener.java",
+            "start_line": 45,
+            "end_line": 45,
+            "file_sha256": "sha256:7793730debd5f4632dacdefbd9aa406196f0be92f5c626b54751af024e9de519",
+            "span_sha256": null,
+            "structure_fingerprint": null,
+            "corroboration": "PINNED_SOURCE_ONLY",
+            "effect_at_these_lines": "`public interface WebSocketListener {` — the declaring type is an interface, so every member below it is body-less and can host no mutation canary."
+          },
+          {
+            "file": "src/main/java/org/java_websocket/WebSocketListener.java",
+            "start_line": 92,
+            "end_line": 92,
+            "file_sha256": "sha256:7793730debd5f4632dacdefbd9aa406196f0be92f5c626b54751af024e9de519",
+            "span_sha256": null,
+            "structure_fingerprint": null,
+            "corroboration": "PINNED_SOURCE_ONLY",
+            "effect_at_these_lines": "`void onWebsocketMessage(WebSocket conn, String message);` — abstract, no body."
+          },
+          {
+            "file": "src/main/java/org/java_websocket/WebSocketListener.java",
+            "start_line": 100,
+            "end_line": 100,
+            "file_sha256": "sha256:7793730debd5f4632dacdefbd9aa406196f0be92f5c626b54751af024e9de519",
+            "span_sha256": null,
+            "structure_fingerprint": null,
+            "corroboration": "PINNED_SOURCE_ONLY",
+            "effect_at_these_lines": "`void onWebsocketMessage(WebSocket conn, ByteBuffer blob);` — abstract, no body, and the second member of that simple name, which makes the binding key `declaringType#simpleName` ambiguous. internal/javabind's resolver refuses it: \"WebSocketListener declares 2 members named \\\"onWebsocketMessage\\\"; the binding key declaringType#name is ambiguous\"."
+          }
+        ],
+        "why_wrong": "Two independent defects in one declaration. There is no implementation site to bind to and no unambiguous key to name it by. Neither is repairable by choosing a better descriptor for the same member."
+      },
+      "proposed": {
+        "descriptor_note": "The nearest executed construct that decides binary delivery is the draft's binary branch. Unlike the four other corrections this one is NOT corroborated by the proof-target plan: that plan names no Java authority member for binary message delivery at all. It rests on the pinned source alone and is labelled so.",
+        "chain": [
+          {
+            "role": "BINARY_DELIVERY_SITE",
+            "production_symbol": "org.java_websocket.drafts.Draft_6455.processFrameBinary(Lorg/java_websocket/WebSocketImpl;Lorg/java_websocket/framing/Framedata;)V",
+            "java_key": "Draft_6455#processFrameBinary",
+            "bindable_under_current_resolver": true,
+            "not_bindable_reason": "",
+            "citation": {
+              "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+              "start_line": 956,
+              "end_line": 963,
+              "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+              "span_sha256": "sha256:54a6578f8febc545de273881f2ef2747ccf4cdf58ee20df8dc1bf4ef5a272754",
+              "structure_fingerprint": "sha256:6584abbff21f1cc7760e5b1ba2d13028e4f5fba4962edd660a10dab015758907",
+              "corroboration": "JAVABIND_RECEIPT_SOURCE_CONSTRUCT",
+              "effect_at_these_lines": "958-959 hand `frame.getPayloadData()` straight to the listener with no copy and no transformation; 960-961 swallow a listener RuntimeException into a log. Whether the payload is delivered exactly is decided here."
+            }
+          }
+        ]
+      },
+      "effect_if_adopted": {
+        "would_bind": "PARTIAL_AT_BEST",
+        "residual_gap": "processFrameBinary decides delivery of a WHOLE binary frame. Exactness of a FRAGMENTED binary message is decided in processFrameIsFin (Draft_6455.java:999) over the buffer list, outside this span. A binding here would witness the whole-frame clause only.",
+        "would_map_onto_targets": [],
+        "target_symbol_id": ""
+      }
+    },
+    {
+      "correction_id": "correction.messages-text-utf8",
+      "obligation_id": "surface.messages.text-utf8",
+      "obligation_statement": "Text messages accept exactly valid UTF-8.",
+      "defect_family": "INTERFACE_DECLARATION_AND_AMBIGUOUS_OVERLOAD",
+      "current": {
+        "production_symbol": "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/lang/String;)V",
+        "java_key": "WebSocketListener#onWebsocketMessage",
+        "defect_class": "INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE",
+        "citations": [
+          {
+            "file": "src/main/java/org/java_websocket/WebSocketListener.java",
+            "start_line": 45,
+            "end_line": 45,
+            "file_sha256": "sha256:7793730debd5f4632dacdefbd9aa406196f0be92f5c626b54751af024e9de519",
+            "span_sha256": null,
+            "structure_fingerprint": null,
+            "corroboration": "PINNED_SOURCE_ONLY",
+            "effect_at_these_lines": "The declaring type is an interface."
+          },
+          {
+            "file": "src/main/java/org/java_websocket/WebSocketListener.java",
+            "start_line": 92,
+            "end_line": 92,
+            "file_sha256": "sha256:7793730debd5f4632dacdefbd9aa406196f0be92f5c626b54751af024e9de519",
+            "span_sha256": null,
+            "structure_fingerprint": null,
+            "corroboration": "PINNED_SOURCE_ONLY",
+            "effect_at_these_lines": "`void onWebsocketMessage(WebSocket conn, String message);` — the String overload the catalog names for this obligation. Abstract, no body."
+          },
+          {
+            "file": "src/main/java/org/java_websocket/WebSocketListener.java",
+            "start_line": 100,
+            "end_line": 100,
+            "file_sha256": "sha256:7793730debd5f4632dacdefbd9aa406196f0be92f5c626b54751af024e9de519",
+            "span_sha256": null,
+            "structure_fingerprint": null,
+            "corroboration": "PINNED_SOURCE_ONLY",
+            "effect_at_these_lines": "The ByteBuffer overload, which makes the simple name ambiguous for this obligation too."
+          }
+        ],
+        "why_wrong": "Same two defects as surface.messages.binary, on the sibling overload. A body-less declaration also cannot decide UTF-8 validity: by the time this method is reached the String already exists, so whatever rejected invalid input did so somewhere else."
+      },
+      "proposed": {
+        "descriptor_note": "Two candidates are named, ranked, and each labelled with whether the CURRENT resolver could bind it. This matters: the in-repo US-006 plan's own Java authority for UTF-8 is Charsetfunctions#stringUtf8(ByteBuffer), and that name is ambiguous in its declaring type, so adopting the corroborated symbol alone would leave the obligation unbindable for a second, different reason. Recording that is the point.",
+        "chain": [
+          {
+            "role": "TEXT_DELIVERY_AND_VALIDATION_CALL_SITE",
+            "production_symbol": "org.java_websocket.drafts.Draft_6455.processFrameText(Lorg/java_websocket/WebSocketImpl;Lorg/java_websocket/framing/Framedata;)V",
+            "java_key": "Draft_6455#processFrameText",
+            "bindable_under_current_resolver": true,
+            "not_bindable_reason": "",
+            "citation": {
+              "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+              "start_line": 982,
+              "end_line": 990,
+              "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+              "span_sha256": "sha256:1039271112243f85c8040976d373b694e9d42ec065b2ba898b35dd52ce487ff2",
+              "structure_fingerprint": "sha256:cd45f7ba1ca1146d4d7f7121465da1eab1c8c15b401c7edde753306c51f1b464",
+              "corroboration": "JAVABIND_RECEIPT_SOURCE_CONSTRUCT",
+              "effect_at_these_lines": "985-986 call `Charsetfunctions.stringUtf8(frame.getPayloadData())` and deliver the result. The declared `throws InvalidDataException` at 983 is what lets a decode failure become a protocol fault instead of a delivered message. This is the executed site where an invalid text payload stops being a message."
+            }
+          },
+          {
+            "role": "UTF8_VALIDATION_AUTHORITY",
+            "production_symbol": "org.java_websocket.util.Charsetfunctions.stringUtf8(Ljava/nio/ByteBuffer;)Ljava/lang/String;",
+            "java_key": "Charsetfunctions#stringUtf8",
+            "bindable_under_current_resolver": false,
+            "not_bindable_reason": "Charsetfunctions declares two members named stringUtf8 (line 68 takes byte[], line 72 takes ByteBuffer), so the binding key declaringType#simpleName is ambiguous and internal/javabind's resolver refuses it by design. Binding this symbol would additionally require the resolver's key to be widened to include the parameter list — which is itself blocked, because the catalog's descriptors are known to disagree with the pinned source's parameter lists.",
+            "citation": {
+              "file": "src/main/java/org/java_websocket/util/Charsetfunctions.java",
+              "start_line": 72,
+              "end_line": 85,
+              "file_sha256": "sha256:9051e7760ca8f318238e20db952152283f278f61d8bbb2af97a5daa75b3d5311",
+              "span_sha256": null,
+              "structure_fingerprint": null,
+              "corroboration": "PROOF_TARGETS_JAVA_AUTHORITY",
+              "effect_at_these_lines": "73-75 build a CharsetDecoder with CodingErrorAction.REPORT (declared at line 44) for both malformed input and unmappable characters; 81-83 turn a CharacterCodingException into InvalidDataException(CloseFrame.NO_UTF8). This is where 'exactly valid UTF-8' is actually decided.",
+              "corroborating_proof_target_member": "org.java_websocket.util.Charsetfunctions#stringUtf8(ByteBuffer)"
+            }
+          }
+        ]
+      },
+      "effect_if_adopted": {
+        "would_bind": "PARTIAL_AT_BEST",
+        "residual_gap": "processFrameText is bindable and witnessable, but the strictness itself is decided one call deeper, in stringUtf8's REPORT-mode decoder. A canary inside processFrameText's span can prove the call site matters; it cannot prove the decoder is strict. Binding the decoder needs a resolver change that is out of scope for a catalog correction.",
+        "would_map_onto_targets": [
+          "target.formal.messages.utf8-validation-total"
+        ],
+        "target_symbol_id": "sym.utf8.string-utf8"
+      }
+    }
+  ],
+  "not_claims": [
+    "Adopting any of these five corrections would not connect its obligation. Every one of them says so in its own residual_gap, and four of the five would still be PARTIAL at best.",
+    "These are not the only defects in the catalog's Java column. Two further obligations carry catalog-defect reason codes that this document does not propose a correction for (surface.errors.protocol-fault, declared against an exception TYPE; surface.handshake.client-request, declared against WebSocketImpl.startHandshake which the handshake oracle does not run). They are named here so their absence is a scope statement, not an oversight.",
+    "The catalog's RUST column is not corrected here at all. It has its own, larger defect — all 24 rows name source paths that exist in no tree and a crate namespace the workspace does not ship — which assurance/formal/denominator-reconciliation.json records and no symbol substitution repairs.",
+    "No correction here has been executed. Not one of the proposed symbols has been bound, observed, or mutation-tested by this branch. The spans and fingerprints are resolutions of pinned source, not evidence about behaviour."
+  ]
+}
