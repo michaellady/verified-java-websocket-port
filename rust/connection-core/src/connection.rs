@@ -2209,3 +2209,276 @@ impl ConnectionCore {
         }
     }
 }
+
+#[cfg(kani)]
+mod proofs {
+    use alloc::vec::Vec;
+
+    use super::{
+        ConnectionConfig, ConnectionCore, ConnectionLimits, CoreInput, CoreOutput, FailureKind,
+        HandshakeFailure, LimitKind, LocalCommand, Role,
+    };
+    use crate::handshake::{ClientRequestDescriptor, ClientRequestDescriptorError};
+
+    /// Exact origin-form request-target length admitted by this bounded harness.
+    const TARGET_LENGTH: usize = 2;
+    /// Exact Host field-value length admitted by this bounded harness.
+    const HOST_LENGTH: usize = 3;
+    /// Fixed octets RFC 6455 requires around the two caller-selected fields.
+    ///
+    /// `GET ` + ` HTTP/1.1\r\nHost: ` + the four fixed header lines + the
+    /// terminating CRLF, independent of the target and Host lengths.
+    const FIXED_REQUEST_OCTETS: usize = 138;
+    /// The exact canonical request length for this harness's field lengths.
+    const EXPECTED_TOTAL: usize = FIXED_REQUEST_OCTETS + TARGET_LENGTH + HOST_LENGTH;
+    /// `Sec-WebSocket-Key: ` + 24 base64 octets + CRLF is the longest line here.
+    const EXPECTED_LONGEST_LINE: usize = 45;
+    /// RFC 6455 requires exactly these five request header fields.
+    const EXPECTED_HEADER_COUNT: usize = 5;
+    /// Canonical length of the concrete request used to arm the restart gate.
+    const PRESTEP_TOTAL: usize = FIXED_REQUEST_OCTETS + 1 + 1;
+
+    /// Independent RFC 4648 base64 alphabet.
+    ///
+    /// Rebuilt inside the harness so the `Sec-WebSocket-Key` assertion compares
+    /// the shipped encoder against an independent oracle rather than itself.
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    /// Independent RFC 6455 section 4.1 nonce encoding: 16 octets -> 24 base64
+    /// characters, the trailing group padded with a single `=`.
+    fn independent_encode_nonce(nonce: [u8; 16]) -> [u8; 24] {
+        let mut key = [b'='; 24];
+        let mut group = 0usize;
+        while group < 5 {
+            let input = group * 3;
+            let output = group * 4;
+            let first = nonce[input];
+            let second = nonce[input + 1];
+            let third = nonce[input + 2];
+            key[output] = ALPHABET[usize::from(first >> 2)];
+            key[output + 1] = ALPHABET[usize::from(((first & 0x03) << 4) | (second >> 4))];
+            key[output + 2] = ALPHABET[usize::from(((second & 0x0f) << 2) | (third >> 6))];
+            key[output + 3] = ALPHABET[usize::from(third & 0x3f)];
+            group += 1;
+        }
+        let last = nonce[15];
+        key[20] = ALPHABET[usize::from(last >> 2)];
+        key[21] = ALPHABET[usize::from((last & 0x03) << 4)];
+        key
+    }
+
+    /// Independent restatement of the RFC 7230 `VCHAR` class the descriptor
+    /// admits in a request target and a Host field value.
+    const fn independent_visible_ascii(byte: u8) -> bool {
+        byte >= 0x21 && byte <= 0x7e
+    }
+
+    /// Independent restatement of the RFC 6455 client opening request octets.
+    fn independent_request(target: &[u8], host: &[u8], key: &[u8; 24]) -> Vec<u8> {
+        let mut expected = Vec::new();
+        expected.extend_from_slice(b"GET ");
+        expected.extend_from_slice(target);
+        expected.extend_from_slice(b" HTTP/1.1\r\nHost: ");
+        expected.extend_from_slice(host);
+        expected.extend_from_slice(b"\r\nUpgrade: websocket\r\n");
+        expected.extend_from_slice(b"Connection: Upgrade\r\n");
+        expected.extend_from_slice(b"Sec-WebSocket-Key: ");
+        expected.extend_from_slice(key);
+        expected.extend_from_slice(b"\r\nSec-WebSocket-Version: 13\r\n\r\n");
+        expected
+    }
+
+    /// The four handshake limit triples this harness admits, chosen to sit
+    /// exactly on and exactly one octet inside each RFC-independent boundary.
+    fn limits_for(choice: u8) -> ConnectionLimits {
+        let (bytes, line, count) = match choice {
+            0 => (EXPECTED_TOTAL, EXPECTED_LONGEST_LINE, EXPECTED_HEADER_COUNT),
+            1 => (
+                EXPECTED_TOTAL - 1,
+                EXPECTED_LONGEST_LINE,
+                EXPECTED_HEADER_COUNT,
+            ),
+            2 => (
+                EXPECTED_TOTAL,
+                EXPECTED_LONGEST_LINE - 1,
+                EXPECTED_HEADER_COUNT,
+            ),
+            3 => (
+                EXPECTED_TOTAL,
+                EXPECTED_LONGEST_LINE,
+                EXPECTED_HEADER_COUNT - 1,
+            ),
+            _ => (4_096, 512, 32),
+        };
+        ConnectionLimits {
+            handshake_bytes: bytes as u64,
+            handshake_header_line_bytes: line as u64,
+            handshake_header_count: count as u64,
+            ..ConnectionLimits::default()
+        }
+    }
+
+    /// Proves that every client opening request `ConnectionCore::step` emits is
+    /// the exact RFC 6455 octet sequence for the caller's target, Host, and
+    /// 16-octet nonce, that every rejection is the exact typed failure RFC 6455
+    /// and the configured limits require, and that no rejected request emits
+    /// any wire octets.
+    #[kani::proof]
+    #[kani::unwind(160)]
+    fn prove_client_opening_request_octets() {
+        let target_bytes: [u8; TARGET_LENGTH] = kani::any();
+        let host_bytes: [u8; HOST_LENGTH] = kani::any();
+        // Full-width octet values restricted only to the ASCII range, which is
+        // total for `from_utf8`. Control octets, SP, and DEL stay in the domain
+        // so every descriptor rejection path is reachable.
+        kani::assume(target_bytes.iter().all(|byte| *byte < 0x80));
+        kani::assume(host_bytes.iter().all(|byte| *byte < 0x80));
+        let nonce: [u8; 16] = kani::any();
+        let role = if kani::any::<bool>() {
+            Role::Client
+        } else {
+            Role::Server
+        };
+        let already_started: bool = kani::any();
+        let limit_choice: u8 = kani::any();
+        kani::assume(limit_choice < 5);
+
+        let target = core::str::from_utf8(&target_bytes).expect("ASCII octets are valid UTF-8");
+        let host = core::str::from_utf8(&host_bytes).expect("ASCII octets are valid UTF-8");
+
+        // 1. The descriptor seam admits exactly the RFC-legal wire fields.
+        let expected_descriptor_error = if target_bytes[0] != b'/' {
+            Some(ClientRequestDescriptorError::RequestTargetNotOriginForm)
+        } else if !target_bytes.iter().copied().all(independent_visible_ascii) {
+            Some(ClientRequestDescriptorError::InvalidRequestTargetByte)
+        } else if !host_bytes.iter().copied().all(independent_visible_ascii) {
+            Some(ClientRequestDescriptorError::InvalidHostByte)
+        } else {
+            None
+        };
+        let descriptor = match ClientRequestDescriptor::try_new(target, host) {
+            Ok(descriptor) => {
+                assert!(expected_descriptor_error.is_none());
+                assert_eq!(descriptor.request_target().as_bytes(), &target_bytes);
+                assert_eq!(descriptor.host().as_bytes(), &host_bytes);
+                descriptor
+            }
+            Err(observed) => {
+                assert_eq!(Some(observed), expected_descriptor_error);
+                return;
+            }
+        };
+
+        let limits = limits_for(limit_choice);
+        let config = ConnectionConfig::try_from(limits).expect("harness limits are valid");
+        let mut core = ConnectionCore::new(config, role);
+
+        // 2. Optionally arm the restart gate with a concrete second request.
+        let prestep_admitted = role == Role::Client
+            && PRESTEP_TOTAL <= limits.handshake_bytes as usize
+            && EXPECTED_LONGEST_LINE <= limits.handshake_header_line_bytes as usize
+            && EXPECTED_HEADER_COUNT <= limits.handshake_header_count as usize;
+        if already_started {
+            let seed = ClientRequestDescriptor::try_new("/", "h")
+                .expect("the concrete seed descriptor is RFC-legal");
+            let seeded = core.step(CoreInput::Command(LocalCommand::StartClientHandshake {
+                descriptor: seed,
+                nonce: [0u8; 16],
+            }));
+            assert_eq!(seeded.failure().is_none(), prestep_admitted);
+        }
+        let started = already_started && prestep_admitted;
+
+        // 3. The bound production symbol under the obligation.
+        let result = core.step(CoreInput::Command(LocalCommand::StartClientHandshake {
+            descriptor,
+            nonce,
+        }));
+
+        // 4. The independent RFC 6455 decision table for this request.
+        if role != Role::Client {
+            assert_eq!(result.outputs().len(), 0);
+            assert!(matches!(
+                result.failure().map(|failure| &failure.kind),
+                Some(FailureKind::Handshake(HandshakeFailure::WrongRole))
+            ));
+            return;
+        }
+        if started {
+            assert_eq!(result.outputs().len(), 0);
+            assert!(matches!(
+                result.failure().map(|failure| &failure.kind),
+                Some(FailureKind::Handshake(
+                    HandshakeFailure::ClientHandshakeAlreadyStarted
+                ))
+            ));
+            return;
+        }
+        let expected_limit = if EXPECTED_TOTAL > limits.handshake_bytes as usize {
+            Some((
+                LimitKind::HandshakeBytes,
+                EXPECTED_TOTAL as u64,
+                limits.handshake_bytes,
+            ))
+        } else if EXPECTED_LONGEST_LINE > limits.handshake_header_line_bytes as usize {
+            Some((
+                LimitKind::HandshakeHeaderLineBytes,
+                EXPECTED_LONGEST_LINE as u64,
+                limits.handshake_header_line_bytes,
+            ))
+        } else if EXPECTED_HEADER_COUNT > limits.handshake_header_count as usize {
+            Some((
+                LimitKind::HandshakeHeaderCount,
+                EXPECTED_HEADER_COUNT as u64,
+                limits.handshake_header_count,
+            ))
+        } else {
+            None
+        };
+        if let Some((limit, attempted, maximum)) = expected_limit {
+            // A refused request must never place octets on the wire.
+            assert_eq!(result.outputs().len(), 0);
+            assert!(matches!(
+                result.failure().map(|failure| &failure.kind),
+                Some(FailureKind::LimitExceeded {
+                    limit: observed_limit,
+                    attempted: observed_attempted,
+                    maximum: observed_maximum,
+                }) if *observed_limit == limit
+                    && *observed_attempted == attempted
+                    && *observed_maximum == maximum
+            ));
+            return;
+        }
+
+        // 5. The admitted request is exactly the RFC 6455 octet sequence.
+        assert!(result.failure().is_none());
+        assert_eq!(result.outputs().len(), 1);
+        let Some(CoreOutput::TransportWrite(write)) = result.outputs().next() else {
+            panic!("an admitted client handshake emits exactly one transport write");
+        };
+        let wire = write.as_slice();
+        let key = independent_encode_nonce(nonce);
+        assert_eq!(wire, independent_request(&target_bytes, &host_bytes, &key));
+
+        // 6. Structural invariants stated independently of the octet equality.
+        assert_eq!(wire.len(), EXPECTED_TOTAL);
+        assert_eq!(&wire[..4], b"GET ");
+        assert_eq!(&wire[wire.len() - 4..], b"\r\n\r\n");
+        // The 24-octet key sits at a fixed offset and is base64 throughout.
+        let key_start = 4 + TARGET_LENGTH + 17 + HOST_LENGTH + 62;
+        assert_eq!(&wire[key_start..key_start + 24], &key);
+        assert_eq!(key[23], b'=');
+        assert!(key[..23].iter().all(|byte| ALPHABET.contains(byte)));
+        // Exactly five header lines precede the terminating CRLF.
+        let mut crlf_count = 0usize;
+        let mut index = 0usize;
+        while index + 1 < wire.len() {
+            if wire[index] == b'\r' && wire[index + 1] == b'\n' {
+                crlf_count += 1;
+            }
+            index += 1;
+        }
+        assert_eq!(crlf_count, EXPECTED_HEADER_COUNT + 2);
+    }
+}

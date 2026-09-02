@@ -405,6 +405,7 @@ func harnessPlans() []harnessPlan {
 	const closeMachine = "websocket_core::close::CloseMachine lifecycle"
 	const closeCode = "websocket_core::close::validate_code"
 	const utf8 = "websocket_core::utf8::Utf8Validator::feed+finish"
+	const connectionStep = "websocket_core::ConnectionCore::step"
 	return []harnessPlan{
 		{HarnessID: "frame::decode::proofs::prove_header_safety", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.checked-header-arithmetic"}, Unwind: 12, SymbolicDomain: []string{"all 14-byte prefixes", "all prefix lengths 0..14", "both endpoint roles", "all usize retained-byte counts"}},
 		{HarnessID: "frame::decode::proofs::prove_control_fin_and_length", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.control-fin-and-length"}, Unwind: 12, SymbolicDomain: []string{"all defined control opcodes", "both FIN states", "all 7-bit length codes"}},
@@ -422,12 +423,24 @@ func harnessPlans() []harnessPlan {
 		{HarnessID: "close::proofs::prove_close_machine_terminal_lifecycle", TargetSymbol: closeMachine, SourcePath: "rust/connection-core/src/close.rs", ObligationIDs: []string{"surface.close.terminal-state"}, Unwind: 8, SymbolicDomain: []string{"all local and peer payloads of exact lengths 0..2", "local-first and peer-first initiation", "local-first flush before or after peer close", "peer-first peer-echo and owned local-half admission", "terminal completion requires both close halves and a flushed local write", "reset releases every retained close field", "CloseMachine lifecycle only; excludes ConnectionCore decoder/output wiring"}},
 		{HarnessID: "close::proofs::prove_close_code_classification", TargetSymbol: closeCode, SourcePath: "rust/connection-core/src/close.rs", ObligationIDs: []string{"surface.close.status-code"}, Unwind: 2, SymbolicDomain: []string{"all u16 close codes", "both sender roles"}},
 		{HarnessID: "utf8::proofs::prove_strict_utf8_exact_len_le_4", TargetSymbol: utf8, SourcePath: "rust/connection-core/src/utf8.rs", ObligationIDs: []string{"surface.messages.text-utf8"}, Unwind: 6, SymbolicDomain: []string{"all byte sequences of exact lengths 0..4"}},
+		{HarnessID: "connection::proofs::prove_client_opening_request_octets", TargetSymbol: connectionStep, SourcePath: "rust/connection-core/src/connection.rs", ObligationIDs: []string{"surface.handshake.client-request"}, Unwind: 160, SymbolicDomain: []string{"all 16-octet client nonces", "all ASCII request targets of exact length 2", "all ASCII Host values of exact length 3", "both endpoint roles", "both already-started states", "four exact handshake-limit boundary triples and the default limits", "independent RFC 6455 request-octet, base64 key, and typed-limit decision table", "client opening request only; excludes response validation, longer target and Host fields, Java, refinement, and independence"}},
 	}
+}
+
+func preHandshakeHarnessPlans() []harnessPlan {
+	result := make([]harnessPlan, 0, 16)
+	for _, plan := range harnessPlans() {
+		if plan.HarnessID == "connection::proofs::prove_client_opening_request_octets" {
+			continue
+		}
+		result = append(result, plan)
+	}
+	return result
 }
 
 func priorHarnessPlans() []harnessPlan {
 	result := make([]harnessPlan, 0, 15)
-	for _, plan := range harnessPlans() {
+	for _, plan := range preHandshakeHarnessPlans() {
 		if plan.HarnessID == "frame::decode::proofs::prove_two_byte_protocol_fault_classification" {
 			continue
 		}
@@ -482,7 +495,7 @@ func legacyHarnessPlans() []harnessPlan {
 }
 
 func harnessPlansForReceipt(actual []harnessPlan) ([]harnessPlan, bool) {
-	for _, plans := range [][]harnessPlan{harnessPlans(), priorHarnessPlans(), preCloseHarnessPlans(), preControlHarnessPlans(), preFragmentHarnessPlans(), legacyHarnessPlans()} {
+	for _, plans := range [][]harnessPlan{harnessPlans(), preHandshakeHarnessPlans(), priorHarnessPlans(), preCloseHarnessPlans(), preControlHarnessPlans(), preFragmentHarnessPlans(), legacyHarnessPlans()} {
 		if equalHarnessPlans(actual, plans) {
 			return plans, true
 		}
@@ -516,12 +529,24 @@ func mutationPlans() []mutationPlan {
 		{CanaryID: "canary.bad-close-completes-before-flush", HarnessID: "close::proofs::prove_close_machine_terminal_lifecycle", SourcePath: closeCode, Find: "self.local_payload.is_some() && self.peer.is_some() && !self.write_pending", Replace: "self.local_payload.is_some() && self.peer.is_some() && self.write_pending", Description: "treat a pending close write as terminal instead of requiring its flush", Obligations: []string{"surface.close.terminal-state"}},
 		{CanaryID: "canary.bad-close-code-sender-role", HarnessID: "close::proofs::prove_close_code_classification", SourcePath: closeCode, Find: "1010 if sender == Role::Server => Some(CloseCodeRejection::WrongSenderRole),", Replace: "1010 if sender == Role::Client => Some(CloseCodeRejection::WrongSenderRole),", Description: "invert which sender role may transmit close code 1010", Obligations: []string{"surface.close.status-code"}},
 		{CanaryID: "canary.bad-utf8-surrogate", HarnessID: "utf8::proofs::prove_strict_utf8_exact_len_le_4", SourcePath: utf8, Find: "0xed => self.expect(2, 0x80, 0x9f, FirstContinuationRule::NoSurrogate),", Replace: "0xed => self.expect(2, 0x80, 0xbf, FirstContinuationRule::NoSurrogate),", Description: "admit UTF-8 encodings of surrogate code points", Obligations: []string{"surface.messages.text-utf8"}},
+		{CanaryID: "canary.bad-client-key-nonce-tail", HarnessID: "connection::proofs::prove_client_opening_request_octets", SourcePath: "rust/connection-core/src/handshake/crypto.rs", Find: "    output[output_index + 1] = BASE64[usize::from((first & 0x03) << 4)];", Replace: "    output[output_index + 1] = BASE64[usize::from((first & 0x03) << 3)];", Description: "shift the trailing Sec-WebSocket-Key base64 group left by three bits instead of four", Obligations: []string{"surface.handshake.client-request"}},
 	}
+}
+
+func preHandshakeMutationPlans() []mutationPlan {
+	result := make([]mutationPlan, 0, 19)
+	for _, plan := range mutationPlans() {
+		if plan.CanaryID == "canary.bad-client-key-nonce-tail" {
+			continue
+		}
+		result = append(result, plan)
+	}
+	return result
 }
 
 func priorMutationPlans() []mutationPlan {
 	result := make([]mutationPlan, 0, 18)
-	for _, plan := range mutationPlans() {
+	for _, plan := range preHandshakeMutationPlans() {
 		if plan.CanaryID == "canary.bad-reserved-opcode-relabeled" {
 			continue
 		}
@@ -602,7 +627,7 @@ func withoutObligations(actual []string, removed ...string) []string {
 }
 
 func mutationPlansForReceipt(results []mutationResult) ([]mutationPlan, bool) {
-	for _, plans := range [][]mutationPlan{mutationPlans(), priorMutationPlans(), preCloseMutationPlans(), preControlMutationPlans(), preFragmentMutationPlans(), legacyThirteenMutationPlans(), legacyMutationPlans()} {
+	for _, plans := range [][]mutationPlan{mutationPlans(), preHandshakeMutationPlans(), priorMutationPlans(), preCloseMutationPlans(), preControlMutationPlans(), preFragmentMutationPlans(), legacyThirteenMutationPlans(), legacyMutationPlans()} {
 		if len(results) == len(plans) {
 			return plans, true
 		}
