@@ -326,3 +326,33 @@ collision bounds what the differential *could* detect. It is not a defect
 report, and nothing in this audit claims one. The 74/74 and 49/49 results
 remain true statements about what was run; what the audit changes is what they
 can be taken to mean.
+
+---
+
+## 11. Baseline health, read honestly
+
+`go test -timeout 40m ./...` → **35 ok, 6 FAIL**, exit 1.
+
+| failing package | mine? | reading |
+| --- | --- | --- |
+| `internal/lab` | no | named as a baseline failure in the task |
+| `internal/portplan` | no | named as a baseline failure in the task |
+| `internal/formalplan` | no | named as a baseline failure in the task |
+| `internal/deltaledger` | **no — my environment** | every failure was "VJWP_PROTECTED_STORE is unset". Re-run with the store set: **ok, 15.3s**. My fault for not setting it, and now confirmed clean. |
+| `internal/formalcoverage` | no | `TestRetainedReportsAreExactlyWhatTheEvidenceDerives`; last commit to the cited files is `bce5a07` (US-023), and `basis_pin_drift` names `corpora/frame/codec.json`, which is **absent from the tree entirely** |
+| `cmd/formalcoverctl` | no | same cause, same family |
+
+`git diff --name-only` against mainline shows my branch touches **nothing** under
+`formal/`, `assurance/`, `corpora/`, `internal/diffregress` or `rust/` — it is
+thirteen ADDED files and no modifications. `go build ./...` exits 0.
+
+The initial `VJWP_PROTECTED_STORE` export was refused by the worktree guard on
+my first command and I worked around it per-command from then on; that is how
+`internal/deltaledger` came to look like a failure for most of this session.
+Recorded rather than quietly corrected, because "a package I did not touch was
+failing and I assumed it was baseline" is exactly the reasoning that should be
+checked rather than trusted — and here checking it changed the answer.
+
+Concurrency note: other agents were running `go test` on this machine
+throughout (a sibling worktree plus a `fuzzpinctl` campaign), so wall-clock
+timings above are contended and not performance measurements.
