@@ -155,6 +155,42 @@ PR-to-open in the log; never block the work on it.
   Also decide `claude/us019-autobahn` (1 commit ahead) and
   `claude/vacuity-sweep` (9 ahead): merged as part of another branch, or
   queued.
+- **P1a Reconciliation plan for `claude/evidence-validation`** (read
+  2026-09-02 after `us017-ac2` landed; execute as one unit, self-review
+  round included, since the branch has no recorded PASS: round 5 was in flight
+  on 2026-08-29 and its last commit is r4 at 9aa73ab). Facts: the dry run
+  conflicts on `assurance/concurrency/results.json`,
+  `evidence/linkage/evidence-dag.json` and
+  `rust/ws-driver/tests/schedule_exploration.rs`, and beyond the textual
+  conflicts both branches add `func ValidateConcurrencyResults` to package
+  `internal/formalplan` under different file names
+  (`concurrencyresults.go`, 3202 lines, signature taking
+  `ConcurrencyResultsInputs`; `concurrency_results.go`, 178 lines, taking a
+  root path), so the merged package will not compile until they are unified.
+  They bind different things and neither subsumes the other: `us017-ac2` binds
+  target blobs, the plan digest, minimized reproductions and retention seeds
+  with a document-enumerated polarity test; `evidence-validation` binds the
+  document to the run it cites (an `executed_run` block with the exploration's
+  `stdout_line`, counters re-derived in Go, plan-conformance and fairness
+  against the plan, quoted-counter, narrative and claim-ceiling checks, and a
+  Rust half in the harness that refuses a document not citing this run).
+  Plan: keep the union. (1) Forward-merge; resolve the harness by keeping both
+  sides' tests and constants. (2) Unify the validators into one
+  `ValidateConcurrencyResults` that runs both binding sets, keeping every
+  refusal both review histories proved; both test files stay and must pass.
+  (3) Make `results.json` satisfy both: add the `executed_run` block by
+  actually running the exploration on the merged tree and capturing its
+  stdout line, keep every binding `us017-ac2` recorded, and disclose the
+  merge in `revision_note`. (4) Refreeze the evidence-dag under
+  `LINKAGE_REGENERATE=1` and the US-006 fixture under `US006_REGENERATE=1` if
+  touched, both exits read each time. (5) Self-review round: replay every
+  attack named in the five `evidence-validation` commit messages and the four
+  `us017-ac2` ones against the unified validator; each must be refused; record
+  the round in `drafts/self-review/evidence-validation-round-5.md`. (6) Full
+  validation (gates with ledger, go suite per package, differential and exam
+  since the harness changed), then land with a `merge:` commit and a landing
+  record. If unifying would drop any refusal either history proved, stop and
+  put the choice to the owner rather than pick a side.
 - **P2 Java-equivalence gaps.** (a) Close-frame parity across the 247
   Autobahn cases is fixed on `post-failure` and lands with P1. (b) After
   echoing a close, shipped Java's *server* closes the TCP connection and the
@@ -247,3 +283,4 @@ a close echo (open, unledgered).
 - 2026-09-02T09:19:02Z interactive: PRD pack part 1 of 6 received from HQ via bridge session; stored verbatim at docs/prd-pack/01-structure-and-index.md. Board titles replaced with the canonical child-PRD titles; program context added (master US-008 independent acceptance is the open gate). Acceptance criteria await parts 2 to 6. Mainline head before this commit 70a10bc.
 - 2026-09-02T09:42:25Z interactive (owner approval to proceed): P1 landed claude/ledger-integrity — forward merge f052795, mainline merge 2fbad99, tree 122bd90 equal to the dry run; gates 8/8 + ledger-gates ok, exit 0; differential and exam unchanged to the digest through the port and live Java; go suite 29 ok with the store exported and JDK 17.0.19 on PATH, failing only lab (Darwin canary) and portplan derive-reproduction (jdk_vendor line). Environment: pinned source archive reproduced byte-exactly (git archive | gzip -n -6), Temurin JDK 17.0.19+10 digest-verified and staged, setup script now stages all four pinned Java inputs. PRD pack part 1 committed earlier; this cloud session cannot message the bridge session back. Record: drafts/self-review/ledger-integrity-landing.md. Next: P1 claude/us017-ac2. Mainline head 2fbad99.
 - 2026-09-02T09:56:58Z interactive: P1 landed claude/us017-ac2 — forward merge 0c0c4b0 with the US-006 fixture refrozen (US006_REGENERATE=1 exit 0, verify exit 0), re-binding commit 20e216f (plan digest re-bound after ledger-integrity moved plan.json's ledger metadata; evidence-dag refreshed, LINKAGE_REGENERATE=1 exit 1 by design then verify exit 0), mainline merge 7262a29, tree 6d70078. Gates 8/8 + ledger ok on the Rust tree that landed; ac1 + ledger re-run after the evidence edits, exit 0; harness rebuilt e2898c13…; differential and exam unchanged to the digest, port and live Java 74/74 and 49/49; go 29 ok, only lab (Darwin) and portplan derive (jdk_vendor). Record: drafts/self-review/us017-ac2-landing.md. Next: P1 claude/evidence-validation (needs a self-review round to PASS). Mainline head 7262a29.
+- 2026-09-02T09:58:54Z interactive: inspected claude/evidence-validation — conflicts on results.json, evidence-dag.json and schedule_exploration.rs, plus a duplicate ValidateConcurrencyResults in internal/formalplan against the landed us017-ac2 validator; wrote the P1a reconciliation plan (keep the union, self-review round stands in for its round 5). Not started. Mainline head 5b4e85d.
