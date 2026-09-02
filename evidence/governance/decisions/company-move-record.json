@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-authorized-company-reassignment",
+  "project": "verified-java-websocket-port-claude",
+  "authorized_at": "2026-08-26T14:40:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner explicit AskUserQuestion decision 2026-08-26T14:40Z ('Move this project into Enterprise Vibe Code') to resolve the benchmark-pipeline AWS-account blocker: open-source-projects has no AWS account, Enterprise Vibe Code owns the DIALED-managed AWS accounts, and cross-company credential reuse is hard-forbidden — so the project itself moves to the company whose infrastructure it will use.",
+  "move": {
+    "from": "companies/open-source-projects/projects/verified-java-websocket-port-claude",
+    "to": "companies/enterprise-vibe-code/projects/verified-java-websocket-port-claude",
+    "stays_behind": [
+      "The Codex-driven original verified-java-websocket-port and the master verified-java-to-rust-port remain in open-source-projects, untouched (Codex plane is never written)",
+      "Historical OSP board objective ope-obj-001 is annotated as moved; the live objective/KRs are recreated on the EVC board"
+    ],
+    "carries": [
+      "prd.json (metadata.company updated to enterprise-vibe-code)",
+      "Orchestrator state/executions/protected roots stay at workspace/orchestrator/verified-java-websocket-port-claude/ (company-neutral paths, unchanged)",
+      "The repo repos/public/verified-java-websocket-port-claude (path unchanged; repos/ is company-neutral)",
+      "The two hard governance policies are recreated under enterprise-vibe-code scope (reviewer pin gpt-5.6-sol xhigh; sole-owner assurance fails closed) so enforcement survives the move",
+      "Company vault secrets (VERIFIED_JAVA_WEBSOCKET_CLAUDE_OWNER_ED25519_PRIVATE_KEY, SBX Docker credentials) remain in the OSP vault for now; future live-attempt use will either share/regrant them to EVC via the vault's grant mechanism or mint an owner-authorized key rotation under EVC — recorded here so the seam is explicit, never silently crossed"
+    ]
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

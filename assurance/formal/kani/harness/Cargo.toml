@@ -1,0 +1,10 @@
+[workspace]
+
+[package]
+name = "kani-harness"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+ws-core = { package = "ws-core-under-verification", path = "../ws-core-under-verification" }

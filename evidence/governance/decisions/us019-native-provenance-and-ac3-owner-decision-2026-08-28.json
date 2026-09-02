@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-us019-native-provenance-and-ac3",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T18:40:00Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "owner": "mikelady",
+  "resolves": "two items escalated by the us019 investigation lane after independent review 01a04961-9942-7a50-a939-85312eab5f4d BLOCKed claude/us019-native-run with eight findings",
+
+  "finding_of_fact_first": {
+    "question_investigated": "The native x86_64 Autobahn evidence is untracked, unreferenced by the committed case manifest, and its ledgers are BYTE-IDENTICAL to the committed dev-aarch64 ledgers. Did a genuine distinct native run occur, or are the files a copy?",
+    "conclusion": "THE NATIVE RUN IS GENUINE. Hypothesis (b), that the evidence is a copy, is REFUTED by the artifacts on disk.",
+    "why_the_byte_identity_was_a_false_alarm": "The ledgers are DERIVED SUMMARIES holding only verdict counts, case-ID lists and reconciliation identity strings -- no timings, no host facts, no paths. Byte-identity there is the EXPECTED result of a deterministic conformance outcome and carries no provenance either way. The comparison that raised the alarm was made on the wrong artifact.",
+    "discriminating_evidence": [
+      "The raw evidence underneath differs: fuzzingserver-run1/index.json differs in 292 lines and fuzzingclient-run1/index.json in 414 lines, ALL of them duration. All 494 per-case reports differ, in exactly two fields, duration and started. Timestamp overlap between the two runs is ZERO. A copy would have identical durations.",
+      "EMULATION DISCRIMINATOR, independently re-verified by the coordinator: the dev-aarch64 tree contains exactly ONE file carrying 'WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8)'. The native-x86_64 tree contains ZERO. Positive architectural evidence pointing in opposite directions, from the runs' own logs.",
+      "Host identity from IMDSv2, re-verified by the coordinator: instance REDACTED-EC2-INSTANCE-ID, c7i.xlarge, ami-02b3d83d84b07786d, Amazon Linux 2023, kernel 6.1.180-225.360.amzn2023.x86_64, Intel Xeon Platinum 8488C, uname -m = x86_64.",
+      "Coherent timeline: instance launched 15:52:21Z, fuzzingclient cases 16:00:18-16:01:59Z, fuzzingserver cases 16:11:28-16:11:39Z, host facts 16:12:26Z, ledgers written 16:12. The dev-aarch64 run was 02:29-02:33Z. File mtimes match the UTC timestamps exactly. AWS receipts in .runlog agree on instance, AMI, AZ and launch time."
+    ],
+    "coordinator_correction": "The coordinator had reported to the owner that the run was ambiguous and might be copied files. That framing was more pessimistic than the facts warranted. The ORIGINAL report that the native run occurred was correct."
+  },
+
+  "what_is_genuinely_missing": "AC1 requires the image to run BY MANIFEST DIGEST with bounded resources, and AC5 requires image/source digests, process identities, resource limits and replay commands. A grep for image_digest, RepoDigest, replay, rlimit, pid and commit_sha across the native tree and .runlog returned ZERO hits. The execution happened and is provable; the digest-pinning, process, resource and replay provenance around it was never captured, and cannot be reconstructed after the fact without re-running.",
+
+  "decision_1": {
+    "question": "The native x86_64 conformance run is genuine and provable, but the image digest, process identity, resource limits and replay command that AC1/AC5 explicitly require were never captured. What should I do?",
+    "options_offered": [
+      "Re-run capturing full provenance (recommended)",
+      "Commit it with the gap disclosed",
+      "Leave it uncommitted, mark AC1 blocked"
+    ],
+    "decision": "RE-RUN, CAPTURING FULL PROVENANCE.",
+    "rationale": "The prior run cost 0.066 USD and about 20 minutes wall-clock, so the re-run is cheap relative to permanently carrying a disclosed gap on a criterion that names exactly those five artifacts. This converts genuine-but-unprovable-to-the-AC's-standard into actual acceptance evidence.",
+    "explicit_authorization": "The owner authorized launching a new AWS instance and incurring the associated cost by selecting this option. Teardown after the run is mandatory, and actual cost must be reported."
+  },
+
+  "decision_2": {
+    "question": "AC3 is genuinely unmet: 11 cases pass non-strictly, 3 are informational, and 32 have unclean drop timeouts (zero outright failures). The lane has made the verdict correctly negative rather than hiding it. How should I treat it?",
+    "options_offered": [
+      "Get the Java baseline first (recommended)",
+      "Accept the negative verdict, record AC3 unmet",
+      "Investigate and fix the 46 cases"
+    ],
+    "decision": "OBTAIN THE SAME-MANIFEST JAVA BASELINE BEFORE RULING ON AC3.",
+    "rationale": "It is not currently possible to tell whether the non-strict results are a defect in our port or the shipped Java library's own behaviour, because evidence/java/autobahn-baseline.json is still BLOCKED with zero results and no Java run exists on the same 247-case manifest. This project's normativity is JAVA_FAITHFUL_PLUS_SAFE, so the comparison decides the question rather than a judgement call. Recording AC3 as failed without it risks logging a failure against the port for behaviour real Java also exhibits; amending AC3 without it would weaken a criterion on an assumption.",
+    "note": "This does NOT pre-decide AC3. It orders the evidence needed to decide it. If Java also scores non-strict on the same cases, the Java-faithful bar is met and AC3's strictness clause is the thing to revisit with the owner. If Java scores strictly and we do not, those are our defects."
+  },
+
+  "execution_plan_authorized": "Run BOTH jobs on ONE instance: the Rust conformance sweep with full provenance capture wired in BEFORE the run, and the pinned Java-WebSocket 1.6.0 baseline under the SAME 247-case manifest on the SAME host. Same host and same manifest is what makes the Java-vs-Rust comparison load-bearing rather than indicative.",
+
+  "what_was_already_fixed_on_the_branch_at_518b77a": {
+    "ac3_enforcement": "The verdict now consumes StrictPassRequired; the real run's as_expected=true with strict_pass_all=false is no longer accepted. Verdict is now NEGATIVE and AC3 openly unmet rather than silently passing.",
+    "tautologies": "An empty report previously returned reconciles=true and a zero-case sweep succeeded. Coverage, index-size and cross-source identities added; zero and empty ranges refused. Two new Rust tests were verified to fail when the fix is reverted.",
+    "missing_counted_as_discrimination": "An empty index previously satisfied BOTH the negative control and the mutant. Missing is now excluded and full coverage required; all four subjects refuse an empty report.",
+    "anti_stale_optional": "Deleting fixtures previously made both gates SKIP green at exit 0. mustExist added, per-case agent/behavior/reportfile bound, CLI flags mandatory. Deletion now FAILS at exit 1.",
+    "dag_omissions": "The committed digest manifest had no reader. verify-digest-manifest plus a consuming test added and the manifest entered into the DAG; proven to catch tamper, deletion and unpinned additions.",
+    "still_open": "Finding 7 (the case manifest remains snapshot-derived and refreezable; independent enumeration needs a source outside the run it constrains) and the remainder of finding 8 (native/process/resource/replay nodes cannot enter the DAG until decision 1 executes)."
+  },
+
+  "assurance": {
+    "attestation": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "note": "The finding of fact above was produced by an implementation lane and spot-verified independently by the coordinator (emulation-warning counts and IMDSv2 host facts re-read directly). It has not been through independent review."
+  }
+}

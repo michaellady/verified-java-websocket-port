@@ -1207,6 +1207,23 @@ impl ConnectionCore {
         // code is the failure's, and NO frame is emitted (derive.go
         // sendClose rejects before emitOutbound).
         if let Some(reported) = close_code_rejection(code, reason) {
+            // NO TRANSITION HERE, and that is a MEASURED result, not an
+            // oversight. The owner ruled (protected/us012-us016-owner-decisions
+            // -2026-08-28-formal.json, sha256 d7a54e2c…, decision
+            // rejected-close-transition-divergence) that this site should
+            // follow shipped WebSocketImpl.close():488-503 into CLOSING, with
+            // an explicit escape clause if re-verification contradicted a
+            // live-confirmed observable. It does. The pinned Java oracle's own
+            // recorded run of us005.pub.0000 (send_close code 999) reports
+            // final_state "open"; making this arm transition turns the public
+            // corpus differential into 73/74 with the single failure
+            // "us005.pub.0000: final_state closing, expected open". The reason
+            // is that this command mirrors OracleEngine.sendClose:461-475,
+            // which builds a CloseFrame and lets isValid's InvalidDataException
+            // PROPAGATE, never calling WebSocketImpl.close() and so never
+            // reaching its line 503. See the behavior-delta ledger record and
+            // drafts/close-transition-receipt.json. Do not "fix" this arm
+            // without re-reading that evidence.
             return Err(TypedProtocolFailure::java_invalid_data(reported));
         }
         let mut payload = Vec::with_capacity(2 + reason.len());

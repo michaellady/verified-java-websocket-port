@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us017-closure-receipt",
+  "story": "US-017",
+  "mission": "close the recorded batch-C nonclaim: bounded schedule exploration with minimized-schedule retention",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "recorded_at": "2026-08-27T22:06:50Z",
+  "recorded_at_provenance": "captured from `date -u` immediately after the closure-review round-2 gate reruns and corpus determinism check",
+  "branch": "claude/us017-closure",
+  "worktree": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-us017",
+  "base": "5fc92fe (batch-C merge)",
+  "commit": {
+    "sha": "7ea4780",
+    "history": "76b5350 (initial closure) + 7ea4780 (closure-review fixes, new commit on top; 76b5350 NOT rewritten)",
+    "subject": "us017: adapter-faithful failure halt, full-trace replay equality, results re-transcribed (closure-review fixes)",
+    "trailer": "Borrowed-From: codex 6a7606a (on 76b5350: fault-mutation vocabulary, faulty-boundary demonstration concept, seed-schedule discipline; enumerator/shrinker/retention/interpreter written fresh against the incumbent ws_core CommandQueue/CommandSender boundary)",
+    "pushed": false,
+    "files": [
+      "rust/ws-driver/src/lib.rs (EOF-backpressure fix + doc; unchanged in 7ea4780, blob 3dbe61b)",
+      "rust/ws-driver/tests/schedule_exploration.rs (exploration + retention + replay suites; review fixes in 7ea4780, blob bb49065)",
+      "rust/ws-driver/tests/driver_contract.rs (EOF-retry regression + receiver-drop typed-stance test)",
+      "rust/ws-driver/fuzz-seeds/us017/minimized/*.seed (6 pinned minimized fault artifacts, byte-identical across both commits)",
+      "rust/ws-driver/fuzz-seeds/us017/regressions/eof-backpressure-livelock.seed (real found-and-fixed driver defect)",
+      "assurance/concurrency/results.json (regenerated in 7ea4780 from the fixed run, blobs computed at write time)"
+    ]
+  },
+  "acceptance_criteria_map": [
+    {
+      "ac": 1,
+      "verbatim": "Multiple producers may enqueue bounded SendText, SendBinary, Ping, and Close commands while exactly one owner applies commands and inbound bytes to ConnectionCore and drains ordered writes/events.",
+      "status": "EVIDENCED",
+      "evidence": "all four command kinds are enqueued across two producer programs in every explored schedule (255,624 accepted enqueues read from the run); the single owner applies commands and inbound bytes and drains ordered writes/events; single-owner invariant asserted on every producer step (a producer step moving any protocol observable is a violation; the seeded lock-sharing mutant proves the check kills). Native-thread multi-producer stress (4x50 exactly-once) pre-existing and re-run in gates."
+    },
+    {
+      "ac": 2,
+      "verbatim": "Queue-full, receiver-drop, adapter shutdown, pending-write backpressure, peer close, local close, simultaneous close, EOF, and callback/event delivery have explicit typed behavior and cannot deadlock, leak, reorder committed writes, or deliver terminal state twice.",
+      "status": "EVIDENCED_WITH_CAVEATS",
+      "evidence": "queue-full: CommandRefused returns the command intact (64,056 refusals explored + pinned unit tests); receiver-drop: NEW pinned test receiver_drop_keeps_try_send_bounded_and_typed documents the by-design no-disconnect-signal stance as bounded typed refusal; shutdown: aborts undeliverable output, typed, explored in every schedule; pending-write backpressure: OutputPending deferral (27,708 explored) plus core write-queue precheck; peer/local/simultaneous close: inbound-close and send_close in the alphabet, both orders explored; EOF: Q20 vocabulary plus the found-and-fixed eof-backpressure-livelock defect; event delivery: ordered event stream with exactly-once Terminal (or the typed poisoned-fatal adapter-seam terminal). No-deadlock/no-reorder/no-duplicate-terminal hold on all 79,920 schedules.",
+      "caveats": "no-deadlock evidence is bounded-systematic plus current-host stress, not proof; 'leak' is evidenced as bounded-queue/backpressure behavior (in-flight command bound, fixed capacities), not heap instrumentation"
+    },
+    {
+      "ac": 3,
+      "verbatim": "Bounded schedule exploration fixes tasks, commands, inbound actions, flushes, shutdowns, preemptions, and fairness assumptions and retains minimized schedules for every failure; it remains systematic concurrency evidence, not proof.",
+      "status": "MET - this closure",
+      "evidence": "five fixed actor programs (tasks) over a 12-action alphabet: 4 bounded commands, inbound ping/close/EOF, partial+complete flushes, shutdown; preemptions fixed by context-switch bound 7 (= 4 mandatory + preemption budget 3, within plan.json preemption_bound 3); fairness fixed as the three declared weak-fairness assumptions gating only the final drain, with producer-admission fairness deliberately absent per the plan. EXHAUSTIVE within the bound: 79,920 schedules, truncated=false, 315,070 branches, each executed twice with FULL structured-trace replay equality (semantic events, typed failures, rejection details, byte-exact write suffixes). Terminal dispositions are adapter-faithful and exclusive: 52,924 clean-terminal runs + 26,996 failure-halted runs. Retention is live (the real eof-backpressure failure was auto-minimized 12->3 and persisted) and demonstrated (all six named faults detected, shrunk to 1-minimal schedules of 1-2 actions, fault-localized, pinned byte-for-byte with a sanctioned US017_RETAIN=1 refreeze path). Labeled systematic-not-proof in the suite doc and results artifact."
+    },
+    {
+      "ac": 4,
+      "verbatim": "Actual native-thread stress/race checks run separately from the modeled schedules across both blocking platforms with repeat counts and flake reconciliation; missing race tooling blocks the named runtime claim.",
+      "status": "NOT_MET (unchanged nonclaim)",
+      "evidence": "native-thread stress exists separately (rust/ws-driver/tests/concurrency.rs, darwin arm64, debug+release via gates) but only on this host: no Linux/second blocking platform execution and no race tooling (loom/TSAN excluded by the zero-dependency gate). Per this AC's own rule the named runtime claim remains BLOCKED."
+    },
+    {
+      "ac": 5,
+      "verbatim": "Conformance and differential adapters invoke this same driver and core; seeded lock-sharing, lost-command, queue-bypass, write-reorder, close-race, duplicate-delivery defects are killed.",
+      "status": "PARTIAL",
+      "evidence": "all six seeded defects are killed twice over: the batch-C seed-schedule tests (driver_contract.rs) and this closure's exploration demonstration (detected, minimized, pinned). The ws-testee blocking adapters (US-018) invoke this same driver and core. NOT met: the oracle-harness conformance path scores ws_core directly rather than through the driver, and no differential/Autobahn adapter runs through the driver yet (US-018 territory)."
+    }
+  ],
+  "schedule_numbers": {
+    "source": "transcribed from the round-2 passing suite's printed counters (US017_EXPLORATION / US017_RETENTION lines), read in-session",
+    "bound": "all interleavings of 5 fixed actor programs (12 actions) with <= 7 context switches (= 4 mandatory + preemption budget 3); queue capacities command/write/event = 2/2/8; drain budget 256",
+    "explored_schedules": 79920,
+    "exhaustive_within_bound": true,
+    "truncated": false,
+    "enumeration_branches": 315070,
+    "executions": 159840,
+    "distinct_trace_digests": 19698,
+    "closed_terminal_runs": 52924,
+    "invariant_failures_on_shipped_driver": 0,
+    "real_failures_found_pre_fix": 1,
+    "minimized": {
+      "real_defect": "eof-backpressure-livelock: 12 -> 3 actions (enqueue-close-b,inbound-close,shutdown), committed with RED read on the pre-fix driver",
+      "demonstration_faults": {
+        "lock-sharing": "12 -> 1 (enqueue-text-a)",
+        "lost-command": "12 -> 2 (enqueue-close-b,shutdown)",
+        "queue-bypass": "12 -> 2 (inbound-close,write-all)",
+        "write-reorder": "12 -> 2 (enqueue-ping-b,enqueue-close-b)",
+        "close-race": "12 -> 1 (shutdown)",
+        "duplicate-delivery": "12 -> 1 (shutdown)"
+      },
+      "one_minimality": "verified per artifact: every single-action removal of each minimized schedule no longer fails"
+    },
+    "failure_halted_runs": 26996,
+    "terminal_disposition_exclusivity": "terminals 52924 == closed_terminal_runs (one each, zero failures there); surfaced failures 26996 == failure_halted_runs (one each, zero terminals there); adapter-faithful halt makes both-in-one-run impossible and an invariant asserts it"
+  },
+  "defect_found_and_fixed": {
+    "id": "eof-backpressure-livelock",
+    "summary": "ConnectionDriver::poll latched eof_applied=true even when the core refused TransportEof with its non-fatal backpressure code, losing the EOF forever: the connection stayed in Closing, no terminal ever delivered (livelock). Fixed: the EOF stays latched on non-fatal refusal and retries after outputs drain; fatal refusals still surface and latch.",
+    "tdd": "RED read twice pre-fix (exploration panic with retained minimized artifact; then, fix stashed, both named regression tests failed and the failures were read); GREEN post-fix across the whole suite"
+  },
+  "back_pressure": {
+    "rust_gates_postcommit": "make -C rust gates exit 0 READ on the final tree (round 2 after the review fixes): ac1-gates 7/7 PASS, 626 test results summed across debug+release binaries, zero non-ok result lines",
+    "go_gates": "go build ./... exit 0 READ; go test -count=1 ./... exit 0 READ (24 packages ok, first run, no flakes); NO US006 refreeze needed or performed",
+    "wired_public_corpus": "round-2 rerun on the fixed tree: oracle-requests exit 0 READ, release harness exit 0 READ, evaluate exit 0 READ with executed 74, passed 74, failed 0, missing 0, unmatched 0; transcript sha256 b3e7324f... byte-identical to the committed batch-C baseline",
+    "protected_store": "READ-ONLY throughout; custodian ledger sha256 f4941dc801af5a41a2e3285a71d269975ea6e06774d1e1a4573fd6b6d6f400ae, byte-identical to the batch-A/C record; no hidden or sealed tier requested, evaluated, or touched",
+    "determinism": "no clock/randomness/threads in the exploration; enumeration re-run and compared; every schedule executed twice with full structured-trace equality; corpus transcript rerun byte-identical"
+  },
+  "retention_demonstration": "the six named mutations from the adopted codex seeds are injected at the test-only public driver boundary; the exploration detects each (polarity), the deterministic shrinker produces 1-minimal schedules, fault-localization is proven (minimized schedules pass clean, fail faulted, exactly one injection), and the artifacts are pinned byte-for-byte in fuzz-seeds/us017/minimized/ with US017_RETAIN=1 as the sanctioned refreeze path; a corpus mutex serializes the writer and reader tests",
+  "honesty_notes": [
+    "AC3 is closed; the STORY is not fully passing: AC4's two-platform native stress remains blocked (darwin arm64 only, no race tooling under the zero-dep gate) and AC5's conformance/differential-through-driver linkage remains open (US-018 territory)",
+    "bounded exploration is exhaustive ONLY within the declared 5-program/12-action alphabet and context-switch bound 7; it is systematic concurrency testing, never proof, and establishes no native-thread evidence",
+    "26,996 of 79,920 schedules halt at their first surfaced fatal Failure (e.g. inbound bytes during Closing -> STATE_VIOLATION poisons the core per the oracle partial-execution semantics, or inbound to an already-closed core after shutdown); the halt IS the adapter-seam terminal (ws-testee maps it to ProtocolFailure); commands still queued at a halt belong to the embedding adapter's teardown and are asserted at-most-once-disposed, not fully reconciled",
+    "open observation, NOT changed by this closure: the ConnectionConfig event-queue floor (4) is below the smallest capacity the byte path can ever admit a one-frame chunk with (byte_input_event_bound = 1 + 3*spans + 2 = 6), so floor-value configs cannot make inbound progress; the exploration uses capacity 8 and records the observation in results.json",
+    "the 'leak' clause of AC2 is evidenced as bounded-queue behavior (fixed capacities, in-flight bound, intact-return refusals), not heap/allocation instrumentation",
+    "74/74 on the wired public corpus remains a REFERENCE-MODEL-scored result (no live Java executed in this closure); the driver fix did not move the corpus transcript by a byte",
+    "the exploration numbers in this receipt and in assurance/concurrency/results.json are transcribed from the test binary's own printed counters, read in-session; nothing was estimated",
+    "the interpreter's previous version drove runs past surfaced Failures and misclassified 732 runs; the review-fixed interpreter is adapter-faithful and all counters in this receipt are from the corrected run"
+  ],
+  "nonclaims": [
+    "no claim that US-017 passes in full: AC4 remains blocked by its own missing-race-tooling rule and AC5 is partial",
+    "no Linux or second-blocking-platform execution claim",
+    "no formal proof, no full-state-space claim, no native-thread claim from modeled schedules",
+    "no live Java execution and no Java-equivalence claim",
+    "no independent review claimed by this worker; the parent owns push, review, and merge"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5 (US-017 closure worker)",
+  "closure_review_round": {
+    "review_session": "01a04533-420e-76d1-a1c9-4f0dddba97df",
+    "findings_fixed": [
+      {
+        "finding": 1,
+        "fix": "interpreter now halts at the first surfaced DriverOutput::Failure exactly like the real ws-testee io_loop; terminal dispositions exclusive by construction plus a failure-halt-exclusivity invariant; RED read on the pre-fix interpreter (minimized counterexample shutdown,inbound-close recorded both Failure and Terminal); schedule space reclassified: 52924 clean-terminal + 26996 failure-halted = 79920"
+      },
+      {
+        "finding": 2,
+        "fix": "replay equality and digests now cover the FULL structured trace: semantic-event contents, typed failure values, command-disposition payloads and rejection failures, input-rejection details, and byte-exact reoffered write suffixes (re-offer check upgraded from length to byte comparison); 19698 distinct full-trace digests; the whole space re-run twice"
+      },
+      {
+        "finding": 3,
+        "fix": "assurance/concurrency/results.json regenerated from the fixed run with blob ids computed from the committed tree at write time (lib.rs 3dbe61b == the reviewed commit blob; harness bb49065); verified post-commit that 7ea4780 tree blobs match the citations"
+      }
+    ],
+    "reviewer_passed_items_untouched": "bounded enumeration, truncation guards, EOF retry fix, six named 1-minimal artifacts (re-verified byte-identical under the corrected interpreter), counter mapping, ws_core untouched, attribution"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-governance-publish-records",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-29T00:00:00Z",
+  "decided_at_provenance": "Captured from date -u on the working day the owner answered; the owner selected option 2 in chat immediately prior.",
+  "owner": "mikelady",
+
+  "supersedes": {
+    "record": "governance-mirroring-and-record-schema-owner-decision-2026-08-28.json",
+    "sha256_prefix": "e6837006",
+    "clause_superseded": "decision_1_governance_mirroring: MIRROR DIGESTS ONLY, with record CONTENTS kept out of the repository.",
+    "clause_retained": "The implementation notes of that ruling stand unchanged: the check must RUN IN A GATE rather than only a _test.go file, and an unreachable store must be a REFUSAL rather than a skip. Publishing the records does not relax either."
+  },
+
+  "why_the_earlier_ruling_is_superseded": {
+    "the_earlier_basis": "The digests-only decision rested on a stated assessment that the records 'carry internal deliberation, cost figures, owner reasoning and infrastructure identifiers' and that committing them would publish all of that permanently to a PUBLIC repository.",
+    "the_assessment_was_measured_afterwards_and_was_overstated": "Across all 62 records: ZERO credentials of any kind -- no AKIA/ASIA keys, no private-key blocks, no ARNs, no bucket names. The genuinely identifying content was ONE AWS account id and ONE EC2 instance id. Several earlier flags were pattern false positives: an 'email address' that is the git@github.com SSH remote, an 'instance id' that is the attempt number i-0129, and the only IPv4 being 127.0.0.1. A 'password' match was the phrase passwordless-sudo describing a sandbox template capability.",
+    "a_size_claim_was_also_wrong": "The protected directory is 239MB, but that is sandbox attempt output. The decision records themselves are 660KB.",
+    "the_operational_cost_of_the_earlier_ruling": "Digests-only made the store unreachable from any cloud session or fresh clone, so ledger-gates could never pass there. The owner asked how to reach HQ information from a cloud environment; publishing the records answers that directly without weakening any guard."
+  },
+
+  "question_put_to_owner": "How can we get at the information in HQ from the cloud environment?",
+  "options_offered": [
+    "1. A private companion repo holding the records, with the public repo keeping only digests",
+    "2. Publish the redacted subset into the public repo",
+    "3. Publish the rulings but not the deliberation",
+    "4. Keep the boundary and run governance-dependent gates only where the store is"
+  ],
+  "decision": "OPTION 2 -- PUBLISH THE RECORDS INTO THE PUBLIC REPOSITORY, REDACTED.",
+
+  "what_was_published": {
+    "destination": "evidence/governance/decisions/ on branch claude/cloud-env",
+    "count": 62,
+    "bytes": "660K",
+    "redacted": [
+      "the AWS dev account id -> REDACTED-AWS-ACCOUNT-ID, 1 occurrence, in us008-owner-pinning-tier1.json",
+      "an EC2 instance id -> REDACTED-EC2-INSTANCE-ID, 1 occurrence, in us019-native-provenance-and-ac3-owner-decision-2026-08-28.json; the instance is long terminated, so this is hygiene rather than necessity"
+    ],
+    "deliberately_not_redacted": [
+      "ami-02b3d83d84b07786d -- a PUBLIC Amazon Linux 2023 image id. Publishing it discloses nothing already private and it is load-bearing provenance for the native x86_64 run.",
+      "local /Users/... paths -- they reveal a username that already matches the public GitHub account, so redaction buys nothing while corrupting paths that receipts cite."
+    ]
+  },
+
+  "method_and_why": {
+    "redact_on_copy": "Each record was read from the canonical store, transformed in memory, and only redacted bytes were written to the destination. A copy-then-edit sequence was explicitly rejected: it would place unredacted content inside a git worktree, creating a window in which a careless `git add` publishes it permanently.",
+    "script": "/tmp/publish-governance-records.py, which refuses (exit 1) if any redacted token survives in the destination or if any digest-asserted record drifts.",
+    "a_permission_block_was_honoured": "An initial bulk `cp` was refused by the permission classifier. That refusal was NOT routed around; the action was escalated to the owner, who then chose this option. The classifier had landed on precisely the right step -- the one that moves governance records toward an irreversible public push -- and it surfaced the copy-then-redact sequencing flaw before it could matter."
+  },
+
+  "digest_chain_verified": {
+    "finding": "Only FOUR decision records have their sha256 asserted inside the behaviour-delta ledger's hashed rationales, and NONE of them require redaction, so redaction cannot break the chain. This was established BEFORE any copy was attempted, as the decisive question for whether option 2 was viable at all.",
+    "verified_byte_identical_after_copy": {
+      "governance-mirroring-and-record-schema-owner-decision-2026-08-28.json": "e6837006a722b71f",
+      "ledger-frozen-prefix-owner-decision-2026-08-28.json": "bb3cd0da7f4aed01",
+      "us010-016-ac-amendment-owner-decision-2026-08-27.json": "26849b5ea7400650",
+      "us012-us016-owner-decisions-2026-08-28-formal.json": "d7a54e2c5aac48cc"
+    }
+  },
+
+  "consequences": {
+    "no_code_change_required": "VJWP_PROTECTED_STORE is honoured by internal/deltaledger/governance.go (ProtectedStoreEnv), so a session points that variable at the in-repo path. The review-PASSED claude/ledger-integrity branch needs no modification, which was the design goal -- changing a passed branch would have invalidated its review.",
+    "cloud_sessions_can_now_run_ledger_gates": "Previously impossible, and documented in the handoff as a permanent limitation. That limitation is now lifted.",
+    "the_canonical_store_is_unchanged": "HQ remains authoritative and append-only. The published copy is a MIRROR; corrections still land in HQ as new records and are re-published, never edited in place in the repository.",
+    "still_not_published": "Review receipts, orchestrator execution records, drafts and the race scoreboard. These are coordination state rather than authorisation, and no repository gate depends on them."
+  },
+
+  "assurance": {
+    "attestation": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "note": "The sensitivity sweep was performed by the coordinator and re-run against the destination tree after redaction, reading zero residual tokens. It has not been through independent review."
+  }
+}

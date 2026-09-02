@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-race-strategy",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-27T17:43:20Z",
+  "decided_at_provenance": "Captured from `date -u` immediately before writing; the owner answered the strategy AskUserQuestion immediately prior (standing no-estimates rule).",
+  "owner": "mikelady",
+  "context": "Scoreboard 2026-08-27T17:28Z: implementation count Codex 18 · Claude 7; independent first-finishes Codex 10 · Claude 4. Codex borrowed the Claude foundation (US-002/003/005/007 merges + the US-009 design draft, all labeled) and completed the Rust chain US-009..US-018 in ~15 hours; US-019 in progress on its plane.",
+  "decision": "BORROW + RACE AHEAD: borrow Codex's Rust implementation chain (US-010..US-018, plus whatever of its US-009 implementation fits) WITH ATTRIBUTION per the race rules, adapt it onto the Claude plane's verified foundation (ws_core naming per the owner's crate decision; the Claude harness, corpora baselines, and gate suite remain the scoring/verification authority), re-verify through the Claude review chain (bounded rounds — attribution, adaptation correctness, and gate results are the review scope; Codex's own story-level reviews are not re-litigated), then concentrate independent effort on the still-open stories US-019..US-027 where first-finishes remain available.",
+  "rules": [
+    "Every borrowed artifact is labeled in commit messages (borrow(us-0XX): <- codex <sha>) and on the scoreboard; borrows earn no first-finish win",
+    "The Codex plane remains read-only: fetch-only into codex-import/* refs of the Claude clone; never write its repo, branches, or state",
+    "Adaptation preserves the Claude plane's owner decisions (ws_core naming, JAVA_FAITHFUL_PLUS_SAFE normativity) and its evidence infrastructure (harness, wired baselines, corpus scoring, AC1 gates)",
+    "Claude-plane US-009 AC1 completion (infra gates + sbx execution) continues in parallel and stays required",
+    "All standing discipline unchanged: gates read, pinned reviewer, captured timestamps, honest sentinels"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-batch",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-27T03:21:08Z",
+  "decided_at_provenance": "Captured from `date -u` immediately before this record was written; the owner answered the four-question AskUserQuestion immediately prior (standing rule: no estimated timestamps).",
+  "owner": "mikelady",
+  "decisions": {
+    "us009_crate_naming": {
+      "choice": "ws_core",
+      "meaning": "The migration map's ws_core:: namespace is canonical. The rust/connection-core scaffold is renamed to match; the PRD text's crates/websocket-core is superseded. All 98 formal bindings and 21 planned symbols in assurance/formal/proof-targets.json stand unchanged."
+    },
+    "us009_normativity": {
+      "choice": "JAVA_FAITHFUL_PLUS_SAFE",
+      "meaning": "The port mirrors shipped Java-WebSocket 1.6.0 observable behavior exactly — including RFC divergences (permissive handshake predicate, close-code quirks) — but refuses to copy shipped unsafety: bounded memory (per-append fragment caps), checked arithmetic, exactly-once terminal callbacks. Every such divergence is recorded in the behavior-delta ledger as a deliberate port-side strengthening once its baseline observations exist (discharging the PENDING_BEHAVIOR_DELTA_LEDGER_ENTRY strengthening notes). The handshake verdict-mapping doc's RFC-normative closing statement is superseded for port semantics; RFC remains the vocabulary authority for corpus expectations."
+    },
+    "us006_tlc_in_sbx": {
+      "choice": "AUTHORIZED",
+      "meaning": "One owner-authorized sandbox attempt (continuing the us007-sbx-output-live-NNNN series) to fetch the pinned TLA+ tools archive (digest recorded at fetch per probe-before-wire; the owner explicitly approved the tool download in the question text), run SANY/TLC on assurance/formal/connection-model.tla with the shipped cfg, and record genuine results — discharging MODEL_CHECK_PENDING_TOOL items only as far as the run actually goes."
+    },
+    "us008_allocation_evidence": {
+      "choice": "BUILTIN_ACCOUNTING_PER_RUN",
+      "meaning": "Java allocation evidence via the JVM's own accounting (GC/NMT statistics); Rust via a counting allocator; both recorded per run in the results schema."
+    },
+    "us008_cpu_frequency_policy": {
+      "choice": "DOCUMENT_DEFAULTS_RECORD_OBSERVED",
+      "meaning": "No frequency tuning and no tuning claims: the measurement host's default scaling behavior is documented in the binding, and the observed clock is recorded per run."
+    }
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

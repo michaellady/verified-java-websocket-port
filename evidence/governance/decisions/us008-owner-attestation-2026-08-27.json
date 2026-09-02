@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-batch",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-27T03:52:36Z",
+  "decided_at_provenance": "Captured from `date -u` immediately before this record was written; the owner answered the two-question AskUserQuestion immediately prior (standing no-estimates rule).",
+  "owner": "mikelady",
+  "decisions": {
+    "us008_tenancy_allocation_evidence_procedure": {
+      "choice": "STANDARD_CLOUD_CHECKS",
+      "meaning": "host_identity.allocation_evidence (the dedicated/exclusive TENANCY observation procedure per review fix B3) is bound to: per-run DescribeInstances tenancy-attribute query + exact instance-type confirmation + a job-scoped exclusive-reservation record covering the run's duration. Resolves the name-collision owner touch surfaced by binding round 2 (session 01a0414b)."
+    },
+    "us008_plan_attestation": {
+      "choice": "ATTESTED_BY_OWNER",
+      "meaning": "The owner formally attests the preregistered benchmark plan (frozen workloads, sample counts, SHA-256-seeded pair ordering, paired log-ratio statistics, power model, pass thresholds) as of the plan content at mainline 51257ac. The plan is FROZEN by this attestation: no measurement may be tuned, extended, replaced, optionally stopped, or outlier-deleted after the fact. Assurance level stays OWNER_ATTESTED_NOT_INDEPENDENT with independent_review_claimed:false — no independent attestor exists and none is claimed; the owner was shown this labeling in the question and attested under it. The binding record in-repo must digest-bind this attestation to the exact frozen plan bytes."
+    }
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}
