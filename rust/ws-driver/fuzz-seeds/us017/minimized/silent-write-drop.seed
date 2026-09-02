@@ -1,0 +1,6 @@
+id=minimized-silent-write-drop
+property=shutdown-write-drop-reported
+mutation=drop-writes-dropped-report
+event_queue_capacity=8
+schedule=inbound-close,shutdown
+counterexample=committed-writes-abandoned-unreported

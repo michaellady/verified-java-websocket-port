@@ -39,6 +39,10 @@ struct Drained {
     order: Vec<String>,
     terminals: u64,
     failures: u64,
+    /// Typed dropped-write dispositions observed (US-017 AC2). The
+    /// automatic reply's WIRE POSITION assertions below must stay true in
+    /// their presence, which is why they take an order token too.
+    write_drops: Vec<ws_driver::DroppedWrites>,
 }
 
 /// One owned poll output (the borrowed write suffix copied out so the next
@@ -48,6 +52,7 @@ enum Owned {
     Write(Vec<u8>),
     Event(ws_core::SemanticEvent),
     Failure,
+    WritesDropped(ws_driver::DroppedWrites),
     Terminal,
 }
 
@@ -57,6 +62,7 @@ fn poll_owned(driver: &mut ConnectionDriver, input: DriverInput<'_>) -> Owned {
         DriverOutput::Write(suffix) => Owned::Write(suffix.to_vec()),
         DriverOutput::Event(event) => Owned::Event(event),
         DriverOutput::Failure(_) => Owned::Failure,
+        DriverOutput::WritesDropped(dropped) => Owned::WritesDropped(dropped),
         DriverOutput::Terminal(_) => Owned::Terminal,
     }
 }
@@ -81,6 +87,11 @@ fn drain(driver: &mut ConnectionDriver) -> Drained {
             }
             Owned::Failure => {
                 out.failures += 1;
+                next = poll_owned(driver, DriverInput::Wake);
+            }
+            Owned::WritesDropped(dropped) => {
+                out.order.push(format!("D{}", out.write_drops.len()));
+                out.write_drops.push(dropped);
                 next = poll_owned(driver, DriverInput::Wake);
             }
             Owned::Terminal => {
