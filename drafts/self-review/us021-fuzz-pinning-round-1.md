@@ -270,3 +270,39 @@ am not arguing this grade upward.
 | `go test ./internal/fuzzpin/ -count=1` | **0** (6 tests) |
 | `go run ./cmd/deltaledgerctl --root . --check` (with `VJWP_PROTECTED_STORE` set) | **0** |
 | `cargo fuzz --version` | **101** — the block |
+
+## The full Go suite, and two failures that are not baseline-listed
+
+`go test ./... -timeout 40m -count=1` exited **1**. Four packages failed. Two are
+the declared baseline (`internal/lab`, `internal/portplan`). The other two were
+**not** on the given baseline list, so I did not assume they were pre-existing —
+I ran each to ground:
+
+- **`internal/deltaledger`** — every one of its ~20 failures is the same line:
+  *"THE PROTECTED GOVERNANCE STORE IS NOT REACHABLE. VJWP_PROTECTED_STORE is
+  unset … This is a REFUSAL, not a skip."* I had run the bare suite without the
+  variable. That is the gate working exactly as designed — the same precedent
+  this branch was told to follow. Re-run with the variable set:
+  `go test ./internal/deltaledger/ -count=1` exit **0**.
+- **`internal/formalplan`** — every one of its failures traces to one cause:
+  `JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403` /
+  `quarantined Java tree unavailable`. The reason is that this isolated agent
+  worktree's `.quarantine/` is **empty** while the main checkout's holds the
+  Java-WebSocket tree and JDK; re-acquiring it over the network returns 403
+  through the agent proxy. (Same code path, `internal/portplan/acquire.go`, as
+  the baseline-listed `internal/portplan` failure.) Symlinking `.quarantine` at
+  the main checkout's copy and re-running the three distinct failure families —
+  `TestProofTargetsRealDocumentVerifies`,
+  `TestShippedModelArtifactsValidateClean`,
+  `TestUS006FixtureCatalogThroughRealCLI` — exit **0**. Then the **whole**
+  `internal/formalplan` package with `.quarantine` reachable: **ok, 583.967s**.
+
+With both preconditions supplied (`VJWP_PROTECTED_STORE` set, `.quarantine`
+populated), the only red packages left are the two declared baseline ones:
+`internal/portplan` (FAIL, 11.027s) and `internal/lab` (FAIL, 7.623s). The
+`.quarantine` symlink was removed and the directory restored to the empty state
+I found it in.
+
+Neither failure can be mine: this branch adds 55 files and modifies none, and
+nothing it adds is read by either package. But "it can't be mine" is an argument,
+not a reading, so both were re-run until they went green.
