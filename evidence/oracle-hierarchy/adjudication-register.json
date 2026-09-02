@@ -1,0 +1,1170 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "OracleHierarchyAdjudicationRegister",
+  "statement": "US-020 AC2 says RFC 6455 is rank one, in-scope Autobahn is rank two, independent neutral expectations are rank three, Java observation is rank four and Rust observation is rank five, and that agreement between Java and Rust cannot override a higher oracle. Until this register that sentence had no mechanism anywhere in this tree: one prose string in internal/deltaledger/definitions_gap_closure.go, no type, no field and no check. internal/oraclerank is the mechanism. This document is what it computes from committed evidence, and cmd/oraclerankctl --check recomputes it and refuses any difference, so it is a gate rather than a document. The register is exact in both directions over its override list: an overridden agreement the evidence exhibits and this list omits fails, and an entry this list carries that the evidence does not exhibit fails.",
+  "assurance_note": "OBSERVED. Every verdict here is read from committed bytes; nothing here is proved, and the strength of each rank's attachment is stated per rank in rank_bindings and per family in rank_sources rather than averaged into one number. Rank one is bound to committed HUMAN READINGS of RFC 6455 and not to the RFC text, which is pinned by digest and is not in this repository.",
+  "rank_bindings": [
+    {
+      "rank": 1,
+      "rank_name": "rank1-rfc6455",
+      "strength": "CONTENT_BOUND_TO_RECORDED_READING",
+      "statement": "Rank one is bound to two committed HUMAN READINGS of RFC 6455 -- evidence/us005-handshake-live-mapping.json (rfc_verdict per handshake outcome key) and evidence/us005-public-rfc-divergence-census.json (rfc_strict_expectation per public scenario) -- whose bytes this package hashes on every run. It is NOT bound to the RFC text: evidence/intake/source-pins.json pins https://www.rfc-editor.org/rfc/rfc6455.txt at sha256:765775326aee0ecca9b04bde3fd1f52932d498e33e34e428bd61b8a24da0fa3b (162067 bytes) and no file in this repository carries those bytes.",
+      "artifacts": [
+        {
+          "path": "evidence/intake/source-pins.json",
+          "sha256": "sha256:247bab625a90997cf915f5fd08a06ade4913f6113ec14c768176feaac4d4425e",
+          "bytes": 14676
+        },
+        {
+          "path": "evidence/us005-handshake-live-mapping.json",
+          "sha256": "sha256:4cb2969b14b0d54dd178f7734705e8d8578190f2e69213219fcf8fe6d20f207a",
+          "bytes": 22502
+        },
+        {
+          "path": "evidence/us005-public-rfc-divergence-census.json",
+          "sha256": "sha256:31c4bcd9b68e193bcf55b6ce0df028dd62778e855447bebb30c87a664eac451a",
+          "bytes": 61169
+        }
+      ],
+      "not_bound_to": "the normative RFC 6455 text itself. Every rank-one verdict in this census is a reading recorded by a human in a committed document; nothing here re-derives it from https://www.rfc-editor.org/rfc/rfc6455.txt, and a misreading would pass this gate unchanged.",
+      "owner_action_required": "fetch https://www.rfc-editor.org/rfc/rfc6455.txt, require exact sha256 sha256:765775326aee0ecca9b04bde3fd1f52932d498e33e34e428bd61b8a24da0fa3b and byte size 162067, and commit it at third_party/rfc6455/rfc6455.txt. Egress to www.rfc-editor.org is denied from this environment (agent proxy answered CONNECT with 403), so this cannot be done from a session; it is an owner action. With those bytes present this binding computes CONTENT_BOUND automatically -- no code change is needed."
+    },
+    {
+      "rank": 2,
+      "rank_name": "rank2-autobahn-in-scope",
+      "strength": "CONTENT_BOUND",
+      "statement": "Rank two is bound to the suite's OWN per-case reports under evidence/autobahn/native-x86_64-provenance. Each report carries the suite-authored `expectation` prose and an `expected` map from behaviour class to the event sequences that class admits; the rank-two verdict is which arm of that map the case declares as its endorsed outcome, read from the report bytes. The digest manifest is verified against the files it pins before any report is read, and every leg's case count is asserted equal to 247.",
+      "artifacts": [
+        {
+          "path": "evidence/autobahn/native-digest-manifest.json",
+          "sha256": "sha256:3a8b1f117c7b0e44915af87b63a88a3f68d7e24a9562dd8fbe72589a31bbfc20",
+          "bytes": 273225
+        },
+        {
+          "path": "evidence/autobahn/native-x86_64-provenance/comparison/java-vs-rust-per-case.json",
+          "sha256": "sha256:4fd059cd6de5a607c08744eecf5179f8bb455f59387c523d514ccc850dc33e43",
+          "bytes": 149495
+        }
+      ]
+    },
+    {
+      "rank": 3,
+      "rank_name": "rank3-neutral-expectation",
+      "strength": "CONTENT_BOUND_TO_RECORDED_READING",
+      "statement": "Rank three is bound to the committed expectations in corpora/public/scenarios.jsonl and corpora/handshake/cases.jsonl, hashed on every run. The two tiers are NOT equally independent and this binding does not average them. Every one of the 74 public scenarios records expectation_status=\"REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION\", and internal/corpora.ReferenceBehavior -- the model those expectations are derived from -- documents itself as mirroring the pinned Java-WebSocket 1.6.0 sources. The handshake tier's expectations cite RFC clauses directly and do diverge from the Java observable; the independence probe in this document decides which tier is empirically distinguishable from rank four rather than taking either claim on trust.",
+      "artifacts": [
+        {
+          "path": "corpora/public/scenarios.jsonl",
+          "sha256": "sha256:fe1735bc42c11f66afe2965a7449fc6cad31cca3e2048305388241c781501e5f",
+          "bytes": 342167
+        },
+        {
+          "path": "corpora/handshake/cases.jsonl",
+          "sha256": "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605",
+          "bytes": 26254
+        }
+      ],
+      "not_bound_to": "an oracle independent of rank four, on the public tier. All 74 public expectations are REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION, derived by internal/corpora.DeriveExpected under a reference model whose own doc comment says its defaults mirror pinned Java-WebSocket 1.6.0. A rank-three verdict on that tier is a restatement of a Java-shaped model, so it cannot be counted as an independent check on rank four there.",
+      "owner_action_required": "confirm the public-tier expectations against an oracle that is not the Java-mirroring reference model, or relabel that tier so rank three is not read as independent on it. The handshake tier needs no such action."
+    },
+    {
+      "rank": 4,
+      "rank_name": "rank4-java-observation",
+      "strength": "CONTENT_BOUND",
+      "statement": "Rank four is bound to observations of the pinned Java-WebSocket 1.6.0 process: the two Java legs of the native x86_64 Autobahn run (per-case report bytes under evidence/autobahn/native-x86_64-provenance, digest-manifest verified) and the recorded Java arm at evidence/differential-regression/java-arm.jsonl.",
+      "artifacts": [
+        {
+          "path": "evidence/autobahn/native-digest-manifest.json",
+          "sha256": "sha256:3a8b1f117c7b0e44915af87b63a88a3f68d7e24a9562dd8fbe72589a31bbfc20",
+          "bytes": 273225
+        },
+        {
+          "path": "evidence/differential-regression/java-arm.jsonl",
+          "sha256": "sha256:99327715f35ce130a558638821e18536f744200b3a2f1d22096bccc89ba3e0b8",
+          "bytes": 14961
+        },
+        {
+          "path": "evidence/us005-handshake-live-mapping.json",
+          "sha256": "sha256:4cb2969b14b0d54dd178f7734705e8d8578190f2e69213219fcf8fe6d20f207a",
+          "bytes": 22502
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "rank_name": "rank5-rust-observation",
+      "strength": "CONTENT_BOUND",
+      "statement": "Rank five is bound to observations of the Rust port: the two Rust legs of the native x86_64 Autobahn run (per-case report bytes under evidence/autobahn/native-x86_64-provenance, digest-manifest verified) and the recorded Rust arm at evidence/differential-regression/rust-arm.jsonl.",
+      "artifacts": [
+        {
+          "path": "evidence/autobahn/native-digest-manifest.json",
+          "sha256": "sha256:3a8b1f117c7b0e44915af87b63a88a3f68d7e24a9562dd8fbe72589a31bbfc20",
+          "bytes": 273225
+        },
+        {
+          "path": "evidence/differential-regression/rust-arm.jsonl",
+          "sha256": "sha256:d330d4355fee900fb6e915dcdbde1a61dcc7a3fce985b0cdf5a084c9d2ec2f28",
+          "bytes": 14491
+        }
+      ]
+    }
+  ],
+  "families": [
+    {
+      "family_id": "autobahn-behavior-class",
+      "question": "On this Autobahn case, in this subject role, which behaviour class does the subject exhibit? Rank two's verdict is the class the suite's own per-case `expected` map endorses; ranks four and five are the classes the suite graded the pinned Java and the Rust port at.",
+      "verdict_space": [
+        "OK",
+        "NON-STRICT",
+        "FAILED",
+        "UNIMPLEMENTED",
+        "INFORMATIONAL"
+      ],
+      "rank_sources": [
+        {
+          "rank": 2,
+          "rank_name": "rank2-autobahn-in-scope",
+          "strength": "CONTENT",
+          "paths": [
+            "evidence/autobahn/native-x86_64-provenance/{java,rust}/{fuzzingclient,fuzzingserver}-run1/cases/*.json (`expected` map)"
+          ],
+          "artifact_group": "autobahn-case-definition",
+          "note": "The suite writes its own `expected` map into every per-case report: behaviour class to the event sequences that class admits. The rank-two verdict is the strongest arm that map declares. The map is a property of the CASE, not of the subject, and the census asserts that: the Java-leg and Rust-leg maps must be byte-equal on all 494 (case, role) pairs, so rank two's verdict is confirmed by two separately written report sets before it is used."
+        },
+        {
+          "rank": 4,
+          "rank_name": "rank4-java-observation",
+          "strength": "CONTENT",
+          "paths": [
+            "evidence/autobahn/native-x86_64-provenance/java/fuzzingclient-run1",
+            "evidence/autobahn/native-x86_64-provenance/java/fuzzingserver-run1"
+          ],
+          "artifact_group": "autobahn-java-leg-behavior",
+          "note": "The `behavior` field the suite graded the pinned Java-WebSocket 1.6.0 process at, read from that leg's own per-case report bytes."
+        },
+        {
+          "rank": 5,
+          "rank_name": "rank5-rust-observation",
+          "strength": "CONTENT",
+          "paths": [
+            "evidence/autobahn/native-x86_64-provenance/rust/fuzzingclient-run1",
+            "evidence/autobahn/native-x86_64-provenance/rust/fuzzingserver-run1"
+          ],
+          "artifact_group": "autobahn-rust-leg-behavior",
+          "note": "The `behavior` field the suite graded the Rust port at, read from that leg's own per-case report bytes."
+        },
+        {
+          "rank": 1,
+          "rank_name": "rank1-rfc6455",
+          "strength": "ABSENT",
+          "note": "No committed artifact maps an Autobahn case to an RFC 6455 clause verdict, so rank one abstains on every proposition in this family."
+        },
+        {
+          "rank": 3,
+          "rank_name": "rank3-neutral-expectation",
+          "strength": "ABSENT",
+          "note": "The neutral corpora are scenario-shaped and share no identity with Autobahn case ids, so rank three abstains on every proposition in this family."
+        }
+      ],
+      "cross_checks": [
+        "the digest manifest at evidence/autobahn/native-digest-manifest.json was verified in both directions over 1048 pinned files before any report was read",
+        "each leg's index.json behaviour and behaviorClose were bound to the per-case report they index (divergencesweep.LoadLeg)",
+        "the suite's `expected` map was asserted byte-equal between the Java leg and the Rust leg on every (case, role) pair",
+        "whether a case is graded INFORMATIONAL was asserted to agree between the Java leg and the Rust leg on every (case, role) pair",
+        "the recomputed per-case Java and Rust behaviour classes were cross-checked against the independently produced evidence/autobahn/native-x86_64-provenance/comparison/java-vs-rust-per-case.json"
+      ],
+      "proposition_count": 494,
+      "outcome_counts": {
+        "CONCORDANT": 472,
+        "HIGHER_ORACLE_OVERRIDES": 22
+      },
+      "votes_by_rank": {
+        "rank1-rfc6455": 0,
+        "rank2-autobahn-in-scope": 488,
+        "rank3-neutral-expectation": 0,
+        "rank4-java-observation": 494,
+        "rank5-rust-observation": 494
+      },
+      "abstains_by_rank": {
+        "rank1-rfc6455": 0,
+        "rank2-autobahn-in-scope": 6,
+        "rank3-neutral-expectation": 0,
+        "rank4-java-observation": 0,
+        "rank5-rust-observation": 0
+      }
+    },
+    {
+      "family_id": "handshake-verdict",
+      "question": "On this committed handshake case, does the endpoint accept the head, reject it, or treat it as incomplete?",
+      "verdict_space": [
+        "accept",
+        "reject",
+        "incomplete"
+      ],
+      "rank_sources": [
+        {
+          "rank": 1,
+          "rank_name": "rank1-rfc6455",
+          "strength": "RECORDED_READING",
+          "paths": [
+            "evidence/us005-handshake-live-mapping.json"
+          ],
+          "artifact_group": "handshake-live-mapping",
+          "note": "The `rfc_verdict` field of the committed handshake mapping: a human reading of RFC 6455 sections 1.3, 4.1 and 4.2, recorded per outcome key. The mapping's bytes are hashed on every run; the RFC text is not in this repository, so the reading itself is not re-derivable here. The same document also carries rank four, so this pair is NOT independently sourced and the independence probe declines to score it."
+        },
+        {
+          "rank": 3,
+          "rank_name": "rank3-neutral-expectation",
+          "strength": "CONTENT",
+          "paths": [
+            "corpora/handshake/cases.jsonl"
+          ],
+          "artifact_group": "handshake-corpus",
+          "note": "The committed handshake corpus's own `expected.verdict`, whose `basis` cites RFC 6455, RFC 9110 and RFC 9112 clauses directly. This tier's expectations are NOT the Java-mirroring reference model that produces the public tier's; they disagree with the Java observable on a large fraction of cases, which the independence probe measures rather than assumes."
+        },
+        {
+          "rank": 4,
+          "rank_name": "rank4-java-observation",
+          "strength": "RECORDED_READING",
+          "paths": [
+            "evidence/us005-handshake-live-mapping.json"
+          ],
+          "artifact_group": "handshake-live-mapping",
+          "note": "The `java_observable` field of the same mapping: a reading of the pinned Java-WebSocket 1.6.0 SOURCES (its `basis` cites Draft_6455.java and WebSocketImpl.java by line), not a transcript of the Java process. Where the mapping records `conditional`, rank four abstains with the mapping's own condition text rather than the census inventing a resolution."
+        },
+        {
+          "rank": 2,
+          "rank_name": "rank2-autobahn-in-scope",
+          "strength": "ABSENT",
+          "note": "The in-scope Autobahn selection does not exercise malformed handshake heads, so rank two abstains on every proposition in this family."
+        },
+        {
+          "rank": 5,
+          "rank_name": "rank5-rust-observation",
+          "strength": "ABSENT",
+          "note": "NO per-case Rust handshake transcript is committed to this repository. corpora/handshake/manifest.json records execution_status LIVE_EXECUTED with a transcript sha256, but the transcript bytes are not here. Rank five therefore abstains on all 49 propositions, and this family cannot exercise AC2's final clause at all."
+        }
+      ],
+      "cross_checks": [
+        "every one of the 49 handshake cases resolved to an outcome key present in evidence/us005-handshake-live-mapping.json; an unmapped key is an error",
+        "the mapping's rfc_verdict and java_observable were read as separate opinions and never reconciled by the census",
+        "the 19 outcome keys the mapping marks divergent are EXACTLY the 19 whose java_observable it records as `conditional`, asserted in both directions; rank four abstains on all of them, so this family cannot exhibit a rank-one-overrides-rank-four adjudication at all"
+      ],
+      "proposition_count": 49,
+      "outcome_counts": {
+        "CONCORDANT": 49
+      },
+      "votes_by_rank": {
+        "rank1-rfc6455": 49,
+        "rank2-autobahn-in-scope": 0,
+        "rank3-neutral-expectation": 49,
+        "rank4-java-observation": 32,
+        "rank5-rust-observation": 0
+      },
+      "abstains_by_rank": {
+        "rank1-rfc6455": 0,
+        "rank2-autobahn-in-scope": 0,
+        "rank3-neutral-expectation": 0,
+        "rank4-java-observation": 17,
+        "rank5-rust-observation": 49
+      }
+    },
+    {
+      "family_id": "public-corpus-ready-state",
+      "question": "After this public scenario runs, is the endpoint's ready state open or closed?",
+      "verdict_space": [
+        "open",
+        "closing",
+        "closed"
+      ],
+      "rank_sources": [
+        {
+          "rank": 1,
+          "rank_name": "rank1-rfc6455",
+          "strength": "RECORDED_READING",
+          "paths": [
+            "evidence/us005-public-rfc-divergence-census.json"
+          ],
+          "artifact_group": "public-rfc-divergence-census",
+          "note": "The `rfc_strict_expectation` field of the committed RFC divergence census: a human reading of RFC 6455 sections 5.2, 7.1.7 and 7.4, recorded per scenario. Rank one abstains on scenarios the census does not enrol; the census's own `completeness` field states the class it is complete over."
+        },
+        {
+          "rank": 3,
+          "rank_name": "rank3-neutral-expectation",
+          "strength": "CONTENT",
+          "paths": [
+            "corpora/public/scenarios.jsonl"
+          ],
+          "artifact_group": "public-corpus-expectation",
+          "note": "The corpus's own `expected.final_state`. Every scenario records expectation_status REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION, and rank four in this family is deduced from that same expectation plus a clean-sweep aggregate, so ranks three and four here are NOT independently sourced and the independence probe declines to score that pair."
+        },
+        {
+          "rank": 4,
+          "rank_name": "rank4-java-observation",
+          "strength": "AGGREGATE_DERIVED",
+          "paths": [
+            "corpora/public/manifest.json",
+            "evidence/us005-candidate-public-proof.json",
+            "corpora/public/scenarios.jsonl"
+          ],
+          "artifact_group": "public-corpus-expectation",
+          "note": "No per-scenario Java transcript for the public tier is committed. The per-scenario Java observation is DEDUCED: both aggregates record 74 executed, 74 passed, 0 failed against the pristine java-oracle, and under a clean sweep every scenario's observed final_state equals its recorded expectation. The census refuses this deduction when either aggregate is short of a clean sweep."
+        },
+        {
+          "rank": 5,
+          "rank_name": "rank5-rust-observation",
+          "strength": "CONTENT",
+          "paths": [
+            "rust/ws-oracle-harness/baseline/borrow-batch-c-public-transcript.jsonl",
+            "rust/ws-oracle-harness/baseline/borrow-batch-c-public-baseline.json"
+          ],
+          "artifact_group": "rust-public-transcript",
+          "note": "The committed per-scenario Rust transcript, read line by line: 74 records keyed by request_id, each carrying its own final_state. This is the one rank in this family read from per-case bytes the other ranks do not touch."
+        },
+        {
+          "rank": 2,
+          "rank_name": "rank2-autobahn-in-scope",
+          "strength": "ABSENT",
+          "note": "Public scenarios share no identity with Autobahn case ids, so rank two abstains on every proposition in this family."
+        }
+      ],
+      "cross_checks": [
+        "corpora/public/manifest.json records executed=passed=74, failed=0",
+        "evidence/us005-candidate-public-proof.json records the pristine java-oracle arm at 74/74 with evaluate_exit 0",
+        "rust/ws-oracle-harness/baseline/borrow-batch-c-public-baseline.json records the Rust arm at 74/74 with exit_code 0",
+        "every scenario id in corpora/public/scenarios.jsonl resolves to exactly one record in rust/ws-oracle-harness/baseline/borrow-batch-c-public-transcript.jsonl",
+        "every scenario enrolled by evidence/us005-public-rfc-divergence-census.json carries a recorded_observable equal to the corpus expectation it cites"
+      ],
+      "proposition_count": 74,
+      "outcome_counts": {
+        "CONCORDANT": 56,
+        "HIGHER_ORACLE_OVERRIDES": 18
+      },
+      "votes_by_rank": {
+        "rank1-rfc6455": 18,
+        "rank2-autobahn-in-scope": 0,
+        "rank3-neutral-expectation": 74,
+        "rank4-java-observation": 74,
+        "rank5-rust-observation": 74
+      },
+      "abstains_by_rank": {
+        "rank1-rfc6455": 56,
+        "rank2-autobahn-in-scope": 0,
+        "rank3-neutral-expectation": 0,
+        "rank4-java-observation": 0,
+        "rank5-rust-observation": 0
+      }
+    },
+    {
+      "family_id": "differential-regression-probe",
+      "question": "On this differential probe, what normalized observation does the endpoint produce?",
+      "verdict_space": [
+        "outcome/final_state/error-code/close-code/counts tuple, canonically encoded"
+      ],
+      "rank_sources": [
+        {
+          "rank": 4,
+          "rank_name": "rank4-java-observation",
+          "strength": "CONTENT",
+          "paths": [
+            "evidence/differential-regression/java-arm.jsonl"
+          ],
+          "artifact_group": "differential-java-arm",
+          "note": "The recorded Java arm, one line per probe, produced by the pinned Java-WebSocket 1.6.0 oracle process."
+        },
+        {
+          "rank": 5,
+          "rank_name": "rank5-rust-observation",
+          "strength": "CONTENT",
+          "paths": [
+            "evidence/differential-regression/rust-arm.jsonl"
+          ],
+          "artifact_group": "differential-rust-arm",
+          "note": "The recorded Rust arm, one line per probe, produced by the ws_core harness."
+        },
+        {
+          "rank": 1,
+          "rank_name": "rank1-rfc6455",
+          "strength": "ABSENT",
+          "note": "No committed artifact states an RFC verdict per probe id, so rank one abstains here."
+        },
+        {
+          "rank": 2,
+          "rank_name": "rank2-autobahn-in-scope",
+          "strength": "ABSENT",
+          "note": "The probes are deliberately outside the Autobahn selection, so rank two abstains here."
+        },
+        {
+          "rank": 3,
+          "rank_name": "rank3-neutral-expectation",
+          "strength": "ABSENT",
+          "note": "The manifest states these probes are deliberately NOT in the neutral public corpus, so rank three abstains here."
+        }
+      ],
+      "cross_checks": [
+        "each probe's request_digest was asserted equal between the two arms, so the arms answered the same request",
+        "the free-text `detail` field is excluded from the verdict: the two arms word the same rejection differently by construction and comparing prose would manufacture divergence"
+      ],
+      "proposition_count": 23,
+      "outcome_counts": {
+        "CONCORDANT": 23
+      },
+      "votes_by_rank": {
+        "rank1-rfc6455": 0,
+        "rank2-autobahn-in-scope": 0,
+        "rank3-neutral-expectation": 0,
+        "rank4-java-observation": 23,
+        "rank5-rust-observation": 23
+      },
+      "abstains_by_rank": {
+        "rank1-rfc6455": 0,
+        "rank2-autobahn-in-scope": 0,
+        "rank3-neutral-expectation": 0,
+        "rank4-java-observation": 0,
+        "rank5-rust-observation": 0
+      }
+    }
+  ],
+  "independence_probe": [
+    {
+      "higher_rank": 1,
+      "higher_rank_name": "rank1-rfc6455",
+      "lower_rank": 2,
+      "lower_rank_name": "rank2-autobahn-in-scope",
+      "verdict": "NO_CO_VOTES",
+      "co_votes": 0,
+      "disagreements": 0,
+      "by_family": null,
+      "note": "rank1-rfc6455 and rank2-autobahn-in-scope never both gave a verdict on the same proposition in this census."
+    },
+    {
+      "higher_rank": 1,
+      "higher_rank_name": "rank1-rfc6455",
+      "lower_rank": 3,
+      "lower_rank_name": "rank3-neutral-expectation",
+      "verdict": "DISTINGUISHED",
+      "co_votes": 67,
+      "disagreements": 18,
+      "disagreement_examples": [
+        "public-corpus-ready-state/us005.pub.0005",
+        "public-corpus-ready-state/us005.pub.0019",
+        "public-corpus-ready-state/us005.pub.0020"
+      ],
+      "by_family": [
+        {
+          "family_id": "handshake-verdict",
+          "verdict": "NOT_DISTINGUISHED",
+          "higher_artifact_group": "handshake-live-mapping",
+          "lower_artifact_group": "handshake-corpus",
+          "co_votes": 49,
+          "disagreements": 0
+        },
+        {
+          "family_id": "public-corpus-ready-state",
+          "verdict": "DISTINGUISHED",
+          "higher_artifact_group": "public-rfc-divergence-census",
+          "lower_artifact_group": "public-corpus-expectation",
+          "co_votes": 18,
+          "disagreements": 18,
+          "disagreement_examples": [
+            "public-corpus-ready-state/us005.pub.0005",
+            "public-corpus-ready-state/us005.pub.0019",
+            "public-corpus-ready-state/us005.pub.0020"
+          ]
+        }
+      ],
+      "note": "rank1-rfc6455 differed from rank3-neutral-expectation on 18 of 67 independently sourced shared propositions ([public-corpus-ready-state])."
+    },
+    {
+      "higher_rank": 1,
+      "higher_rank_name": "rank1-rfc6455",
+      "lower_rank": 4,
+      "lower_rank_name": "rank4-java-observation",
+      "verdict": "DISTINGUISHED",
+      "co_votes": 18,
+      "disagreements": 18,
+      "disagreement_examples": [
+        "public-corpus-ready-state/us005.pub.0005",
+        "public-corpus-ready-state/us005.pub.0019",
+        "public-corpus-ready-state/us005.pub.0020"
+      ],
+      "by_family": [
+        {
+          "family_id": "handshake-verdict",
+          "verdict": "NOT_PROBEABLE_SHARED_DERIVATION",
+          "higher_artifact_group": "handshake-live-mapping",
+          "lower_artifact_group": "handshake-live-mapping",
+          "co_votes": 32,
+          "disagreements": 0
+        },
+        {
+          "family_id": "public-corpus-ready-state",
+          "verdict": "DISTINGUISHED",
+          "higher_artifact_group": "public-rfc-divergence-census",
+          "lower_artifact_group": "public-corpus-expectation",
+          "co_votes": 18,
+          "disagreements": 18,
+          "disagreement_examples": [
+            "public-corpus-ready-state/us005.pub.0005",
+            "public-corpus-ready-state/us005.pub.0019",
+            "public-corpus-ready-state/us005.pub.0020"
+          ]
+        }
+      ],
+      "note": "rank1-rfc6455 differed from rank4-java-observation on 18 of 18 independently sourced shared propositions ([public-corpus-ready-state])."
+    },
+    {
+      "higher_rank": 1,
+      "higher_rank_name": "rank1-rfc6455",
+      "lower_rank": 5,
+      "lower_rank_name": "rank5-rust-observation",
+      "verdict": "DISTINGUISHED",
+      "co_votes": 18,
+      "disagreements": 18,
+      "disagreement_examples": [
+        "public-corpus-ready-state/us005.pub.0005",
+        "public-corpus-ready-state/us005.pub.0019",
+        "public-corpus-ready-state/us005.pub.0020"
+      ],
+      "by_family": [
+        {
+          "family_id": "public-corpus-ready-state",
+          "verdict": "DISTINGUISHED",
+          "higher_artifact_group": "public-rfc-divergence-census",
+          "lower_artifact_group": "rust-public-transcript",
+          "co_votes": 18,
+          "disagreements": 18,
+          "disagreement_examples": [
+            "public-corpus-ready-state/us005.pub.0005",
+            "public-corpus-ready-state/us005.pub.0019",
+            "public-corpus-ready-state/us005.pub.0020"
+          ]
+        }
+      ],
+      "note": "rank1-rfc6455 differed from rank5-rust-observation on 18 of 18 independently sourced shared propositions ([public-corpus-ready-state])."
+    },
+    {
+      "higher_rank": 2,
+      "higher_rank_name": "rank2-autobahn-in-scope",
+      "lower_rank": 3,
+      "lower_rank_name": "rank3-neutral-expectation",
+      "verdict": "NO_CO_VOTES",
+      "co_votes": 0,
+      "disagreements": 0,
+      "by_family": null,
+      "note": "rank2-autobahn-in-scope and rank3-neutral-expectation never both gave a verdict on the same proposition in this census."
+    },
+    {
+      "higher_rank": 2,
+      "higher_rank_name": "rank2-autobahn-in-scope",
+      "lower_rank": 4,
+      "lower_rank_name": "rank4-java-observation",
+      "verdict": "DISTINGUISHED",
+      "co_votes": 488,
+      "disagreements": 20,
+      "disagreement_examples": [
+        "autobahn-behavior-class/client/3.2",
+        "autobahn-behavior-class/client/3.3",
+        "autobahn-behavior-class/client/4.1.3"
+      ],
+      "by_family": [
+        {
+          "family_id": "autobahn-behavior-class",
+          "verdict": "DISTINGUISHED",
+          "higher_artifact_group": "autobahn-case-definition",
+          "lower_artifact_group": "autobahn-java-leg-behavior",
+          "co_votes": 488,
+          "disagreements": 20,
+          "disagreement_examples": [
+            "autobahn-behavior-class/client/3.2",
+            "autobahn-behavior-class/client/3.3",
+            "autobahn-behavior-class/client/4.1.3"
+          ]
+        }
+      ],
+      "note": "rank2-autobahn-in-scope differed from rank4-java-observation on 20 of 488 independently sourced shared propositions ([autobahn-behavior-class])."
+    },
+    {
+      "higher_rank": 2,
+      "higher_rank_name": "rank2-autobahn-in-scope",
+      "lower_rank": 5,
+      "lower_rank_name": "rank5-rust-observation",
+      "verdict": "DISTINGUISHED",
+      "co_votes": 488,
+      "disagreements": 22,
+      "disagreement_examples": [
+        "autobahn-behavior-class/client/3.2",
+        "autobahn-behavior-class/client/3.3",
+        "autobahn-behavior-class/client/4.1.3"
+      ],
+      "by_family": [
+        {
+          "family_id": "autobahn-behavior-class",
+          "verdict": "DISTINGUISHED",
+          "higher_artifact_group": "autobahn-case-definition",
+          "lower_artifact_group": "autobahn-rust-leg-behavior",
+          "co_votes": 488,
+          "disagreements": 22,
+          "disagreement_examples": [
+            "autobahn-behavior-class/client/3.2",
+            "autobahn-behavior-class/client/3.3",
+            "autobahn-behavior-class/client/4.1.3"
+          ]
+        }
+      ],
+      "note": "rank2-autobahn-in-scope differed from rank5-rust-observation on 22 of 488 independently sourced shared propositions ([autobahn-behavior-class])."
+    },
+    {
+      "higher_rank": 3,
+      "higher_rank_name": "rank3-neutral-expectation",
+      "lower_rank": 4,
+      "lower_rank_name": "rank4-java-observation",
+      "verdict": "NOT_DISTINGUISHED",
+      "co_votes": 32,
+      "disagreements": 0,
+      "by_family": [
+        {
+          "family_id": "handshake-verdict",
+          "verdict": "NOT_DISTINGUISHED",
+          "higher_artifact_group": "handshake-corpus",
+          "lower_artifact_group": "handshake-live-mapping",
+          "co_votes": 32,
+          "disagreements": 0
+        },
+        {
+          "family_id": "public-corpus-ready-state",
+          "verdict": "NOT_PROBEABLE_SHARED_DERIVATION",
+          "higher_artifact_group": "public-corpus-expectation",
+          "lower_artifact_group": "public-corpus-expectation",
+          "co_votes": 74,
+          "disagreements": 0
+        }
+      ],
+      "note": "rank3-neutral-expectation and rank4-java-observation both gave a verdict on 32 independently sourced shared propositions and never differed. On this evidence rank3-neutral-expectation cannot be shown to be a separate oracle from rank4-java-observation."
+    },
+    {
+      "higher_rank": 3,
+      "higher_rank_name": "rank3-neutral-expectation",
+      "lower_rank": 5,
+      "lower_rank_name": "rank5-rust-observation",
+      "verdict": "NOT_DISTINGUISHED",
+      "co_votes": 74,
+      "disagreements": 0,
+      "by_family": [
+        {
+          "family_id": "public-corpus-ready-state",
+          "verdict": "NOT_DISTINGUISHED",
+          "higher_artifact_group": "public-corpus-expectation",
+          "lower_artifact_group": "rust-public-transcript",
+          "co_votes": 74,
+          "disagreements": 0
+        }
+      ],
+      "note": "rank3-neutral-expectation and rank5-rust-observation both gave a verdict on 74 independently sourced shared propositions and never differed. On this evidence rank3-neutral-expectation cannot be shown to be a separate oracle from rank5-rust-observation."
+    },
+    {
+      "higher_rank": 4,
+      "higher_rank_name": "rank4-java-observation",
+      "lower_rank": 5,
+      "lower_rank_name": "rank5-rust-observation",
+      "verdict": "DISTINGUISHED",
+      "co_votes": 591,
+      "disagreements": 2,
+      "disagreement_examples": [
+        "autobahn-behavior-class/client/5.15",
+        "autobahn-behavior-class/server/5.15"
+      ],
+      "by_family": [
+        {
+          "family_id": "autobahn-behavior-class",
+          "verdict": "DISTINGUISHED",
+          "higher_artifact_group": "autobahn-java-leg-behavior",
+          "lower_artifact_group": "autobahn-rust-leg-behavior",
+          "co_votes": 494,
+          "disagreements": 2,
+          "disagreement_examples": [
+            "autobahn-behavior-class/client/5.15",
+            "autobahn-behavior-class/server/5.15"
+          ]
+        },
+        {
+          "family_id": "public-corpus-ready-state",
+          "verdict": "NOT_DISTINGUISHED",
+          "higher_artifact_group": "public-corpus-expectation",
+          "lower_artifact_group": "rust-public-transcript",
+          "co_votes": 74,
+          "disagreements": 0
+        },
+        {
+          "family_id": "differential-regression-probe",
+          "verdict": "NOT_DISTINGUISHED",
+          "higher_artifact_group": "differential-java-arm",
+          "lower_artifact_group": "differential-rust-arm",
+          "co_votes": 23,
+          "disagreements": 0
+        }
+      ],
+      "note": "rank4-java-observation differed from rank5-rust-observation on 2 of 591 independently sourced shared propositions ([autobahn-behavior-class])."
+    }
+  ],
+  "findings": [
+    {
+      "id": "ORACLE-RANK-AC2-OVERRIDES",
+      "severity": "BLOCKING",
+      "statement": "38 of the 589 propositions where Java and Rust agree are OVERRIDDEN by a higher oracle. On each of them the differential result reads as agreement and AC2 forbids reading that agreement as parity. Governing: [rank1-rfc6455 on 18 rank2-autobahn-in-scope on 20]. By family: [autobahn-behavior-class on 20 public-corpus-ready-state on 18].",
+      "basis": [
+        "accounting.java_rust_consensus = 589",
+        "accounting.java_rust_consensus_overridden = 38",
+        "every entry is enrolled in java_rust_agreements_overridden_by_a_higher_oracle and the enrolment is exact in both directions (internal/oraclerank.VerifyRules)"
+      ],
+      "owner_action_required": "adjudicate each enrolled proposition -- Java quirk to preserve, port defect to fix, or underspecified behaviour -- and record the disposition. This register states that the question is open; it does not answer it, and it is not a waiver list."
+    },
+    {
+      "id": "ORACLE-RANK-BINDING-1",
+      "severity": "DISCLOSURE",
+      "statement": "rank1-rfc6455 is CONTENT_BOUND_TO_RECORDED_READING, not CONTENT_BOUND. the normative RFC 6455 text itself. Every rank-one verdict in this census is a reading recorded by a human in a committed document; nothing here re-derives it from https://www.rfc-editor.org/rfc/rfc6455.txt, and a misreading would pass this gate unchanged.",
+      "basis": [
+        "rank_bindings[rank1-rfc6455].strength = CONTENT_BOUND_TO_RECORDED_READING",
+        "rank_bindings[rank1-rfc6455] hashes 3 committed artifact(s) on every run"
+      ],
+      "owner_action_required": "fetch https://www.rfc-editor.org/rfc/rfc6455.txt, require exact sha256 sha256:765775326aee0ecca9b04bde3fd1f52932d498e33e34e428bd61b8a24da0fa3b and byte size 162067, and commit it at third_party/rfc6455/rfc6455.txt. Egress to www.rfc-editor.org is denied from this environment (agent proxy answered CONNECT with 403), so this cannot be done from a session; it is an owner action. With those bytes present this binding computes CONTENT_BOUND automatically -- no code change is needed."
+    },
+    {
+      "id": "ORACLE-RANK-BINDING-3",
+      "severity": "DISCLOSURE",
+      "statement": "rank3-neutral-expectation is CONTENT_BOUND_TO_RECORDED_READING, not CONTENT_BOUND. an oracle independent of rank four, on the public tier. All 74 public expectations are REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION, derived by internal/corpora.DeriveExpected under a reference model whose own doc comment says its defaults mirror pinned Java-WebSocket 1.6.0. A rank-three verdict on that tier is a restatement of a Java-shaped model, so it cannot be counted as an independent check on rank four there.",
+      "basis": [
+        "rank_bindings[rank3-neutral-expectation].strength = CONTENT_BOUND_TO_RECORDED_READING",
+        "rank_bindings[rank3-neutral-expectation] hashes 2 committed artifact(s) on every run"
+      ],
+      "owner_action_required": "confirm the public-tier expectations against an oracle that is not the Java-mirroring reference model, or relabel that tier so rank three is not read as independent on it. The handshake tier needs no such action."
+    },
+    {
+      "id": "ORACLE-RANK-INDISTINGUISHABLE-3-4",
+      "severity": "BLOCKING",
+      "statement": "rank3-neutral-expectation is EMPIRICALLY INDISTINGUISHABLE from rank4-java-observation on this evidence: 32 shared propositions where the two read different bytes, 0 disagreements. AC2 gives rank3-neutral-expectation authority over rank4-java-observation, and nothing here shows it is a separate oracle rather than a relabelling.",
+      "basis": [
+        "independence_probe[rank3-neutral-expectation vs rank4-java-observation].co_votes = 32, .disagreements = 0",
+        "independence_probe[rank3-neutral-expectation vs rank4-java-observation].by_family[handshake-verdict] = NOT_DISTINGUISHED (co_votes 32, disagreements 0, groups \"handshake-corpus\" vs \"handshake-live-mapping\")",
+        "independence_probe[rank3-neutral-expectation vs rank4-java-observation].by_family[public-corpus-ready-state] = NOT_PROBEABLE_SHARED_DERIVATION (co_votes 74, disagreements 0, groups \"public-corpus-expectation\" vs \"public-corpus-expectation\")"
+      ],
+      "owner_action_required": "supply evidence at rank3-neutral-expectation that is derived independently of rank4-java-observation and can disagree with it, or stop reading rank3-neutral-expectation as an independent check on rank4-java-observation."
+    },
+    {
+      "id": "ORACLE-RANK-INDISTINGUISHABLE-3-5",
+      "severity": "BLOCKING",
+      "statement": "rank3-neutral-expectation is EMPIRICALLY INDISTINGUISHABLE from rank5-rust-observation on this evidence: 74 shared propositions where the two read different bytes, 0 disagreements. AC2 gives rank3-neutral-expectation authority over rank5-rust-observation, and nothing here shows it is a separate oracle rather than a relabelling.",
+      "basis": [
+        "independence_probe[rank3-neutral-expectation vs rank5-rust-observation].co_votes = 74, .disagreements = 0",
+        "independence_probe[rank3-neutral-expectation vs rank5-rust-observation].by_family[public-corpus-ready-state] = NOT_DISTINGUISHED (co_votes 74, disagreements 0, groups \"public-corpus-expectation\" vs \"rust-public-transcript\")"
+      ],
+      "owner_action_required": "supply evidence at rank3-neutral-expectation that is derived independently of rank5-rust-observation and can disagree with it, or stop reading rank3-neutral-expectation as an independent check on rank5-rust-observation."
+    },
+    {
+      "id": "ORACLE-RANK-POLARITY-CONTROL",
+      "severity": "DISCLOSURE",
+      "statement": "The 23 propositions of differential-regression-probe are a pure rank-four-against-rank-five comparison with no higher oracle present, and NONE of them is marked overridden. The override rule therefore discriminates: it does not fire wherever Java and Rust agree, only where a higher oracle disagrees with what they agreed on.",
+      "basis": [
+        "families[differential-regression-probe].proposition_count = 23",
+        "no entry in java_rust_agreements_overridden_by_a_higher_oracle carries family differential-regression-probe",
+        "internal/oraclerank.VerifyRules fails if any proposition in this family is marked overridden"
+      ]
+    }
+  ],
+  "accounting": {
+    "propositions": 640,
+    "undetermined": 0,
+    "concordant": 600,
+    "higher_oracle_overrides": 40,
+    "java_rust_consensus": 589,
+    "java_rust_consensus_overridden": 38,
+    "governing_rank_counts": {
+      "rank1-rfc6455": 67,
+      "rank2-autobahn-in-scope": 488,
+      "rank3-neutral-expectation": 56,
+      "rank4-java-observation": 29
+    }
+  },
+  "java_rust_agreements_overridden_by_a_higher_oracle": [
+    {
+      "proposition_id": "autobahn-behavior-class/client/3.2",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 3.2, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 3.2\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/client/3.3",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 3.3, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 3.3\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/client/4.1.3",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 4.1.3, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 4.1.3\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/client/4.1.4",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 4.1.4, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 4.1.4\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/client/4.2.3",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 4.2.3, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 4.2.3\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/client/4.2.4",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 4.2.4, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 4.2.4\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/client/6.4.1",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 6.4.1, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 6.4.1\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/client/6.4.2",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 6.4.2, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 6.4.2\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/client/6.4.3",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 6.4.3, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 6.4.3\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/client/6.4.4",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 6.4.4, subject role client: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 6.4.4\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/3.2",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 3.2, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 3.2\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/3.3",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 3.3, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 3.3\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/4.1.3",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 4.1.3, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 4.1.3\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/4.1.4",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 4.1.4, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 4.1.4\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/4.2.3",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 4.2.3, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 4.2.3\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/4.2.4",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 4.2.4, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 4.2.4\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/6.4.1",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 6.4.1, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 6.4.1\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/6.4.2",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 6.4.2, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 6.4.2\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/6.4.3",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 6.4.3, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 6.4.3\u003e#/expected"
+    },
+    {
+      "proposition_id": "autobahn-behavior-class/server/6.4.4",
+      "family": "autobahn-behavior-class",
+      "question": "Autobahn case 6.4.4, subject role server: which behaviour class?",
+      "java_rust_consensus_verdict": "NON-STRICT",
+      "governing_rank": 2,
+      "governing_rank_name": "rank2-autobahn-in-scope",
+      "governing_verdict": "OK",
+      "governing_source": "evidence/autobahn/native-x86_64-provenance/{java,rust}/*-run1/cases/\u003ccase 6.4.4\u003e#/expected"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0005",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0005 (family rsv-bit): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0005]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0019",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0019 (family close-code-invalid-wire): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0019]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0020",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0020 (family control-nonfin): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0020]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0029",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0029 (family rsv-bit): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0029]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0031",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0031 (family buffer-limit-frame): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0031]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0033",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0033 (family close-code-invalid-wire): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0033]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0036",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0036 (family bad-opcode): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0036]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0039",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0039 (family unexpected-continuation): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0039]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0041",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0041 (family close-code-invalid-wire): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0041]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0042",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0042 (family data-during-fragment): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0042]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0052",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0052 (family fragment-restart): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0052]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0056",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0056 (family invalid-utf8-text): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0056]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0057",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0057 (family control-oversize): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0057]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0058",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0058 (family rsv-bit): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0058]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0059",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0059 (family control-oversize): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0059]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0065",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0065 (family bad-opcode): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0065]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0066",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0066 (family unexpected-continuation): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0066]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0067",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0067 (family invalid-utf8-text): open or closed after the run?",
+      "java_rust_consensus_verdict": "open",
+      "governing_rank": 1,
+      "governing_rank_name": "rank1-rfc6455",
+      "governing_verdict": "closed",
+      "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0067]/rfc_strict_expectation"
+    }
+  ]
+}

@@ -4,9 +4,9 @@
 # The root Makefile is intentionally untouched; wiring these targets into the
 # root build is a follow-up owned by the pipeline stories.
 
-.PHONY: gates fmt-check clippy fixture-guard test test-release ac1-gates ledger-gates
+.PHONY: gates fmt-check clippy fixture-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
-gates: fmt-check clippy fixture-guard test test-release ac1-gates ledger-gates
+gates: fmt-check clippy fixture-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
 fmt-check:
 	cargo fmt --all -- --check
@@ -94,3 +94,26 @@ ac1-gates:
 # previously bound only by internal/corpora's tests, which no release path runs.
 ledger-gates:
 	cd .. && go run ./cmd/deltaledgerctl --root . --check
+
+# US-020 AC2 oracle hierarchy. AC2 says RFC 6455 is rank one, in-scope Autobahn
+# rank two, independent neutral expectations rank three, Java observation rank
+# four and Rust observation rank five, and that agreement between Java and Rust
+# cannot override a higher oracle. A criteria audit found that sentence had no
+# mechanism anywhere in the tree: one prose string in
+# internal/deltaledger/definitions_gap_closure.go, no type, no field, no check.
+# The consequence was concrete -- the 74/74 public-corpus differential and the
+# 247-case Autobahn per-case comparison this repository cites as parity are both
+# rank-four-against-rank-five comparisons, exactly the comparison AC2 says
+# cannot settle a question on its own.
+#
+# internal/oraclerank is the mechanism and this target executes it.
+# `oraclerankctl --check` recomputes the adjudication register from the
+# committed evidence (the register is never an input to its own recomputation),
+# refuses any difference, and then checks the adjudication rules themselves:
+# every Java/Rust agreement a higher oracle overrides is enrolled, no enrolled
+# entry is unexhibited, the guarded parity reading refuses on every overridden
+# agreement, no rank is declared and then silent, and the pure
+# rank-four-against-rank-five family exhibits no override at all. It exits
+# nonzero on any failure, which fails this target and `gates` with it.
+oracle-hierarchy-gates:
+	cd .. && go run ./cmd/oraclerankctl --root . --check
