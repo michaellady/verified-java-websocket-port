@@ -182,9 +182,18 @@ had an enclosing function. Fixed and commented at the site.
 
 The rule found nine, all in `loopback.rs`. None is waived. `polls_for(deadline,
 read_timeout)` states the **wall-clock window** the bound buys and converts it
-through the one cost a waiting poll actually pays. Every resulting number is
-unchanged from the tree's values — 50_000 = 100 s at 2 ms, 2_000 = 2 s at 1 ms,
-20_000 = 20 s at 1 ms — so this is a change of derivation, not of behaviour.
+through the one cost a waiting poll actually pays. Eight of the nine resulting
+numbers are unchanged from the tree's values — 50_000 = 100 s at 2 ms,
+4_000 = 100 s at 25 ms, 2_000 = 2 s at 1 ms, 250 = 250 ms at 1 ms,
+20_000 = 20 s at 1 ms — so those are a change of derivation and not of
+behaviour. **One number did move, and it is not swept into that sentence:**
+`a_hard_handshake_write_error_shuts_down_and_reports_the_committed_request` had
+`max_polls: 64` at a 5 ms read timeout — a 320 ms window nobody had stated —
+and now has a stated 5 s window, i.e. 1000 polls. That test's real path exits on
+its first write with `BrokenPipe`, so the bound is not approached in either
+form, and the change WIDENS a liveness bound rather than narrowing one. Recorded
+because “every number is unchanged” was the easier sentence and it would have
+been false.
 What it removes is the chosen magnitude, and one concrete bug with it: the F002
 fixture's 50_000 would have silently become **1.6 seconds** of window if its
 `read_timeout` had ever moved to 32 µs, while the 300 ms deadline it races
