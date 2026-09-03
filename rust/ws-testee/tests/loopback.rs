@@ -1818,3 +1818,158 @@ fn each_accepted_connection_stamps_its_own_date_not_the_fixtures() {
 
     server.join().expect("server thread");
 }
+
+// ---------------------------------------------------------------------------
+// RESIDUAL 1 from `drafts/self-review/server-close-parity-round-1.md`: the
+// `pending_chunk.is_empty()` operand of the role-gated transport close had NO
+// failing witness. Attack A5 removed it and the whole `ws-testee` suite stayed
+// green (4 + 22 + 8 passed, exit 0). These two tests are that witness and its
+// control.
+//
+// Why no witness existed, established by reading the loop rather than by
+// trying fixtures until one worked. Inside `drive_connection`, `pending_chunk`
+// is filled ONLY by `stream.read`, and that read is reached only on a drained
+// `Idle` turn — after the role gate. On such a turn a SERVER already in
+// `Closing` has hung up one statement earlier, so the read never happens; and
+// the state cannot become `Closing` while a chunk IS pending, because every
+// route into `Closing` is either the chunk itself (consuming it, which empties
+// `pending_chunk`) or a producer command, and a held command is applied on the
+// preceding `Wake` turn — the very turn that did the read. The operand is
+// therefore unreachable through `drive_connection`'s own entry point, which is
+// exactly why deleting it changed nothing.
+//
+// `drive_connection_from` is where it becomes reachable, and that entry point
+// is not invented for the test: a peer may pipeline its first frames into the
+// same TCP segment as the handshake response (the Autobahn fuzzing server
+// does), leaving the caller holding message-phase bytes the socket will never
+// return again. The witness below is that shape with the driver already in
+// `Closing`.
+// ---------------------------------------------------------------------------
+
+/// `count` masked, empty-payload client->server PING frames back to back, as
+/// one pipelined TCP segment.
+///
+/// Twenty-one of them is the interesting size and the number is derived, not
+/// tuned: `ConnectionCore::handle_bytes` runs an ATOMICITY precheck before it
+/// mutates anything, refusing the whole chunk unless the event queue can hold
+/// `1 + EVENT_SLOTS_PER_FRAME * spans + CLOSE_ECHO_EVENT_SLOTS` = `3 + 3*spans`
+/// records. At the default `event_queue_capacity` of 64 that is satisfied up
+/// to 20 frames (63 slots) and refused from 21 (66 slots) — as non-fatal
+/// backpressure, so the adapter keeps the identical bytes and retries them.
+/// That refusal is the only way a driver can hold inbound bytes across a
+/// drained turn, which is what this gate's third operand exists to notice.
+fn pipelined_masked_pings(count: usize) -> Vec<u8> {
+    let mut segment = Vec::new();
+    for _ in 0..count {
+        segment.push(0x89u8);
+        segment.push(0x80u8);
+        segment.extend_from_slice(&TEST_MASK);
+    }
+    segment
+}
+
+#[test]
+fn a_server_in_closing_hangs_up_once_the_driver_has_taken_every_inbound_byte() {
+    // THE CONTROL for the witness below, differing in exactly one value: the
+    // carryover. With nothing carried over, the gate fires on the first
+    // drained turn and the run reaches its exactly-once terminal.
+    let (mut stream, mut peer) = socket_pair();
+    peer.set_read_timeout(Some(Duration::from_millis(750)))
+        .expect("peer read timeout");
+    let (sender, mut driver) = ws_driver::connection_driver_in_state(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Server,
+        ws_core::connection::InitialState::Closing,
+    );
+
+    let mut report = ws_testee::io_loop::empty_report();
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection_from(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &prompt_bounds(64),
+        ws_core::connection::Role::Server,
+        &mut policy,
+        &mut report,
+        Vec::new(),
+    );
+
+    let (_received, saw_eof) = drain_until_eof_or_timeout(&mut peer);
+    assert!(
+        saw_eof,
+        "control: a closing SERVER with no deferred bytes closes the transport itself"
+    );
+    assert!(
+        report.clean(),
+        "control: and that close is what carries the run to its terminal: {}",
+        report.summary()
+    );
+}
+
+#[test]
+fn a_server_must_not_hang_up_on_bytes_the_driver_has_not_taken_yet() {
+    // THE WITNESS for `pending_chunk.is_empty()`. Same closing SERVER, same
+    // bounds, same role — the only change is that the caller hands over bytes
+    // it already read off the socket and the driver defers them.
+    //
+    // Without the operand the adapter shuts the socket down BOTH ways on the
+    // first drained turn and pumps `TransportEof`, which carries the core to
+    // `Closed`; the loop then re-offers the identical bytes it never dropped,
+    // `handle_bytes` answers `closed + nonzero payload` with the quirk-Q26
+    // STATE VIOLATION, and the run ends `ProtocolFailure` with a 1002 close
+    // pushed at a socket that is already gone. With the operand the adapter
+    // holds the socket open for bytes that are still the driver's to take.
+    let (mut stream, mut peer) = socket_pair();
+    peer.set_read_timeout(Some(Duration::from_millis(750)))
+        .expect("peer read timeout");
+    let (sender, mut driver) = ws_driver::connection_driver_in_state(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Server,
+        ws_core::connection::InitialState::Closing,
+    );
+
+    let mut report = ws_testee::io_loop::empty_report();
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection_from(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &prompt_bounds(64),
+        ws_core::connection::Role::Server,
+        &mut policy,
+        &mut report,
+        pipelined_masked_pings(21),
+    );
+
+    // `stream` is still owned here and deliberately NOT dropped, exactly as in
+    // the echo test above: the only way the peer can see EOF is this endpoint
+    // having closed it.
+    let (received, saw_eof) = drain_until_eof_or_timeout(&mut peer);
+
+    assert!(
+        !saw_eof,
+        "REGRESSION: the adapter hung up while the driver was still holding {} \
+         deferred inbound byte(s); Java's gate is `outQueue.isEmpty()` — every \
+         committed byte on the wire — and bytes the OWNER has not applied yet \
+         are not that. report: {}",
+        pipelined_masked_pings(21).len(),
+        report.summary()
+    );
+    assert!(
+        received.is_empty(),
+        "REGRESSION: hanging up on deferred bytes made the adapter answer its \
+         own retry with a violation close ({received:02x?})"
+    );
+    assert_eq!(
+        report.outcome,
+        ws_testee::io_loop::LoopOutcome::BudgetExhausted,
+        "the run must end by spending its budget on bytes the driver kept \
+         refusing, never by tearing the transport down under them: {}",
+        report.summary()
+    );
+    assert_eq!(
+        report.violation_close_sent, None,
+        "REGRESSION: no protocol violation occurred here at all"
+    );
+}
