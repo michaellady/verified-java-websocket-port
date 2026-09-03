@@ -217,10 +217,64 @@ opcode `0x2` **binary** (not a control frame, so the control-escape rejection
 at `Draft_6455.java:617-620` does not apply), marker 127, and eight length
 octets `80 00 00 00 00 00 00 00`.
 
-Three committed artifacts answer it together:
+**IT IS ANSWERED AT FIRST HAND, IN THE PINNED SOURCE.** The quarantined
+Java tree is staged in this worktree (section 7c), and the file was verified by
+DIGEST before being read, not by its name:
 
-1. **An EXECUTED observation against the pinned JAR.**
-   `evidence/java/formal-bindings/receipt.json`, run
+```
+sha256sum .quarantine/Java-WebSocket-da3cf2a…/src/main/java/org/java_websocket/drafts/Draft_6455.java
+    39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0
+evidence/java/formal-bindings/receipt.json, chain member
+translateSingleFrameCheckLengthLimit, file_sha256
+    sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0   EQUAL
+```
+
+`Draft_6455.translateSingleFramePayloadLength`, the `127` branch, verbatim:
+
+```java
+byte[] bytes = new byte[8];
+for (int i = 0; i < 8; i++) {
+  bytes[i] = buffer.get(/*1 + i*/);
+}
+long length = new BigInteger(bytes).longValue();
+translateSingleFrameCheckLengthLimit(length);
+payloadlength = (int) length;
+```
+
+`new BigInteger(byte[])` is the SIGNED two's-complement constructor, so the
+seed's `80 00 00 00 00 00 00 00` is `Long.MIN_VALUE`, a NEGATIVE long.
+`translateSingleFrameCheckLengthLimit`, verbatim:
+
+```java
+private void translateSingleFrameCheckLengthLimit(long length) throws LimitExceededException {
+  if (length > Integer.MAX_VALUE) { … throw new LimitExceededException("Payloadsize is to big..."); }
+  if (length > maxFrameSize)      { … throw new LimitExceededException("Payload limit reached.", maxFrameSize); }
+  if (length < 0)                 { … throw new LimitExceededException("Payloadsize is to little..."); }
+}
+```
+
+A negative length falls past both `>` tests and is caught by `length < 0`. And
+`LimitExceededException` is not a protocol error:
+
+```java
+public class LimitExceededException extends InvalidDataException {
+  public LimitExceededException(int limit)            { super(CloseFrame.TOOBIG); … }
+  public LimitExceededException(String s, int limit)  { super(CloseFrame.TOOBIG, s); … }
+  public LimitExceededException(String s)             { this(s, Integer.MAX_VALUE); }
+}
+```
+
+with `CloseFrame.TOOBIG = 1009` and `CloseFrame.PROTOCOL_ERROR = 1002` on lines
+90 and 53 of `CloseFrame.java`. **Every constructor of the exception carries
+1009.** So the pinned runtime's answer to the high-bit-64 seed is close code
+**1009**, and RFC 6455 5.2 requires the 1002 class. `payloadlength = (int) length`
+is never reached.
+
+Two committed artifacts corroborate the close-code projection by EXECUTION
+rather than by reading, which matters because a source reading alone would not
+show that the exception reaches the wire as 1009:
+
+1. `evidence/java/formal-bindings/receipt.json`, run
    `baseline/s.limits.cap-exceeded-16`, request digest
    `sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b`,
    response digest
@@ -228,59 +282,39 @@ Three committed artifacts answer it together:
    runtime `org.java-websocket:Java-WebSocket:1.6.0`
    `sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f`.
    Input `gn4D6A==` = `82 7E 03 E8`, a declared length of 1000 against
-   `max_buffered_bytes: 200`. The response is
+   `max_buffered_bytes: 200`; the answer is
    `"error": {"close_code": 1009, "code": "JAVA_INVALID_DATA", "detail": "Payload limit reached."}`
-   with `counts.input_bytes: 4`. So the rejection fires **at the length site,
-   before any payload arrives**, and pinned Java's observable for it is
-   **1009**, not 1002. The clause carries a mutation canary
-   (`m.cap.disable-configured-limit`) whose mutant run accepts the frame
-   instead, so the observation is not true by construction.
+   at `counts.input_bytes: 4` — the length site, before any payload arrives,
+   and the detail string is the `length > maxFrameSize` branch's own message.
+   The clause carries a mutation canary (`m.cap.disable-configured-limit`)
+   whose mutant run accepts the frame instead, so the observation is not true
+   by construction.
 
-2. **The pinned source, bound by byte span.** The same receipt records
-   `translateSingleFrameCheckLengthLimit` as a chain member of
-   `obligation.preallocation-cap`, file
-   `sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0`,
-   span `23854..24496`, span digest
-   `sha256:0e9fd149bb6f5e4a19f8ffd2bfb252280631736706d467b5e57d3644b6a7250c`.
-   `assurance/formal/proof-targets.json:143` states what that span does:
-   *"length > Integer.MAX_VALUE, length > maxFrameSize, and length < 0 all
-   throw LimitExceededException"*. And `:109` states the flow into it: the
-   `127 -> 64-bit` form is decoded "via sign-carrying BigInteger parse, with
-   the parsed length range-checked in translateSingleFrameCheckLengthLimit".
+2. `evidence/ac5-class-completeness/java-arm-public.jsonl`, public corpus case
+   `us005.pub.0031`, family `buffer-limit-frame`, live Java against the same
+   pinned jar, a 7-bit inline length of 80 against `max_buffered_bytes: 64`,
+   answered with the same close code 1009 and the same detail at
+   `consumed_bytes: 2`. Two different length sites, two different runs, one
+   exception, one close code. (That row is one of the 74 public rows, which
+   carry 73 distinct scored observations between them; nothing here rests on
+   the row being unique.)
 
-3. **The port's own citation of the same site.**
-   `rust/ws-core/src/framing.rs` `decode_frame_header` documents its 1009 gate
-   as `translateSingleFrameCheckLengthLimit :648-663`, and
-   `assurance/formal/frame-model.tla:235-237` says it in one line: a declared
-   length above maxFrameSize "throws LimitExceededException, which the port
-   projects as close code 1009".
+The port answers the same seed with 1009 at length site 10
+(`rust/ws-core/tests/frame_codec.rs::high_bit_64_length_is_an_ordinary_oversized_length_at_site_10`),
+so Java and the port agree and the RFC is the odd one out. The class is
+**`java-quirk`**.
 
-A second, independent executed instance of the same projection sits in
-`evidence/ac5-class-completeness/java-arm-public.jsonl`: public corpus case
-`us005.pub.0031`, family `buffer-limit-frame`, the live Java arm against the
-same pinned jar `sha256:eae29213…`, a 7-bit inline length of 80 against
-`max_buffered_bytes: 64`, answered
-`{"close_code": 1009, "code": "JAVA_INVALID_DATA", "detail": "Payload limit reached."}`
-at `consumed_bytes: 2` — the inline length site rather than the 16-bit one. Two
-different length sites, two different runs, one exception, one close code. (That
-row is one of the 74 public rows, which carry 73 distinct scored observations
-between them; nothing here rests on the row being unique.)
-
-**The step that removes the need for a live run.** A 64-bit value with the high
-bit set lands in at least one of that helper's three branches under either sign
-reading — negative under the signed BigInteger, above `Integer.MAX_VALUE` under
-the unsigned one — and **all three branches throw the same exception**. So the
-exact branch is unknown and the observable is not: it is the
-`LimitExceededException` whose executed close code is 1009. Java is therefore
-on the far side of a determinate RFC rule, the port answers 1009 at length site
-10 (`rust/ws-core/tests/frame_codec.rs::high_bit_64_length_is_an_ordinary_oversized_length_at_site_10`),
-and the class is **`java-quirk`**.
-
-The residual, stated rather than smoothed over: no run put *this seed* through
-the pinned JAR. The inference is one executed observation of the exception's
-close code plus a source reading that the three branches share the exception.
-That settles the CLASS question (is Java on the RFC's side, yes or no) and does
-not settle which branch fires.
+**What is still not observed, stated rather than smoothed over.** No run put
+this seed itself through the pinned JAR, so the CLOSE CODE for this input is
+established by reading the branch that fires and the exception it throws, with
+the exception's projection to 1009 executed on two other inputs. The record's
+`blocking_question` asked for exactly that run; what the reading shows is that
+the run would settle which detail STRING appears, not which side of 1002 Java
+is on. It also refutes the record's own premise in passing: the preimage calls
+this a "negative-long parse, untested downstream", and downstream is
+`translateSingleFrameCheckLengthLimit`, three lines of explicit range checks
+with a typed exception — not untested territory but a guard that was read as an
+absence.
 
 ### Why it is not written
 
