@@ -1265,3 +1265,284 @@ func TestTheManifestsDeclaredFamiliesMustBeTheFrozenPolicysExactly(t *testing.T)
 		"the manifest may not choose its own selection; a declaration that names one family "+
 			"twice and drops another has the same length as the policy and is not the policy")
 }
+
+// ---------------------------------------------------------------------------
+// Group 8 — the refusals that survive because a LATER check substitutes a
+// different diagnosis
+//
+// Deleting any check in this group does not make the function succeed. It
+// makes it blame something else, which is why a probe asserting only "an
+// error came back" leaves every one of them green. Each asserts the text.
+// ---------------------------------------------------------------------------
+
+func TestCompareToBaselineNamesWhichOfItsTwoIndexesItCouldNotRead(t *testing.T) {
+	root := repoRoot(t)
+	good := devIndex(root, "fuzzingclient-run1")
+	missing := filepath.Join(t.TempDir(), "absent.json")
+	_, err := CompareToBaseline(devManifest(t), RoleServer, missing, good, nil)
+	requireErrorMentioning(t, err, "read index",
+		"an unreadable SUBJECT index must be refused; without this check the entries map is "+
+			"nil and every case comes back Unobserved, which reads as a run that scored "+
+			"nothing rather than a report that could not be opened")
+	_, err = CompareToBaseline(devManifest(t), RoleServer, good, missing, nil)
+	requireErrorMentioning(t, err, "read index",
+		"the same for the BASELINE index: silently comparing against an empty baseline is "+
+			"how a comparison with nothing gets published as a comparison")
+}
+
+func TestVerifyComparisonDocumentRefusesAnUnreadableLeg(t *testing.T) {
+	root := repoRoot(t)
+	path := filepath.Join(root, filepath.FromSlash(ComparisonDocumentPath))
+	mustExist(t, path)
+	legs := nativeLegs(root)
+	legs["rust_client_behavior"] = filepath.Join(t.TempDir(), "absent.json")
+	_, err := VerifyComparisonDocument(path, devManifest(t), legs)
+	requireErrorMentioning(t, err, "read index",
+		"a leg that cannot be read has no observed values, so every row's stated value would "+
+			"be compared against the empty string and 247 spurious findings published "+
+			"instead of one refusal")
+}
+
+// TestFindingsAreOrderedByCaseFirstThenField isolates the sort's primary key.
+// The forgery produces exactly two findings whose CaseID order and Field order
+// DISAGREE, so the two orderings are distinguishable.
+func TestFindingsAreOrderedByCaseFirstThenField(t *testing.T) {
+	forged := forgeComparison(t, func(t *testing.T, document map[string]any) {
+		rows, ok := document["cases"].([]any)
+		if !ok || len(rows) == 0 {
+			t.Fatal("the document carries no rows; this probe is stale")
+		}
+		relaxed := false
+		for _, row := range rows {
+			entry, ok := row.(map[string]any)
+			if !ok || entry["case_id"] != "1.1.1" {
+				continue
+			}
+			if required, ok := entry["strict_pass_required"].(bool); !ok || !required {
+				t.Fatal("row 1.1.1 does not declare strict_pass_required true; probe is stale")
+			}
+			entry["strict_pass_required"] = false
+			relaxed = true
+		}
+		if !relaxed {
+			t.Fatal("row 1.1.1 was not found; this probe is stale")
+		}
+		differences, ok := document["behavior_differences"].(map[string]any)
+		if !ok {
+			t.Fatal("the document carries no behavior_differences; this probe is stale")
+		}
+		listed, ok := differences["client_role"].([]any)
+		if !ok {
+			t.Fatal("the client-role difference list is not a list; this probe is stale")
+		}
+		differences["client_role"] = append(listed, "1.1.2(invented)")
+	})
+	findings := verifyForged(t, forged)
+	if len(findings) != 2 {
+		t.Fatalf("this probe needs exactly two findings to distinguish the orderings; got %d: %v",
+			len(findings), findings)
+	}
+	// Sorted by CaseID first:  1.1.1/strict_pass_required, then
+	//                          1.1.2/behavior_differences.client_role.
+	// Sorted by Field alone:   behavior_differences.client_role sorts BEFORE
+	//                          strict_pass_required, so the order reverses.
+	if findings[0].CaseID != "1.1.1" || findings[1].CaseID != "1.1.2" {
+		t.Errorf("findings must be ordered by case identity first; got %v. Without the "+
+			"case-identity key the list is ordered by field name, so a reader scanning "+
+			"for one case's findings has to read the whole list", findings)
+	}
+}
+
+func TestAVerdictOnANonReconcilingLedgerSaysSoRatherThanScoringIt(t *testing.T) {
+	root := repoRoot(t)
+	// A genuine index paired with the NEGATIVE CONTROL's case reports: 247
+	// cases are executed, so the empty-run guard cannot fire in place of this
+	// one, and the cross-source disagreements stop it reconciling.
+	control := filepath.Join(root, "evidence", "autobahn", "dev-aarch64-nonauthoritative",
+		"discrimination", "negative-control-fuzzingclient", "cases")
+	mustExist(t, control)
+	ledger, err := Reconcile(devManifest(t), devIndex(root, "fuzzingclient-run1"), control, nil)
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if ledger.Reconciles {
+		t.Fatal("this pairing is supposed not to reconcile; the probe is stale")
+	}
+	if ledger.Executed == 0 {
+		t.Fatal("this pairing must still execute cases, or the empty-run guard answers " +
+			"instead of the one under probe; the probe is stale")
+	}
+	verdict := Discriminate(SubjectUnderTest, ledger)
+	if verdict.AsExpected {
+		t.Error("a ledger that does not reconcile must never be AsExpected")
+	}
+	if !strings.Contains(verdict.Reason, "does not reconcile") {
+		t.Errorf("the verdict must say the ledger does not reconcile rather than scoring it "+
+			"anyway; got %q. Without this guard the AC3 arithmetic is computed over counts "+
+			"the reconciliation already refused", verdict.Reason)
+	}
+}
+
+// TestARunThatScoredNothingCannotSatisfyAC3 isolates the empty-run guard, and
+// it is the sharpest reading in this file: with that guard gone a report that
+// scored ZERO cases comes back AsExpected for the subject under test, because
+// every AC3 equation is trivially satisfied at zero.
+func TestARunThatScoredNothingCannotSatisfyAC3(t *testing.T) {
+	dir := t.TempDir()
+	emptyIndex := filepath.Join(dir, "index.json")
+	writeJSONFile(t, emptyIndex, map[string]any{"an-agent-that-scored-nothing": map[string]any{}})
+	ledger, err := Reconcile(&Manifest{}, emptyIndex, "", nil)
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if !ledger.Reconciles {
+		t.Fatalf("an empty run against an empty expectation reconciles by construction; "+
+			"this probe needs that so the non-reconciling guard cannot answer instead. "+
+			"identities=%v", ledger.Identities)
+	}
+	if ledger.Executed != 0 {
+		t.Fatalf("this probe needs a run that scored nothing; executed=%d", ledger.Executed)
+	}
+	verdict := Discriminate(SubjectUnderTest, ledger)
+	if verdict.AsExpected {
+		t.Error("a run that scored NO cases satisfied AC3. Every AC3 equation is trivially " +
+			"true at zero — strict_pass_all is true, executed equals selected, passed " +
+			"equals executed — so without the empty-run guard the strongest verdict this " +
+			"package can issue is issued by a report containing nothing")
+	}
+	if !strings.Contains(verdict.Reason, "scored no cases at all") {
+		t.Errorf("the verdict must name the empty run as the reason; got %q", verdict.Reason)
+	}
+}
+
+func TestACasesDirectoryThatCannotBeScannedIsNamedAsSuch(t *testing.T) {
+	root := repoRoot(t)
+	// A malformed glob pattern: the scan itself fails, which is a different
+	// condition from a directory that scans to nothing.
+	_, err := Reconcile(devManifest(t), devIndex(root, "fuzzingclient-run1"),
+		filepath.Join(t.TempDir(), "unclosed["), nil)
+	requireErrorMentioning(t, err, "scan ",
+		"a directory that cannot be scanned is not the same as one that holds no reports; "+
+			"without this the failure is reported as an empty directory and the operator "+
+			"looks for missing files instead of a bad path")
+}
+
+func TestACaseReportThatCannotBeReadOrParsedIsNamedAsSuch(t *testing.T) {
+	root := repoRoot(t)
+	for _, testCase := range []struct {
+		name    string
+		prepare func(t *testing.T, dir string)
+		want    string
+		why     string
+	}{
+		{
+			name: "a report that cannot be read",
+			prepare: func(t *testing.T, dir string) {
+				// A DIRECTORY named like a report: the glob matches it and the
+				// read fails.
+				if err := os.Mkdir(filepath.Join(dir, "unreadable.json"), 0o750); err != nil {
+					t.Fatalf("mkdir: %v", err)
+				}
+			},
+			want: "read ",
+			why: "an unreadable report must be named as unreadable; without the read check " +
+				"the nil bytes are handed to the decoder and the failure is reported as " +
+				"malformed content",
+		},
+		{
+			name: "a report that cannot be parsed",
+			prepare: func(t *testing.T, dir string) {
+				if err := os.WriteFile(filepath.Join(dir, "malformed.json"),
+					[]byte("{not json"), 0o600); err != nil {
+					t.Fatalf("write: %v", err)
+				}
+			},
+			want: "parse ",
+			why: "without the parse check the decode error is discarded and an unreadable " +
+				"report is refused for having no id binding, which blames the report's " +
+				"contents rather than its syntax",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			dir := copyCases(t, devCases(root, "fuzzingclient-run1"), "", nil)
+			testCase.prepare(t, dir)
+			_, err := Reconcile(devManifest(t), devIndex(root, "fuzzingclient-run1"), dir, nil)
+			requireErrorMentioning(t, err, testCase.want, testCase.why)
+		})
+	}
+}
+
+func TestBuildManifestNamesTheSourceInputItCouldNotRead(t *testing.T) {
+	_, sources := mutableTree(t)
+	absent := filepath.Join(t.TempDir(), "absent.json")
+
+	broken := append([]ReportSource(nil), sources...)
+	broken[0].IndexPath = absent
+	_, err := BuildManifest(broken)
+	requireErrorMentioning(t, err, "read index",
+		"without this the source's entries are empty and the failure is reported as an "+
+			"index/report count mismatch, which blames the report tree rather than the "+
+			"path that could not be opened")
+
+	broken = append([]ReportSource(nil), sources...)
+	broken[0].CasesDir = filepath.Join(t.TempDir(), "no-such-directory")
+	_, err = BuildManifest(broken)
+	requireErrorMentioning(t, err, "no case reports under",
+		"a source whose cases directory holds nothing must be named; without this check "+
+			"the count mismatch is reported instead")
+}
+
+// TestTwoSourcesInOneRoleMustAgreeOnEveryCaseNumber isolates the
+// within-role numbering check. The existing TestManifestSourcesMustAgree
+// survives its deletion; this probe uses two sources of the SAME role, which
+// is the only shape that reaches it.
+func TestTwoSourcesInOneRoleMustAgreeOnEveryCaseNumber(t *testing.T) {
+	base, sources := mutableTree(t)
+	// A second CLIENT-role source: the same report tree, copied, with one
+	// case's ordinal rewritten. Every count still balances, both sources
+	// cover the identical case set, and only the numbering disagrees.
+	second := t.TempDir()
+	src := filepath.Join(base, "fuzzingserver-run1")
+	raw, err := os.ReadFile(filepath.Join(src, "index.json"))
+	if err != nil {
+		t.Fatalf("read index: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(second, "cases"), 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(second, "index.json"), raw, 0o600); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+	names, err := filepath.Glob(filepath.Join(src, "cases", "*.json"))
+	if err != nil || len(names) == 0 {
+		t.Fatalf("glob: %v (%d names)", err, len(names))
+	}
+	rewritten := false
+	for _, name := range names {
+		doc := readJSONFile(t, name)
+		if id, _ := doc["id"].(string); id == "1.1.1" {
+			ordinal, ok := doc["case"].(float64)
+			if !ok {
+				t.Fatal("case 1.1.1 carries no ordinal; this probe is stale")
+			}
+			doc["case"] = ordinal + 100
+			rewritten = true
+		}
+		writeJSONFile(t, filepath.Join(second, "cases", filepath.Base(name)), doc)
+	}
+	if !rewritten {
+		t.Fatal("case 1.1.1 was not found in the client-role source; this probe is stale")
+	}
+	withSecond := append([]ReportSource(nil), sources...)
+	withSecond = append(withSecond, ReportSource{
+		Name:      "a-second-client-role-run",
+		Role:      RoleClient,
+		IndexPath: filepath.Join(second, "index.json"),
+		CasesDir:  filepath.Join(second, "cases"),
+	})
+	_, err = BuildManifest(withSecond)
+	requireErrorMentioning(t, err, "selected ordinal",
+		"two runs of the same pinned configuration in the same role must number the cases "+
+			"identically; without this check the later source silently overwrites the "+
+			"earlier one and the manifest carries whichever ordinal was read last")
+}
