@@ -163,6 +163,88 @@ the pinned SOURCE is now present and digest-verified, so a reading on OpenJDK 21
 is at least against the right bytes — the JDK is the one remaining substitution,
 and it should be named every time rather than folded into a green result.
 
+## Extended: eleven of the twenty-three pins verified, and the archive recipe generalises
+
+After the Java baseline closed, I carried the same two routes across the rest of
+`evidence/intake/source-pins.json`. Every digest below was checked against the
+pin, and a NO would have been reported as loudly as a MATCH.
+
+**The `gzip -6n` recipe is not a coincidence on one artifact.** It reproduces a
+SECOND, independent archive digest from a different repository, exactly:
+
+```
+autobahn-testsuite @ 6ed6f439dc7ed0d7432fe2cf7481b110905ecc5c
+  git archive --format=tar --prefix=autobahn-testsuite-<full sha>/ | gzip -6n
+    size=1325014  sha256=c17e0e22b9ca0f6ebd415bb14dc60e7fd7ea57b50fbc4ba12892dd454b98e66b
+  pin 1325014     sha256=c17e0e22b9ca0f6ebd415bb14dc60e7fd7ea57b50fbc4ba12892dd454b98e66b
+```
+
+One exact match could be luck. Two, from different repositories with different
+file counts and a tar three times the size, means the recipe IS GitHub's
+codeload construction rather than something that happened to land. That matters
+beyond convenience: it means any pinned GitHub source-archive digest in this
+project is verifiable from the git protocol alone, without the codeload endpoint.
+
+### Verified (11)
+
+```
+java-websocket-source-archive     190008   reproduced, gzip -6n
+java-websocket-license              1082   raw.githubusercontent
+java-websocket-source-pom          13425   raw.githubusercontent
+java-websocket-runtime-jar        140686   repo1.maven.org
+java-websocket-runtime-pom         13737   repo1.maven.org
+autobahn-source-archive          1325014   reproduced, gzip -6n
+autobahn-license                   10174   raw.githubusercontent
+autobahn-case-registry             10072   raw.githubusercontent
+rust-channel-1.95.0               848342   static.rust-lang.org
+rust-src-1.95.0                  3827368   static.rust-lang.org
+apache-maven-3.9.11              9160848   archive.apache.org
+```
+
+### Host reachability, probed rather than assumed
+
+```
+github.com (git protocol)         reachable, anonymous reads
+raw.githubusercontent.com         reachable
+repo1.maven.org                   reachable
+static.rust-lang.org              http 200
+archive.apache.org                http 200
+download.eclipse.org              TIMED OUT after 45s, 0 bytes
+www.rfc-editor.org                curl (56) CONNECT tunnel failed, response 403
+www.ietf.org                      no connection
+datatracker.ietf.org              no connection
+api.adoptium.net                  CONNECT 403 (from the proxy's own status log)
+ghcr.io                           http 401 — reachable, needs a token exchange
+github.com/.../archive/*.tar.gz   http 403 (repository-scope gate, body says so)
+```
+
+### Not fetched, and why — this is a judgement, not an omission
+
+The four darwin-arm64 toolchain components (`rustc`, `cargo`, `rust-std` at
+67 MB / 8.7 MB / 27 MB, and `rust-analyzer`) are on the reachable
+`static.rust-lang.org` and could be digest-checked. I did not, for two reasons
+stated together so neither hides behind the other: they cannot run on this Linux
+x86_64 host, so verifying them proves only that the pin is fetchable; and this
+session's writable disk is a fixed allowance showing 9.4 GB free, which those
+would consume a meaningful fraction of for evidence nobody is blocked on. The
+macOS arm64 platform requirement is already a recorded owner action and this
+would not advance it. The `eclipse-jdt-ls` and `rust-glancer` developer tools
+are the same case, and `download.eclipse.org` times out regardless.
+
+The Autobahn OCI image (388 MB, pinned by its own manifest digest) is not
+fetched either: an Autobahn run is an OWNER GATE and pulling the image is the
+first step of crossing it.
+
+### What this does and does not change
+
+It does not close any owner gate and does not make any reading a
+pinned-baseline reading. What it changes is that "the intake pins cannot be
+verified in this container" is no longer true as a blanket statement, and the
+two genuine blockers are now named precisely rather than folded together: a
+HOST policy denial on the IETF hosts, and a platform impossibility for the
+pinned JDK. Both are host-level, and neither is the repository-scope gate that
+`add_repo` resolves — which is the distinction I collapsed in the first place.
+
 ## The JDK pin is enforced on one path and not on another
 
 Populating the quarantine did NOT fix the two declared baseline failures, and
