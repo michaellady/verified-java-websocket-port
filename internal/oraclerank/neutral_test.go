@@ -251,25 +251,37 @@ func TestHandshakeJoinIsDegenerateOnTheCommittedMapping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	jd, err := handshakeJoinDegeneracy(mapping)
+	jds, err := handshakeJoinDegeneracies(mapping)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !jd.Degenerate {
-		t.Fatalf("the committed mapping is no longer join-degenerate: %s", jd.Statement)
+	if len(jds) != 2 {
+		t.Fatalf("got %d join analyses; the key derived from rank three selects BOTH rank one and rank four", len(jds))
 	}
-	if jd.KeysConsidered != len(mapping) {
-		t.Fatalf("considered %d keys of %d", jd.KeysConsidered, len(mapping))
-	}
-	if jd.KeysAbstaining == 0 {
-		t.Fatal("no key makes rank four abstain; the `conditional` arm has gone")
-	}
-	for v, got := range jd.ReachableVerdicts {
-		for _, o := range got {
-			if o != v {
-				t.Fatalf("verdict %q reaches %q but Degenerate is true", v, o)
+	sawFour := false
+	for _, jd := range jds {
+		if !jd.Degenerate {
+			t.Fatalf("%s vs %s is no longer join-degenerate: %s", jd.Higher, jd.Lower, jd.Statement)
+		}
+		if jd.KeysConsidered != len(mapping) {
+			t.Fatalf("%s vs %s considered %d keys of %d", jd.Higher, jd.Lower, jd.KeysConsidered, len(mapping))
+		}
+		for v, got := range jd.ReachableVerdicts {
+			for _, o := range got {
+				if o != v {
+					t.Fatalf("%s vs %s: verdict %q reaches %q but Degenerate is true", jd.Higher, jd.Lower, v, o)
+				}
 			}
 		}
+		if jd.Lower == RankJavaObservation {
+			sawFour = true
+			if jd.KeysAbstaining == 0 {
+				t.Fatal("no key makes rank four abstain; the `conditional` arm has gone")
+			}
+		}
+	}
+	if !sawFour {
+		t.Fatal("no analysis covers the rank three / rank four join")
 	}
 }
 
@@ -293,15 +305,25 @@ func TestJoinDegeneracyDetectsANonDegenerateJoin(t *testing.T) {
 	entry.JavaObservable = "accept"
 	mapping[key] = entry
 
-	jd, err := handshakeJoinDegeneracy(mapping)
+	jds, err := handshakeJoinDegeneracies(mapping)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if jd.Degenerate {
-		t.Fatal("a mapping that carries a reject key with java_observable=accept was still reported as join-degenerate")
+	var checked bool
+	for _, jd := range jds {
+		if jd.Lower != RankJavaObservation {
+			continue
+		}
+		checked = true
+		if jd.Degenerate {
+			t.Fatal("a mapping that carries a reject key with java_observable=accept was still reported as join-degenerate")
+		}
+		if !strings.Contains(jd.Statement, "reject->accept") {
+			t.Fatalf("the statement does not name the counterexample: %s", jd.Statement)
+		}
 	}
-	if !strings.Contains(jd.Statement, "reject->accept") {
-		t.Fatalf("the statement does not name the counterexample: %s", jd.Statement)
+	if !checked {
+		t.Fatal("no analysis covers the rank three / rank four join")
 	}
 }
 

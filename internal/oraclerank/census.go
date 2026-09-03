@@ -497,7 +497,7 @@ func censusHandshake(root string) (Family, error) {
 		}
 	}
 
-	jd, err := handshakeJoinDegeneracy(mapping)
+	jds, err := handshakeJoinDegeneracies(mapping)
 	if err != nil {
 		return Family{}, err
 	}
@@ -506,7 +506,7 @@ func censusHandshake(root string) (Family, error) {
 		ID:             FamilyHandshake,
 		Question:       "On this committed handshake case, does the endpoint accept the head, reject it, or treat it as incomplete?",
 		VerdictSpace:   []string{"accept", "reject", "incomplete"},
-		JoinDegeneracy: []JoinDegeneracy{jd},
+		JoinDegeneracy: jds,
 		RankSources: []RankSource{
 			{
 				Rank: RankRFC6455, RankName: RankRFC6455.String(), Strength: SourceRecordedReading,
@@ -539,7 +539,8 @@ func censusHandshake(root string) (Family, error) {
 			fmt.Sprintf("every one of the %d handshake cases resolved to an outcome key present in %s; an unmapped key is an error", HandshakeCorpusSize, HandshakeLiveMappingPath),
 			"the mapping's rfc_verdict and java_observable were read as separate opinions and never reconciled by the census",
 			fmt.Sprintf("the %d outcome keys the mapping marks divergent are EXACTLY the %d whose java_observable it records as `conditional`, asserted in both directions; rank four abstains on all of them, so this family cannot exhibit a rank-one-overrides-rank-four adjudication at all", divergent, conditional),
-			jd.Statement,
+			jds[0].Statement,
+			jds[1].Statement,
 		},
 	}
 

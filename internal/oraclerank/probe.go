@@ -40,6 +40,12 @@ type FamilyProbe struct {
 	CoVotes       int          `json:"co_votes"`
 	Disagreements int          `json:"disagreements"`
 	Examples      []string     `json:"disagreement_examples,omitempty"`
+	// Resolution says how many distinct answers those co-votes carry. It is
+	// NOT part of the verdict: a pair is scored on disagreements exactly as
+	// before. It is here because CoVotes counts propositions, not
+	// distinguishable questions, and a reader who takes a large CoVotes for
+	// a large body of evidence is reading a collision. See collision.go.
+	Resolution CoVoteResolution `json:"co_vote_resolution"`
 }
 
 // PairProbe measures one ordered rank pair across the census.
@@ -126,6 +132,7 @@ func IndependenceProbe(families []Family) []PairProbe {
 				} else {
 					fp.Verdict = ProbeNotDistinguished
 				}
+				fp.Resolution = resolve(f, higher, lower)
 				p.CoVotes += fp.CoVotes
 				p.Disagreements += fp.Disagreements
 				for _, id := range fp.Examples {

@@ -57,6 +57,12 @@ type Register struct {
 
 	IndependenceProbe []PairProbe `json:"independence_probe"`
 
+	// FamilyResolution says how many distinguishable answers each family's
+	// propositions actually carry. A probe reporting N co-votes is reporting
+	// propositions, not questions, and this is where a reader finds out how
+	// far N collapses. See collision.go.
+	FamilyResolution []FamilyResolution `json:"family_resolution"`
+
 	// Findings are conclusions COMPUTED from the numbers in this document,
 	// so a finding cannot drift away from the evidence it summarizes.
 	Findings []Finding `json:"findings"`
@@ -102,6 +108,7 @@ func Recompute(root string) (Register, []Family, error) {
 			"Rank one is bound to committed HUMAN READINGS of RFC 6455 and not to the RFC text, which is pinned by digest and is not in this repository.",
 		RankBindings:      bindings,
 		IndependenceProbe: IndependenceProbe(families),
+		FamilyResolution:  Resolutions(families),
 	}
 	reg.Accounting.GoverningRankCounts = map[string]int{}
 
