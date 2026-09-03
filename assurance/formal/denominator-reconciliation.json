@@ -23,8 +23,8 @@
   },
   "plane_correspondence": {
     "path": "assurance/formal/plane-correspondence.json",
-    "sha256": "sha256:2141f50ec8a917aee1b2b6182c4233f3bdb63eca132f6ab741e85379bc94d063",
-    "git_blob": "c30f68eeacecc33d77153a385c3b90f787eb22a7"
+    "sha256": "sha256:240347c9c36ea1ab04f21bddf6d589038b008bff7290428ddccf33a68f19a7f2",
+    "git_blob": "3dfe260e97be4e9863ed943aa4c1049cb5b92697"
   },
   "catalog_is_about_this_plane": {
     "name": "verified-java-websocket-port-codex (Codex authority plane)",
