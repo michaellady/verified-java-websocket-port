@@ -264,6 +264,11 @@ prose quoting the defect.
 ## Readings, all exit codes read from the process
 
 - `cargo test -p ws-testee` — **exit 0**: 4 (lib) + 28 (loopback) + 8 (process).
+  Repeated to check the two new fixtures are not flaky under a loaded host:
+  **five debug runs and three release runs of the loopback target, 28 passed /
+  0 failed every time** (3.4–4.1 s). Neither new test waits on a peer thread;
+  the witness spins its 64 polls without a read, and the control's only
+  wall-clock element is the peer's 750 ms read timeout.
 - `go test ./cmd/fixtureguardctl/` — **exit 0**.
 - `go run ./cmd/fixtureguardctl -root .` — **exit 0**,
   `step=selfcheck cases=7 firing=4 silent=3 result=PASS`,

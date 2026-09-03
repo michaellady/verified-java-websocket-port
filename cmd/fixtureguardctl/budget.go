@@ -47,6 +47,7 @@ package main
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -268,7 +269,16 @@ func scanBudgets(masked string, regions []region) []Violation {
 				}
 			}
 		}
-		for off, value := range sites {
+		// Map iteration order is randomised in Go, and this list is printed
+		// verbatim in the gate log and in the polarity self-check. Sort by
+		// offset so two runs over the same tree produce the same bytes.
+		offsets := make([]int, 0, len(sites))
+		for off := range sites {
+			offsets = append(offsets, off)
+		}
+		sort.Ints(offsets)
+		for _, off := range offsets {
+			value := sites[off]
 			if !inRegions(off, regions) {
 				continue
 			}
