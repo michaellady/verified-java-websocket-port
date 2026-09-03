@@ -6,7 +6,7 @@
   "ledger_document": "evidence/java/behavior-delta-ledger.json",
   "pre_vocabulary_sequence": 49,
   "pre_vocabulary_head": "sha256:eaa6eac8795ec8f6083e945ff8d6ec1778b37dd099c8acfaa6d4da36f1c01bbc",
-  "records_without_ac3_class": 1,
+  "records_without_ac3_class": 0,
   "adjudications": [
     {
       "sequence": 1,
@@ -326,15 +326,15 @@
       "delta_id": "delta-119646e52a54bcf4ba9711da2a3f563fbd6a12059f52aad84a523a5d490a2e7c",
       "record_digest": "sha256:e16361f878058aa79413760b3137a1caf2535caec7525a7fc5af5a63b60cfc22",
       "subject_ref": "semantic:org.java-websocket.draft6455.framing.length-64bit-high-bit:provisional-v1",
-      "examination": "evidence-does-not-settle-it",
-      "mismatch_class": "",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
       "cited_rfc_refs": [
         "rfc6455#section-5.2"
       ],
       "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFramePayloadLength",
       "rationale_quote": "DIVERGENCE (64-bit high-bit length): the RFC requires a 1002 failure; pinned Java's behavior is UNOBSERVED (negative-long parse, untested downstream; outside the reference model's generated space per derive.go:265-268), and ws_core deliberately does NOT emulate the untested negative-length path: it parses the length unsigned and the huge value fails the ordinary configured frame-size gate with 1009 at length site 10.",
-      "argument": "THE EVIDENCE DOES NOT SETTLE THIS ONE, AND SAYING SO IS THE ANSWER. Section 5.2 is determinate (the most significant bit of a 64-bit extended length must be 0, fail 1002), so the class turns entirely on which side Java is on -- and this record's own java_value preimage says Java's side is 'undefined-in-evidence: negative signed-long length with untested downstream behavior (outside the verified space)'. Two classes are live and the record chooses between neither: java-quirk if the pinned runtime's negative-long parse produces some non-1002 observable, and rust-defect if it in fact fails the connection, since the port deliberately parses UNSIGNED and rejects 1009 at length site 10 rather than 1002. I examined the record, the definition preimages and the seed (rust/ws-core/fuzz-seeds/us012/high-bit-64.hex); nothing in the committed evidence records a Java observable here.",
-      "blocking_question": "Execute the high-bit-64 seed against the pinned Java-WebSocket 1.6.0 jar (sha256 eae29213...) through the same oracle path the rest of this ledger's Java observations use, and record what the negative-long length actually produces: a 1002 close, some other typed rejection, or a hang. OWNER ACTION -- it needs a live Java execution, which no gate on this branch may trigger.",
+      "argument": "THE BLOCKING QUESTION WAS EXECUTED AND ANSWERED. This record was held at evidence-does-not-settle-it because RFC 6455 section 5.2 is determinate (the most significant bit of a 64-bit extended payload length MUST be 0, fail 1002) so the class turned entirely on which side Java was on, and Java's side was UNOBSERVED: the negative-long parse was untested downstream and outside the reference model's generated space. Its blocking_question asked for exactly one thing -- run the high-bit-64 seed against the pinned Java-WebSocket 1.6.0 jar through the same oracle path the rest of this ledger's Java observations use, and record whether the negative-long length produces a 1002 close, some other typed rejection, or a hang. It was marked OWNER ACTION when the quarantine could not hold the jar; the quarantine is now a real directory and both inputs are digest-verified, so the question was answerable and was answered by running it rather than by inferring it. Frame: 0x81 0xFF then eight length bytes 0x80 00 00 00 00 00 00 00 with the high bit set, then a four-byte mask key, 14 bytes total, role=server, initial_state=open. The pinned runtime (sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f, re-hashed by the adapter at startup) answered outcome=error, code=JAVA_INVALID_DATA, close_code=1009, detail 'wire frame declares a negative 64-bit payload length', final_state=open, consumed_bytes=0, frames=0. THE THIRD BRANCH IS EXCLUDED: it is not a hang, it is a typed rejection. AND IT IS NOT 1002. The source path agrees and was read first-hand before the run rather than after it: Draft_6455.java:635 parses the 64-bit length with new BigInteger(bytes).longValue(), which is SIGNED, so the high bit seeds Long.MIN_VALUE; translateSingleFrameCheckLengthLimit's length < 0 branch throws LimitExceededException; and every one of that class's four constructors reaches CloseFrame.TOOBIG -- two call super(CloseFrame.TOOBIG) and super(CloseFrame.TOOBIG, s) directly, the other two delegate with this(Integer.MAX_VALUE) and this(s, Integer.MAX_VALUE) -- and CloseFrame.java:90 declares TOOBIG = 1009. So Java answers a determinate RFC requirement with a different close code, by way of a signed parse of an unsigned wire field. That is a divergence from a rule the RFC fixes, on Java's side: java-quirk. What this does NOT establish, and is not claimed: that ws_core should emulate it. The record's own text says ws_core deliberately does not walk the untested negative-length path, and the class is a statement about where the mismatch lives, not about what the port should do.",
+      "blocking_question": "",
       "contests_record_basis": false,
       "supersession_draft": ""
     },
