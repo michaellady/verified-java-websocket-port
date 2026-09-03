@@ -46,6 +46,17 @@ func TestPathsCanSeparateShellHomeFromRepositoryLocalCache(t *testing.T) {
 	}
 }
 
+func TestPathsDefaultCacheToShellHome(t *testing.T) {
+	home := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"paths", "--root", t.TempDir(), "--home", home}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr.String())
+	}
+	if !bytes.Contains(stdout.Bytes(), []byte(filepath.Join(home, ".cache", "verified-java-websocket-port"))) {
+		t.Fatalf("paths did not default cache to shell home: %s", stdout.String())
+	}
+}
+
 func TestJavaOracleIdentityMatchesDifferentialEvidence(t *testing.T) {
 	if javaOracleSHA256 != "sha256:8cfd5f53cfaa028f8f359dc84fecefad1a317a68cd269c6cfac97870411e353d" || javaOracleBytes != 76321 {
 		t.Fatalf("Java oracle identity drifted: digest=%s bytes=%d", javaOracleSHA256, javaOracleBytes)

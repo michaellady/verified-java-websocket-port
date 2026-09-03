@@ -14,8 +14,8 @@ the working-tree status unchanged.
 In Codex cloud environment settings, select this repository's Ubuntu 24.04
 universal image on Linux amd64 and configure:
 
-- setup script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup setup --root "$PWD" --home "$HOME" --cache-home "$PWD/.cloud-home"`
-- maintenance script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup maintain --root "$PWD" --home "$HOME" --cache-home "$PWD/.cloud-home"`
+- setup script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup setup --root "$PWD" --home "$HOME"`
+- maintenance script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup maintain --root "$PWD" --home "$HOME"`
 - setup internet access: enabled
 - agent internet access: disabled unless a specific task requires and records it
 - secrets: none
@@ -24,7 +24,11 @@ The setup phase prepends an idempotent managed block to `~/.bashrc`, ahead of
 Ubuntu's early return for non-interactive shells; setup-process environment
 exports do not otherwise persist into the agent phase. A cached legacy block at
 the end of the file is moved without changing unrelated shell content. Codex may
-cache this environment, so the maintenance command rechecks project history,
+cache the container home while checking out a fresh repository workspace for the
+agent. Tool downloads therefore use the default cache under `$HOME`, not a
+repository-local `--cache-home`; otherwise a successful setup can be followed by
+a network-blocked agent trying to download the same tools again. The maintenance
+command rechecks project history,
 immutable downloads, materialized directory types, the Kani source identity and
 cleanliness, and all tool versions. Setup also rebuilds the Java oracle adapter
 with the repository's canonical Go JAR writer and rejects any digest other than
@@ -35,7 +39,7 @@ JDK vendor and host ZIP implementations cannot change the adapter identity.
 The exact materialized locations can be inspected without changing state:
 
 ```sh
-go run ./cmd/cloudsetup paths --root "$PWD" --home "$HOME" --cache-home "$PWD/.cloud-home"
+go run ./cmd/cloudsetup paths --root "$PWD" --home "$HOME"
 ```
 
 ## Trust and claim boundary
