@@ -3,9 +3,12 @@
 STATUS: COMPLETE for what it claims. Branch `claude/record-content-precondition` from
 mainline `claude/feature/verified-java-websocket-port` at `4a2b9c6`.
 Date 2026-09-03. Scope: new `cmd/recordguardctl/` (5 Go files, 14 committed fixtures),
-`rust/Makefile` (one new target in the `gates` chain), `.claude/GOAL-LOOP.md` step 6.
-No Rust source, no evidence document, no ledger, no `assurance/` file was touched:
-`git diff --stat 4a2b9c6 HEAD -- rust/ ':!rust/Makefile' evidence/ assurance/ internal/` is empty.
+`rust/Makefile` (one new target, appended to the `gates` chain), `rust/README.md` (the target
+listed and its ceiling-free choice explained), `.claude/GOAL-LOOP.md` step 6, and this record.
+No Rust source, no evidence document, no ledger, no `internal/` package and no `assurance/`
+file was touched:
+`git diff --quiet 4a2b9c6 HEAD -- rust/ ':!rust/Makefile' ':!rust/README.md' evidence/ assurance/ internal/ java-oracle/`
+exits **0**.
 
 F009 named the rule in one line — **a record is read for its content, never counted for its
 presence** — and filed the mechanical version as worth building and not built. This is that,
@@ -379,7 +382,12 @@ and the measurement is why, rather than a shrug.**
    or `assurance/concurrency/results.json`.
 6. Did not run AWS, benchmark, or Autobahn anything.
 7. Did not re-run the corpus differential or the handshake exam: no behaviour-bearing path
-   changed. `git diff --quiet 4a2b9c6 HEAD -- rust ':!rust/Makefile' java-oracle` exits 0.
+   changed. The two files touched under `rust/` are `Makefile` and `README.md`; excluding
+   those, the diff over `rust/`, `evidence/`, `assurance/`, `internal/` and `java-oracle/`
+   against `4a2b9c6` is empty (exit 0). **Corrected while writing this section:** the first
+   draft of the header stated that exclusion with only `':!rust/Makefile'`, which was false
+   once `rust/README.md` was edited. Caught by re-running the command instead of re-reading
+   the sentence.
 8. Did not retro-fit records already on mainline. The two the census names are left exactly as
    their authors wrote them.
 
