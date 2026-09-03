@@ -27,12 +27,12 @@ const (
 // Blocking reason codes. Every one names a specific missing thing; none is a
 // catch-all, because a catch-all is how a blocking gap becomes a footnote.
 const (
-	BlockJavaBelowRequired   = "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH"
-	BlockRustBelowRequired   = "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH"
-	BlockRustNotExecuted     = "RUST_EVIDENCE_NOT_EXECUTED"
-	BlockRefinementMissing   = "REFINEMENT_LINK_DISCONNECTED"
-	BlockLinkageJavaMissing  = "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION"
-	BlockLinkageRustMissing  = "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+	BlockJavaBelowRequired  = "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH"
+	BlockRustBelowRequired  = "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH"
+	BlockRustNotExecuted    = "RUST_EVIDENCE_NOT_EXECUTED"
+	BlockRefinementMissing  = "REFINEMENT_LINK_DISCONNECTED"
+	BlockLinkageJavaMissing = "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION"
+	BlockLinkageRustMissing = "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
 	// These two are OBSERVATIONS ABOUT THIS TREE, and their names now say so.
 	// They used to read CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE and
 	// CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE, which were true of this
