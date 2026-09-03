@@ -132,6 +132,32 @@ every run:
 
 The census document is not modified by this branch. This is a finding about it.
 
+### Post-hoc corroboration from documents the derivation does not read
+
+Read by hand AFTER the measurement, from `evidence/java/behavior-delta-ledger.json`,
+which `internal/rfcneutral` neither imports nor opens:
+
+- **Ledger sequence 27**, `semantic:org.java-websocket.closeframe.one-byte-close-payload`,
+  cites `rfc6455#section-5.5.1`. That is exactly the clause `RuleCloseBodyLength1`
+  cites for `us005.pub.0035`. The derivation reached the same clause for the same
+  scenario without reading the ledger.
+- **Ledger sequence 24**, `semantic:org.java-websocket.draft6455.buffer-limit-check-sites`,
+  cites `rfc6455#section-10.4` — Security Considerations — **not** a section 5 or 7
+  provision. That is the ledger's own clause attribution for `us005.pub.0031`, the
+  scenario rank three abstains on and rank one's census enrols as a section 7.1.7
+  failure. The abstention agrees with the ledger's reading and disagrees with the
+  census's.
+- The ledger's rationale for `us005.pub.0005` records that the OTHER (Codex) plane's
+  oracle-hierarchy document has a cell for that scenario's `/final_state` at
+  authority `rfc6455.section-5-2`, rank 1, expecting `"closed"`. The derivation
+  returned `closed` for `us005.pub.0005` under `R-5.2-nonzero-rsv-without-extension`,
+  citing `rfc6455#section-5.2`. Same scenario, same clause, same verdict, from a
+  document that is deliberately not in this repository.
+
+None of this is wired into a gate, and none of it makes the readings correct — it
+is three independent parties reading the same clauses the same way, which is
+weaker than checking them against the text and is recorded as such.
+
 `us005.pub.0035` is now the **39th** enrolled AC2 override (up from 38), and the
 only one **governed by rank three alone** — Java and Rust agree on `closing`,
 rank one abstains, rank three says `closed`. An override the register could not
