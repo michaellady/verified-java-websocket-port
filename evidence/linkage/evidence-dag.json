@@ -124,7 +124,7 @@
       "id": "evidence.linkage.proof-targets",
       "kind": "evidence",
       "title": "US-006 formal proof-target plan",
-      "sha256": "sha256:bad1e0697d0f4428a4cc6572549e4528ca4f0328c15163beddd4deb31c59a205",
+      "sha256": "sha256:0f514b0c6e01e4149c72f8df8ef2e5593edde2d0ffd01ff2fac14faef1a00a31",
       "lineage": "plan-only: targets and planned symbols; no actual-code formal run exists (dossier G8)",
       "path": "assurance/formal/proof-targets.json"
     },
