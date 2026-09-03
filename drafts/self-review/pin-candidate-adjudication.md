@@ -150,23 +150,51 @@ matters.
 
 ## 5. What I could not verify here, stated rather than papered over
 
-**A third Go package fails on Linux.** `go test ./... -timeout 40m` exits **1** with exactly
-**three** failing packages: `internal/lab`, `internal/portplan` and `internal/formalplan`.
-The standing baseline names only the first two. `internal/formalplan` alone contributes
-**23** failing leaf tests, and every one traces to a single cause:
-`JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403`. Filtering the
-failure detail lines for any cause that is not the quarantined-archive fetch leaves exactly
-one line, `targets_test.go:37: real proof-targets document must verify`, which is the second
-assertion of a test whose first line is the 403.
+**Four Go packages fail, and only three of them are environmental.**
+`go test ./... -timeout 40m` exits **1** with four failing packages:
+`internal/lab`, `internal/portplan`, `internal/formalplan` and `internal/deltaledger`.
+41 packages pass.
 
-The cause is outside the repository: `.quarantine/` is empty and
+*The three environmental ones.* The standing baseline names only `lab` and `portplan`;
+`internal/formalplan` is a third, contributing **27** failing leaf tests. Every failure
+message across all three traces to one cause — the quarantined Java tree. Reducing the whole
+suite's failure detail lines to distinct causes leaves twelve, and eleven of them name
+`JAVA_SOURCE_UNAVAILABLE_OFFLINE`, `JAVA_QUARANTINE_UNAVAILABLE`, or
+`MODEL_CITATION_UNVERIFIED … quarantined Java tree unavailable`. The cause is outside the
+repository: `.quarantine/` is empty and
 `curl -L https://github.com/TooTallNate/Java-WebSocket/archive/da3cf2a….tar.gz` returns
 **403** through this environment's proxy, whose own status reports `enabled: true` with no
-relay failures. `internal/portplan` owns `EnsureQuarantinedSource`, so this is the same root
-cause as its known failure, reaching one package further than the baseline records. **Owner
-action required: correct the baseline failing-package list to `internal/lab`,
-`internal/portplan`, `internal/formalplan` for an environment without the quarantined
-archive, or provision the archive.** No gated run was triggered to find this.
+relay failures. `internal/portplan` owns `EnsureQuarantinedSource`, so `formalplan` fails for
+its neighbour's reason. **Owner action required: correct the baseline failing-package list to
+`internal/lab`, `internal/portplan`, `internal/formalplan` for an environment without the
+quarantined archive, or provision the archive.** No gated run was triggered to find this.
+
+*The fourth is not environmental, and it is not mine.* `internal/deltaledger` fails three
+subtests of `TestVerifyLegacyAdjudicationsRefusesEachWayAnEntryCanFailToBind`:
+
+```
+an_unresolved_entry_states_no_blocking_question
+    the gate refused, but not for the reason under attack.
+    wanted a message containing: says what WOULD
+    got: sequence 19: examination is "evidence-settles-it" but a blocking_question
+         is stated. A settled record has nothing blocking
+an_entry_claims_both_a_class_and_that_the_evidence_does_not_settle_it
+    the gate ACCEPTED a document in which an entry claims both a class and that
+    the evidence does not settle it
+the_published_residual_understates_the_chain
+    the gate ACCEPTED a document in which the published residual understates the chain
+```
+
+Two of the three are the gate **accepting** a document it exists to refuse: deletion attacks
+that no longer land. This branch does not touch `internal/deltaledger`, and the pre-rebase
+suite on `c738b81` had **three** failing packages, not four. Checked out clean at mainline
+`047eea6` in a scratch worktree, with no commit of mine present,
+`go test ./internal/deltaledger/` exits **1** with the same three subtests failing. It is a
+mainline regression, most plausibly from `07a60a2`, which changed sequence 19's examination
+to `evidence-settles-it` — the exact field the first failure names. **Owner action required:
+this is a live hole in the legacy-adjudication gate and it is outside this branch's remit to
+fix.** Note that `make -C rust gates` exits **0** with this hole open, because the Go suite is
+not in that chain — which is why the brief says to run both.
 
 The consequence for this adjudication: the 22 `realized_tree_sha256` rows are proven false
 positives **by construction**, from the code path that computes them, and are *not* confirmed
@@ -318,7 +346,7 @@ Read from the process:
 | `go test ./cmd/pinconsumerctl/` | 0, 21 tests |
 | `make -C rust gates` | 0 |
 | `go run ./cmd/recordguardctl precondition <this record>` | 0 |
-| `go test ./... -timeout 40m` | 1 — 3 packages, all environmental, section 5 |
+| `go test ./... -timeout 40m` | 1 — 4 packages: 3 environmental, 1 a mainline regression, section 5 |
 
 `make -C rust gates` refuses by design until `VJWP_PROTECTED_STORE` points at
 `evidence/governance/decisions`; with it unset the run exits **2** at `ledger-gates` with an
@@ -340,3 +368,7 @@ explicit refusal, which is the gate working.
    to misread as drift — which is exactly what happened here.
 5. **The 9 true pins are reported, not resolved.** Each needs an owner decision this branch
    deliberately did not take.
+6. **I did not fix the `internal/deltaledger` regression, or diagnose it beyond attribution.**
+   I established that it fails on clean mainline without my commits and that two of its three
+   failures are a gate accepting what it must refuse. Naming the commit that broke it is a
+   guess from one field name, and I have marked it as one.
