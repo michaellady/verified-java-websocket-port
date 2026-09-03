@@ -74,7 +74,9 @@ fixture-guard:
 #     mixed batch of two real records and one stub fails as a batch, that naming
 #     no record at all is a usage refusal, and that the gate does NOT fail on an
 #     honestly-unfinished record while the landing check still refuses the same
-#     file. Two of the eleven recorded deletion attacks are caught ONLY here.
+#     file. One of the twelve recorded deletion attacks (A11, an absent record
+#     passing) is caught ONLY here, and a second (A12) was until the fixture
+#     that lets the gate see it was added.
 #   * `go run ... gate` replays the discriminator in production code over
 #     records extracted verbatim from git — the div05 stub at blob 359940cd
 #     among them — printing what fired and the sentence it was read from, and

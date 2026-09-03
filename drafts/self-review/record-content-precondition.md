@@ -59,16 +59,21 @@ point. `cmd/recordguardctl/scan.go`.
 
 Not invented: **82 document versions** — the 41 records currently under `drafts/self-review/`
 (including `findings/`) and the 41 first-committed versions of every record ever added there,
-recovered with `git log --all --diff-filter=A`. Seven of the 82 are stubs by reading, on six
-distinct paths, plus this branch's own opening stub.
+recovered with `git log --all --diff-filter=A`. Labelled by reading each one: **10 of the 82
+versions declare themselves unfinished, on 8 distinct paths** — six opening stubs (`755b8c8`,
+`df5642c`, `714614b`, `46d902f`, `68fbc17`, `2421d6f`), this branch's own opening stub at
+`8dbf6d4`, one set of working notes with 42 lines of real evidence in it (`e784eb6`), and
+`normalization-collision-audit-WIP` in both its 9-line and its 88-line form. The remaining 72
+are finished records.
 
 ### Two things the calibration ruled OUT, and this is the useful part
 
 **Length is unusable, and inverted.** The shortest *finished* record in the tree is
 `findings/F001-…` at **7 lines** — a complete finding with cost, deciding moment, evidence and
-bin. The stubs run **8 to 42 lines**. Every one of the F00x findings is 7–18 lines and
-complete. A length threshold would refuse nine real findings to catch six stubs. Pinned as a
-test, `TestLengthIsNotTheDiscriminator`.
+bin — and it is shorter than **every one** of the six committed unfinished records, which run
+**8 to 42 lines**. Nine of the F00x findings sit at 7–18 lines, squarely inside that range. The
+two classes do not separate by length in either direction, so no threshold exists to pick.
+Pinned as a test, `TestLengthIsNotTheDiscriminator`.
 
 **Evidence density is unusable as a tuned floor.** Counting citation tokens over all 82
 versions: the leanest *finished* record carries **9**; the richest *stub*
@@ -117,10 +122,11 @@ gate=record-content-precondition census UNFINISHED record=drafts/self-review/nor
 gate=record-content-precondition step=census records=41 unfinished=1 finished=40
 ```
 
-Both halves run in `gates`, for the reason `fixture-guard` records: two of the eleven deletion
-attacks are caught **only** by `go test`, because no tree scan can reach them — chief among
-them that an **absent** record is a refusal and not a pass, which is F009's defect stated
-directly.
+Both halves run in `gates`, for the reason `fixture-guard` records: **one of the twelve
+deletion attacks (A11) is caught only by `go test`**, because no tree scan can reach it — that
+an **absent** record is a refusal and not a pass, which is F009's defect stated directly. A
+twelfth (A12) was caught only by `go test` until the fixture that lets the gate see it was
+added, which is itself the argument for running both.
 
 *A check nobody runs is not a check.* The gate half runs on every `make -C rust gates`. The
 refusal half is invoked by GOAL-LOOP step 6, which is the only place a landing decision is
@@ -195,7 +201,8 @@ branch's history, on this path, and can be replayed with `git show 8dbf6d4:draft
 ## 6. RED readings and deletion attacks
 
 **RED first.** The discriminator was written as a declared-but-unimplemented `Scan` returning
-`nil`, with all 13 fixtures and their declared rows already committed, and the polarity suite
+`nil`, with the 12 real-record fixtures and their declared rows already committed (the two
+synthetic controls came later, each added because an attack survived), and the polarity suite
 run against it. Read from the process, `go test ./cmd/recordguardctl/` exit **1**, six firing
 fixtures each reporting `declared […rows…], observed []`, plus
 `the same words unquoted did not fire` and `the 42-line UNFINISHED record stayed silent`. The
