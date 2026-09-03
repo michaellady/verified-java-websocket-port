@@ -1065,4 +1065,99 @@ mod tests {
             );
         }
     }
+
+    /// Replays `wire` through [`FrameAlignedFeed`] in reads of `read_size`
+    /// and returns the byte spans it handed the driver, in order.
+    fn spans_fed(wire: &[u8], read_size: usize) -> Vec<usize> {
+        let mut feed = FrameAlignedFeed::new();
+        let mut spans = Vec::new();
+        let mut pending: Vec<u8> = Vec::new();
+        let mut at = 0usize;
+        while at < wire.len() || !pending.is_empty() {
+            if pending.is_empty() {
+                let end = (at + read_size).min(wire.len());
+                pending = wire[at..end].to_vec();
+                at = end;
+            }
+            let take = feed.limit(&pending);
+            assert!(take > 0, "a non-empty chunk must always make progress");
+            spans.push(take);
+            feed.advance(&pending[..take]);
+            pending = pending[take..].to_vec();
+        }
+        spans
+    }
+
+    fn wire_frame(opcode: u8, payload_len: usize) -> Vec<u8> {
+        let mut frame = vec![0x80 | opcode];
+        if payload_len < 126 {
+            #[allow(clippy::cast_possible_truncation)]
+            frame.push(0x80 | payload_len as u8);
+        } else {
+            frame.push(0x80 | 126);
+            #[allow(clippy::cast_possible_truncation)]
+            frame.extend_from_slice(&(payload_len as u16).to_be_bytes());
+        }
+        frame.extend_from_slice(&[0x11, 0x22, 0x33, 0x44]);
+        frame.extend(std::iter::repeat_n(0x00u8, payload_len));
+        frame
+    }
+
+    #[test]
+    fn one_read_carrying_two_frames_is_split_at_the_boundary() {
+        let mut wire = wire_frame(0x1, 5);
+        wire.extend_from_slice(&wire_frame(0x8, 6));
+        // 11 = 2 header + 4 mask + 5 payload; 12 = 2 + 4 + 6.
+        assert_eq!(spans_fed(&wire, 4096), vec![11, 12]);
+    }
+
+    /// The retained-head arithmetic, which the socket fixtures cannot reach:
+    /// a header is only ever SPLIT when a read boundary falls inside it, and
+    /// `limit` must then subtract the bytes already fed
+    /// (`total - self.head.len()`) rather than starting the frame's countdown
+    /// over. Getting that wrong drifts every later boundary by the size of
+    /// the retained head.
+    #[test]
+    fn a_frame_header_split_across_reads_still_lands_the_boundary() {
+        let mut wire = wire_frame(0x1, 130); // 8-byte header (126 marker)
+        wire.extend_from_slice(&wire_frame(0x8, 6));
+        wire.extend_from_slice(&wire_frame(0x1, 3));
+        // Reads of 5 bytes cut inside both extended headers AND never land on
+        // a frame end, so the feed's own boundaries are the only ones here.
+        let spans = spans_fed(&wire, 5);
+        assert_eq!(
+            spans.iter().sum::<usize>(),
+            wire.len(),
+            "every byte is fed exactly once: {spans:?}"
+        );
+        // Each frame's spans must sum to that frame's wire size, in order.
+        let mut boundaries = Vec::new();
+        let mut running = 0usize;
+        for span in &spans {
+            running += span;
+            boundaries.push(running);
+        }
+        for end in [138usize, 138 + 12, 138 + 12 + 9] {
+            assert!(
+                boundaries.contains(&end),
+                "a frame boundary at byte {end} must be a feed boundary; \
+                 the feed stopped at {boundaries:?}"
+            );
+        }
+    }
+
+    /// A header the grammar rejects (opcode 0x3 is not a defined opcode) must
+    /// hand the CORE the bytes rather than making a decision here.
+    #[test]
+    fn an_unparsable_header_stops_splitting_and_defers_to_the_core() {
+        let mut feed = FrameAlignedFeed::new();
+        let chunk = [0x83u8, 0x80, 0x11, 0x22, 0x33, 0x44];
+        assert_eq!(feed.limit(&chunk), chunk.len());
+        assert!(
+            !feed.aligning,
+            "an unparsable header disables alignment for the rest of the run"
+        );
+        // And it stays disabled: every later chunk goes whole to the core.
+        assert_eq!(feed.limit(&[0x81, 0x80, 0, 0, 0, 0][..]), 6);
+    }
 }
