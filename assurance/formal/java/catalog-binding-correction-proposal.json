@@ -1,0 +1,242 @@
+{
+  "schema_version": "1.0.0",
+  "amendment_version": "java-binding-corrections-1.0.0",
+  "status": "PROPOSED_NOT_APPLIED",
+  "company": "open-source-projects",
+  "parent_project": "verified-java-to-rust-port",
+  "child_project": "verified-java-websocket-port",
+  "laboratory_id": "lab-java-websocket",
+  "repository": "https://github.com/michaellady/verified-java-websocket-port",
+
+  "precedent": {
+    "follows": "policies/amendments/java-websocket-single-owner.json",
+    "shape_note": "This proposal deliberately matches the field vocabulary of the single-owner amendment so the owner can accept it by the same route.",
+    "authority_model": "single-owner",
+    "owner_actor_id": "github:michaellady",
+    "assurance_ceiling": "OWNER_ATTESTED_NOT_INDEPENDENT"
+  },
+
+  "target": {
+    "artifact": "assurance/formal/obligation-catalog.json",
+    "catalog_id": "us023-formal-obligations",
+    "artifact_status": "ACCEPTED_IMMUTABLE",
+    "immutability_note": "The catalog is US-023-vintage ACCEPTED evidence. This program treats accepted artifacts as immutable, and the frozen validator depends on the catalog exactly as accepted. THIS PROPOSAL DOES NOT EDIT IT. Nothing in this lane modified the catalog, any coverage projection, any schema, cmd/kanidriver/, any prd.json, or any retained receipt.",
+    "application_mode": "APPEND_ONLY_AMENDMENT. If accepted, these corrections should be recorded as a separate amendment artifact that OVERLAYS the catalog's java_bindings at read time. The accepted catalog bytes stay byte-identical."
+  },
+
+  "verification_method": {
+    "procedure": "The quarantined source archive was extracted, its sha256 recomputed and matched against evidence/intake/java-intake-manifest.json (f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4). The full production tree (78 files) was compiled with the pinned javac 17.0.19, and `javap -p -s` was run against the resulting class files. Every claim below was read off real javap output in this lane, not inherited from a prior report.",
+    "javac_version": "javac 17.0.19",
+    "javac_sha256": "sha256:a587e4bfa51de17788dfc9de7b22960174f11cb5fed8f21bf2867151eb2524fa",
+    "compile_caveat": {
+      "issue": "The pinned promoted input slf4j-api-2.0.13 (sha256:e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9) is NOT PRESENT on this host, and this lane is forbidden from downloading it. This absence is itself recorded as a finding.",
+      "workaround": "A compile-only stub for org.slf4j.Logger and org.slf4j.LoggerFactory was authored at assurance/formal/java/binding-audit/slf4j-compile-stub/, purely so javac could emit class files for the six shipped types that reference org.slf4j (AbstractWebSocket, SSLSocketChannel, SSLSocketChannel2, WebSocketImpl, Draft_6455, WebSocketServer).",
+      "soundness": "org.slf4j appears in the shipped source ONLY as the type of a private instance field and in call statements inside method bodies. It appears in NO method signature of any symbol audited here. Substituting the stub cannot change any descriptor this audit reads.",
+      "not_in_any_proof": "The stub is not on the classpath of any JBMC run in this lane. The J1 close-status-code proof compiles the CloseFrame closure, which does not reference org.slf4j at all."
+    }
+  },
+
+  "corrections": [
+    {
+      "id": "C1",
+      "severity": "HIGH",
+      "defect_class": "WRONG_DESCRIPTOR",
+      "confirmed_with_javap": true,
+      "symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame",
+      "catalog_says": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "javap_reports": "private org.java_websocket.framing.Framedata translateSingleFrame(java.nio.ByteBuffer) throws org.java_websocket.exceptions.IncompleteException, org.java_websocket.exceptions.InvalidDataException;  descriptor: (Ljava/nio/ByteBuffer;)Lorg/java_websocket/framing/Framedata;",
+      "discrepancies": [
+        "RETURN TYPE: catalog says Ljava/util/List;, real return type is Lorg/java_websocket/framing/Framedata;. The method returns a single frame, not a list.",
+        "ACCESS: the method is `private`. The catalog binding does not record this. A private method is not part of the compatibility surface and cannot be invoked by an external harness without reflection."
+      ],
+      "recommended_binding": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Lorg/java_websocket/framing/Framedata;",
+      "recommended_additional_fields": {
+        "access": "PRIVATE",
+        "externally_invocable": false
+      },
+      "likely_root_cause_of_the_defect": {
+        "finding": "javap confirms the shipped class ALSO declares `public java.util.List<org.java_websocket.framing.Framedata> translateFrame(java.nio.ByteBuffer) throws org.java_websocket.exceptions.InvalidDataException;  descriptor: (Ljava/nio/ByteBuffer;)Ljava/util/List;`.",
+        "diagnosis": "That is EXACTLY the descriptor the catalog records. The catalog therefore appears to pair the NAME of translateSingleFrame with the DESCRIPTOR of translateFrame. This is a name/descriptor splice, not a random typo.",
+        "consequence_for_the_owner": "The owner must decide which symbol was intended before accepting a correction, because the two readings give different subjects: translateFrame is the public per-buffer entry point returning a list of frames, while translateSingleFrame is the private per-frame decoder. This proposal recommends translateSingleFrame with a corrected return type, because the seven affected obligations are about per-frame header arithmetic, canonical length encoding, preallocation, and role masking, all of which live in the single-frame decoder. If the owner instead intends the buffer-level surface, the correct amendment is to change the NAME to translateFrame and leave the descriptor as accepted."
+      },
+      "affected_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.framing.frame-octets",
+        "surface.limits.allocation"
+      ],
+      "affected_obligation_count": 7,
+      "jbmc_tractability_note": "Correcting the descriptor does NOT make this symbol checkable by JBMC. The parameter is java.nio.ByteBuffer, which has no model, so any property over it is vacuous. The correction is about catalog integrity, not about unblocking evidence."
+    },
+    {
+      "id": "C2",
+      "severity": "HIGH",
+      "defect_class": "WRONG_PARAMETER_LIST_AND_ORDER",
+      "confirmed_with_javap": true,
+      "symbol": "org.java_websocket.drafts.Draft_6455.processFrameContinuousAndNonFin",
+      "catalog_says": "org.java_websocket.drafts.Draft_6455.processFrameContinuousAndNonFin(Lorg/java_websocket/framing/Framedata;Lorg/java_websocket/WebSocketImpl;)V",
+      "javap_reports": "private void processFrameContinuousAndNonFin(org.java_websocket.WebSocketImpl, org.java_websocket.framing.Framedata, org.java_websocket.enums.Opcode) throws org.java_websocket.exceptions.InvalidDataException;  descriptor: (Lorg/java_websocket/WebSocketImpl;Lorg/java_websocket/framing/Framedata;Lorg/java_websocket/enums/Opcode;)V",
+      "discrepancies": [
+        "PARAMETER ORDER: catalog has (Framedata, WebSocketImpl); real order is (WebSocketImpl, Framedata).",
+        "PARAMETER COUNT: catalog has 2 parameters; the real method has 3. The catalog omits the trailing org.java_websocket.enums.Opcode entirely.",
+        "ACCESS: the method is `private`; the catalog binding does not record this."
+      ],
+      "recommended_binding": "org.java_websocket.drafts.Draft_6455.processFrameContinuousAndNonFin(Lorg/java_websocket/WebSocketImpl;Lorg/java_websocket/framing/Framedata;Lorg/java_websocket/enums/Opcode;)V",
+      "recommended_additional_fields": {
+        "access": "PRIVATE",
+        "externally_invocable": false
+      },
+      "affected_obligations": ["surface.fragmentation.continuation"],
+      "affected_obligation_count": 1,
+      "jbmc_tractability_note": "Not tractable for JBMC either: it takes a WebSocketImpl, which cannot be constructed because its constructor allocates java.util.concurrent.LinkedBlockingQueue, unmodelled in core-models.jar."
+    },
+    {
+      "id": "C3",
+      "severity": "CRITICAL",
+      "defect_class": "SEMANTIC_MIS_BINDING",
+      "confirmed_with_javap": true,
+      "most_serious": true,
+      "symbol_as_bound": "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+      "catalog_says": "obligation.mask-equation and obligation.mask-involution both bind to org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+      "javap_reports": "public static byte[] utf8Bytes(java.lang.String);  descriptor: (Ljava/lang/String;)[B",
+      "descriptor_is_correct": true,
+      "why_this_is_worse_than_a_descriptor_error": "The DESCRIPTOR MATCHES. That is precisely why this defect is the most serious of the set: any validator that checks bindings by descriptor comparison will pass it. The defect is semantic. The method's entire body, at Charsetfunctions.java lines 49-51, is `return s.getBytes(StandardCharsets.UTF_8);`. It is a UTF-8 encoding helper. It performs no masking, contains no XOR, and never touches a masking key. Evidence gathered against this symbol would be evidence about charset conversion presented as evidence about the masking obligations.",
+      "real_masking_locations_verified": [
+        {
+          "site": "OUTBOUND",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "line": 516,
+          "code": "buf.put((byte) (mes.get() ^ maskkey.get(i % 4)));",
+          "enclosing_method": "private java.nio.ByteBuffer createByteBufferFromFramedata(org.java_websocket.framing.Framedata)",
+          "enclosing_method_declared_at_line": 478,
+          "enclosing_descriptor": "(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+          "enclosing_access": "PRIVATE",
+          "public_wrapper": "public java.nio.ByteBuffer createBinaryFrame(org.java_websocket.framing.Framedata);  descriptor: (Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;"
+        },
+        {
+          "site": "INBOUND",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "line": 562,
+          "code": "payload.put((byte) (buffer.get() ^ maskskey[i % 4]));",
+          "enclosing_method": "private org.java_websocket.framing.Framedata translateSingleFrame(java.nio.ByteBuffer)",
+          "enclosing_method_declared_at_line": 528,
+          "enclosing_descriptor": "(Ljava/nio/ByteBuffer;)Lorg/java_websocket/framing/Framedata;",
+          "enclosing_access": "PRIVATE"
+        }
+      ],
+      "recommended_binding": {
+        "obligation.mask-equation": "org.java_websocket.drafts.Draft_6455.createBinaryFrame(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+        "obligation.mask-involution": "Both directions are needed for involution, so this obligation should bind to BOTH the outbound site (Draft_6455.createBinaryFrame, public wrapper over createByteBufferFromFramedata line 516) and the inbound site (Draft_6455.translateSingleFrame line 562). If the catalog schema permits only one production_symbol per binding, bind to createBinaryFrame and record translateSingleFrame as a second required symbol; a single-symbol binding cannot express involution honestly.",
+        "note": "createBinaryFrame is already the catalog's binding for obligation.length-canonical-7 and surface.framing.masking, so the corrected masking bindings are consistent with bindings the catalog already makes elsewhere. That internal inconsistency (surface.framing.masking bound correctly to createBinaryFrame while obligation.mask-equation and obligation.mask-involution are bound to a charset helper) is corroborating evidence that the utf8Bytes binding is an error rather than an intent."
+      },
+      "affected_obligations": ["obligation.mask-equation", "obligation.mask-involution"],
+      "affected_obligation_count": 2,
+      "jbmc_tractability_note": "The corrected symbols are ByteBuffer-typed and therefore still vacuous under JBMC. The correction is required for catalog integrity regardless."
+    },
+    {
+      "id": "C4",
+      "severity": "HIGH",
+      "defect_class": "TYPE_BOUND_WHILE_DECLARING_PRODUCTION_SYMBOL",
+      "confirmed_with_javap": true,
+      "symbol_as_bound": "org.java_websocket.exceptions.InvalidDataException",
+      "catalog_says": "surface.errors.protocol-fault binds production_symbol org.java_websocket.exceptions.InvalidDataException with item_kind PRODUCTION_SYMBOL",
+      "javap_reports": "public class org.java_websocket.exceptions.InvalidDataException extends java.lang.Exception, with members: private static final long serialVersionUID; private final int closecode; four constructors ((I)V, (ILjava/lang/String;)V, (ILjava/lang/Throwable;)V, (ILjava/lang/String;Ljava/lang/Throwable;)V); public int getCloseCode() descriptor ()I.",
+      "discrepancies": [
+        "The binding names a TYPE, not a method. It carries no JVM method descriptor at all, while item_kind declares PRODUCTION_SYMBOL.",
+        "THERE IS NO METHOD TO CHECK. The type contains only constructors and a trivial field accessor. No protocol-fault classification behaviour lives in it."
+      ],
+      "recommended_binding": "org.java_websocket.framing.CloseFrame.isValid()V",
+      "recommended_binding_rationale": "This obligation is about protocol faults being detected and signalled. CloseFrame.isValid() is the shipped symbol that actually raises InvalidDataException and InvalidFrameException for protocol-illegal close frames, and it is the one symbol in the catalog now proven to be tractable and non-vacuous under JBMC. Binding here makes the obligation both correct and checkable.",
+      "alternative_binding_if_wider_scope_intended": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Lorg/java_websocket/framing/Framedata; is the primary raiser of protocol faults during decode, but it is private, ByteBuffer-typed, and vacuous under JBMC.",
+      "no_suitable_method_exists": false,
+      "affected_obligations": ["surface.errors.protocol-fault"],
+      "affected_obligation_count": 1
+    },
+    {
+      "id": "C5",
+      "severity": "HIGH",
+      "defect_class": "TYPE_BOUND_WHILE_DECLARING_PRODUCTION_SYMBOL",
+      "confirmed_with_javap": true,
+      "symbol_as_bound": "org.java_websocket.server.WebSocketServer",
+      "catalog_says": "surface.websocket-open binds production_symbol org.java_websocket.server.WebSocketServer with item_kind PRODUCTION_SYMBOL",
+      "javap_reports": "public abstract class org.java_websocket.server.WebSocketServer with 8 constructors and a large method inventory. Relevant concrete member: public final void onWebsocketOpen(org.java_websocket.WebSocket, org.java_websocket.handshake.Handshakedata);  descriptor: (Lorg/java_websocket/WebSocket;Lorg/java_websocket/handshake/Handshakedata;)V",
+      "discrepancies": [
+        "The binding names a TYPE, not a method, while item_kind declares PRODUCTION_SYMBOL. There is no method descriptor to check against."
+      ],
+      "recommended_binding": "org.java_websocket.server.WebSocketServer.onWebsocketOpen(Lorg/java_websocket/WebSocket;Lorg/java_websocket/handshake/Handshakedata;)V",
+      "recommended_binding_rationale": "This is a CONCRETE `public final` method with a real body (WebSocketServer.java lines 773-777: `if (addConnection(conn)) { onOpen(conn, (ClientHandshake) handshake); }`). It is the shipped open-transition point and is the natural subject of surface.websocket-open.",
+      "no_suitable_method_exists": false,
+      "tractability_warning": "Rebinding fixes the item_kind defect but does NOT make the obligation checkable by JBMC. WebSocketServer's constructors take java.net.InetSocketAddress and java.nio.channels.ServerSocketChannel, its run() drives a java.nio.channels.Selector, and it holds java.util.concurrent collections. None of those is modelled. This obligation stays on the formal-methods ceiling; see formal-methods-ceiling.json.",
+      "affected_obligations": ["surface.websocket-open"],
+      "affected_obligation_count": 1
+    },
+    {
+      "id": "C6",
+      "severity": "HIGH",
+      "defect_class": "ABSTRACT_METHOD_BOUND_NO_BODY",
+      "confirmed_with_javap": true,
+      "symbol_as_bound": "org.java_websocket.WebSocketListener.onWebsocketMessage",
+      "catalog_says": "surface.messages.binary binds onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/nio/ByteBuffer;)V and surface.messages.text-utf8 binds onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/lang/String;)V, both on org.java_websocket.WebSocketListener",
+      "javap_reports": "org.java_websocket.WebSocketListener is declared `public interface WebSocketListener` (WebSocketListener.java line 45). Both overloads are reported by javap as `public abstract void onWebsocketMessage(...)` with descriptors (Lorg/java_websocket/WebSocket;Ljava/lang/String;)V and (Lorg/java_websocket/WebSocket;Ljava/nio/ByteBuffer;)V.",
+      "descriptors_are_correct": true,
+      "discrepancies": [
+        "Both are ABSTRACT INTERFACE METHODS WITH NO BODY. As with C3, the descriptors match, so a descriptor-comparing validator passes them. There is no implementation to verify: any property asserted about an abstract method is vacuous by construction."
+      ],
+      "recommended_binding": {
+        "surface.messages.binary": "org.java_websocket.server.WebSocketServer.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/nio/ByteBuffer;)V",
+        "surface.messages.text-utf8": "org.java_websocket.util.Charsetfunctions.isValidUTF8(Ljava/nio/ByteBuffer;)Z",
+        "rationale_binary": "WebSocketServer provides the concrete `public final` override (WebSocketServer.java lines 768-770). Its body is a single delegation to the abstract onMessage, so it is a thin but REAL implementation; the owner should be aware it is nearly vacuous in substance even though it is concrete.",
+        "rationale_text_utf8": "surface.messages.text-utf8 is really about UTF-8 validity, and the shipped symbol that decides that is Charsetfunctions.isValidUTF8, which javap confirms in two concrete public static overloads: isValidUTF8(Ljava/nio/ByteBuffer;I)Z and isValidUTF8(Ljava/nio/ByteBuffer;)Z. That is a far better subject than a listener callback with no body. Note it is still ByteBuffer-typed and therefore vacuous under JBMC."
+      },
+      "no_suitable_method_exists": false,
+      "affected_obligations": ["surface.messages.binary", "surface.messages.text-utf8"],
+      "affected_obligation_count": 2
+    }
+  ],
+
+  "correct_bindings_confirmed": [
+    {
+      "obligation_id": "surface.close.status-code",
+      "binding": "org.java_websocket.framing.CloseFrame.isValid()V",
+      "javap_reports": "public void isValid() throws org.java_websocket.exceptions.InvalidDataException;  descriptor: ()V",
+      "verdict": "CORRECT. Descriptor, access, and throws clause all match the catalog. This is the binding used for the retained J1 evidence at evidence/formal/jbmc-j1-close-status-code/summary.json."
+    },
+    {
+      "obligation_id": "obligation.control-fin-and-length",
+      "binding": "org.java_websocket.framing.ControlFrame.isValid()V",
+      "javap_reports": "ControlFrame is `public abstract class ControlFrame extends FramedataImpl1` and declares `public void isValid() throws InvalidDataException` with a REAL body checking fin/rsv1/rsv2/rsv3.",
+      "verdict": "CORRECT descriptor with a real body. Unlike C6, this is an abstract CLASS with a concrete method, not an abstract method."
+    }
+  ],
+
+  "summary": {
+    "defects_reported_to_this_lane": 6,
+    "defects_confirmed_with_javap": 6,
+    "defects_not_confirmed": 0,
+    "distinct_bindings_affected": 6,
+    "obligations_affected": 14,
+    "obligations_affected_list": [
+      "obligation.checked-header-arithmetic",
+      "obligation.length-canonical-16",
+      "obligation.length-canonical-64-high-bit-zero",
+      "obligation.preallocation-cap",
+      "obligation.role-masking",
+      "surface.framing.frame-octets",
+      "surface.limits.allocation",
+      "surface.fragmentation.continuation",
+      "obligation.mask-equation",
+      "obligation.mask-involution",
+      "surface.errors.protocol-fault",
+      "surface.websocket-open",
+      "surface.messages.binary",
+      "surface.messages.text-utf8"
+    ],
+    "most_serious": "C3. The mask-equation and mask-involution obligations bind to a UTF-8 charset helper whose body is `return s.getBytes(StandardCharsets.UTF_8);`. The descriptor matches, so descriptor-based validation cannot catch it, and evidence gathered there would be silently off-target.",
+    "silent_failure_class": "C3 and C6 share a property that the owner should weigh: the descriptor is CORRECT in both, so no descriptor-comparing validator will ever flag them. Only reading the method body catches them."
+  },
+
+  "fail_closed": "If this proposal is not accepted, the catalog's Java bindings remain as accepted and the defects remain. This lane makes NO change to the catalog either way. No evidence in this lane depends on any correction being applied: the retained J1 receipt uses surface.close.status-code, whose binding is confirmed CORRECT."
+}

@@ -1,0 +1,265 @@
+{
+  "schema_version": "1.0.0-draft",
+  "schema_status": "NO_RETAINED_SCHEMA_YET. This is the first Java-side formal evidence receipt in this program. It deliberately mirrors the field vocabulary of schemas/kani-production-evidence-1.0.0.schema.json so that a Java axis added to a future coverage schema version can consume it without reshaping. This lane did NOT author or edit any schema, catalog, coverage projection, or validator.",
+  "evidence_kind": "JBMC_PRODUCTION_SYMBOL_EVIDENCE",
+  "evidence_id": "jbmc-j1-close-status-code",
+
+  "obligation": {
+    "obligation_id": "surface.close.status-code",
+    "subject_language": "JAVA",
+    "method": "BOUNDED_MODEL",
+    "statement": "For every 32-bit close status code, org.java_websocket.framing.CloseFrame.isValid() throws InvalidDataException (or its subclass InvalidFrameException) if and only if the code is not sendable on the wire with an empty reason."
+  },
+
+  "subject": {
+    "production_symbol": "org.java_websocket.framing.CloseFrame.isValid()V",
+    "declaration_identity": "java-descriptor:org.java_websocket.framing.CloseFrame.isValid()V",
+    "jvm_descriptor": "()V",
+    "declaring_class": "org.java_websocket.framing.CloseFrame",
+    "method_name": "isValid",
+    "access": "public",
+    "throws": ["org.java_websocket.exceptions.InvalidDataException"],
+    "descriptor_verified_by": "javap -p -s -cp <compiled-shipped-classes> org.java_websocket.framing.CloseFrame",
+    "descriptor_verification_result": "MATCHES the obligation catalog binding for surface.close.status-code exactly. This is one of the catalog's correct Java bindings.",
+    "source_path": "src/main/java/org/java_websocket/framing/CloseFrame.java",
+    "source_path_within_archive": "Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667/src/main/java/org/java_websocket/framing/CloseFrame.java",
+    "source_sha256": "sha256:bf62f1f9acae130ec5139c964f8be1fea12e896c4e5314000e33ea15deb4c742",
+    "archive_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "archive_sha256_verified_against": "evidence/intake/java-intake-manifest.json .source.sha256",
+    "upstream_version": "1.6.0",
+    "upstream_commit": "da3cf2a777aed862f2f5b5cf060cae7969958667"
+  },
+
+  "harness": {
+    "path": "assurance/formal/java/harness/CloseStatusCodeHarness.java",
+    "sha256": "sha256:aea3014101714a8f276e1c6a73cfedccf6281461d2dd740e60c3251e3a3d124b",
+    "entry_point": "CloseStatusCodeHarness.check",
+    "property_id": "java::CloseStatusCodeHarness.check:()V.assertion.1",
+    "attestation_calls_shipped_symbol": true,
+    "attestation_no_duplicate_implementation": true,
+    "attestation_text": "The harness constructs a CloseFrame with the shipped production constructor, mutates it with the shipped production setter CloseFrame.setCode(I)V, and invokes the shipped production symbol CloseFrame.isValid()V. It reimplements, inlines, copies, and transcribes NO part of the close-frame validation algorithm. The only authored logic is rfcSendableWithEmptyReason, a declarative membership test over three closed integer intervals ([1000,1003], [1008,1014], [3000,4999]) taken from RFC 6455 section 7.4.1 and the library's documented outbound restriction. Its shape does not mirror the implementation's branch structure, so agreement between the two is evidence rather than tautology. This program prohibits proof-only duplicate implementations; no duplicate exists here.",
+    "non_vacuity_argument": "JBMC 6.11.0 ships no java.nio model, so any obligation whose decision surface reads a ByteBuffer is vacuous under this tool. This obligation is not such a case, which is why it was selected first. CloseFrame.isValid() reads exactly two fields (int code, String reason), both modelled JVM types. Its super.isValid() call (ControlFrame.isValid()) reads exactly four booleans (fin, rsv1, rsv2, rsv3), all assigned concretely by the FramedataImpl1 constructor. The only java.nio contact on the path is CloseFrame.updatePayload(), which WRITES the inherited unmaskedpayload field; isValid() never READS it. Non-vacuity is additionally demonstrated empirically: the known-bad canary produced a concrete satisfying trace that reaches the assertion, proving the property is live rather than trivially discharged."
+  },
+
+  "tool": {
+    "name": "JBMC",
+    "version": "6.11.0 (cbmc-6.11.0)",
+    "version_string_source": "jbmc --version",
+    "binary_path": "/opt/homebrew/bin/jbmc",
+    "binary_sha256": "sha256:a3cb2f3be91b2aa8bef9e75862f51afd1a369058813a0e6f4a6b9fdc99906cb1",
+    "banner": "JBMC version 6.11.0 (cbmc-6.11.0) 64-bit arm64 macos",
+    "solver": "JBMC built-in SAT back end driven through CBMC bit-vector refinement. The run reports 'SAT checker: instance is UNSATISFIABLE' and 'BV-Refinement: got UNSAT, and the proof passes => UNSAT'. The tool does not print the concrete SAT engine name at any verbosity we exercised; the binary links both MiniSat 2.2.1 and CaDiCaL. No --sat-solver, --smt2, or external solver flag was passed, so the compiled-in default was used. We record what the tool actually emitted rather than asserting an engine name we did not read.",
+    "solver_flags_passed": []
+  },
+
+  "trusted_computing_base": [
+    {
+      "item": "jbmc",
+      "role": "bounded model checker; translates JVM bytecode to a SAT instance and decides it",
+      "version": "6.11.0 (cbmc-6.11.0)",
+      "path": "/opt/homebrew/bin/jbmc",
+      "sha256": "sha256:a3cb2f3be91b2aa8bef9e75862f51afd1a369058813a0e6f4a6b9fdc99906cb1"
+    },
+    {
+      "item": "core-models.jar",
+      "role": "JBMC's substitute model of the Java standard library. Every JDK behaviour the property depends on is taken from this jar, NOT from the real JDK.",
+      "path": "/opt/homebrew/Cellar/cbmc/6.11.0/libexec/lib/core-models.jar",
+      "sha256": "sha256:7ae8884b36ec598d44541d8a7f19f059ed282ebce812d23a1473e66b357d101e",
+      "class_count": 91,
+      "modelled_packages": [
+        "java/lang",
+        "java/lang/reflect",
+        "java/util",
+        "java/util/regex",
+        "org/sosy_lab/sv_benchmarks",
+        "sun/misc"
+      ],
+      "explicit_note_no_java_nio": "core-models.jar CONTAINS NO java.nio MODEL. Verified by enumerating every .class entry in the jar: zero entries under java/nio. It also contains no java.io, no java.net, no java.nio.channels, no java.security, and no javax.net.ssl. Consequently every ByteBuffer-typed method is a nondeterministic stub under JBMC, and any obligation whose property reads a ByteBuffer is VACUOUS. This is the single largest constraint on Java formal coverage in this program."
+    },
+    {
+      "item": "cprover-api.jar",
+      "role": "compile-time only. Supplies org.cprover.CProver.nondetInt() so the harness can introduce the symbolic close code. Not on the JBMC verification classpath.",
+      "path": "/opt/homebrew/Cellar/cbmc/6.11.0/libexec/lib/cprover-api.jar",
+      "sha256": "sha256:3c8c92f6a91f9ccf5b4d09df1615a3a8d3547d31a39bc3f9f249aa2bec6b199d"
+    },
+    {
+      "item": "javac",
+      "role": "compiles the shipped source and the harness to the bytecode JBMC consumes",
+      "version": "javac 17.0.19",
+      "path": "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home/bin/javac",
+      "sha256": "sha256:a587e4bfa51de17788dfc9de7b22960174f11cb5fed8f21bf2867151eb2524fa",
+      "pinned_jdk_match": "Matches the JDK pinned in evidence/intake/java-intake-manifest.json (Homebrew OpenJDK 17.0.19) exactly."
+    },
+    {
+      "item": "quarantined Java-WebSocket source archive",
+      "role": "the shipped production source under check",
+      "sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+      "verified": "Digest recomputed in this lane and compared against evidence/intake/java-intake-manifest.json. Match."
+    },
+    {
+      "item": "shipped CloseFrame dependency closure (16 classes)",
+      "role": "the only application bytecode on the verification classpath",
+      "classes": [
+        "org/java_websocket/framing/CloseFrame",
+        "org/java_websocket/framing/ControlFrame",
+        "org/java_websocket/framing/FramedataImpl1",
+        "org/java_websocket/framing/FramedataImpl1$1",
+        "org/java_websocket/framing/Framedata",
+        "org/java_websocket/framing/BinaryFrame",
+        "org/java_websocket/framing/TextFrame",
+        "org/java_websocket/framing/ContinuousFrame",
+        "org/java_websocket/framing/DataFrame",
+        "org/java_websocket/framing/PingFrame",
+        "org/java_websocket/framing/PongFrame",
+        "org/java_websocket/enums/Opcode",
+        "org/java_websocket/exceptions/InvalidDataException",
+        "org/java_websocket/exceptions/InvalidFrameException",
+        "org/java_websocket/util/ByteBufferUtils",
+        "org/java_websocket/util/Charsetfunctions"
+      ],
+      "note": "This closure requires NO third-party dependency. org.slf4j is not reachable from CloseFrame, so no logging jar enters the trusted base of this proof."
+    },
+    {
+      "item": "host",
+      "role": "execution environment",
+      "platform": "darwin arm64, macOS 26.6.2"
+    }
+  ],
+
+  "trusted_computing_base_exclusions": [
+    "The REAL JDK is NOT in the trusted base and was NOT used for verification. See limitations.real_jdk_crashes_jbmc.",
+    "slf4j-api-2.0.13, a promoted input in evidence/intake/java-intake-manifest.json, is ABSENT from this host and could not be downloaded under this lane's constraints. It is not needed for this proof."
+  ],
+
+  "bounds": {
+    "input_domain": "All 2^32 values of the 32-bit signed Java int close code, introduced by org.cprover.CProver.nondetInt(). The domain is exhaustive over the code parameter; no range assumption was applied.",
+    "unwind": "No --unwind bound was required or supplied. The property path contains no unbounded loop; JBMC reported completion in 1 solver iteration for the known-good canary and 2 for the known-bad canary.",
+    "fixed_inputs": [
+      "reason is pinned to the empty string by the shipped CloseFrame constructor and is NOT varied. The obligation is therefore established only for close frames with an empty reason. Varying reason requires a String model interacting with the java.nio.charset path and is left to a follow-on obligation."
+    ],
+    "frame_state": "fin=true, rsv1=false, rsv2=false, rsv3=false, opcode=CLOSING, as set concretely by the shipped FramedataImpl1 and ControlFrame constructors. ControlFrame.isValid() is therefore exercised on its non-throwing path only.",
+    "exhaustive_over": ["close code: all 2^32 int values"],
+    "not_exhaustive_over": ["reason string", "frame fin/rsv bit combinations"]
+  },
+
+  "unsupported_constructs": [
+    {
+      "construct": "java.nio.ByteBuffer",
+      "impact": "Unmodelled. ByteBuffer.allocate returns a nondeterministic, possibly-null reference. Reached in this run only through CloseFrame.updatePayload(), which the property does not read.",
+      "observed": "In the unrestricted run, exactly 3 of 1408 properties fail, and all 3 are this artifact: two null-pointer checks inside CloseFrame.updatePayload() (CloseFrame.java lines 297 and 300, the two ByteBuffer.allocate call sites) and the consequent 'no uncaught exception' property in the harness. These are TOOL-MODEL artifacts of the missing java.nio model, NOT defects in the shipped code."
+    },
+    {
+      "construct": "java.nio.charset.StandardCharsets / String.getBytes(Charset)",
+      "impact": "Unmodelled. Reached through Charsetfunctions.utf8Bytes on the updatePayload write path only.",
+      "observed": "Null-pointer check at Charsetfunctions.java line 50 reported SUCCESS; not a source of failure in this run."
+    },
+    {
+      "construct": "java.security (MessageDigest, SecureRandom)",
+      "impact": "Unmodelled. Not reached by this obligation. Blocks surface.handshake.server-response and surface.handshake.client-request; see the ceiling record."
+    },
+    {
+      "construct": "java.io, java.net, java.nio.channels, javax.net.ssl",
+      "impact": "Unmodelled. Not reached by this obligation. Blocks the I/O-bearing obligations; see the ceiling record."
+    }
+  ],
+
+  "execution": {
+    "generated_property_count": 1408,
+    "generated_property_count_note": "NONZERO, as the program requires. 1408 is JBMC's own count from the unrestricted run over the CloseFrame dependency closure ('** 3 of 1408 failed'). The obligation property is one of these 1408.",
+    "selected_property_count": 1,
+    "selected_property_id": "java::CloseStatusCodeHarness.check:()V.assertion.1",
+    "selection_rationale": "The canary pair is evaluated with --property restricting the check to the obligation assertion. This is done so the pass/fail signal reports the OBLIGATION and is not conflated with the 3 unmodelled-java.nio artifact properties described in unsupported_constructs. Both the unrestricted and restricted runs are recorded here; neither is hidden.",
+    "unrestricted_run": {
+      "exit_code": 10,
+      "result_line": "** 3 of 1408 failed (4 iterations)",
+      "verdict_line": "VERIFICATION FAILED",
+      "obligation_property_result": "SUCCESS",
+      "failing_properties": [
+        "java::org.java_websocket.framing.CloseFrame.updatePayload:()V.null-pointer-exception.3 (CloseFrame.java line 297)",
+        "java::org.java_websocket.framing.CloseFrame.updatePayload:()V.null-pointer-exception.6 (CloseFrame.java line 300)",
+        "java::CloseStatusCodeHarness.check:()V.1 (no uncaught exception)"
+      ],
+      "interpretation": "All three failures are consequences of the missing java.nio model, on a write path the obligation property does not read. The obligation property itself reports SUCCESS in this same run."
+    }
+  },
+
+  "canaries": {
+    "requirement": "The program requires a known-good / known-bad pair on a real shipped symbol. Both directions were executed in this lane and their real output read; a canary that was not watched fail is not a canary.",
+    "known_good": {
+      "description": "Unmutated declarative spec against the shipped CloseFrame.isValid().",
+      "exit_code": 0,
+      "result_line": "** 0 of 1 failed (1 iterations)",
+      "verdict_line": "VERIFICATION SUCCESSFUL",
+      "property_result": "[java::CloseStatusCodeHarness.check:()V.assertion.1] line 113 assertion ... : SUCCESS",
+      "solver_lines": [
+        "SAT checker: instance is UNSATISFIABLE",
+        "BV-Refinement: got UNSAT, and the proof passes => UNSAT",
+        "Total iterations: 1"
+      ]
+    },
+    "known_bad": {
+      "description": "Spec mutated to drop the legal close code 1000 from the sendable set, so the spec wrongly demands that isValid() reject 1000. The shipped symbol is UNCHANGED; only the specification is mutated.",
+      "mutation": "assurance/formal/java/harness/CloseStatusCodeHarness.java line 75: 'if (code >= 1000 && code <= 1003) {' -> 'if (code >= 1001 && code <= 1003) {'",
+      "mutation_applied_by": "assurance/formal/java/replay-j1.sh, which asserts the mutation actually applied before running, so the known-bad canary cannot silently degrade into a no-op",
+      "exit_code": 10,
+      "result_line": "** 1 of 1 failed (2 iterations)",
+      "verdict_line": "VERIFICATION FAILED",
+      "property_result": "[java::CloseStatusCodeHarness.check:()V.assertion.1] line 113 assertion ... : FAILURE",
+      "minimized_counterexample": {
+        "close_code": 1000,
+        "trace_evidence": "State 588 function org.cprover.CProver.nondetInt() thread 0 -> to_return=1000 (00000000 00000000 00000011 11101000)",
+        "propagated_field": "dynamic_object.code=1000 (00000000 00000000 00000011 11101000)",
+        "violated_property": "assertion at file CloseStatusCodeHarness.java line 113 function java::CloseStatusCodeHarness.check:()V bytecode-index 30"
+      },
+      "discrimination_confirmed": true,
+      "liveness_note": "The counterexample is a concrete satisfying execution that REACHES the assertion. This independently rules out the vacuity hazard that the unmodelled ByteBuffer path might have cut every route to the property."
+    }
+  },
+
+  "status": {
+    "observed_strength": "BoundedCheckPassed",
+    "observed_strength_rationale": "JBMC performs bounded model checking. It decides a SAT instance derived from a bounded unwinding of the bytecode against a substitute standard-library model. It does not produce an unbounded proof. The strength 'ProofEstablished' is NOT claimed here and must never be claimed for a JBMC result in this program.",
+    "proof_established_claimed": false,
+    "verified": true,
+    "verified_scope": "the obligation property, over all 2^32 close codes, with an empty reason, against the substitute library model in core-models.jar"
+  },
+
+  "required_strength_gap": {
+    "catalog_required_strength": "PRODUCTION_REFINEMENT",
+    "catalog_required_strength_scope": "All 24 obligations in assurance/formal/obligation-catalog.json predeclare required_strength PRODUCTION_REFINEMENT. Verified by reading the catalog in this lane: 24 of 24.",
+    "observed_strength": "BoundedCheckPassed",
+    "relation": "WEAKER_THAN_PREDECLARED",
+    "plain_statement": "This evidence is WEAKER than the strength the catalog predeclares for this obligation. It therefore LOWERS THE CEILING on what the Java lane can contribute; it does NOT satisfy surface.close.status-code's PRODUCTION_REFINEMENT requirement, and it must not be counted as satisfying it.",
+    "refinement_blocker_untouched": "This lane cannot touch the refinement blocker at all. PRODUCTION_REFINEMENT is a relation between the Java implementation and the Rust port. JBMC checks a Java program against a Java-side specification; it does not and cannot produce a Java-to-Rust refinement relation. No amount of Java bounded model checking moves that blocker.",
+    "aggregate_coverage_effect": "Aggregate obligation coverage remains 0/24 and US-008 remains BLOCKED even if every tractable Java obligation lands. Java bounded evidence is a supporting artifact, not a coverage numerator."
+  },
+
+  "replay": {
+    "deterministic_command": "bash assurance/formal/java/replay-j1.sh",
+    "script_path": "assurance/formal/java/replay-j1.sh",
+    "script_sha256": "sha256:06f859eb6632ad49999b493cdd06891a6f1e54077506269a3c4f6c0f29b5611b",
+    "behaviour": "Verifies the jbmc, core-models.jar, and source-archive digests against the pins recorded above, recompiles the shipped closure and the harness from the quarantined source, runs BOTH canaries, and exits nonzero unless the known-good run reports exit 0 / VERIFICATION SUCCESSFUL / '0 of 1 failed' AND the known-bad run reports exit 10 / VERIFICATION FAILED / '1 of 1 failed' with the counterexample minimized to close code 1000.",
+    "prerequisite": "The quarantined archive must be extracted at .quarantine/ (gitignored). The script verifies its digest and fails closed if absent or mismatched.",
+    "raw_jbmc_invocation_known_good": "cd .quarantine/build/j1-classes && jbmc CloseStatusCodeHarness --function 'CloseStatusCodeHarness.check' --classpath '.:/opt/homebrew/Cellar/cbmc/6.11.0/libexec/lib/core-models.jar' --property 'java::CloseStatusCodeHarness.check:()V.assertion.1'"
+  },
+
+  "limitations": {
+    "real_jdk_crashes_jbmc": {
+      "claim": "JBMC cannot be run against the real JDK to recover the missing java.nio model.",
+      "verified_in_this_lane": true,
+      "method": "Extracted classes/ from /opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home/jmods/java.base.jmod (7406 class files, including java/nio/ByteBuffer.class) and passed that directory on --classpath in place of core-models.jar.",
+      "result": "Exit code 134 (SIGABRT). Invariant violation: 'File: jbmc/src/java_bytecode/java_bytecode_language.cpp:496 function: infer_opaque_type_fields / Condition: !class_type->bases().empty() / Reason: class java::java.lang.String (which was missing a field value referenced from method <init> of class java.lang.String) should have an opaque superclass'.",
+      "note": "Passing the .jmod file itself on --classpath does NOT crash; JBMC silently ignores it and loads no JDK classes at all (property count drops from 1408 to 1316). That silent-ignore behaviour is itself a trap: it would produce a run that appears to include the real JDK but does not."
+    },
+    "substitute_library_model": "Every JDK behaviour this result depends on comes from core-models.jar, not the real JDK. The result is conditional on that model being a faithful abstraction of java.lang.String and java.lang.Object as used here.",
+    "empty_reason_only": "The obligation is established only for close frames whose reason is the empty string.",
+    "no_refinement": "This receipt says nothing about the Rust port."
+  },
+
+  "assurance": {
+    "authority_model": "single-owner",
+    "amendment": "policies/amendments/java-websocket-single-owner.json",
+    "independent_review_claimed": false,
+    "assurance_ceiling": "OWNER_ATTESTED_NOT_INDEPENDENT"
+  }
+}

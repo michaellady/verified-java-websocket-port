@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0.0-draft",
+  "record_id": "java-jbmc-formal-methods-ceiling",
+  "record_kind": "EXPLICIT_NON_CLAIM",
+  "rationale": "This program requires an explicit formal-methods ceiling rather than a silent omission. These obligations can NEVER receive Java formal binding via JBMC 6.11.0 on this toolchain. Recording them as an explicit, evidence-backed non-claim prevents a future reader from mistaking absence of evidence for evidence not yet gathered.",
+  "tool": {
+    "name": "JBMC",
+    "version": "6.11.0 (cbmc-6.11.0)",
+    "binary_sha256": "sha256:a3cb2f3be91b2aa8bef9e75862f51afd1a369058813a0e6f4a6b9fdc99906cb1",
+    "library_model": "core-models.jar",
+    "library_model_sha256": "sha256:7ae8884b36ec598d44541d8a7f19f059ed282ebce812d23a1473e66b357d101e"
+  },
+
+  "root_cause_evidence": {
+    "core_models_package_inventory": [
+      "java/lang",
+      "java/lang/reflect",
+      "java/util",
+      "java/util/regex",
+      "org/sosy_lab/sv_benchmarks",
+      "sun/misc"
+    ],
+    "core_models_class_count": 91,
+    "java_util_coverage_is_three_classes": "The java/util model is java/util/Random, java/util/regex/Matcher, java/util/regex/Pattern. NOTHING ELSE. In particular java.util.concurrent is entirely absent.",
+    "absent_packages_verified_by_enumerating_every_jar_entry": [
+      "java.nio",
+      "java.nio.channels",
+      "java.nio.charset",
+      "java.io",
+      "java.net",
+      "java.security",
+      "java.util.concurrent",
+      "javax.net.ssl"
+    ],
+    "real_jdk_substitution_is_not_available": {
+      "attempted": "Extracted 7406 classes from java.base.jmod (including java/nio/ByteBuffer.class) and put that directory on --classpath.",
+      "result": "exit 134 (SIGABRT); invariant violation at jbmc/src/java_bytecode/java_bytecode_language.cpp:496 in infer_opaque_type_fields, condition '!class_type->bases().empty()', reason 'class java::java.lang.String (which was missing a field value referenced from method <init> of class java.lang.String) should have an opaque superclass'.",
+      "consequence": "There is no supported path to give JBMC a real java.nio, java.security, or java.util.concurrent. The ceiling below is therefore structural, not a matter of effort."
+    },
+    "unmodelled_api_behaviour_probe": {
+      "description": "Direct empirical probe of how JBMC treats an unmodelled java.security API.",
+      "probe": "MessageDigest md = MessageDigest.getInstance(\"SHA1\"); byte[] out = md.digest(new byte[]{1,2,3}); assert out.length == 20;",
+      "result": "exit 10. Null pointer check on the getInstance result: FAILURE. assertion out.length == 20: FAILURE.",
+      "interpretation": "Unmodelled APIs are nondeterministic, possibly-null stubs returning nondeterministic values. A property that reads such a value is not merely weak, it is unprovable AND vacuous. This is the mechanism behind every entry below."
+    }
+  },
+
+  "ceiling": [
+    {
+      "obligation_id": "surface.adapter.byte-stream",
+      "catalog_binding": "org.java_websocket.WebSocketImpl.decode(Ljava/nio/ByteBuffer;)V",
+      "verdict": "NO_JAVA_FORMAL_BINDING_POSSIBLE",
+      "reasons_verified": [
+        "The sole parameter is java.nio.ByteBuffer, which has no model. Every read of the buffer is a nondet stub, so any property over decode's behaviour is vacuous.",
+        "WebSocketImpl cannot even be constructed under JBMC: WebSocketImpl.java lines 206-207 initialise `outQueue`/`inQueue` with `new LinkedBlockingQueue<>()`, and java.util.concurrent is entirely absent from core-models.jar.",
+        "The adapter path this obligation is about runs through SocketChannelIOHelper and SSLSocketChannel2, which import java.io.IOException, java.net.Socket, and javax.net.ssl.SSLEngine / SSLEngineResult / SSLException / SSLSession. None of java.io, java.net, or javax.net.ssl is modelled."
+      ],
+      "verification_method": "javap -p -s on the compiled shipped class for the descriptor; source read of WebSocketImpl.java lines 31-37, 98-102, 206-207; import inspection of SSLSocketChannel2.java and SocketChannelIOHelper.java; jar entry enumeration of core-models.jar."
+    },
+    {
+      "obligation_id": "surface.handshake.client-request",
+      "catalog_binding": "org.java_websocket.WebSocketImpl.startHandshake(Lorg/java_websocket/handshake/ClientHandshakeBuilder;)V",
+      "verdict": "NO_JAVA_FORMAL_BINDING_POSSIBLE",
+      "reasons_verified": [
+        "startHandshake (WebSocketImpl.java line 712) immediately calls draft.postProcessHandshakeRequestAsClient, which requires a live Draft_6455 instance.",
+        "Draft_6455.java line 163 declares `private final SecureRandom reuseableRandom = new SecureRandom();` as an INSTANCE FIELD INITIALISER. Constructing any Draft_6455 therefore constructs a SecureRandom, and java.security has no model. The probe above shows unmodelled java.security returns nondet possibly-null stubs.",
+        "WebSocketImpl itself cannot be constructed (LinkedBlockingQueue, as above).",
+        "The client nonce that the handshake request carries is by construction drawn from SecureRandom, so even a nondet-tolerant property would be over a value the tool cannot constrain."
+      ],
+      "verification_method": "Source read of WebSocketImpl.java lines 712-728 and Draft_6455.java lines 30-32 and 163; core-models.jar enumeration; empirical java.security probe."
+    },
+    {
+      "obligation_id": "surface.close.terminal-state",
+      "catalog_binding": "org.java_websocket.WebSocketImpl.closeConnection(ILjava/lang/String;Z)V",
+      "verdict": "NO_JAVA_FORMAL_BINDING_POSSIBLE",
+      "reasons_verified": [
+        "The method is declared `public synchronized void closeConnection(int, String, boolean)` at WebSocketImpl.java line 530. Its terminal-state guarantee is a guarantee ABOUT the monitor, and JBMC's multi-threading support is flagged experimental (--java-threading) and would need explicit thread instrumentation the production code does not contain.",
+        "The body touches java.nio.channels.SelectionKey directly: `if (key != null) { key.cancel(); }` at lines 540-543, and `channel.close()` on a java.nio.channels.ByteChannel at lines 544-546. Neither java.nio.channels nor java.io is modelled.",
+        "WebSocketImpl cannot be constructed (LinkedBlockingQueue, as above)."
+      ],
+      "verification_method": "javap -p -s for the descriptor; source read of WebSocketImpl.java lines 108, 113, 530-546; jbmc --help for --java-threading; core-models.jar enumeration."
+    },
+    {
+      "obligation_id": "surface.concurrency.command-order",
+      "catalog_binding": "org.java_websocket.WebSocketImpl.sendFrame(Ljava/util/Collection;)V",
+      "verdict": "NO_JAVA_FORMAL_BINDING_POSSIBLE",
+      "reasons_verified": [
+        "CORRECTION TO THE PRIOR STATED REASON. It is NOT accurate to say simply that JBMC is a sequential checker. JBMC 6.11.0 does expose `--java-threading` (documented in its own help text as 'enable java multi-threading support (experimental)'), core-models.jar does ship java/lang/Thread.class and java/lang/Runnable.class, and org.cprover.CProver exposes startThread/endThread/getCurrentThreadId/atomicBegin/atomicEnd. The honest reason is narrower and stronger, and follows.",
+        "The ordering discipline this obligation is about is realised by java.util.concurrent.BlockingQueue / LinkedBlockingQueue (WebSocketImpl.java lines 37-38, 98-102, 206-207) and by `synchronized (synchronizeWriteObject)` at line 750. java.util.concurrent is ENTIRELY ABSENT from core-models.jar, whose whole java/util model is Random plus regex Matcher and Pattern. The queue that establishes command order is therefore a nondet stub, and the ordering property is vacuous.",
+        "The concurrency is also not internal to the bound symbol: sendFrame delegates to the private send(Collection) at line 667, and the competing writer is the selector thread inside WebSocketServer. Expressing the real race would require instrumenting production code with CProver thread primitives, which would make the artifact a proof-only duplicate rather than evidence about the shipped symbol.",
+        "WebSocketImpl cannot be constructed (LinkedBlockingQueue, as above)."
+      ],
+      "verification_method": "jbmc --help; javap -p -s on org.cprover.CProver; core-models.jar entry enumeration; source read of WebSocketImpl.java lines 37-38, 98-102, 168, 206-207, 667-690, 750."
+    },
+    {
+      "obligation_id": "surface.handshake.server-response",
+      "catalog_binding": "org.java_websocket.drafts.Draft_6455.postProcessHandshakeResponseAsServer(Lorg/java_websocket/handshake/ClientHandshake;Lorg/java_websocket/handshake/ServerHandshakeBuilder;)Lorg/java_websocket/handshake/HandshakeBuilder;",
+      "verdict": "NO_JAVA_FORMAL_BINDING_POSSIBLE",
+      "reasons_verified": [
+        "The Sec-WebSocket-Accept value is produced by Draft_6455.generateFinalKey (Draft_6455.java line 832), whose body calls `MessageDigest.getInstance(\"SHA1\")` at line 837. java.security is not modelled; the empirical probe above shows getInstance returns a nondet possibly-null reference and digest() returns a nondet array whose length cannot even be shown to be 20.",
+        "Constructing Draft_6455 also constructs SecureRandom (line 163), a second java.security dependency.",
+        "MODELLING SHA-1 WOULD BE THE WRONG FIX. Supplying a hand-written SHA-1 model would place a cryptographic implementation INSIDE the trusted computing base of the result. The obligation would then be established against our own SHA-1 rather than the JDK's, which is a strictly worse artifact than an honest non-claim. This lane declines to do that."
+      ],
+      "verification_method": "Source read of Draft_6455.java lines 30-32, 163, 832-843; core-models.jar enumeration; empirical java.security probe (exit 10, getInstance null-check FAILURE, digest length assertion FAILURE)."
+    },
+    {
+      "obligation_id": "surface.errors.protocol-fault",
+      "catalog_binding": "org.java_websocket.exceptions.InvalidDataException",
+      "verdict": "NO_JAVA_FORMAL_BINDING_POSSIBLE_AS_BOUND",
+      "reasons_verified": [
+        "The binding names a TYPE, not a method, while declaring item_kind PRODUCTION_SYMBOL. There is no method to check.",
+        "javap -p -s on the compiled class reports only four constructors ((I)V, (ILjava/lang/String;)V, (ILjava/lang/Throwable;)V, (ILjava/lang/String;Ljava/lang/Throwable;)V), one accessor `public int getCloseCode()` with descriptor ()I, and the fields serialVersionUID and closecode. There is no validation or fault-classification behaviour anywhere in the type."
+      ],
+      "remediable_by_rebinding": true,
+      "see": "catalog-binding-correction-proposal.json, correction C4",
+      "verification_method": "javap -p -s -cp <compiled-shipped-classes> org.java_websocket.exceptions.InvalidDataException"
+    },
+    {
+      "obligation_id": "surface.websocket-open",
+      "catalog_binding": "org.java_websocket.server.WebSocketServer",
+      "verdict": "NO_JAVA_FORMAL_BINDING_POSSIBLE_AS_BOUND",
+      "reasons_verified": [
+        "The binding names a TYPE, not a method, while declaring item_kind PRODUCTION_SYMBOL. There is no method to check.",
+        "Separately, even after rebinding to a concrete method, WebSocketServer is not reachable under JBMC: its constructors take java.net.InetSocketAddress and java.nio.channels.ServerSocketChannel, its run() drives a java.nio.channels.Selector, and it holds java.util.concurrent collections. None of those packages is modelled."
+      ],
+      "remediable_by_rebinding": "PARTIALLY. Rebinding fixes the item_kind defect but does not make the symbol tractable for JBMC.",
+      "see": "catalog-binding-correction-proposal.json, correction C5",
+      "verification_method": "javap -p -s -cp <compiled-shipped-classes> org.java_websocket.server.WebSocketServer"
+    }
+  ],
+
+  "summary": {
+    "obligations_in_catalog": 24,
+    "obligations_permanently_out_of_reach_for_jbmc": 7,
+    "obligations_with_retained_java_bounded_evidence_as_of_this_record": 1,
+    "retained": ["surface.close.status-code"],
+    "ceiling_statement": "At most 17 of 24 obligations could ever carry Java bounded-model evidence from JBMC, and the true number is lower still because several of the remaining 17 are bound to ByteBuffer-typed symbols (notably every obligation bound to Draft_6455.translateSingleFrame and Draft_6455.createBinaryFrame) which are vacuous for the same missing-java.nio reason. No count in this record should be read as coverage.",
+    "coverage_effect": "ZERO. Java bounded evidence does not advance obligation coverage. Aggregate coverage stays 0/24 and US-008 stays blocked regardless of how many Java obligations land, because the catalog predeclares required_strength PRODUCTION_REFINEMENT for all 24 and PRODUCTION_REFINEMENT is a Java-to-Rust relation that JBMC does not produce."
+  }
+}
