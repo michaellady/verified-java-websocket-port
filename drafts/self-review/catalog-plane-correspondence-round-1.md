@@ -450,3 +450,47 @@ Every coverage axis is still 0/24. Nothing moved a numerator.
   receipts' words ("adapted", "studied, NOT grafted", "NOT adopted") are quoted
   verbatim in the artifact so a reader can disagree with my reading of them
   without re-reading the store.
+
+---
+
+## 10. Gate readings
+
+`make -C rust gates` with `VJWP_PROTECTED_STORE` set, read from the process:
+
+```
+GATES_EXIT=0
+```
+
+Nine PASS verdicts, zero non-PASS, run to completion through `oraclerankctl`:
+
+- `gate=forbid-unsafe PASS` — 10 first-party crate roots all carry `#![forbid(unsafe_code)]`
+- `gate=dependency-inventory PASS`, `gate=msrv PASS` (1.95.0), `gate=license PASS`,
+  `gate=audit PASS`, `gate=lockfile PASS` (`Cargo.lock` byte-identical and git-clean)
+- `gate=canaries PASS` — polarity proven: good-scaffold 0/0/0, bad-scaffold failed
+  scan and clippy as required (1/101)
+- `gate=adapter-linkage PASS` — exact over 5 production sources
+- `ac1-gates verdict=PASS gates_passed=8/8`
+- ledger integrity verified (frozen prefix through sequence 35,
+  `unledgered_disagreements` recomputed = 0)
+- `evidence/governance/owner-decision-digests.json` equals the derivation, 6 governance
+  record digests recomputed from the protected store and matched
+- `oraclerankctl`: 640 propositions adjudicated, 589 agreements, 38 overridden and every
+  one enrolled
+
+**A first attempt at this gate exited non-zero and it was my own fault, not the tree's:**
+I omitted `VJWP_PROTECTED_STORE`, and the ledger gate REFUSED rather than skipping. That
+is the gate working — a governance check that cannot read the protected store must not
+quietly pass — and it is worth recording because "the gate failed" would have been the
+wrong reading of it. Everything before that point had already reported
+`ac1-gates verdict=PASS gates_passed=8/8` in that same run.
+
+### Go suite
+
+`internal/formalcoverage` and `cmd/formalcoverctl` green under `-count=1` across several
+runs, including after every artifact regeneration. `internal/javabind` and
+`cmd/javabindctl` green — that is where the vendored catalog's sha256 and git blob id are
+asserted, so the immutability constraint is confirmed by a package this branch did not
+touch. A whole-repository `-count=1` run was still executing when this record was written,
+under load average 30 on 4 cores from sibling agents; its verdict is NOT read here and is
+not claimed. The three declared baseline failures (`internal/lab`, `internal/portplan`,
+`internal/formalplan`) were not investigated and were not expected to move.
