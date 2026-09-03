@@ -45,20 +45,34 @@
 //! (WebSocketImpl.java:667-670), reached only because the port's delivery is
 //! asynchronous where Java's is synchronous. The message is dropped.
 //!
-//! # Why this file, and not `ws-core` or `ws-driver`
+//! # Where the fix lives, and why the fixture is here
 //!
-//! `ws-core` cannot discriminate: chunk-atomic frame processing IS its pinned
-//! oracle behaviour, and its `input_chunk {bytes}` records are scored by the
-//! public corpus (`corpora/public/scenarios.jsonl`), so splitting a chunk
-//! there would move corpus bytes. `ws-driver` cannot discriminate either: it
-//! is the seam the corpus differential harness runs through
-//! (`ws-oracle-harness/src/core_adapter.rs`), so the same objection applies.
-//! The decision that actually differs from Java is HOW MUCH INPUT IS APPLIED
-//! PER TURN, which is a transport concern owned here — and this crate is
-//! structurally invisible to the corpus (`ws-oracle-harness` declares only
-//! `ws-core` and `ws-driver`), which is the same layering the C6 owner
-//! decision `us017-c6-layer-split-owner-decision-2026-08-28.json` already
-//! established for shipped-library fidelity.
+//! THE FIX IS IN `ws-driver` (`InboundFeedPolicy`, `FrameAlignedFeed`). An
+//! earlier revision of this file argued for `ws-testee` and that argument is
+//! withdrawn — it is wrong twice:
+//!
+//! * `ws-testee` is mechanically forbidden. The US-018 `adapter-linkage`
+//!   architecture gate scans `rust/ws-testee/src` and refuses the three
+//!   symbols a boundary-finder must name (`Draft6455`, `HeaderDecode`,
+//!   `ws_core::framing`, `cmd/rustgatectl/adapter_linkage.go:48-65`). Seeding
+//!   them there reproduces three `ADAPTER_PROTOCOL_SURFACE` findings and
+//!   `exit 1`.
+//! * `ws-driver` is NOT on the corpus differential path by default. The
+//!   objection was that `ws-oracle-harness/src/core_adapter.rs` runs through
+//!   this crate — true, but through `connection_driver_in_state_with_policies`,
+//!   which keeps `InboundFeedPolicy::default()` = `WholeChunk`, the oracle
+//!   observable the public corpus scores as `input_chunk {bytes}`. Only
+//!   `connection_driver`, the fresh-connection full-stack constructor these
+//!   fixtures reach, opts into `OneFramePerTurn`. Measured: the release oracle
+//!   harness built from this branch and from mainline produces byte-identical
+//!   transcripts on all 74 public and all 49 handshake cases.
+//!
+//! `ws-core` remains excluded, for the reason first given: chunk-atomic frame
+//! processing IS its pinned oracle behaviour and its `input_chunk {bytes}`
+//! records are scored by `corpora/public/scenarios.jsonl`.
+//!
+//! The FIXTURE is here because only this crate owns a real socket, and the
+//! divergence is about what a peer receives.
 
 use std::io::{ErrorKind, Read as _, Write as _};
 use std::net::{TcpListener, TcpStream};
@@ -465,6 +479,83 @@ fn a_client_role_endpoint_echoes_before_answering_a_close_in_the_same_read() {
     assert_eq!(
         frames[0].1, b"hello",
         "the client echo must carry the message"
+    );
+}
+
+/// A frame with an explicit FIN bit, masked client->server. Only the 5.15
+/// shape below needs FIN=false, so [`masked`] keeps its always-FIN signature.
+fn masked_fin(fin: bool, opcode: u8, payload: &[u8]) -> Vec<u8> {
+    let mut frame = header(opcode, payload.len(), true);
+    if !fin {
+        frame[0] &= 0x7F;
+    }
+    for (index, byte) in payload.iter().enumerate() {
+        frame.push(byte ^ TEST_MASK[index % 4]);
+    }
+    frame
+}
+
+/// **A SIDE EFFECT ON ANOTHER LEDGER RECORD, PINNED SO IT IS NOT SILENT.**
+///
+/// This test is NOT part of DIV-05. It pins a behaviour change the DIV-05 fix
+/// causes on the subject of **behavior-delta ledger sequence 34**
+/// (`delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8`,
+/// Autobahn 5.15), whose disposition is **`unresolved`** — the owner has not
+/// decided it.
+///
+/// Sequence 34 describes the port's behaviour as: *"the Rust adapter's typed
+/// failure lands before the completed message's Text event is delivered, so
+/// the echo is never enqueued at all"*, against Java, which *"translates the
+/// whole chop first, then dispatches frame by frame, so the echo is ENQUEUED
+/// during the second fragment's dispatch and the failure path's flushAndClose
+/// write demand flushes it"*. The DIV-05 fix installs exactly that Java
+/// dispatch order in the full-stack path, so it moves this case too.
+///
+/// Measured, same wire, one chop, `ServerFixture` echo policy:
+///
+/// | build | peer received | `texts` delivered |
+/// | --- | --- | --- |
+/// | mainline 131b7b8 | `[(0x8, 2)]` — close 1002 only | 0 |
+/// | this branch | `[(0x1, 18), (0x8, 2)]` — echo then close | 1 |
+///
+/// The branch's answer is shipped Java's. It is ALSO the RFC-*less*-strict
+/// answer: RFC 6455 7.1.7 permits failing immediately on the violation, which
+/// is what the port used to do, and that is why sequence 34 is `unresolved`
+/// rather than a defect. **Nothing here decides that record.** This test
+/// exists so the change cannot happen silently, and
+/// `drafts/ledger-proposals/div05-close-overtakes-echo-description-correction.json`
+/// puts it in front of the owner.
+#[test]
+fn the_autobahn_5_15_chop_now_returns_the_completed_echo_before_the_violation_close() {
+    // A complete 2-fragment text message, then a continuation with FIN=false
+    // where there is nothing to continue (the violation), then an
+    // unfragmented text — all in one chop.
+    let mut burst = masked_fin(false, 0x1, b"fragment1");
+    burst.extend_from_slice(&masked_fin(true, 0x0, b"fragment2"));
+    burst.extend_from_slice(&masked_fin(false, 0x0, b"fragment3"));
+    burst.extend_from_slice(&masked_fin(true, 0x1, b"fragment4"));
+
+    let received = server_answer_to(&burst, ConnectionConfig::default());
+    let frames = split_frames(&received);
+    let shape: Vec<(u8, usize)> = frames.iter().map(|(op, p)| (*op, p.len())).collect();
+
+    assert_eq!(
+        shape,
+        vec![(0x1, 18), (0x8, 2)],
+        "ledger sequence 34 (Autobahn 5.15, disposition `unresolved`) is MOVED \
+         by the DIV-05 inbound feed policy: the completed message's echo now \
+         reaches the wire before the violation close, which is shipped Java's \
+         order (WebSocketImpl.java:394-398) and was NOT the port's. Mainline \
+         131b7b8 writes [(8, 2)]. The subject wrote {shape:?}."
+    );
+    assert_eq!(
+        frames[0].1, b"fragment1fragment2",
+        "the echo must be the reassembled message"
+    );
+    assert_eq!(
+        frames[1].1,
+        vec![0x03, 0xEA],
+        "the violation close must still be 1002"
     );
 }
 
