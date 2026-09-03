@@ -16,6 +16,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -31,7 +32,7 @@ import (
 
 const (
 	StatusPass                     = "PASS"
-	evidenceSchemaVersion          = "1.0.0"
+	evidenceSchemaVersion          = "1.1.0"
 	ledgerSchemaVersion            = "1.1.0"
 	maximumDocumentBytes     int64 = 32 << 20
 	maximumProcessOutput           = 4 << 20
@@ -70,6 +71,7 @@ type Config struct {
 	MinimizationBudget   Budget
 	launchInputs         map[string][]LaunchIdentity
 	rustBehaviorProfile  rustBehaviorProfile
+	allowExternalRuntime bool
 }
 
 type rustBehaviorProfile uint8
@@ -244,10 +246,11 @@ type PortableArtifactIdentity struct {
 }
 
 type ArtifactIdentity struct {
-	Kind   string `json:"kind"`
-	Path   string `json:"path"`
-	SHA256 string `json:"sha256"`
-	Bytes  int64  `json:"bytes"`
+	Kind                string   `json:"kind"`
+	Path                string   `json:"path"`
+	SHA256              string   `json:"sha256"`
+	Bytes               int64    `json:"bytes"`
+	ReproductionCommand []string `json:"reproduction_command,omitempty"`
 }
 
 type LaunchIdentity struct {
@@ -356,15 +359,92 @@ type PublicReproducer struct {
 	ClosingRustObservation string                `json:"closing_rust_observation_sha256,omitempty"`
 }
 
-func canonicalReproducerCommand(repositoryRoot, evidencePath, reproducerID string) []string {
-	return []string{"differentialctl", "reproduce", "--repository-root", repositoryRoot, "--evidence", evidencePath, "--reproducer-id", reproducerID}
+func canonicalReproducerCommand(reproducerID string) []string {
+	return []string{"differentialctl", "reproduce", "--repository-root", ".", "--evidence", "evidence/differential/manifest.json", "--reproducer-id", reproducerID}
 }
 
-func validateReproducerCommand(command []string, repositoryRoot, evidencePath, reproducerID string) error {
-	if !canonicalEqual(command, canonicalReproducerCommand(repositoryRoot, evidencePath, reproducerID)) {
+func validateReproducerCommand(command []string, reproducerID string) error {
+	if !canonicalEqual(command, canonicalReproducerCommand(reproducerID)) {
 		return errors.New("reproducer command is not the exact reviewed argv contract")
 	}
 	return nil
+}
+
+func javaReproductionCommand() []string {
+	return []string{"go", "run", "./cmd/cloudsetup", "setup", "--root", ".", "--home", ".cloud-home"}
+}
+
+func rustReproductionCommand() []string {
+	return []string{"cargo", "+1.95.0", "build", "--locked", "--release", "--manifest-path", "rust/Cargo.toml", "--bin", "websocket-testee"}
+}
+
+func repositoryInputKind(kind string) bool {
+	switch kind {
+	case "public-corpus", "public-corpus-manifest", "migration-inventory", "compatibility-surface", "oracle-hierarchy", "current-head-qualification", "predecessor-receipt":
+		return true
+	default:
+		return false
+	}
+}
+
+func runtimeReproductionCommand(kind string) []string {
+	if kind == "rust-testee" {
+		return rustReproductionCommand()
+	}
+	if kind == "java-executable" || kind == "java-runtime-image" || kind == "java-adapter-jar" || kind == "java-runtime-jar" || strings.HasPrefix(kind, "java-support-jar-") {
+		return javaReproductionCommand()
+	}
+	return nil
+}
+
+func validPortablePath(value string) bool {
+	if value == "" || value == "." || filepath.IsAbs(value) || strings.Contains(value, `\`) || filepath.ToSlash(value) != value || pathpkg.Clean(value) != value {
+		return false
+	}
+	for _, component := range strings.Split(value, "/") {
+		if component == "" || component == "." || component == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+func portableEvidenceInputs(root string, inputs []ArtifactIdentity, allowExternalRuntime bool) ([]ArtifactIdentity, error) {
+	if root == "" || !filepath.IsAbs(root) || filepath.Clean(root) != root {
+		return nil, errors.New("portable input root must be absolute and clean")
+	}
+	portable := make([]ArtifactIdentity, 0, len(inputs))
+	seen := map[string]bool{}
+	for _, input := range inputs {
+		if input.Kind == "" || input.Path == "" || !filepath.IsAbs(input.Path) || filepath.Clean(input.Path) != input.Path || !validLedgerDigest(input.SHA256) || input.Bytes <= 0 || seen[input.Kind] {
+			return nil, errors.New("source input identity invalid")
+		}
+		seen[input.Kind] = true
+		relative, err := filepath.Rel(root, input.Path)
+		if err != nil {
+			return nil, err
+		}
+		if relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+			if repositoryInputKind(input.Kind) {
+				return nil, fmt.Errorf("repository input %s is outside root", input.Kind)
+			}
+			if !allowExternalRuntime {
+				return nil, fmt.Errorf("runtime input %s is outside repository root", input.Kind)
+			}
+			relative = filepath.Join(".reproduction", "runtime", input.Kind)
+		}
+		relative = filepath.ToSlash(relative)
+		if !validPortablePath(relative) {
+			return nil, fmt.Errorf("portable input path invalid for %s", input.Kind)
+		}
+		input.Path = relative
+		input.ReproductionCommand = runtimeReproductionCommand(input.Kind)
+		if !repositoryInputKind(input.Kind) && len(input.ReproductionCommand) == 0 {
+			return nil, fmt.Errorf("runtime input %s lacks reproduction command", input.Kind)
+		}
+		portable = append(portable, input)
+	}
+	return portable, nil
 }
 
 type MinimizationAttempt struct {
@@ -1088,7 +1168,7 @@ func verifyMaterializedJavaRuntimeImage(root string, expected ArtifactIdentity) 
 	if err != nil {
 		return err
 	}
-	if actual != expected {
+	if !canonicalEqual(actual, expected) {
 		return errors.New("materialized Java runtime tree identity mismatch")
 	}
 	return nil
@@ -1115,11 +1195,11 @@ func materializeJavaRuntimeImage(store, javaExecutable string, expected Artifact
 		return javaRuntimeMaterialization{}, err
 	}
 	first, err := runtimeImageArtifact(root, entries, total)
-	if err != nil || first != expected {
+	if err != nil || !canonicalEqual(first, expected) {
 		return javaRuntimeMaterialization{}, errors.New("Java runtime source identity changed before or during copy")
 	}
 	second, err := javaRuntimeImageIdentity(javaExecutable)
-	if err != nil || second != expected {
+	if err != nil || !canonicalEqual(second, expected) {
 		return javaRuntimeMaterialization{}, errors.New("Java runtime source identity changed during copy")
 	}
 	objectName := strings.TrimPrefix(expected.SHA256, "sha256:")
@@ -2960,7 +3040,7 @@ func historicalHarnessArtifactReproducers(cfg Config, ledger Ledger, sc corpora.
 			Mode: "HISTORICAL_CLOSED_IDENTITY_WITNESS", ProofScope: "RETAINED_HISTORICAL_OBSERVATION_IDENTITY",
 			CurrentlyReproduces: false, Signature: signature, Scenario: sc,
 			OriginalScenarioSHA256: scenarioSHA, ScenarioSHA256: scenarioSHA,
-			Command:          canonicalReproducerCommand(cfg.RepositoryRoot, cfg.EvidencePath, reproducerID),
+			Command:          canonicalReproducerCommand(reproducerID),
 			RepositoryAnchor: closingAnchor, RuntimeInputs: append([]ArtifactIdentity(nil), inputs...),
 			CandidateAttempts: len(sc.Core.Steps), Irreducible: true, Processes: []ProcessReceipt{}, Attempts: attempts,
 			FindingJavaObservation: original.JavaObservation, FindingRustObservation: original.RustObservation,
@@ -3011,7 +3091,7 @@ func historicalClosedReproducers(cfg Config, hierarchy OracleHierarchy, sc corpo
 		if !foundDecision {
 			return nil, fmt.Errorf("historical reproducer decision absent %s", defect.Pointer)
 		}
-		reproducer := PublicReproducer{ReproducerID: reproducerID, LedgerDeltaID: deltaIDFor(sc.ScenarioID, defect.Pointer), ScenarioID: sc.ScenarioID, Mode: "HISTORICAL_CLOSED_IDENTITY_WITNESS", ProofScope: "RETAINED_HISTORICAL_OBSERVATION_IDENTITY", CurrentlyReproduces: false, Signature: signature, Scenario: sc, OriginalScenarioSHA256: scenarioSHA, ScenarioSHA256: scenarioSHA, Command: canonicalReproducerCommand(cfg.RepositoryRoot, cfg.EvidencePath, reproducerID), RepositoryAnchor: closingAnchor, RuntimeInputs: append([]ArtifactIdentity(nil), inputs...), CandidateAttempts: len(sc.Core.Steps), Irreducible: true, Processes: []ProcessReceipt{}, Attempts: attempts, FindingJavaObservation: defect.JavaObservation, FindingRustObservation: defect.RustObservation, FindingRunAnchor: defect.FindingAnchor, ClosingRunAnchor: closingAnchor, ClosingJavaObservation: closingJavaDigest, ClosingRustObservation: closingRustDigest}
+		reproducer := PublicReproducer{ReproducerID: reproducerID, LedgerDeltaID: deltaIDFor(sc.ScenarioID, defect.Pointer), ScenarioID: sc.ScenarioID, Mode: "HISTORICAL_CLOSED_IDENTITY_WITNESS", ProofScope: "RETAINED_HISTORICAL_OBSERVATION_IDENTITY", CurrentlyReproduces: false, Signature: signature, Scenario: sc, OriginalScenarioSHA256: scenarioSHA, ScenarioSHA256: scenarioSHA, Command: canonicalReproducerCommand(reproducerID), RepositoryAnchor: closingAnchor, RuntimeInputs: append([]ArtifactIdentity(nil), inputs...), CandidateAttempts: len(sc.Core.Steps), Irreducible: true, Processes: []ProcessReceipt{}, Attempts: attempts, FindingJavaObservation: defect.JavaObservation, FindingRustObservation: defect.RustObservation, FindingRunAnchor: defect.FindingAnchor, ClosingRunAnchor: closingAnchor, ClosingJavaObservation: closingJavaDigest, ClosingRustObservation: closingRustDigest}
 		if closingJavaDigest == "" || closingRustDigest == "" {
 			return nil, errors.New("historical closing observations absent")
 		}
@@ -3306,6 +3386,7 @@ func applyReviewedCoverage(root string, base CoverageRow, mapping reviewedCovera
 			return CoverageRow{}, fmt.Errorf("predecessor %s: %w", relative, err)
 		}
 		identity.Kind = "predecessor-receipt"
+		identity.Path = filepath.ToSlash(relative)
 		base.PredecessorIdentities = append(base.PredecessorIdentities, identity)
 	}
 	return base, nil
@@ -3353,6 +3434,7 @@ func buildCoverage(root string, scenarios []corpora.Scenario) (CoverageReceipt, 
 		return CoverageReceipt{}, err
 	}
 	qualification.Kind = "current-head-qualification"
+	qualification.Path = filepath.ToSlash(provenance.CurrentHeadQualificationPath)
 	receipt := CoverageReceipt{CurrentHeadQualification: qualification, Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}}
 	for index, raw := range migration.Rows {
 		var row struct {
@@ -4350,7 +4432,7 @@ func minimizeRuntimeMismatch(ctx context.Context, cfg Config, suiteRoot string, 
 	}
 	reproducer.RepositoryAnchor = anchor
 	reproducer.RuntimeInputs = append([]ArtifactIdentity(nil), inputs...)
-	reproducer.Command = canonicalReproducerCommand(cfg.RepositoryRoot, cfg.EvidencePath, reproducer.ReproducerID)
+	reproducer.Command = canonicalReproducerCommand(reproducer.ReproducerID)
 	return reproducer, nil
 }
 
@@ -4543,7 +4625,12 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err != nil {
 		return Receipt{}, err
 	}
-	manifest := Manifest{Schema: "../../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: evidenceSchemaVersion, EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: StatusPass, Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: anchor, Inputs: inputs, Coverage: coverage, Controls: controls, Reproducers: []PublicReproducer{}, Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote, "no hidden or sealed corpus access", "no Docker Autobahn wstest Linux or network execution", "no wire interoperability browser performance allocation concurrency TLS or NIO parity", "fresh child receipts prove invocation not an uncontaminated host", "no production publication signing or independent review claim"}}
+	inputs, err = portableEvidenceInputs(cfg.RepositoryRoot, inputs, cfg.allowExternalRuntime)
+	if err != nil {
+		return Receipt{}, err
+	}
+	launchedCfg.launchInputs = map[string][]LaunchIdentity{"java": expectedLaunchIdentities("java", inputs), "rust": expectedLaunchIdentities("rust", inputs)}
+	manifest := Manifest{Schema: "../../schemas/differential-evidence-1.1.0.schema.json", SchemaVersion: evidenceSchemaVersion, EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: StatusPass, Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: anchor, Inputs: inputs, Coverage: coverage, Controls: controls, Reproducers: []PublicReproducer{}, Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote, "no hidden or sealed corpus access", "no Docker Autobahn wstest Linux or network execution", "no wire interoperability browser performance allocation concurrency TLS or NIO parity", "fresh child receipts prove invocation not an uncontaminated host", "no production publication signing or independent review claim"}}
 	for _, sc := range scenarios {
 		neutral, err := neutralObservation(sc)
 		if err != nil {
@@ -4673,7 +4760,7 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err := compileAndValidateSchema(filepath.Join(cfg.RepositoryRoot, "schemas/behavior-delta-ledger-1.1.0.schema.json"), ledgerDocument); err != nil {
 		return Receipt{}, fmt.Errorf("ledger schema: %w", err)
 	}
-	if err := compileAndValidateSchema(filepath.Join(cfg.RepositoryRoot, "schemas/differential-evidence-1.0.0.schema.json"), manifestDocument); err != nil {
+	if err := compileAndValidateSchema(filepath.Join(cfg.RepositoryRoot, "schemas/differential-evidence-1.1.0.schema.json"), manifestDocument); err != nil {
 		return Receipt{}, fmt.Errorf("evidence schema: %w", err)
 	}
 	if err := recheckLedgerCAS(cfg.LedgerPath, ledgerInputSHA, preHead); err != nil {
@@ -4686,7 +4773,7 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err != nil {
 		return Receipt{}, err
 	}
-	if err := VerifyPublicDifferential(cfg.RepositoryRoot, committed); err != nil {
+	if err := verifyPublicDifferential(cfg.RepositoryRoot, committed, &cfg); err != nil {
 		return Receipt{}, err
 	}
 	return Receipt{Status: StatusPass, ScenarioCount: len(scenarios), ProcessReceipts: len(manifest.Processes), DeltaCount: len(ledger.MigratedV1Records) + len(ledger.Records), EvidenceSHA256: digest(committed)}, nil
@@ -5473,7 +5560,7 @@ func compileAndValidateSchema(schemaPath string, document []byte) error {
 	if err := compiler.AddResource(resource, schemaValue); err != nil {
 		return err
 	}
-	if filepath.Base(schemaPath) == "differential-evidence-1.0.0.schema.json" {
+	if filepath.Base(schemaPath) == "differential-evidence-1.0.0.schema.json" || filepath.Base(schemaPath) == "differential-evidence-1.1.0.schema.json" {
 		corpusSchemaPath := filepath.Join(filepath.Dir(schemaPath), "corpus-scenario-1.0.0.schema.json")
 		corpusSchemaRaw, err := readRegularBounded(corpusSchemaPath, maximumDocumentBytes)
 		if err != nil {
@@ -5556,26 +5643,38 @@ func canonicalEqual(left, right any) bool {
 }
 
 func configFromManifestInputs(root string, manifest Manifest) (Config, []ArtifactIdentity, error) {
+	return configFromManifestInputsWithRuntime(root, manifest, nil)
+}
+
+func configFromManifestInputsWithRuntime(root string, manifest Manifest, runtime *Config) (Config, []ArtifactIdentity, error) {
 	inputs := append([]ArtifactIdentity(nil), manifest.Inputs...)
 	byKind := map[string]ArtifactIdentity{}
 	for _, input := range inputs {
-		if input.Kind == "" || byKind[input.Kind].Path != "" {
+		if input.Kind == "" || byKind[input.Kind].Path != "" || !validPortablePath(input.Path) {
 			return Config{}, nil, errors.New("input kind absent or duplicate")
+		}
+		command := runtimeReproductionCommand(input.Kind)
+		if repositoryInputKind(input.Kind) {
+			if len(input.ReproductionCommand) != 0 {
+				return Config{}, nil, fmt.Errorf("repository input %s has a runtime reproduction command", input.Kind)
+			}
+		} else if len(command) == 0 || !canonicalEqual(input.ReproductionCommand, command) {
+			return Config{}, nil, fmt.Errorf("runtime input %s reproduction command drift", input.Kind)
 		}
 		byKind[input.Kind] = input
 	}
 	repositoryPaths := map[string]string{
-		"public-corpus":          filepath.Join(root, "corpora/public/scenarios.jsonl"),
-		"public-corpus-manifest": filepath.Join(root, "corpora/public/manifest.json"),
-		"migration-inventory":    filepath.Join(root, "evidence/intake/semantic-id-migration-map.json"),
-		"compatibility-surface":  filepath.Join(root, "evidence/intake/compatibility-surface.json"),
-		"oracle-hierarchy":       filepath.Join(root, "evidence/oracle-hierarchy.json"),
+		"public-corpus":          "corpora/public/scenarios.jsonl",
+		"public-corpus-manifest": "corpora/public/manifest.json",
+		"migration-inventory":    "evidence/intake/semantic-id-migration-map.json",
+		"compatibility-surface":  "evidence/intake/compatibility-surface.json",
+		"oracle-hierarchy":       "evidence/oracle-hierarchy.json",
 	}
 	qualification := filepath.Join(root, "evidence/us020-current-head-qualification.json")
 	if _, statErr := os.Lstat(qualification); statErr != nil {
 		return Config{}, nil, statErr
 	}
-	repositoryPaths["current-head-qualification"] = qualification
+	repositoryPaths["current-head-qualification"] = "evidence/us020-current-head-qualification.json"
 	for kind, path := range repositoryPaths {
 		if byKind[kind].Path != path {
 			return Config{}, nil, fmt.Errorf("repository input %s path drift", kind)
@@ -5586,6 +5685,11 @@ func configFromManifestInputs(root string, manifest Manifest) (Config, []Artifac
 			return Config{}, nil, fmt.Errorf("runtime input %s absent", kind)
 		}
 	}
+	resolve := func(relative string) string { return filepath.Join(root, filepath.FromSlash(relative)) }
+	javaExecutable := resolve(byKind["java-executable"].Path)
+	javaAdapter := resolve(byKind["java-adapter-jar"].Path)
+	javaRuntime := resolve(byKind["java-runtime-jar"].Path)
+	rustTestee := resolve(byKind["rust-testee"].Path)
 	support := []string{}
 	for index := 0; ; index++ {
 		kind := fmt.Sprintf("java-support-jar-%02d", index)
@@ -5593,13 +5697,24 @@ func configFromManifestInputs(root string, manifest Manifest) (Config, []Artifac
 		if !ok {
 			break
 		}
-		support = append(support, input.Path)
+		support = append(support, resolve(input.Path))
 	}
 	if len(support) == 0 || len(byKind) != len(repositoryPaths)+5+len(support) || byKind["java-runtime-image"].Path == "" {
 		return Config{}, nil, errors.New("input kind set is not exact")
 	}
-	cfg := Config{RepositoryRoot: root, PublicCorpus: repositoryPaths["public-corpus"], JavaExecutable: byKind["java-executable"].Path, JavaAdapterJar: byKind["java-adapter-jar"].Path, JavaRuntimeJar: byKind["java-runtime-jar"].Path, JavaSupportJars: support, RustTestee: byKind["rust-testee"].Path, MigrationInventory: repositoryPaths["migration-inventory"], CompatibilitySurface: repositoryPaths["compatibility-surface"], LedgerPath: filepath.Join(root, "evidence/java/behavior-delta-ledger.json"), EvidencePath: filepath.Join(root, "evidence/differential/manifest.json"), OracleHierarchyPath: repositoryPaths["oracle-hierarchy"], ScenarioTimeout: 5 * time.Second, SuiteTimeout: 15 * time.Minute, MinimizationBudget: Budget{MaxCandidates: 128, MaxDuration: 10 * time.Minute}}
+	if runtime != nil {
+		if runtime.RepositoryRoot != root {
+			return Config{}, nil, errors.New("runtime override root drift")
+		}
+		javaExecutable, javaAdapter, javaRuntime, rustTestee = runtime.JavaExecutable, runtime.JavaAdapterJar, runtime.JavaRuntimeJar, runtime.RustTestee
+		support = append([]string(nil), runtime.JavaSupportJars...)
+	}
+	cfg := Config{RepositoryRoot: root, PublicCorpus: resolve(repositoryPaths["public-corpus"]), JavaExecutable: javaExecutable, JavaAdapterJar: javaAdapter, JavaRuntimeJar: javaRuntime, JavaSupportJars: support, RustTestee: rustTestee, MigrationInventory: resolve(repositoryPaths["migration-inventory"]), CompatibilitySurface: resolve(repositoryPaths["compatibility-surface"]), LedgerPath: filepath.Join(root, "evidence/java/behavior-delta-ledger.json"), EvidencePath: filepath.Join(root, "evidence/differential/manifest.json"), OracleHierarchyPath: resolve(repositoryPaths["oracle-hierarchy"]), ScenarioTimeout: 5 * time.Second, SuiteTimeout: 15 * time.Minute, MinimizationBudget: Budget{MaxCandidates: 128, MaxDuration: 10 * time.Minute}}
 	want, err := collectInputIdentities(cfg)
+	if err != nil {
+		return Config{}, nil, err
+	}
+	want, err = portableEvidenceInputs(root, want, runtime != nil && runtime.allowExternalRuntime)
 	if err != nil {
 		return Config{}, nil, err
 	}
@@ -5618,16 +5733,15 @@ func validateExecutionAnchor(root, anchor string, inputs []ArtifactIdentity) err
 	if err := command.Run(); err != nil {
 		return errors.New("repository execution anchor is not a commit")
 	}
-	repositoryKinds := map[string]bool{"public-corpus": true, "public-corpus-manifest": true, "migration-inventory": true, "compatibility-surface": true, "oracle-hierarchy": true}
+	repositoryKinds := map[string]bool{"public-corpus": true, "public-corpus-manifest": true, "migration-inventory": true, "compatibility-surface": true, "oracle-hierarchy": true, "current-head-qualification": true}
 	for _, input := range inputs {
 		if !repositoryKinds[input.Kind] {
 			continue
 		}
-		relative, err := filepath.Rel(root, input.Path)
-		if err != nil {
-			return err
+		if !validPortablePath(input.Path) {
+			return fmt.Errorf("repository input %s path is not portable", input.Kind)
 		}
-		show := exec.Command("git", "-C", root, "show", anchor+":"+filepath.ToSlash(relative))
+		show := exec.Command("git", "-C", root, "show", anchor+":"+input.Path)
 		show.Env = []string{"LANG=C", "LC_ALL=C"}
 		raw, err := show.Output()
 		if err != nil || digest(raw) != input.SHA256 || int64(len(raw)) != input.Bytes {
@@ -5903,8 +6017,6 @@ func verifyReproducer(reproducer PublicReproducer, original corpora.Scenario, re
 	if err != nil {
 		return err
 	}
-	// The repository root is directly recoverable from the fixed corpus path.
-	root := filepath.Clean(filepath.Join(filepath.Dir(manifest.Inputs[0].Path), "../.."))
 	closingRecord := record
 	correctionDeltaID := ""
 	if correction != nil {
@@ -5914,7 +6026,7 @@ func verifyReproducer(reproducer PublicReproducer, original corpora.Scenario, re
 			return errors.New("reproducer correction/ledger binding invalid")
 		}
 	}
-	if reproducer.LedgerDeltaID != record.DeltaID || reproducer.CorrectionDeltaID != correctionDeltaID || reproducer.ScenarioID != original.ScenarioID || reproducer.Signature.Pointer != record.Pointer || reproducer.Signature.Classification != record.Classification || reproducer.OriginalScenarioSHA256 != digest(originalLine) || record.ReproducerSHA256 != reproducer.OriginalScenarioSHA256 || reproducer.ScenarioSHA256 != digest(line) || !reproducer.Irreducible || reproducer.CandidateAttempts <= 0 || !canonicalEqual(reproducer.RuntimeInputs, inputs) || validateReproducerCommand(reproducer.Command, root, filepath.Join(root, "evidence/differential/manifest.json"), reproducer.ReproducerID) != nil || reproducer.RepositoryAnchor != manifest.RepositoryAnchor || reproducer.FindingJavaObservation != record.JavaObservation || reproducer.FindingRustObservation != record.RustObservation || reproducer.FindingRunAnchor != record.FindingRunAnchor || reproducer.ClosingRunAnchor != closingRecord.ClosingRunAnchor || reproducer.ClosingJavaObservation != closingRecord.ClosingJavaObservation || reproducer.ClosingRustObservation != closingRecord.ClosingRustObservation {
+	if reproducer.LedgerDeltaID != record.DeltaID || reproducer.CorrectionDeltaID != correctionDeltaID || reproducer.ScenarioID != original.ScenarioID || reproducer.Signature.Pointer != record.Pointer || reproducer.Signature.Classification != record.Classification || reproducer.OriginalScenarioSHA256 != digest(originalLine) || record.ReproducerSHA256 != reproducer.OriginalScenarioSHA256 || reproducer.ScenarioSHA256 != digest(line) || !reproducer.Irreducible || reproducer.CandidateAttempts <= 0 || !canonicalEqual(reproducer.RuntimeInputs, inputs) || validateReproducerCommand(reproducer.Command, reproducer.ReproducerID) != nil || reproducer.RepositoryAnchor != manifest.RepositoryAnchor || reproducer.FindingJavaObservation != record.JavaObservation || reproducer.FindingRustObservation != record.RustObservation || reproducer.FindingRunAnchor != record.FindingRunAnchor || reproducer.ClosingRunAnchor != closingRecord.ClosingRunAnchor || reproducer.ClosingJavaObservation != closingRecord.ClosingJavaObservation || reproducer.ClosingRustObservation != closingRecord.ClosingRustObservation {
 		return errors.New("reproducer/ledger binding invalid")
 	}
 	if reproducer.Mode == "FRESH_BOUNDED_MINIMIZATION" {
@@ -6102,13 +6214,17 @@ func verifyLedgerClosure(manifest Manifest, ledger Ledger, scenarios []corpora.S
 
 // VerifyPublicDifferential independently validates a committed receipt.
 func VerifyPublicDifferential(repositoryRoot string, receiptBytes []byte) error {
+	return verifyPublicDifferential(repositoryRoot, receiptBytes, nil)
+}
+
+func verifyPublicDifferential(repositoryRoot string, receiptBytes []byte, runtime *Config) error {
 	if repositoryRoot == "" || !filepath.IsAbs(repositoryRoot) || filepath.Clean(repositoryRoot) != repositoryRoot {
 		return errors.New("repository root must be absolute and clean")
 	}
 	if len(receiptBytes) == 0 || int64(len(receiptBytes)) > maximumDocumentBytes {
 		return errors.New("receipt is empty or oversized")
 	}
-	if err := compileAndValidateSchema(filepath.Join(repositoryRoot, "schemas/differential-evidence-1.0.0.schema.json"), receiptBytes); err != nil {
+	if err := compileAndValidateSchema(filepath.Join(repositoryRoot, "schemas/differential-evidence-1.1.0.schema.json"), receiptBytes); err != nil {
 		return fmt.Errorf("evidence schema: %w", err)
 	}
 	if err := verifyManifestValue(repositoryRoot, receiptBytes); err != nil {
@@ -6118,7 +6234,7 @@ func VerifyPublicDifferential(repositoryRoot string, receiptBytes []byte) error 
 	if err := decodeStrict(receiptBytes, &manifest); err != nil {
 		return err
 	}
-	_, inputs, err := configFromManifestInputs(repositoryRoot, manifest)
+	_, inputs, err := configFromManifestInputsWithRuntime(repositoryRoot, manifest, runtime)
 	if err != nil {
 		return err
 	}

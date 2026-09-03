@@ -14,8 +14,8 @@ the working-tree status unchanged.
 In Codex cloud environment settings, select this repository's Ubuntu 24.04
 universal image on Linux amd64 and configure:
 
-- setup script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup setup --root .`
-- maintenance script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup maintain --root .`
+- setup script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup setup --root "$PWD" --home "$HOME" --cache-home "$PWD/.cloud-home"`
+- maintenance script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup maintain --root "$PWD" --home "$HOME" --cache-home "$PWD/.cloud-home"`
 - setup internet access: enabled
 - agent internet access: disabled unless a specific task requires and records it
 - secrets: none
@@ -35,7 +35,7 @@ JDK vendor and host ZIP implementations cannot change the adapter identity.
 The exact materialized locations can be inspected without changing state:
 
 ```sh
-go run ./cmd/cloudsetup paths --root .
+go run ./cmd/cloudsetup paths --root "$PWD" --home "$HOME" --cache-home "$PWD/.cloud-home"
 ```
 
 ## Trust and claim boundary

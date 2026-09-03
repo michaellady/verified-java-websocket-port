@@ -210,16 +210,26 @@ func verifyCommand(args []string, stdout, stderr io.Writer) int {
 }
 
 func reproduceCommand(args []string, stdout, stderr io.Writer) int {
-	if len(args) != 6 || args[0] != "--repository-root" || args[2] != "--evidence" || args[4] != "--reproducer-id" || !filepath.IsAbs(args[1]) || filepath.Clean(args[1]) != args[1] || !filepath.IsAbs(args[3]) || filepath.Clean(args[3]) != args[3] || !strings.HasPrefix(args[5], "reproducer.us005.pub.") || len(args[5]) > 128 {
+	if len(args) != 6 || args[0] != "--repository-root" || args[2] != "--evidence" || args[4] != "--reproducer-id" || !strings.HasPrefix(args[5], "reproducer.us005.pub.") || len(args[5]) > 128 {
 		fmt.Fprint(stderr, usage)
 		return 64
 	}
-	raw, err := os.ReadFile(args[3])
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintln(stderr, "working directory unavailable")
+		return 1
+	}
+	root, evidence, err := resolveReproductionPaths(cwd, args[1], args[3])
+	if err != nil {
+		fmt.Fprint(stderr, usage)
+		return 64
+	}
+	raw, err := os.ReadFile(evidence)
 	if err != nil || len(raw) == 0 || len(raw) > 32<<20 {
 		fmt.Fprintln(stderr, "evidence read failed")
 		return 1
 	}
-	receipt, err := reproduceDifferential(context.Background(), args[1], raw, args[5])
+	receipt, err := reproduceDifferential(context.Background(), root, raw, args[5])
 	if err != nil {
 		fmt.Fprintf(stderr, "differential reproduce failed: %v\n", err)
 		return 1
@@ -231,6 +241,34 @@ func reproduceCommand(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+func resolveReproductionPaths(cwd, rootArg, evidenceArg string) (string, string, error) {
+	if cwd == "" || !filepath.IsAbs(cwd) || filepath.Clean(cwd) != cwd {
+		return "", "", errors.New("working directory must be absolute and clean")
+	}
+	root := rootArg
+	if rootArg == "." {
+		root = cwd
+	} else if !filepath.IsAbs(rootArg) || filepath.Clean(rootArg) != rootArg {
+		return "", "", errors.New("repository root must be absolute or dot")
+	}
+	evidence := evidenceArg
+	if filepath.IsAbs(evidenceArg) {
+		if filepath.Clean(evidenceArg) != evidenceArg {
+			return "", "", errors.New("evidence path must be clean")
+		}
+	} else {
+		if filepath.Clean(evidenceArg) != evidenceArg || evidenceArg == "." || evidenceArg == ".." || strings.HasPrefix(evidenceArg, ".."+string(os.PathSeparator)) {
+			return "", "", errors.New("relative evidence path escapes repository")
+		}
+		evidence = filepath.Join(root, evidenceArg)
+	}
+	relative, err := filepath.Rel(root, evidence)
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		return "", "", errors.New("evidence path escapes repository")
+	}
+	return root, evidence, nil
 }
 
 func run(args []string, stdout, stderr io.Writer) int {

@@ -112,6 +112,10 @@ repository root), and below the explicitly allowed root where applicable.
 Symlinks, duplicate aliases, non-regular inputs, output/input aliasing, and
 identity drift fail closed. Runtime identity is supplied by path plus SHA-256;
 the runner does not search `PATH`, Maven caches, Cargo targets, or the network.
+These are operator invocation rules. Schema 1.1 persists every input and launch
+source as a repository-relative path plus digest. Gitignored runtime inputs also
+carry an exact reproduction command, so a verifier can materialize the pinned
+bytes in another checkout without retaining the producing host's directory.
 
 The sole CLI is a transport wrapper over the facade:
 
@@ -379,9 +383,8 @@ Budget exhaustion retains the smallest known public reproducer and blocks with
 `MINIMIZATION_INCOMPLETE`; it never drops the finding.
 
 The evidence embeds the minimal ordered scenario, its canonical bytes/digest,
-the exact one-scenario reproduction command with absolute paths replaced by
-named provenance references, and raw/normalized observation digests. The
-reproducer contains public material only.
+the exact one-scenario reproduction command rooted at `.`, and raw/normalized
+observation digests. The reproducer contains public material only.
 
 ## Canonical append-only ledger
 
@@ -482,8 +485,9 @@ Implementation creates or updates exactly these US-020 products:
   process receipts, normalized observations/digests, stability results,
   reconciliation, controls, runtime bounds, source/input identities, and
   ledger pre/post heads;
-* `schemas/differential-evidence-1.0.0.schema.json` — closed schema for that
-  bundle, including bounded arrays/counts and exact enum domains;
+* `schemas/differential-evidence-1.1.0.schema.json` — closed portable schema for
+  that bundle, including repository-relative paths, deterministic runtime
+  materialization commands, bounded arrays/counts, and exact enum domains;
 * `schemas/differential-diagnostic-1.0.0.schema.json` — portable closed schema
   for strict and Java-compatible no-write summaries without host paths;
 * `evidence/oracle-hierarchy.json` and
@@ -679,7 +683,7 @@ docs/rust-workspace.md
 evidence/oracle-hierarchy.json
 schemas/oracle-hierarchy-1.0.0.schema.json
 evidence/differential/manifest.json
-schemas/differential-evidence-1.0.0.schema.json
+schemas/differential-evidence-1.1.0.schema.json
 evidence/java/behavior-delta-ledger.json
 schemas/behavior-delta-ledger-1.1.0.schema.json
 evidence/us010-client-handshake.json

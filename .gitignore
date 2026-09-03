@@ -28,5 +28,6 @@ rust/**/target/
 # Quarantined upstream inputs. The Java-WebSocket archive is digest-pinned in
 # evidence/intake/source-pins.json and re-acquired on demand; it is never committed.
 .quarantine/
+.cloud-home/
 java-semantic-oracle/build/
 /terraform/bootstrap/.terraform/

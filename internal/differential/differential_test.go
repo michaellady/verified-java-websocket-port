@@ -80,7 +80,7 @@ func legacyDeltaForTest() LegacyDelta {
 
 func minimalValidManifestForTest(t *testing.T) Manifest {
 	t.Helper()
-	manifest := Manifest{Schema: "../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: "PASS", Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: strings.Repeat("a", 40), Counts: CountsReceipt{Scenarios: 74, JavaPrimary: 74, JavaReplay: 74, RustPrimary: 74, RustReplay: 74, Processes: 296}, Controls: ControlsReceipt{Total: 7, Killed: 7, Results: make([]ControlResult, 7)}, Coverage: CoverageReceipt{Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}, Migration: make([]CoverageRow, 47), Compatibility: make([]CoverageRow, 14)}, Ledger: LedgerBinding{PreHead: "sha256:" + strings.Repeat("0", 64), PostHead: "sha256:" + strings.Repeat("0", 64)}, Reproducers: make([]PublicReproducer, 103), Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote}}
+	manifest := Manifest{Schema: "../schemas/differential-evidence-1.1.0.schema.json", SchemaVersion: evidenceSchemaVersion, EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: "PASS", Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: strings.Repeat("a", 40), Counts: CountsReceipt{Scenarios: 74, JavaPrimary: 74, JavaReplay: 74, RustPrimary: 74, RustReplay: 74, Processes: 296}, Controls: ControlsReceipt{Total: 7, Killed: 7, Results: make([]ControlResult, 7)}, Coverage: CoverageReceipt{Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}, Migration: make([]CoverageRow, 47), Compatibility: make([]CoverageRow, 14)}, Ledger: LedgerBinding{PreHead: "sha256:" + strings.Repeat("0", 64), PostHead: "sha256:" + strings.Repeat("0", 64)}, Reproducers: make([]PublicReproducer, 103), Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote}}
 	for index := 0; index < 74; index++ {
 		id := fmt.Sprintf("us005.pub.%04d", index)
 		manifest.Scenarios = append(manifest.Scenarios, ScenarioResult{ScenarioID: id, Stable: true})
@@ -1131,7 +1131,7 @@ func TestCoverageUsesClosedReviewedMapAndExactPredecessorIdentities(t *testing.T
 				t.Fatalf("predecessor identity absent for %s", row.ID)
 			}
 			for index, identity := range row.PredecessorIdentities {
-				if identity.Path != filepath.Join(root, row.PredecessorPaths[index]) || !validLedgerDigest(identity.SHA256) || identity.Bytes <= 0 {
+				if identity.Path != row.PredecessorPaths[index] || !validLedgerDigest(identity.SHA256) || identity.Bytes <= 0 {
 					t.Fatalf("predecessor identity invalid for %s: %#v", row.ID, identity)
 				}
 			}
@@ -1657,7 +1657,7 @@ func TestJavaRuntimeImageIsContentAddressedCompleteAndImmutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = removeImmutableTree(materialized.Root) })
-	if materialized.Identity != identity || !strings.Contains(materialized.Root, strings.TrimPrefix(identity.SHA256, "sha256:")) || filepath.Base(materialized.Executable) != "java" {
+	if !canonicalEqual(materialized.Identity, identity) || !strings.Contains(materialized.Root, strings.TrimPrefix(identity.SHA256, "sha256:")) || filepath.Base(materialized.Executable) != "java" {
 		t.Fatalf("materialized=%#v identity=%#v", materialized, identity)
 	}
 	licenseInfo, err := os.Lstat(filepath.Join(materialized.Root, "legal/java.test/LICENSE"))
@@ -1818,11 +1818,9 @@ func TestEvidenceScenarioRestoresOnlyBoundedIntegerValues(t *testing.T) {
 }
 
 func TestReproducerCommandIsExactReviewedArgv(t *testing.T) {
-	root := repositoryRoot(t)
-	evidence := filepath.Join(root, "evidence/differential/manifest.json")
 	id := "reproducer.us005.pub.0000.0123456789abcdef"
-	command := canonicalReproducerCommand(root, evidence, id)
-	if len(command) != 8 || validateReproducerCommand(command, root, evidence, id) != nil {
+	command := canonicalReproducerCommand(id)
+	if len(command) != 8 || command[3] != "." || command[5] != "evidence/differential/manifest.json" || validateReproducerCommand(command, id) != nil {
 		t.Fatalf("canonical command=%q", command)
 	}
 	mutations := map[string][]string{
@@ -1833,10 +1831,50 @@ func TestReproducerCommandIsExactReviewedArgv(t *testing.T) {
 	}
 	for name, candidate := range mutations {
 		t.Run(name, func(t *testing.T) {
-			if err := validateReproducerCommand(candidate, root, evidence, id); err == nil {
+			if err := validateReproducerCommand(candidate, id); err == nil {
 				t.Fatal("noncanonical argv accepted")
 			}
 		})
+	}
+}
+
+func TestPortableEvidenceInputsUseRelativePathsAndReproductionCommands(t *testing.T) {
+	root := t.TempDir()
+	inside := filepath.Join(root, "rust", "target", "release", "websocket-testee")
+	inputs := []ArtifactIdentity{
+		{Kind: "public-corpus", Path: filepath.Join(root, "corpora", "public", "scenarios.jsonl"), SHA256: digest([]byte("corpus")), Bytes: 6},
+		{Kind: "rust-testee", Path: inside, SHA256: digest([]byte("rust")), Bytes: 4},
+		{Kind: "java-executable", Path: filepath.Join(t.TempDir(), "bin", "java"), SHA256: digest([]byte("java")), Bytes: 4},
+	}
+	portable, err := portableEvidenceInputs(root, inputs, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if portable[0].Path != "corpora/public/scenarios.jsonl" || len(portable[0].ReproductionCommand) != 0 {
+		t.Fatalf("repository input=%#v", portable[0])
+	}
+	if portable[1].Path != "rust/target/release/websocket-testee" || !canonicalEqual(portable[1].ReproductionCommand, rustReproductionCommand()) {
+		t.Fatalf("Rust input=%#v", portable[1])
+	}
+	if portable[2].Path != ".reproduction/runtime/java-executable" || !canonicalEqual(portable[2].ReproductionCommand, javaReproductionCommand()) {
+		t.Fatalf("external Java input=%#v", portable[2])
+	}
+	for _, input := range portable {
+		if filepath.IsAbs(input.Path) || !validPortablePath(input.Path) {
+			t.Fatalf("nonportable path persisted: %#v", input)
+		}
+	}
+}
+
+func TestPortableEvidenceInputsRejectRepositoryInputOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	_, err := portableEvidenceInputs(root, []ArtifactIdentity{{Kind: "public-corpus", Path: filepath.Join(t.TempDir(), "scenarios.jsonl"), SHA256: digest([]byte("x")), Bytes: 1}}, false)
+	if err == nil || !strings.Contains(err.Error(), "repository input") {
+		t.Fatalf("external repository input accepted: %v", err)
+	}
+	_, err = portableEvidenceInputs(root, []ArtifactIdentity{{Kind: "rust-testee", Path: filepath.Join(t.TempDir(), "websocket-testee"), SHA256: digest([]byte("x")), Bytes: 1}}, false)
+	if err == nil || !strings.Contains(err.Error(), "runtime input") {
+		t.Fatalf("external runtime input accepted: %v", err)
 	}
 }
 
@@ -2261,6 +2299,7 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 		MigrationInventory: filepath.Join(root, "evidence/intake/semantic-id-migration-map.json"), CompatibilitySurface: filepath.Join(root, "evidence/intake/compatibility-surface.json"),
 		LedgerPath: filepath.Join(root, "evidence/java/behavior-delta-ledger.json"), EvidencePath: filepath.Join(root, "evidence/differential/manifest.json"), OracleHierarchyPath: filepath.Join(root, "evidence/oracle-hierarchy.json"),
 		ScenarioTimeout: time.Second, SuiteTimeout: 5 * time.Minute, MinimizationBudget: Budget{MaxCandidates: 128, MaxDuration: time.Minute},
+		allowExternalRuntime: true,
 	}
 	receipt, err := RunPublicDifferential(context.Background(), cfg)
 	if err != nil {
@@ -2269,13 +2308,13 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 	if receipt.Status != StatusPass || receipt.ScenarioCount != 74 || receipt.ProcessReceipts != 296 || receipt.DeltaCount != 112 || receipt.EvidenceSHA256 != digest(generatedManifest) {
 		t.Fatalf("receipt=%#v", receipt)
 	}
-	if err := VerifyPublicDifferential(root, generatedManifest); err != nil {
+	if err := verifyPublicDifferential(root, generatedManifest, &cfg); err != nil {
 		t.Fatalf("full verify: %v", err)
 	}
 	for _, schema := range []struct {
 		path string
 		raw  []byte
-	}{{filepath.Join(root, "schemas/differential-evidence-1.0.0.schema.json"), generatedManifest}, {filepath.Join(root, "schemas/behavior-delta-ledger-1.1.0.schema.json"), generatedLedger}} {
+	}{{filepath.Join(root, "schemas/differential-evidence-1.1.0.schema.json"), generatedManifest}, {filepath.Join(root, "schemas/behavior-delta-ledger-1.1.0.schema.json"), generatedLedger}} {
 		if err := compileAndValidateSchema(schema.path, schema.raw); err != nil {
 			t.Fatalf("schema %s: %v", filepath.Base(schema.path), err)
 		}
@@ -2288,6 +2327,30 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 	if err := decodeStrict(generatedLedger, &ledger); err != nil {
 		t.Fatal(err)
 	}
+	if manifest.SchemaVersion != evidenceSchemaVersion || manifest.Schema != "../../schemas/differential-evidence-1.1.0.schema.json" {
+		t.Fatalf("portable schema identity drift: %s %s", manifest.SchemaVersion, manifest.Schema)
+	}
+	for _, input := range manifest.Inputs {
+		if !validPortablePath(input.Path) || filepath.IsAbs(input.Path) {
+			t.Fatalf("nonportable manifest input: %#v", input)
+		}
+		if repositoryInputKind(input.Kind) && len(input.ReproductionCommand) != 0 {
+			t.Fatalf("repository input has reproduction command: %#v", input)
+		}
+		if !repositoryInputKind(input.Kind) && !canonicalEqual(input.ReproductionCommand, runtimeReproductionCommand(input.Kind)) {
+			t.Fatalf("runtime reproduction command drift: %#v", input)
+		}
+	}
+	for _, process := range manifest.Processes {
+		for _, input := range process.LaunchedInputs {
+			if !validPortablePath(input.SourcePath) || filepath.IsAbs(input.SourcePath) {
+				t.Fatalf("nonportable launch identity: %#v", input)
+			}
+		}
+	}
+	if !validPortablePath(manifest.Coverage.CurrentHeadQualification.Path) {
+		t.Fatalf("nonportable qualification identity: %#v", manifest.Coverage.CurrentHeadQualification)
+	}
 	classifications := map[string]int{}
 	for _, record := range ledger.Records {
 		classifications[record.Classification]++
@@ -2295,7 +2358,7 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 	modes := map[string]int{}
 	for _, reproducer := range manifest.Reproducers {
 		modes[reproducer.Mode]++
-		if len(reproducer.Command) != 8 || validateReproducerCommand(reproducer.Command, root, cfg.EvidencePath, reproducer.ReproducerID) != nil {
+		if len(reproducer.Command) != 8 || validateReproducerCommand(reproducer.Command, reproducer.ReproducerID) != nil {
 			t.Fatalf("noncanonical reproducer command %s: %q", reproducer.ReproducerID, reproducer.Command)
 		}
 		for _, attempt := range reproducer.Attempts {
@@ -2322,7 +2385,7 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := compileAndValidateSchema(filepath.Join(root, "schemas/differential-evidence-1.0.0.schema.json"), raw); err == nil {
+		if err := compileAndValidateSchema(filepath.Join(root, "schemas/differential-evidence-1.1.0.schema.json"), raw); err == nil {
 			t.Fatalf("schema accepted %s reproducer argv", name)
 		}
 	}

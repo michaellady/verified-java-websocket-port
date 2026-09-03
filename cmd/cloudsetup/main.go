@@ -92,6 +92,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository root")
 	home := flags.String("home", os.Getenv("HOME"), "cloud worker home")
+	cacheHome := flags.String("cache-home", "", "optional cache home distinct from the shell home")
 	if err := flags.Parse(arguments[1:]); err != nil || flags.NArg() != 0 {
 		return 2
 	}
@@ -105,15 +106,23 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stderr, "home must resolve to one absolute path")
 		return 1
 	}
+	cacheHomePath := homePath
+	if *cacheHome != "" {
+		cacheHomePath, err = filepath.Abs(*cacheHome)
+		if err != nil || strings.ContainsAny(cacheHomePath, "\r\n") {
+			_, _ = fmt.Fprintln(stderr, "cache home must resolve to one absolute path")
+			return 1
+		}
+	}
 	switch arguments[0] {
 	case "paths":
-		return encode(stdout, cloudPaths(homePath))
+		return encode(stdout, cloudPaths(cacheHomePath))
 	case "setup", "maintain":
-		if err := prepare(rootPath, homePath, stdout, stderr); err != nil {
+		if err := prepare(rootPath, homePath, cacheHomePath, stdout, stderr); err != nil {
 			_, _ = fmt.Fprintln(stderr, err)
 			return 1
 		}
-		return encode(stdout, cloudPaths(homePath))
+		return encode(stdout, cloudPaths(cacheHomePath))
 	default:
 		usage(stderr)
 		return 2
@@ -121,7 +130,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 }
 
 func usage(writer io.Writer) {
-	_, _ = fmt.Fprintln(writer, "usage: cloudsetup setup|maintain|paths --root DIR [--home DIR]")
+	_, _ = fmt.Fprintln(writer, "usage: cloudsetup setup|maintain|paths --root DIR [--home DIR] [--cache-home DIR]")
 }
 
 func encode(writer io.Writer, value any) int {
@@ -163,7 +172,7 @@ func kaniCheckoutCommand(root string) commandSpec {
 	return commandSpec{Name: "checkout-kani", Dir: root, Path: "git", Args: []string{"checkout", "--detach", kaniCommit}}
 }
 
-func prepare(root, home string, stdout, stderr io.Writer) error {
+func prepare(root, home, cacheHome string, stdout, stderr io.Writer) error {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		return fmt.Errorf("cloud setup requires linux/amd64, observed %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
@@ -186,7 +195,7 @@ func prepare(root, home string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	cloud := cloudPaths(home)
+	cloud := cloudPaths(cacheHome)
 	cacheRoot := filepath.Dir(cloud.KaniRoot)
 	if err := os.MkdirAll(cacheRoot, 0o755); err != nil {
 		return err

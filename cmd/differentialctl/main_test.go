@@ -216,3 +216,16 @@ func TestReproduceIsBoundedTransportForOnePublicWitness(t *testing.T) {
 		t.Fatalf("code=%d called=%v stdout=%s stderr=%s", code, called, stdout.String(), stderr.String())
 	}
 }
+
+func TestPortableReproducerRecipeResolvesWithinCheckout(t *testing.T) {
+	root := t.TempDir()
+	gotRoot, gotEvidence, err := resolveReproductionPaths(root, ".", "evidence/differential/manifest.json")
+	if err != nil || gotRoot != root || gotEvidence != filepath.Join(root, "evidence/differential/manifest.json") {
+		t.Fatalf("root=%q evidence=%q err=%v", gotRoot, gotEvidence, err)
+	}
+	for _, hostile := range []string{"../manifest.json", "evidence/../../manifest.json"} {
+		if _, _, err := resolveReproductionPaths(root, ".", hostile); err == nil {
+			t.Fatalf("escaping evidence path accepted: %q", hostile)
+		}
+	}
+}
