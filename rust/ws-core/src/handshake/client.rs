@@ -228,8 +228,7 @@ impl ClientHandshake {
                 if head.first_line[1] != "101"
                     || !head.first_line[0].eq_ignore_ascii_case("HTTP/1.1")
                 {
-                    return self
-                        .reject(RejectChannel::InvalidHandshake, RejectStage::Translate);
+                    return self.reject(RejectChannel::InvalidHandshake, RejectStage::Translate);
                 }
                 // Draft.java:188-191 (basicAccept, quirk Q9).
                 let upgrade_ok = head
@@ -242,19 +241,16 @@ impl ClientHandshake {
                     .to_ascii_lowercase()
                     .contains("upgrade");
                 if !upgrade_ok || !connection_ok {
-                    return self
-                        .reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
+                    return self.reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
                 }
                 // Draft_6455.java:312-325: key and accept must both exist and
                 // the derived value must literally equal the response value.
                 if self.client_key.is_empty() || !head.headers.has("Sec-WebSocket-Accept") {
-                    return self
-                        .reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
+                    return self.reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
                 }
                 let expected = Draft6455::generate_accept_key(java_trim(&self.client_key));
                 if expected != head.headers.get("Sec-WebSocket-Accept") {
-                    return self
-                        .reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
+                    return self.reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
                 }
                 let remainder = self.accumulator.bytes()[head.head_len..].to_vec();
                 self.done = true;

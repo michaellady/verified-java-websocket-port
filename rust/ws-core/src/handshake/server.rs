@@ -169,15 +169,13 @@ impl ServerHandshake {
                 if !head.first_line[0].eq_ignore_ascii_case("GET")
                     || !head.first_line[2].eq_ignore_ascii_case("HTTP/1.1")
                 {
-                    return self
-                        .reject(RejectChannel::InvalidHandshake, RejectStage::Translate);
+                    return self.reject(RejectChannel::InvalidHandshake, RejectStage::Translate);
                 }
                 // Draft_6455.java:262-286: version-only draft match.
                 if Draft6455::accept_handshake_as_server(&head.headers)
                     == HandshakeState::NotMatched
                 {
-                    return self
-                        .reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
+                    return self.reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
                 }
                 // Draft_6455.java:432-441: a missing or empty key throws while
                 // building the response; any non-empty key (base64 or not, any
