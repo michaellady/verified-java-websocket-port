@@ -401,6 +401,42 @@ returns nothing, `send_violation_close` writes nothing, and
 `rust/ws-testee/src/io_loop.rs` shuts the socket both ways. The sequence 51 fix
 did not change this path, exactly as sequence 53 predicted it would not.
 
+### What Java is actually doing here, read at source, because it changes what answer B means
+
+The quarantined tree is staged (section 7c), so the Java side of this record was
+read rather than cited. `CloseFrame.setPayload` decodes the reason and, when it
+is not valid UTF-8, **swallows the exception and sets the fields by hand**:
+
+```java
+try {
+  int mark = payload.position();
+  validateUtf8(payload, mark);
+} catch (InvalidDataException e) {
+  code = CloseFrame.NO_UTF8;
+  reason = null;          // <- null, not ""
+}
+```
+
+`CloseFrame.isValid` then does, on line 228:
+
+```java
+if (code == CloseFrame.NO_UTF8 && reason.isEmpty()) { … }
+```
+
+`reason` is `null`, so `reason.isEmpty()` raises a **NullPointerException**.
+That is quirk Q12 as ledger sequence 32 already records it ("a
+NullPointerException-class rejection with NO close code"), and the consequence
+is visible in `WebSocketImpl.decodeFrames:391-418`, whose handlers are
+`LimitExceededException`, `InvalidDataException`,
+`VirtualMachineError | ThreadDeath | LinkageError` (rethrown) and `Error`.
+**`RuntimeException` is not among them.** So the NPE escapes `decodeFrames`
+uncaught, none of the `close(…)` paths inside it runs, and no close frame is
+ever composed. The measured observable sequence 53 records — nothing on the
+wire, socket left open — is what that escape looks like from the peer.
+
+This does not decide the question. It changes what one of the answers means,
+which is worth having before answering:
+
 **THE QUESTION.** May the port hold a TCP connection open, with nothing on the
 wire, after receiving a Close frame whose reason is not valid UTF-8, in order
 to reproduce shipped Java?
@@ -415,9 +451,12 @@ RFC 6455 8.1 and 7.1.6 are determinate here and the port is the side that
 follows them.
 
 **Candidate answer B — yes; reproduce the stall.** Commits the project to:
-adding a hold-open path with no bound the port controls (Java has no timer here
-— the *peer* times out), on a failure path whose current property is that the
-socket is released immediately; to a `fix-in-port` disposition on this record;
+reproducing the observable consequence of an **unhandled null dereference** in
+the reference implementation, which is a different proposition from reproducing
+a designed behaviour and should be decided as one; to adding a hold-open path
+with no bound the port controls (Java has no timer here — the *peer* times
+out), on a failure path whose current property is that the socket is released
+immediately; to a `fix-in-port` disposition on this record;
 and to revisiting the disclosed residual in sequence 51's own rationale, which
 already declined Java's indefinite block once ("the flush is bounded by the
 write-stall limit where Java's `flushAndClose` would block indefinitely").
