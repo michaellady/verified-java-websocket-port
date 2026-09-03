@@ -34,14 +34,18 @@ clippy:
 #     text of F004 and F005 and refusing to PASS if the scan matched no files
 #     or no loops.
 #
-# -max-waivers is the escape hatch's ceiling and is currently 0. A fixture that
-# genuinely needs a count guard carries an in-source
-# `// FIXTURE-COUNT-GUARD-ALLOWED: <justification>` AND a raise of this number
-# in the same change, so the pile is visible in review instead of growing
-# quietly. Raising it is a decision, not a formality.
+# -max-waivers is the escape hatch's ceiling for the in-fixture shapes A and B
+# and is currently 0; -max-budget-waivers is shape C's own ceiling and is also
+# 0. They are SEPARATE numbers on purpose: shape C reaches across an
+# indirection into a production loop bound, and admitting a backlog there must
+# never be able to raise the ceiling on the shapes F004 and F005 actually cost
+# red gates for. A fixture that genuinely needs a count guard carries an
+# in-source `// FIXTURE-COUNT-GUARD-ALLOWED: <justification>` AND a raise of
+# the matching number in the same change, so the pile is visible in review
+# instead of growing quietly. Raising either is a decision, not a formality.
 fixture-guard:
 	cd .. && go test ./cmd/fixtureguardctl/
-	cd .. && go run ./cmd/fixtureguardctl -root . -max-waivers 0
+	cd .. && go run ./cmd/fixtureguardctl -root . -max-waivers 0 -max-budget-waivers 0
 
 test:
 	cargo test --workspace --all-targets --all-features
