@@ -218,8 +218,10 @@ pins it.
 - **`.gitignore` does not ignore the `.quarantine` symlink.** Line 30 reads
   `.quarantine/`, with a trailing slash, so it matches a DIRECTORY. The isolation
   step for this task creates `.quarantine` as a symlink, which the rule misses, so
-  `git add -A` stages it — it did here (`59fb547`, reverted in this branch) and at
-  `f1b98a4` before. A committed symlink to an absolute path gives every other
+  `git add -A` stages it — it did here (`59fb547`) and at `f1b98a4` before. My
+  first removal did not hold: the next commit ran `git add -A` and re-staged it,
+  which is the trap demonstrating itself, so the symlink is now in this worktree's
+  `.git/info/exclude` rather than removed once and hoped about. A committed symlink to an absolute path gives every other
   checkout a dangling link, and `cmd/gosuitectl`'s precondition would then read a
   broken link as a staged quarantine and stop refusing. The one-character fix is
   in a shared file and is not mine to make on this branch; reported, not applied.
