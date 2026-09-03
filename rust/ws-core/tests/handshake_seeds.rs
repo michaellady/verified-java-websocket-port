@@ -68,7 +68,7 @@ fn judge_client(raw: &[u8]) -> Expect {
     match machine.consume(raw) {
         ClientHandshakeOutcome::Incomplete => Expect::Incomplete,
         ClientHandshakeOutcome::Accept { .. } => Expect::Accept,
-        ClientHandshakeOutcome::Reject { channel } => Expect::Reject(channel),
+        ClientHandshakeOutcome::Reject { channel, .. } => Expect::Reject(channel),
         other => panic!("unexpected outcome {other:?}"),
     }
 }

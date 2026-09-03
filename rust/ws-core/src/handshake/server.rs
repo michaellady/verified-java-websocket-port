@@ -26,7 +26,7 @@
 //!    field-by-field citation; the method writes FIVE fields, not three.
 
 use super::http::{HeadAccumulator, JavaHeadParse, JavaHeaders, parse_java_head};
-use super::{HandshakeLimitExceeded, HandshakeLimits, RejectChannel};
+use super::{HandshakeLimitExceeded, HandshakeLimits, RejectChannel, RejectStage};
 use crate::framing::Draft6455;
 
 /// `HandshakeState` (org.java_websocket.enums.HandshakeState): the outcome
@@ -95,8 +95,13 @@ pub enum ServerHandshakeOutcome {
     /// rejection to one observable: an HTTP error head plus a close with
     /// code 1002 ([`super::HANDSHAKE_REJECT_CLOSE_CODE`]).
     Reject {
-        /// The draft-API channel (the finest honest distinction).
+        /// The draft-API channel.
         channel: RejectChannel,
+        /// WHICH draft-API call decided (see [`RejectStage`]). `channel`
+        /// alone conflates a `translateHandshake` refusal with a
+        /// `postProcessHandshakeResponseAsServer` refusal; those differ in
+        /// whether the application listener was ever reached.
+        stage: RejectStage,
         /// The deterministic error head to write (byte-exact fidelity to
         /// Java's 404 flow is NOT claimed; the scored observable is the
         /// rejection itself).
@@ -156,26 +161,33 @@ impl ServerHandshake {
         }
         match parse_java_head(self.accumulator.bytes()) {
             JavaHeadParse::Incomplete => ServerHandshakeOutcome::Incomplete,
-            JavaHeadParse::Reject => self.reject(RejectChannel::InvalidHandshake),
+            JavaHeadParse::Reject => {
+                self.reject(RejectChannel::InvalidHandshake, RejectStage::Translate)
+            }
             JavaHeadParse::Complete(head) => {
                 // Draft.java:141-155: method and HTTP version, equalsIgnoreCase.
                 if !head.first_line[0].eq_ignore_ascii_case("GET")
                     || !head.first_line[2].eq_ignore_ascii_case("HTTP/1.1")
                 {
-                    return self.reject(RejectChannel::InvalidHandshake);
+                    return self.reject(RejectChannel::InvalidHandshake, RejectStage::Translate);
                 }
                 // Draft_6455.java:262-286: version-only draft match.
                 if Draft6455::accept_handshake_as_server(&head.headers)
                     == HandshakeState::NotMatched
                 {
-                    return self.reject(RejectChannel::NotMatched);
+                    return self.reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
                 }
                 // Draft_6455.java:432-441: a missing or empty key throws while
                 // building the response; any non-empty key (base64 or not, any
                 // length) is hashed as-is.
                 let key = head.headers.get("Sec-WebSocket-Key").to_string();
                 if key.is_empty() {
-                    return self.reject(RejectChannel::InvalidHandshake);
+                    // The predicate MATCHED and shipped Java has already
+                    // called onWebsocketHandshakeReceivedAsServer by here
+                    // (WebSocketImpl.java:287-301); only response
+                    // construction failed.
+                    return self
+                        .reject(RejectChannel::InvalidHandshake, RejectStage::ResponseBuild);
                 }
                 let accept_key = Draft6455::generate_accept_key(&key);
                 // Draft_6455.java:435-436 echoes the REQUEST's Connection
@@ -198,10 +210,11 @@ impl ServerHandshake {
         }
     }
 
-    fn reject(&mut self, channel: RejectChannel) -> ServerHandshakeOutcome {
+    fn reject(&mut self, channel: RejectChannel, stage: RejectStage) -> ServerHandshakeOutcome {
         self.done = true;
         ServerHandshakeOutcome::Reject {
             channel,
+            stage,
             response: REJECT_RESPONSE.to_vec(),
         }
     }

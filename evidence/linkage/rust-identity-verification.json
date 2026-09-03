@@ -29,7 +29,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 280,
           "declaration": "pub struct ConnectionCore {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         },
         {
           "rust_path": "ws_core::connection::LocalCommand",
@@ -37,7 +37,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 171,
           "declaration": "pub enum LocalCommand {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         },
         {
           "rust_path": "ws_core::connection::CommandSender",
@@ -45,7 +45,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 1414,
           "declaration": "pub struct CommandSender {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         }
       ],
       "rationale": "The WebSocket interface's command surface landed as the single owned ConnectionCore with the explicit LocalCommand vocabulary and CommandSender/CommandQueue owner seam — the collapse the map's own known_non_equivalent_cases declares (abstract class hierarchy -\u003e one owned core with explicit command and event types). No trait named WebSocket exists."
@@ -89,7 +89,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 335,
           "declaration": "pub type WebSocketImpl = ConnectionCore;",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         },
         {
           "rust_path": "ws_core::connection::ConnectionCore",
@@ -97,7 +97,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 280,
           "declaration": "pub struct ConnectionCore {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         }
       ],
       "rationale": "The planned identity exists verbatim as the deliberate alias `pub type WebSocketImpl = ConnectionCore` in connection.rs; ConnectionCore is the landed connection state machine behind it."
@@ -123,7 +123,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 227,
           "declaration": "pub struct TransportWrite {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         }
       ],
       "rationale": "The listener callback boundary landed as the two owner-drained output streams: SemanticEvent (semantic callbacks) and TransportWrite (onWriteDemand/wire writes). No WebSocketListener trait exists; the map's known_non_equivalent_cases predicted this serialization through the owner."
@@ -203,7 +203,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 1139,
           "declaration": "fn handle_command(\u0026mut self, command: \u0026LocalCommand) -\u003e Result\u003c(), TypedProtocolFailure\u003e {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         },
         {
           "rust_path": "ws_core::connection::ConnectionCore::process_inbound",
@@ -211,7 +211,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 727,
           "declaration": "fn process_inbound(\u0026mut self, frame: DecodedFrame) -\u003e Result\u003c(), TypedProtocolFailure\u003e {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         }
       ],
       "rationale": "CloseHandshakeType existed to let Draft implementations declare NONE/ONEWAY/TWOWAY closing. The single-draft port hardwires the RFC 6455 two-way close inside ConnectionCore's command/inbound close arms, so the capability enum was eliminated with the Draft seam; no CloseHandshakeType enum exists."
@@ -229,7 +229,7 @@
           "file": "rust/ws-core/src/handshake/server.rs",
           "line": 35,
           "declaration": "pub enum HandshakeState {",
-          "sha256": "sha256:a5405193976768ae6c2c3f80b0a452fdd3e32ad31c2eaa51159c5a8e0bcc4b92"
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
         }
       ],
       "rationale": "The enum landed with its planned name but in the server handshake module (its only Java consumer is acceptHandshakeAsServer/asClient matching; the Rust home is the server-side acceptance predicate file), not the planned ws_core::handshake::client module."
@@ -265,7 +265,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 99,
           "declaration": "pub enum ReadyState {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         }
       ],
       "rationale": "Planned identity landed as declared."
@@ -283,7 +283,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 73,
           "declaration": "pub enum Role {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         }
       ],
       "rationale": "Planned identity landed as declared."
@@ -423,7 +423,7 @@
           "file": "rust/ws-core/src/handshake.rs",
           "line": 73,
           "declaration": "pub enum RejectChannel {",
-          "sha256": "sha256:ec8d574b44f0b3fe4ff34535a6687ee19acefe801bdd25a20cbf807391c3d922"
+          "sha256": "sha256:b890865ba78d38104f7b0ec4d0267554ce529beebe65e30ddd3896f504255b93"
         }
       ],
       "rationale": "InvalidHandshakeException landed as the typed RejectChannel handshake-rejection vocabulary (parse-level and validation-level channels) instead of an exception type."
@@ -529,7 +529,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 159,
           "declaration": "pub enum DataOpcode {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         },
         {
           "rust_path": "ws_core::framing::DecodedFrame",
@@ -649,7 +649,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 159,
           "declaration": "pub enum DataOpcode {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         }
       ],
       "rationale": "DataFrame's data-opcode abstraction landed as DecodedFrame plus the DataOpcode send vocabulary; no DataFrame type exists."
@@ -771,7 +771,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 159,
           "declaration": "pub enum DataOpcode {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         },
         {
           "rust_path": "ws_core::message::Charsetfunctions",
@@ -803,9 +803,9 @@
           "rust_path": "ws_core::handshake::client::ClientHandshake",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/handshake/client.rs",
-          "line": 161,
+          "line": 172,
           "declaration": "pub struct ClientHandshake {",
-          "sha256": "sha256:907453e2218a691741a0ff37b3e5f08084a07201bed0165f27a1d78ce93223b9"
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
         }
       ],
       "rationale": "Planned identity landed as declared (the client handshake driver)."
@@ -823,15 +823,15 @@
           "file": "rust/ws-core/src/handshake/client.rs",
           "line": 48,
           "declaration": "pub struct ClientRequestDescriptor {",
-          "sha256": "sha256:907453e2218a691741a0ff37b3e5f08084a07201bed0165f27a1d78ce93223b9"
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
         },
         {
           "rust_path": "ws_core::handshake::client::ClientHandshake",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/handshake/client.rs",
-          "line": 161,
+          "line": 172,
           "declaration": "pub struct ClientHandshake {",
-          "sha256": "sha256:907453e2218a691741a0ff37b3e5f08084a07201bed0165f27a1d78ce93223b9"
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
         }
       ],
       "rationale": "The mutable ClientHandshakeBuilder landed as owned immutable values: ClientRequestDescriptor (validated resource/host) consumed by ClientHandshake's deterministic request emission — the builder-to-owned-values collapse the map's known_non_equivalent_cases declares."
@@ -865,9 +865,9 @@
           "rust_path": "ws_core::handshake::client::ClientHandshake",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/handshake/client.rs",
-          "line": 161,
+          "line": 172,
           "declaration": "pub struct ClientHandshake {",
-          "sha256": "sha256:907453e2218a691741a0ff37b3e5f08084a07201bed0165f27a1d78ce93223b9"
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
         },
         {
           "rust_path": "ws_core::handshake::client::ClientHandshakeOutcome",
@@ -875,7 +875,7 @@
           "file": "rust/ws-core/src/handshake/client.rs",
           "line": 139,
           "declaration": "pub enum ClientHandshakeOutcome {",
-          "sha256": "sha256:907453e2218a691741a0ff37b3e5f08084a07201bed0165f27a1d78ce93223b9"
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
         }
       ],
       "rationale": "The interface/impl split collapsed: HandshakeImpl1Client's concrete request state landed inside ClientHandshake and its outcome vocabulary; no separate impl type exists."
@@ -891,9 +891,9 @@
           "rust_path": "ws_core::handshake::server::ServerHandshake",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/handshake/server.rs",
-          "line": 118,
+          "line": 123,
           "declaration": "pub struct ServerHandshake {",
-          "sha256": "sha256:a5405193976768ae6c2c3f80b0a452fdd3e32ad31c2eaa51159c5a8e0bcc4b92"
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
         },
         {
           "rust_path": "ws_core::handshake::server::ServerHandshakeOutcome",
@@ -901,7 +901,7 @@
           "file": "rust/ws-core/src/handshake/server.rs",
           "line": 73,
           "declaration": "pub enum ServerHandshakeOutcome {",
-          "sha256": "sha256:a5405193976768ae6c2c3f80b0a452fdd3e32ad31c2eaa51159c5a8e0bcc4b92"
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
         }
       ],
       "rationale": "HandshakeImpl1Server's concrete response state landed inside ServerHandshake and its outcome vocabulary; no separate impl type exists."
@@ -961,9 +961,9 @@
           "rust_path": "ws_core::handshake::server::ServerHandshake",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/handshake/server.rs",
-          "line": 118,
+          "line": 123,
           "declaration": "pub struct ServerHandshake {",
-          "sha256": "sha256:a5405193976768ae6c2c3f80b0a452fdd3e32ad31c2eaa51159c5a8e0bcc4b92"
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
         }
       ],
       "rationale": "Planned identity landed as declared (the server handshake driver)."
@@ -979,9 +979,9 @@
           "rust_path": "ws_core::handshake::server::ServerHandshake",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/handshake/server.rs",
-          "line": 118,
+          "line": 123,
           "declaration": "pub struct ServerHandshake {",
-          "sha256": "sha256:a5405193976768ae6c2c3f80b0a452fdd3e32ad31c2eaa51159c5a8e0bcc4b92"
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
         },
         {
           "rust_path": "ws_core::handshake::server::ServerHandshakeOutcome",
@@ -989,7 +989,7 @@
           "file": "rust/ws-core/src/handshake/server.rs",
           "line": 73,
           "declaration": "pub enum ServerHandshakeOutcome {",
-          "sha256": "sha256:a5405193976768ae6c2c3f80b0a452fdd3e32ad31c2eaa51159c5a8e0bcc4b92"
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
         }
       ],
       "rationale": "The ServerHandshakeBuilder mutable response surface landed as ServerHandshake's owned deterministic 101-head emission (no Date/Server banner) and its outcome vocabulary; no builder exists."
@@ -1060,7 +1060,7 @@
           "file": "rust/ws-core/src/connection.rs",
           "line": 280,
           "declaration": "pub struct ConnectionCore {",
-          "sha256": "sha256:6a32adb7970fc5c0ed4d1fcec518779359bd70ecc7d685fc011a06b5b5a89025"
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
         }
       ],
       "rationale": "ByteBufferUtils (transferByteBuffer/getEmptyByteBuffer) is a ByteBuffer-management shim with no Rust equivalent need: slice/Vec ownership subsumes it. Its remaining behavioral role (bounded wire-buffer accumulation across chunks) lives in ConnectionCore's pending-buffer accounting; no utility type exists."

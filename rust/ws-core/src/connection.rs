@@ -995,7 +995,7 @@ impl ConnectionCore {
             },
             HandshakeDriver::Client(machine) => match machine.consume(chunk) {
                 handshake::client::ClientHandshakeOutcome::Incomplete => Ok(()),
-                handshake::client::ClientHandshakeOutcome::Accept { remainder } => {
+                handshake::client::ClientHandshakeOutcome::Accept { remainder, .. } => {
                     self.finish_handshake_open(remainder)
                 }
                 handshake::client::ClientHandshakeOutcome::Reject { .. } => Err(

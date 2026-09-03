@@ -261,12 +261,27 @@ func Build(root string, runner Runner) (*Document, error) {
 		HandshakeStatement: fmt.Sprintf(
 			"The %d handshake cases produce only %d DISTINCT scored observations. %d of the %d "+
 				"cases share their observation with at least one other case, and the largest "+
-				"equivalence class holds %d cases. 49/49 therefore certifies at most %d "+
-				"distinguishable answers, not 49. NC-07, NC-08 and NC-09 are the confirmed "+
+				"equivalence class holds %d cases. %d/%d therefore certifies at most %d "+
+				"distinguishable answers, not %d. NC-07, NC-08 and NC-09 are the confirmed "+
 				"mechanisms: the HTTP head is discarded, `incomplete` carries no content, and "+
-				"a rejection reports only a two-valued channel plus a constant close code.",
+				"a rejection reports a draft-API channel and stage plus a constant close code "+
+				"— never WHY within a stage. HISTORY, so the number is read as a measurement "+
+				"and not a target: the first measurement of this corpus was 26 distinct "+
+				"observations with a largest class of 11. Two distinctions the exchange does "+
+				"carry were then added to the projection and to both scorers — `reject_stage` "+
+				"(WHICH draft-API call decided: translateHandshake, the acceptance predicate, "+
+				"or response construction, which is the difference between never reaching the "+
+				"application listener and reaching it) and the `Sec-WebSocket-Accept` value a "+
+				"CLIENT-side accept matched (the client derives one on every acceptance; it "+
+				"simply never sends one). Nothing was removed and no rule was adjusted to "+
+				"dissolve a collision. What did NOT move, and why: shipped Java's own "+
+				"InvalidHandshakeException messages separate a non-GET method from a bad HTTP "+
+				"version from a header line with no colon, but those are implementation "+
+				"strings the differential classifies non-semantic, and the corpus's HS_* "+
+				"reject codes are the RFC model's labels, which the runtime does not produce.",
 			handshake.Rows, handshake.DistinctScoredRows, handshake.RowsSharingAnObservation,
-			handshake.Rows, handshake.LargestClass, handshake.DistinctScoredRows),
+			handshake.Rows, handshake.LargestClass, handshake.Rows, handshake.Rows,
+			handshake.DistinctScoredRows, handshake.Rows),
 		RefutationStatement: fmt.Sprintf(
 			"Three of the first pass's %d open candidates are now DECIDED, and all three came "+
 				"back NEGATIVE — the observation carries the distinction. CAND-WIREBYTES (probe "+
