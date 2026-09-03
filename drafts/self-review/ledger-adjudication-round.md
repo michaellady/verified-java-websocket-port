@@ -285,10 +285,26 @@ not settle which branch fires.
 ### Why it is not written
 
 `records_without_ac3_class` is **1 of 58**, and record 19 is that 1. Filing a
-class moves it to 0. That is a published count, so this record stops here and
-is reported instead. The change is small and mechanical — a `mismatch_class`,
-an `examination`, and an `argument` on entry 19 — and it is the owner's to
-authorise, not mine to make quietly.
+class moves it to **0**. That is a published count on a committed evidence
+document, so this round stops on the record and reports it rather than making
+the movement.
+
+**THE EXACT CHANGE, so the authorisation is a yes or a no and not a research
+task.** In `evidence/java/legacy-record-adjudications.json`, entry
+`sequence: 19`: set `mismatch_class` to `"java-quirk"`; change `examination`
+from `"evidence-does-not-settle-it"` to `"evidence-settles-it"`; replace the
+`argument` with the chain above; clear the `blocking_question`, since the
+question it asks — execute the seed against the pinned jar — is no longer what
+the class turns on; and set the document's `records_without_ac3_class` from 1
+to 0. `internal/deltaledger.VerifyLegacyAdjudications` recomputes that residual
+rather than trusting the stored integer, so the count cannot be moved without
+the class actually being filed. Nothing in the hash chain changes: record 19's
+own sealed delta is untouched and carries no `mismatch_class` field either way.
+
+**And what a NO commits the project to**, because the refusal has a cost too:
+`records_without_ac3_class` stays at 1 while the tree already contains the
+evidence that answers it, so the residual stops meaning "unanswered" and starts
+meaning "unfiled" — which is the same distinction F013 is about, one level up.
 
 ## 6. Sequence 53 — the one that is genuinely a person's, in one reading
 
