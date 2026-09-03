@@ -1821,6 +1821,21 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         "backpressure was explored"
     );
     assert!(totals.rejected_inputs > 0, "typed input rejection explored");
+    // DIV-05, and the reason this line exists: `deferred_frame_dispatch`'s
+    // field comment claims this exploration "is expected to stay zero here"
+    // because every driver it builds keeps `InboundFeedPolicy::WholeChunk`.
+    // Nothing checked that claim, so the counter was a field that could not
+    // fail. It is checked now — and it is what makes this exploration's
+    // counters, which `assurance/concurrency/results.json` cites verbatim,
+    // an assertion that the DIV-05 feed policy is INERT on this path rather
+    // than an assumption about it.
+    assert_eq!(
+        totals.deferred_frame_dispatch, 0,
+        "this exploration builds every driver under InboundFeedPolicy::WholeChunk, \
+         so no turn may be deferred for frame dispatch; a non-zero count means a \
+         driver here acquired OneFramePerTurn and these counters no longer describe \
+         the policy the corpus differential runs under"
+    );
     assert_eq!(
         totals.terminals as usize,
         closed_terminal_runs + halted_terminals,
