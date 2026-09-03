@@ -154,9 +154,12 @@ type ClassDoc struct {
 	Recommendation string `json:"recommendation"`
 	Why            string `json:"why"`
 	// ProposedLedgerSubjectRef names the draft record under
-	// drafts/ledger-proposals/ that would carry this class, and is asserted
-	// absent from the committed behavior-delta ledger.
+	// drafts/ledger-proposals/ that carries this class, and LandedLedgerSequence
+	// is where the committed behavior-delta ledger carries it (0 while it has
+	// not landed). The pair is cross-checked against the ledger in both
+	// directions; see ClassSpec.
 	ProposedLedgerSubjectRef string `json:"proposed_ledger_subject_ref,omitempty"`
+	LandedLedgerSequence     int    `json:"landed_ledger_sequence,omitempty"`
 	// ExistingLedgerSubjectRef names the committed record that already
 	// carries this class, asserted present at ExistingLedgerSequence.
 	ExistingLedgerSubjectRef string              `json:"existing_ledger_subject_ref,omitempty"`
@@ -406,6 +409,7 @@ func Build(sweep *Sweep) (*Document, error) {
 			Recommendation:           string(spec.Recommendation),
 			Why:                      spec.Why,
 			ProposedLedgerSubjectRef: spec.ProposedLedgerSubjectRef,
+			LandedLedgerSequence:     spec.LandedLedgerSequence,
 			ExistingLedgerSubjectRef: spec.ExistingLedgerSubjectRef,
 			ExistingLedgerSequence:   spec.ExistingLedgerSequence,
 			CaseCounts:               counts,

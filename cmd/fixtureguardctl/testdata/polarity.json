@@ -1,5 +1,5 @@
 {
-  "note": "Polarity control for fixtureguardctl. The two `history/` files are the pre-fix text of F004's and F005's guards, extracted verbatim from git; the two `fixed/` files are the landed fixes and are byte-identical to the live tree at the time this gate was added. `expect` declares the EXACT findings each fixture must produce as `line|shape|counter|bound|waived`, sorted — not a count, and not a boolean, so that deleting any one shape from the detector shows up here rather than being masked by another shape still firing. This manifest is read by `go run ./cmd/fixtureguardctl` on every gates run, not only by `go test`.",
+  "note": "Polarity control for fixtureguardctl. The two `history/` files are the pre-fix text of F004's and F005's guards, extracted verbatim from git; the two `fixed/` files are the landed fixes and are byte-identical to the live tree at the time this gate was added. `expect` declares the EXACT findings each fixture must produce as `line|shape|counter|bound|waived`, sorted — not a count, and not a boolean, so that deleting any one shape from the detector shows up here rather than being masked by another shape still firing. This manifest is read by `go run ./cmd/fixtureguardctl` on every gates run, not only by `go test`. `synthetic/production_budget_roles.rs` is shape C's control: it pins BOTH roles of a fixture-supplied production budget, so deleting either the rule or its two-role discriminator shows up here.",
   "cases": [
     {
       "path": "history/F004-pre-fix-concurrency_boundary.rs",
@@ -47,6 +47,18 @@
         "51|A|polls|POLL_BUDGET|false",
         "69|B1|ticks|32|true",
         "85|B1|ticks|64|false"
+      ]
+    },
+    {
+      "path": "synthetic/production_budget_roles.rs",
+      "provenance": "hand-written; every shape in it is one rust/ws-testee/tests/loopback.rs actually carried before claude/adapter-residuals",
+      "why": "SHAPE C and the two roles `max_polls` serves. Firing: a count racing a 300ms wall-clock stall limit, the same through a forwarder, and the same through a forwarder whose parameter was RENAMED (which is why the rule keys on the assignment, not the name). Silent: a supply from a test that asserts BudgetExhausted, because reaching the bound is that test's asserted result rather than a slow host; a budget DERIVED from a stated duration, which is the remedy; and prose quoting the defect. Plus one justified waiver that must be counted and one unjustified marker that must not silence anything.",
+      "expect": [
+        "100|C|max_polls|9|false",
+        "19|C|max_polls|50_000|false",
+        "69|C|max_polls|2_000|false",
+        "75|C|max_polls|250|false",
+        "89|C|max_polls|8|true"
       ]
     }
   ]

@@ -175,6 +175,17 @@ type ProgramSet = [&'static [Action]; PROGRAM_COUNT];
 /// the coalescing fixed, every schedule in this scenario correctly halts on
 /// the second scored termination — which is right, and is why a second
 /// scenario is required to cover the normal lifecycle at all.
+///
+/// RECORD models: the exceptional path: the embedding application tearing
+/// down, or the write side failing, while the peer is also closing. The
+/// adapter Shutdowns AND the read side reaches EOF, so the connection is
+/// terminated twice.
+/// RECORD why_explored: the original and, until owner decision
+/// us017-exploration-program-set-owner-decision-2026-08-28 (sha 86793909),
+/// the ONLY program set. With the driver's EOF coalescing fixed, every
+/// schedule here halts on the second scored termination, which is correct
+/// and is why a second scenario is required to cover the normal lifecycle
+/// at all.
 const SCENARIO_ABNORMAL_TEARDOWN: ProgramSet = [
     // Producer A: bounded data commands.
     &[Action::EnqueueTextA, Action::EnqueueBinaryA],
@@ -210,6 +221,23 @@ const SCENARIO_ABNORMAL_TEARDOWN: ProgramSet = [
 /// normal lifecycle every real deployment spends its life in was never
 /// actually explored — its apparent coverage came from two terminations
 /// being silently merged into one.
+///
+/// RECORD models: the ordinary WebSocket close lifecycle: the application
+/// sends a message and initiates close, the peer's close frame arrives, the
+/// committed frames flush, and the read side reaches EOF exactly ONCE. A
+/// healthy adapter never calls Shutdown on this path - Shutdown means the
+/// adapter can provide no further transport service and belongs to abnormal
+/// teardown. The ws-testee io_loop drives exactly this shape.
+/// RECORD why_explored: owner decision
+/// us017-exploration-program-set-owner-decision-2026-08-28 (sha 86793909).
+/// The previous single-scenario set modelled ONLY the abnormal
+/// double-termination path, so the normal lifecycle every real deployment
+/// spends its life in was never actually explored - its apparent coverage
+/// came from two terminations being silently merged into one by the
+/// driver's EOF coalescing defect. Its clean route is NARROW: 49 of its
+/// 1260 schedules reach a clean terminal and they carry 18 distinct
+/// semantic traces, which is why scenario clean-finish-inbound-ping exists
+/// beside it rather than instead of it.
 const SCENARIO_CLEAN_FINISH: ProgramSet = [
     // Producer A: one bounded data command.
     &[Action::EnqueueTextA],
@@ -223,10 +251,89 @@ const SCENARIO_CLEAN_FINISH: ProgramSet = [
     &[Action::Wake],
 ];
 
+/// Scenario C — CLEAN FINISH WITH AN INBOUND PING IN FLIGHT. The same
+/// single-termination lifecycle as scenario B, at scenario A's richness.
+///
+/// REAL-ADAPTER JUSTIFICATION (owner requirement 1, the same one scenario B
+/// is held to). Every action here is one a real deployment produces on the
+/// ordinary path: the application sends a message and initiates close; the
+/// peer sends a keepalive ping BEFORE its close frame, which is the common
+/// case a server sees because peers ping on an idle timer that does not
+/// know a close is coming; the committed frames flush; the read side ends
+/// exactly ONCE; and the adapter takes TWO owner turns, because an adapter
+/// polls repeatedly rather than exactly once. No `Shutdown`, for the reason
+/// scenario B gives: a healthy adapter never calls it on this path.
+///
+/// WHY IT EXISTS, measured rather than asserted (this branch, the
+/// post-failure landing review's finding 1). Scenario B reaches a clean
+/// terminal in 49 of its 1,260 schedules, and those 49 runs carry only 18
+/// DISTINCT semantic trace digests, so the four properties that hold only
+/// on the clean route — convergence, the exactly-once reconciliation, the
+/// post-terminal quiescence, and the no-write-bypass check — were being
+/// exercised against eighteen behaviours. A clean finish requires both
+/// producer enqueues to land before the peer's close, and with seven
+/// actions across five programs almost every interleaving loses that race.
+/// Lengthening the READ program instead of the producer programs is what
+/// buys clean breadth: an inbound ping ahead of the close gives the
+/// producers somewhere to be scheduled that is not a state violation.
+/// Measured on this scenario alone: 1,127 clean-terminal runs carrying 385
+/// distinct digests, against scenario B's 49 and 18.
+///
+/// IT DOES NOT REPLACE SCENARIO B. B's clean digests are not a subset of
+/// C's — B flushes a text and a close with no ping on the wire — so B is
+/// kept and C is APPENDED, which also leaves every schedule index in
+/// scenarios A and B unchanged and so leaves the pinned retention seeds'
+/// `found_index` ordinals untouched.
+///
+/// RECORD models: the ordinary WebSocket close lifecycle with a keepalive
+/// ping still in flight: the application sends a message and initiates
+/// close, the peer's ping arrives ahead of its close frame because peers
+/// ping on an idle timer that does not know a close is coming, the
+/// committed frames flush, and the read side reaches EOF exactly ONCE. Two
+/// owner turns, because an adapter polls repeatedly. No Shutdown, for the
+/// reason scenario clean-finish gives.
+/// RECORD why_explored: the post-failure landing review's finding 1
+/// (drafts/self-review/post-failure-landing-review.md). Scenario
+/// clean-finish reaches a clean terminal in 49 of its 1260 schedules and
+/// those 49 runs carry only 18 distinct semantic traces, so the four
+/// properties that hold ONLY on the clean route were exercised against
+/// eighteen behaviours in a single scenario. Lengthening the READ program
+/// rather than the producer programs is what buys clean breadth, because it
+/// gives the producers somewhere to be scheduled that is not a state
+/// violation. Measured on this scenario alone: 1127 clean-terminal runs
+/// carrying 385 distinct traces.
+const SCENARIO_CLEAN_FINISH_INBOUND_PING: ProgramSet = [
+    // Producer A: one bounded data command.
+    &[Action::EnqueueTextA],
+    // Producer B: the local close that opens the closing handshake.
+    &[Action::EnqueueCloseB],
+    // Transport read: the peer's keepalive ping, its close, then the read
+    // side ending ONCE.
+    &[
+        Action::InboundPing,
+        Action::InboundClose,
+        Action::TransportEof,
+    ],
+    // Transport write: flush the committed frames to completion.
+    &[Action::WriteAll, Action::WriteAll],
+    // Adapter control: two owner turns; no shutdown on a healthy close.
+    &[Action::Wake, Action::Wake],
+];
+
 /// Every scenario explored, each an independent bounded enumeration.
-const SCENARIOS: [(&str, ProgramSet); 2] = [
+///
+/// ORDER IS LOAD-BEARING. The explored space is the concatenation of the
+/// per-scenario enumerations, so a schedule's index is its position in this
+/// order. The pinned retention artifacts carry `found_index=` ordinals
+/// against that indexing; appending a scenario preserves them, inserting or
+/// reordering one does not.
+const SCENARIOS: [(&str, ProgramSet); 3] = [
     ("abnormal-teardown", SCENARIO_ABNORMAL_TEARDOWN),
     ("clean-finish", SCENARIO_CLEAN_FINISH),
+    (
+        "clean-finish-inbound-ping",
+        SCENARIO_CLEAN_FINISH_INBOUND_PING,
+    ),
 ];
 
 // ---------------------------------------------------------------------------
@@ -236,6 +343,11 @@ const SCENARIOS: [(&str, ProgramSet); 2] = [
 struct Exploration {
     schedules: Vec<Vec<Action>>,
     branches: usize,
+    /// `(scenario name, how many schedules that scenario contributed)`, in
+    /// the order the scenarios are concatenated. This is what lets the sweep
+    /// say WHERE its clean terminals are instead of only how many there are —
+    /// the distinction the post-failure landing review's finding 1 turned on.
+    spans: Vec<(&'static str, usize)>,
 }
 
 fn enumerate_schedules() -> Exploration {
@@ -299,9 +411,11 @@ fn enumerate_schedules() -> Exploration {
 
     let mut schedules = Vec::new();
     let mut branches = 0usize;
+    let mut spans = Vec::new();
     // Each scenario is its own bounded enumeration; the explored space is
-    // their union.
-    for (_name, programs) in &SCENARIOS {
+    // their union, concatenated in SCENARIOS order.
+    for (name, programs) in &SCENARIOS {
+        let before = schedules.len();
         visit(
             programs,
             &mut schedules,
@@ -311,10 +425,12 @@ fn enumerate_schedules() -> Exploration {
             None,
             0,
         );
+        spans.push((*name, schedules.len() - before));
     }
     Exploration {
         schedules,
         branches,
+        spans,
     }
 }
 
@@ -663,6 +779,12 @@ struct Outcome {
     deferred_output_pending: u32,
     deferred_command_turn: u32,
     deferred_backpressure: u32,
+    /// DIV-05: turns the driver refused because the previously applied frame
+    /// had not finished dispatching (`InboundFeedPolicy::OneFramePerTurn`).
+    /// This exploration builds its drivers under the default
+    /// `InboundFeedPolicy::WholeChunk`, so the arm exists to keep the match
+    /// exhaustive and is expected to stay zero here.
+    deferred_frame_dispatch: u32,
     rejected_inputs: u32,
     drain_polls: u32,
     closed: bool,
@@ -931,6 +1053,9 @@ impl Run {
             }
             InputDisposition::Deferred(DeferredReason::Backpressure) => {
                 self.outcome.deferred_backpressure += 1;
+            }
+            InputDisposition::Deferred(DeferredReason::FrameDispatchPending) => {
+                self.outcome.deferred_frame_dispatch += 1;
             }
             InputDisposition::Rejected(_) => {
                 self.outcome.rejected_inputs += 1;
@@ -1605,7 +1730,32 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     let mut observed_violations: BTreeSet<Violation> = BTreeSet::new();
     let mut partial_front_drops = 0usize;
     let mut max_dropped_frames = 0usize;
-    for schedule in &exploration.schedules {
+    // CLEAN-PATH BREADTH, the measurement the post-failure landing review's
+    // finding 1 asked for and this sweep did not have.
+    //
+    // `closed_terminal_runs` counts RUNS, and a run count is not a coverage
+    // reading: at the landing, 49 clean-terminal runs carried only 18
+    // distinct semantic traces, so the four properties that hold only on the
+    // clean route were being exercised against eighteen behaviours while the
+    // record printed forty-nine. The distinct-digest count is the honest
+    // reading and it is printed beside the run count so neither can be read
+    // without the other. `clean_terminal_scenarios` says in how many
+    // scenarios a clean terminal is reached at all — 1 was the whole of
+    // finding 1's "confined to one scenario".
+    let mut clean_terminal_digests: BTreeSet<u64> = BTreeSet::new();
+    let mut clean_terminal_scenarios: BTreeSet<&'static str> = BTreeSet::new();
+    // Which scenario each schedule index belongs to, from the enumeration's
+    // own spans rather than from a second guess at the shapes.
+    let mut scenario_of: Vec<&'static str> = Vec::with_capacity(schedule_count);
+    for (name, count) in &exploration.spans {
+        scenario_of.extend(std::iter::repeat_n(*name, *count));
+    }
+    assert_eq!(
+        scenario_of.len(),
+        schedule_count,
+        "the enumeration's spans must account for every schedule"
+    );
+    for (index, schedule) in exploration.schedules.iter().enumerate() {
         let outcome = execute_deterministic(schedule, Fault::None);
         observed_violations.extend(outcome.violations.iter().copied());
         if let Some(violation) = outcome.violations.first().copied() {
@@ -1634,6 +1784,8 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
             assert_eq!(outcome.failures, 0, "any surfaced failure halts");
             assert_eq!(outcome.terminals, 1, "terminal delivered exactly once");
             closed_terminal_runs += 1;
+            clean_terminal_digests.insert(outcome.digest());
+            clean_terminal_scenarios.insert(scenario_of[index]);
         }
         distinct_outcomes.insert(outcome.digest());
         totals.accepted += outcome.accepted;
@@ -1646,6 +1798,7 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.deferred_output_pending += outcome.deferred_output_pending;
         totals.deferred_command_turn += outcome.deferred_command_turn;
         totals.deferred_backpressure += outcome.deferred_backpressure;
+        totals.deferred_frame_dispatch += outcome.deferred_frame_dispatch;
         totals.rejected_inputs += outcome.rejected_inputs;
         totals.write_drop_reports += outcome.write_drop_reports;
         totals.dropped_frames += outcome.dropped_frames;
@@ -1668,6 +1821,21 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         "backpressure was explored"
     );
     assert!(totals.rejected_inputs > 0, "typed input rejection explored");
+    // DIV-05, and the reason this line exists: `deferred_frame_dispatch`'s
+    // field comment claims this exploration "is expected to stay zero here"
+    // because every driver it builds keeps `InboundFeedPolicy::WholeChunk`.
+    // Nothing checked that claim, so the counter was a field that could not
+    // fail. It is checked now — and it is what makes this exploration's
+    // counters, which `assurance/concurrency/results.json` cites verbatim,
+    // an assertion that the DIV-05 feed policy is INERT on this path rather
+    // than an assumption about it.
+    assert_eq!(
+        totals.deferred_frame_dispatch, 0,
+        "this exploration builds every driver under InboundFeedPolicy::WholeChunk, \
+         so no turn may be deferred for frame dispatch; a non-zero count means a \
+         driver here acquired OneFramePerTurn and these counters no longer describe \
+         the policy the corpus differential runs under"
+    );
     assert_eq!(
         totals.terminals as usize,
         closed_terminal_runs + halted_terminals,
@@ -1683,6 +1851,48 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     assert!(
         failure_halted_runs > 0,
         "the failure-halt disposition was explored"
+    );
+    // CLEAN-PATH BREADTH FLOOR (post-failure landing review, finding 1).
+    //
+    // These are the only assertions in this sweep that speak about how much
+    // of the clean route is covered rather than about whether it holds, and
+    // they exist because the landed record could say "49 clean-terminal
+    // runs" while the honest reading was eighteen behaviours in one
+    // scenario, and nothing disagreed.
+    //
+    // The floors are deliberately BELOW what the tree measures (1,176 runs,
+    // 403 digests, 2 scenarios) so ordinary drift does not trip them; they
+    // catch the collapse, which is the failure mode that actually happened.
+    // A clean route reachable in only ONE scenario is exactly the shape
+    // finding 1 named, so two is the floor.
+    assert!(
+        clean_terminal_digests.len() >= 2,
+        "the clean-terminal route must be more than one behaviour: {} runs \
+         carrying {} distinct traces",
+        closed_terminal_runs,
+        clean_terminal_digests.len()
+    );
+    assert!(
+        clean_terminal_digests.len() >= 100,
+        "clean-terminal BREADTH floor: {} clean-terminal runs carry only {} \
+         distinct semantic traces, so the properties that hold only on the \
+         clean route (convergence, exactly-once reconciliation, \
+         post-terminal quiescence, no write bypass) are exercised against \
+         that many behaviours, not against the run count",
+        closed_terminal_runs,
+        clean_terminal_digests.len()
+    );
+    assert!(
+        clean_terminal_scenarios.len() >= 2,
+        "the clean-terminal route must be reached in more than one scenario, \
+         or a single scenario's shape decides the whole clean-path claim; \
+         reached in {:?}",
+        clean_terminal_scenarios
+    );
+    // The breadth reading cannot exceed the run count that produced it.
+    assert!(
+        clean_terminal_digests.len() <= closed_terminal_runs,
+        "more distinct clean traces than clean runs is impossible"
     );
     // US-017 AC2 story-review coverage: BOTH new dispositions are reached
     // by the exhaustive sweep, not just by the unit fixtures.
@@ -1739,6 +1949,7 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
          write_queue_capacity={WRITE_QUEUE_CAPACITY} event_queue_capacity={EVENT_QUEUE_CAPACITY} \
          drain_budget_polls={DRAIN_BUDGET} schedules={schedule_count} branches={} truncated=false \
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
+         clean_terminal_digests={} clean_terminal_scenarios={} halted_terminals={halted_terminals} \
          failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
          events={} failures={} deferred_output_pending={} deferred_command_turn={} \
          deferred_backpressure={} rejected_inputs={} write_drop_reports={} dropped_frames={} \
@@ -1755,6 +1966,8 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         exploration.branches,
         schedule_count * 2,
         distinct_outcomes.len(),
+        clean_terminal_digests.len(),
+        clean_terminal_scenarios.len(),
         totals.accepted,
         totals.refused_full,
         totals.applied,

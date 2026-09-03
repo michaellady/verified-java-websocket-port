@@ -138,6 +138,13 @@ func scanFile(path, src string, regions []region) ([]Violation, int) {
 			out = appendUnique(out, v, seen)
 		}
 	}
+	// SHAPE C is not a property of any loop in THIS file — it is a count this
+	// fixture hands to a loop in production code (budget.go), so it is applied
+	// once per file rather than once per loop.
+	for _, v := range scanBudgets(masked, regions) {
+		v.File, v.Loop = path, "fixture-supply"
+		out = appendUnique(out, v, seen)
+	}
 	for i := range out {
 		out[i].Line = lineOf(masked, out[i].offset)
 		out[i].LoopLn = lineOf(masked, out[i].loopOff)

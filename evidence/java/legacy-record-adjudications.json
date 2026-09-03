@@ -1,0 +1,876 @@
+{
+  "$schema": "../../schemas/legacy-record-adjudications-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "legacy-record-adjudications",
+  "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "ledger_document": "evidence/java/behavior-delta-ledger.json",
+  "pre_vocabulary_sequence": 49,
+  "pre_vocabulary_head": "sha256:eaa6eac8795ec8f6083e945ff8d6ec1778b37dd099c8acfaa6d4da36f1c01bbc",
+  "records_without_ac3_class": 1,
+  "adjudications": [
+    {
+      "sequence": 1,
+      "delta_id": "delta-6ed944b562803a5e8a19580c802db1ecca630899db034360c34489ed68838cb3",
+      "record_digest": "sha256:cfaefe4c2a4e77c5ca6b7501aa32666f0962ec9d388849d40b666ca58afaa737",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.missing-host.hs0013:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+      "rationale_quote": "DIVERGENCE (missing-host, live case us005.hs.0013): the RFC requires a Host header; the live pinned Java server accepted the request with no Host header (never examined).",
+      "argument": "Section 4.1 requires a Host header field and 4.2.1 requires the server to validate the client handshake. The record's own rfc_value preimage normalizes RFC 6455 section 4.2.1 to 'reject: refuse the opening handshake', so the RFC DETERMINES this observable. The live pinned Java server accepted: acceptHandshakeAsServer evaluates only Sec-WebSocket-Version == 13 (Draft_6455.java:262-286) and a non-empty key (Draft_6455.java:432-441), so the rule the RFC states is never evaluated at all. Java is on the other side of a determinate requirement, which is java-quirk by definition. That the port reproduces the acceptance under JAVA_FAITHFUL_PLUS_SAFE is a DISPOSITION and does not move the class: the mismatch this record binds is (rfc_expectation, java_observation), and it originates in Java.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 2,
+      "delta_id": "delta-31dc3f9c8e9fb90c93fe95f00ba5011d2501d39a0791632e13a7b93de980fa71",
+      "record_digest": "sha256:3b42c50f538ba85b73bf36f9fbb1a890534244c133368c43d1521f4df9c01f8f",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.missing-upgrade.hs0014:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+      "rationale_quote": "DIVERGENCE (missing-upgrade, live case us005.hs.0014): the RFC requires an Upgrade: websocket header; the live pinned Java server accepted the request with no Upgrade header (never examined).",
+      "argument": "Section 4.1/4.2.1 require an Upgrade header field containing 'websocket'. The record's own rfc_value preimage normalizes RFC 6455 section 4.2.1 to 'reject: refuse the opening handshake', so the RFC DETERMINES this observable. The live pinned Java server accepted: acceptHandshakeAsServer evaluates only Sec-WebSocket-Version == 13 (Draft_6455.java:262-286) and a non-empty key (Draft_6455.java:432-441), so the rule the RFC states is never evaluated at all. Java is on the other side of a determinate requirement, which is java-quirk by definition. That the port reproduces the acceptance under JAVA_FAITHFUL_PLUS_SAFE is a DISPOSITION and does not move the class: the mismatch this record binds is (rfc_expectation, java_observation), and it originates in Java.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 3,
+      "delta_id": "delta-0d73f10c4be99f51afcee112ca46bbce78084cc9f22d853faa360761bed613cf",
+      "record_digest": "sha256:2169265106903e7e6fa7202990ed455535b594908a266b7c8c38998323625c0e",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.upgrade-value.hs0015:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+      "rationale_quote": "DIVERGENCE (upgrade-value, live case us005.hs.0015): the RFC requires Upgrade to equal 'websocket'; the live pinned Java server accepted a request whose Upgrade value is wrong (the value is never examined).",
+      "argument": "Section 4.2.1 requires the Upgrade value to case-insensitively equal 'websocket'. The record's own rfc_value preimage normalizes RFC 6455 section 4.2.1 to 'reject: refuse the opening handshake', so the RFC DETERMINES this observable. The live pinned Java server accepted: acceptHandshakeAsServer evaluates only Sec-WebSocket-Version == 13 (Draft_6455.java:262-286) and a non-empty key (Draft_6455.java:432-441), so the rule the RFC states is never evaluated at all. Java is on the other side of a determinate requirement, which is java-quirk by definition. That the port reproduces the acceptance under JAVA_FAITHFUL_PLUS_SAFE is a DISPOSITION and does not move the class: the mismatch this record binds is (rfc_expectation, java_observation), and it originates in Java.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 4,
+      "delta_id": "delta-2edec196a374043929b98572c49578779e57a99aeff7ec5a5b10896771189f73",
+      "record_digest": "sha256:238e3db97b13eb5238fc5b2848d008c3202718ccb8ac5fce5e326bad5d21a634",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.missing-connection.hs0016:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+      "rationale_quote": "DIVERGENCE (missing-connection, live case us005.hs.0016): the RFC requires a Connection: Upgrade header; the live pinned Java server accepted the request with no Connection header (never examined).",
+      "argument": "Section 4.1/4.2.1 require a Connection header field whose value includes the 'Upgrade' token. The record's own rfc_value preimage normalizes RFC 6455 section 4.2.1 to 'reject: refuse the opening handshake', so the RFC DETERMINES this observable. The live pinned Java server accepted: acceptHandshakeAsServer evaluates only Sec-WebSocket-Version == 13 (Draft_6455.java:262-286) and a non-empty key (Draft_6455.java:432-441), so the rule the RFC states is never evaluated at all. Java is on the other side of a determinate requirement, which is java-quirk by definition. That the port reproduces the acceptance under JAVA_FAITHFUL_PLUS_SAFE is a DISPOSITION and does not move the class: the mismatch this record binds is (rfc_expectation, java_observation), and it originates in Java.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 5,
+      "delta_id": "delta-53eeeb8b1255fc55fbe3d86d6af835d3be430eba2a6cb275f28569e3b1f297db",
+      "record_digest": "sha256:5dbe9d527cfe60a9a16d9506ba21c2b48880f122ac4b6e7a26c7a9dec1b46fd5",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.connection-value.hs0017:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+      "rationale_quote": "DIVERGENCE (connection-value, live case us005.hs.0017): the RFC requires the Connection value to include 'Upgrade'; the live pinned Java server accepted a request whose Connection value is wrong (the value is never examined).",
+      "argument": "Section 4.2.1 requires the Connection value to include the 'Upgrade' token. The record's own rfc_value preimage normalizes RFC 6455 section 4.2.1 to 'reject: refuse the opening handshake', so the RFC DETERMINES this observable. The live pinned Java server accepted: acceptHandshakeAsServer evaluates only Sec-WebSocket-Version == 13 (Draft_6455.java:262-286) and a non-empty key (Draft_6455.java:432-441), so the rule the RFC states is never evaluated at all. Java is on the other side of a determinate requirement, which is java-quirk by definition. That the port reproduces the acceptance under JAVA_FAITHFUL_PLUS_SAFE is a DISPOSITION and does not move the class: the mismatch this record binds is (rfc_expectation, java_observation), and it originates in Java.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 6,
+      "delta_id": "delta-193973cb2c13ab144f5fcf0c051c7c2027927474eafdd636f0b89bd990262df8",
+      "record_digest": "sha256:0b9afdcd7613342e146a231ca531056bb3ce2af72861a7cf3124d5112f4b4b29",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.key-not-base64.hs0019:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:generateFinalKey",
+      "rationale_quote": "DIVERGENCE (key-not-base64, live case us005.hs.0019): the RFC requires a base64 16-byte key; the live pinned Java server accepted a non-base64 key and derived the accept from the raw string.",
+      "argument": "First recorded non-base64 key shape. Section 4.2.1 item 5 is determinate: Sec-WebSocket-Key must be base64 that decodes to exactly 16 bytes, and the record's rfc_value normalizes it to 'reject'. generateFinalKey (Draft_6455.java:832-841) SHA-1 hashes any non-empty header string after String.trim, so neither the encoding nor the decoded length is ever examined and the accept value is derived from the malformed key. Java is on the other side of a determinate rule: java-quirk. The port's reproduction of it is a disposition, not a class, and this record's Autobahn refs are nominal anchors, so no Autobahn observation bears on the attribution either way.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 7,
+      "delta_id": "delta-12b6cbb32e7200a090dcd68a7cbf88186d802f6cae24e464fd3cdf3700222da1",
+      "record_digest": "sha256:37a909b24dd7b3a25753eb5eeaefa523fb58ff1492d56ac98f4753a97ca56b90",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.key-not-base64.hs0020:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:generateFinalKey",
+      "rationale_quote": "DIVERGENCE (key-not-base64, live case us005.hs.0020): second live-recorded key-not-base64 input shape; same never-validated predicate and ws_core site as us005.hs.0019.",
+      "argument": "Second recorded non-base64 key shape, distinct wire bytes from us005.hs.0019, same predicate. Section 4.2.1 item 5 is determinate: Sec-WebSocket-Key must be base64 that decodes to exactly 16 bytes, and the record's rfc_value normalizes it to 'reject'. generateFinalKey (Draft_6455.java:832-841) SHA-1 hashes any non-empty header string after String.trim, so neither the encoding nor the decoded length is ever examined and the accept value is derived from the malformed key. Java is on the other side of a determinate rule: java-quirk. The port's reproduction of it is a disposition, not a class, and this record's Autobahn refs are nominal anchors, so no Autobahn observation bears on the attribution either way.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 8,
+      "delta_id": "delta-e52f9639e84d81f49472201e30087b4876632056ad80bce97f3aa1a249fcec2a",
+      "record_digest": "sha256:9496f582dfc4bac5e267971b2f8f5dd10f30776742cff9a5420eed2eb29eaf6b",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.key-wrong-length.hs0021:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:generateFinalKey",
+      "rationale_quote": "DIVERGENCE (key-wrong-length, live case us005.hs.0021): the RFC requires a decoded 16-byte key; the live pinned Java server accepted a wrong-length key.",
+      "argument": "First recorded wrong-decoded-length key shape. Section 4.2.1 item 5 is determinate: Sec-WebSocket-Key must be base64 that decodes to exactly 16 bytes, and the record's rfc_value normalizes it to 'reject'. generateFinalKey (Draft_6455.java:832-841) SHA-1 hashes any non-empty header string after String.trim, so neither the encoding nor the decoded length is ever examined and the accept value is derived from the malformed key. Java is on the other side of a determinate rule: java-quirk. The port's reproduction of it is a disposition, not a class, and this record's Autobahn refs are nominal anchors, so no Autobahn observation bears on the attribution either way.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 9,
+      "delta_id": "delta-a2ea2c29e78a185fe12c2b7b4d090f18e9a973d0b967a2a2324c45a4b72bb29f",
+      "record_digest": "sha256:c590c0e58c25eee2c2f3230bb4fa848b41ae48ac20bcf5d2c7b39b19972be445",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.key-wrong-length.hs0022:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:generateFinalKey",
+      "rationale_quote": "DIVERGENCE (key-wrong-length, live case us005.hs.0022): second live-recorded key-wrong-length input shape; same never-validated predicate and ws_core site as us005.hs.0021.",
+      "argument": "Second recorded wrong-decoded-length key shape, distinct wire bytes from us005.hs.0021, same predicate. Section 4.2.1 item 5 is determinate: Sec-WebSocket-Key must be base64 that decodes to exactly 16 bytes, and the record's rfc_value normalizes it to 'reject'. generateFinalKey (Draft_6455.java:832-841) SHA-1 hashes any non-empty header string after String.trim, so neither the encoding nor the decoded length is ever examined and the accept value is derived from the malformed key. Java is on the other side of a determinate rule: java-quirk. The port's reproduction of it is a disposition, not a class, and this record's Autobahn refs are nominal anchors, so no Autobahn observation bears on the attribution either way.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 10,
+      "delta_id": "delta-066b2149e7ab852842a4767486bb7deaae619bc1e6f0d20edbd06aa4d336a261",
+      "record_digest": "sha256:5a0bcec788615e24bed6e843c35d90bedecc3a2837d311a67f26ad8c3385f6b2",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.duplicate-header.hs0027:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "DIVERGENCE (duplicate-header, live case us005.hs.0027): the RFC-derived model rejects the duplicated Sec-WebSocket-Key; the live pinned Java server joined the values and accepted (mapping note: the duplicated-Version sibling instead rejects NOT_MATCHED).",
+      "argument": "The record's rfc_expectation cites RFC 9110 section 5.3, which forbids consuming a duplicated singleton field such as Sec-WebSocket-Key as one combined value, and its rfc_value normalizes that to 'reject'. translateHandshakeHttp joins duplicated values with the literal '; ' (Draft.java:119-125) and accepts, computing the accept value over the joined string. Java is on the other side of a determinate rule: java-quirk. THIS IS THE WEAKEST OF THE JAVA-QUIRK CALLS AND IS MEANT TO BE ARGUED WITH: section 5.3's separator sentence is written for list-based fields, and a reader who holds that the RFC leaves a recipient's handling of a duplicated NON-list field open would class this underspecified-behavior. I follow the record's own sealed normalization rather than overriding it, which is the same deference sequence 41 gets.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 11,
+      "delta_id": "delta-f013c55d6819d78e613d6470ba67a7173ce2faff13707c55c17e0b227419bd4d",
+      "record_digest": "sha256:f97b606433a3a12f25343ebd9cc6ad2f1d03d2f25dd297d82751fd99217b0c50",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.header-name-not-token.hs0029:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "DIVERGENCE (header-name-not-token, live case us005.hs.0029): the RFC-derived model rejects a non-token header name; the live pinned Java server accepted it.",
+      "argument": "First recorded non-token header-name shape. The record's rfc_expectation cites RFC 9112 section 5, where field-name = token, so a name containing a non-token character makes the message invalid; the rfc_value normalizes that to 'reject'. Java performs no header-name validation at all: translateHandshakeHttp stores whatever precedes the first colon (Draft.java:115-125), and the only parse-level rejection in the whole path is a line with no colon. Java is on the other side of a determinate rule, so the mismatch originates in Java.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 12,
+      "delta_id": "delta-497d2b4f680560402ad5632b06dada7cf6f093b48a807df1bc97456f27b34ddf",
+      "record_digest": "sha256:b7d87d53899b49e125523212623cb41046a25816fd0c8047204a57a98c47971d",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.header-name-not-token.hs0030:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "DIVERGENCE (header-name-not-token, live case us005.hs.0030): second live-recorded non-token header-name input shape; same never-validated predicate and ws_core site as us005.hs.0029.",
+      "argument": "Second recorded non-token header-name shape, distinct wire bytes from us005.hs.0029. The record's rfc_expectation cites RFC 9112 section 5, where field-name = token, so a name containing a non-token character makes the message invalid; the rfc_value normalizes that to 'reject'. Java performs no header-name validation at all: translateHandshakeHttp stores whatever precedes the first colon (Draft.java:115-125), and the only parse-level rejection in the whole path is a line with no colon. Java is on the other side of a determinate rule, so the mismatch originates in Java.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 13,
+      "delta_id": "delta-5084efaf08126e24d74a1bdea7da8b88eca6ef69fce631aef388c61ea3a86db2",
+      "record_digest": "sha256:0ee1c2f0d6ee163aab4ea465522c9d51774779b30601f6467163e7cffb64afec",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.bare-lf.hs0034:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:readLine",
+      "rationale_quote": "DIVERGENCE (bare-lf, live case us005.hs.0034): the RFC-derived model rejects the bare-LF line; the live pinned Java server folded it and accepted.",
+      "argument": "CONTESTED BY LATER EVIDENCE, AND THE CONTEST DECIDES THE CLASS. This record's sealed rfc_expectation says RFC 9112 section 2.2 'forbids a bare LF as a line terminator, so the message is malformed and must be refused'. Sequence 39, appended later and about the same clause on the client direction, states the opposite after reading it: section 2.2 'expressly PERMITS recognizing one' -- 'a recipient MAY recognize a single LF as a line terminator' -- so declining the MAY, as Draft.readLine does by terminating only on CRLF (Draft.java:78), is conformant. On the later and correct reading the RFC does not determine this observable, which makes the mismatch underspecified-behavior and not the java-quirk the record's own basis implies. This is the same defect sequences 45-47 corrected for the section 10.4 basis, at a clause nobody re-checked; it is unsuperseded, so this entry carries the obligation of a draft.",
+      "blocking_question": "",
+      "contests_record_basis": true,
+      "supersession_draft": "drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json"
+    },
+    {
+      "sequence": 14,
+      "delta_id": "delta-0b3b46bc555629de7e873b3210c312d74baebd4314170b0997d4c2fd3537d99e",
+      "record_digest": "sha256:b5d30e8942c21e9ba007ed103dee68514e7101e80d95fabe29a0ebe16baf04c6",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-total-bytes.hs0046:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-10.4"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "DIVERGENCE (limit-total-bytes, live case us005.hs.0046): the RFC-derived model rejects the over-budget handshake; the live pinned Java server (which has no limits) accepted it.",
+      "argument": "The RFC basis this record bound was WRONG and the chain already says so. Sequence 45 supersedes it (evidence/java/ledger-supersessions.json) with the finding that section 10.4 is scoped to FRAMES and to total message size after reassembly, that the opening handshake is neither, and that 'no clause of RFC 6455 mandates a handshake size, header-count or header-line limit'. On the corrected basis the RFC does not determine this observable at all: shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose differently on a point the RFC leaves open. That is underspecified-behavior. The class is taken from the CORRECTED basis rather than from this record's own preimage. THIS ENTRY CONTESTS THE RECORD IT ADJUDICATES, and discharges that obligation by naming the superseding SEQUENCE rather than a draft: the correction is already appended, so drafting one would be proposing a record the chain has. The gate re-derives the link from the records' own hashed rationales, so superseded_by_sequence=45 is checked against sealed content and not taken on this entry's word.",
+      "blocking_question": "",
+      "contests_record_basis": true,
+      "supersession_draft": "",
+      "superseded_by_sequence": 45
+    },
+    {
+      "sequence": 15,
+      "delta_id": "delta-ffc8fa535cdeb82aaedb59919ef6b02f67b19815662737ee837c93eacacbe991",
+      "record_digest": "sha256:7658b730c65ff5cb1734b29416a97748461cf4bf5c384a4317b9387fc0903738",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-count.hs0047:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-10.4"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "DIVERGENCE (limit-header-count, live case us005.hs.0047): the RFC-derived model rejects the over-count handshake; the live pinned Java server (no limits) accepted it.",
+      "argument": "The RFC basis this record bound was WRONG and the chain already says so. Sequence 46 supersedes it (evidence/java/ledger-supersessions.json) with the finding that section 10.4 is scoped to FRAMES and to total message size after reassembly, that the opening handshake is neither, and that 'no clause of RFC 6455 mandates a handshake size, header-count or header-line limit'. On the corrected basis the RFC does not determine this observable at all: shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose differently on a point the RFC leaves open. That is underspecified-behavior. The class is taken from the CORRECTED basis rather than from this record's own preimage. THIS ENTRY CONTESTS THE RECORD IT ADJUDICATES, and discharges that obligation by naming the superseding SEQUENCE rather than a draft: the correction is already appended, so drafting one would be proposing a record the chain has. The gate re-derives the link from the records' own hashed rationales, so superseded_by_sequence=46 is checked against sealed content and not taken on this entry's word.",
+      "blocking_question": "",
+      "contests_record_basis": true,
+      "supersession_draft": "",
+      "superseded_by_sequence": 46
+    },
+    {
+      "sequence": 16,
+      "delta_id": "delta-ccbff7cfa1813dadd889b86f540da4328a921a0c93972b172177b323f5f5354f",
+      "record_digest": "sha256:98ac702a91c28396bc57b85968248624cc6b06ea300b47d98770b0653ac42909",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-10.4"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "DIVERGENCE (limit-header-line, live case us005.hs.0048): the RFC-derived model rejects the over-length header line; the live pinned Java server (no limits) accepted it.",
+      "argument": "The RFC basis this record bound was WRONG and the chain already says so. Sequence 47 supersedes it (evidence/java/ledger-supersessions.json) with the finding that section 10.4 is scoped to FRAMES and to total message size after reassembly, that the opening handshake is neither, and that 'no clause of RFC 6455 mandates a handshake size, header-count or header-line limit'. On the corrected basis the RFC does not determine this observable at all: shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose differently on a point the RFC leaves open. That is underspecified-behavior. The class is taken from the CORRECTED basis rather than from this record's own preimage. THIS ENTRY CONTESTS THE RECORD IT ADJUDICATES, and discharges that obligation by naming the superseding SEQUENCE rather than a draft: the correction is already appended, so drafting one would be proposing a record the chain has. The gate re-derives the link from the records' own hashed rationales, so superseded_by_sequence=47 is checked against sealed content and not taken on this entry's word.",
+      "blocking_question": "",
+      "contests_record_basis": true,
+      "supersession_draft": "",
+      "superseded_by_sequence": 47
+    },
+    {
+      "sequence": 17,
+      "delta_id": "delta-b80af180e23bafbe4a2b0377066c0367ee79ab7378a8e3837d00089b53854941",
+      "record_digest": "sha256:823e7d0b647115cd1f58c8658a594f4ef4e449f723b465994afa2da48fc990ab",
+      "subject_ref": "semantic:org.java-websocket.draft6455.framing.noncanonical-extended-length:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFrame",
+      "rationale_quote": "DIVERGENCE (noncanonical extended length, 16-bit and 64-bit forms): the RFC requires rejecting non-minimal length encodings with 1002; the pinned Java runtime performs no minimality check and accepts both forms.",
+      "argument": "Section 5.2 is determinate: the payload length must use the minimal number of bytes, and the rfc_value normalizes it to 'reject: fail the WebSocket connection with 1002 on a non-minimal extended payload length'. translateSingleFrame performs no minimality check (mirrored at derive.go:399-420) and processes both the 16-bit and the 64-bit non-minimal forms normally. Java is on the other side of a determinate rule, so the mismatch originates in Java, whatever the port then chooses to do with it.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 18,
+      "delta_id": "delta-d3c9c70db9d4a44420ed9abb23f6f2677ec6dd245c3a42eb9b811822eca7092e",
+      "record_digest": "sha256:dcb6c61a8bea21c0bc098a8584d2f257a7d2297d8308afdbcd957b3dc3082cd5",
+      "subject_ref": "semantic:org.java-websocket.draft6455.framing.mask-by-role-acceptance:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.1",
+        "rfc6455#section-5.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFrame",
+      "rationale_quote": "DIVERGENCE (mask-by-role): the RFC requires rejecting role-inappropriate masking with 1002; the pinned Java runtime accepts either masking toward either role.",
+      "argument": "Section 5.1 is determinate about mask-by-role -- client-to-server frames masked, server-to-client unmasked, fail with 1002 otherwise -- and the rfc_value normalizes it to 'reject'. The pinned runtime unmasks when the mask bit is set and otherwise reads the payload directly, with no role check at all (derive.go:439-447). Java is on the other side of a determinate rule: java-quirk. Noted for the reader: this record's Java side rests on the quarantined-source read plus the US-005 calibration, because the corpus scopes itself to spec-conformant masking, so the shape is corpus-invisible. That weakens the OBSERVATION's provenance, not the attribution: the source reading and the RFC both point the same way.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 19,
+      "delta_id": "delta-119646e52a54bcf4ba9711da2a3f563fbd6a12059f52aad84a523a5d490a2e7c",
+      "record_digest": "sha256:e16361f878058aa79413760b3137a1caf2535caec7525a7fc5af5a63b60cfc22",
+      "subject_ref": "semantic:org.java-websocket.draft6455.framing.length-64bit-high-bit:provisional-v1",
+      "examination": "evidence-does-not-settle-it",
+      "mismatch_class": "",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFramePayloadLength",
+      "rationale_quote": "DIVERGENCE (64-bit high-bit length): the RFC requires a 1002 failure; pinned Java's behavior is UNOBSERVED (negative-long parse, untested downstream; outside the reference model's generated space per derive.go:265-268), and ws_core deliberately does NOT emulate the untested negative-length path: it parses the length unsigned and the huge value fails the ordinary configured frame-size gate with 1009 at length site 10.",
+      "argument": "THE EVIDENCE DOES NOT SETTLE THIS ONE, AND SAYING SO IS THE ANSWER. Section 5.2 is determinate (the most significant bit of a 64-bit extended length must be 0, fail 1002), so the class turns entirely on which side Java is on -- and this record's own java_value preimage says Java's side is 'undefined-in-evidence: negative signed-long length with untested downstream behavior (outside the verified space)'. Two classes are live and the record chooses between neither: java-quirk if the pinned runtime's negative-long parse produces some non-1002 observable, and rust-defect if it in fact fails the connection, since the port deliberately parses UNSIGNED and rejects 1009 at length site 10 rather than 1002. I examined the record, the definition preimages and the seed (rust/ws-core/fuzz-seeds/us012/high-bit-64.hex); nothing in the committed evidence records a Java observable here.",
+      "blocking_question": "Execute the high-bit-64 seed against the pinned Java-WebSocket 1.6.0 jar (sha256 eae29213...) through the same oracle path the rest of this ledger's Java observations use, and record what the negative-long length actually produces: a 1002 close, some other typed rejection, or a hang. OWNER ACTION -- it needs a live Java execution, which no gate on this branch may trigger.",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 20,
+      "delta_id": "delta-b375f7126b944afad6a75453a1871d18bb48b74ad0cf04fd94a80eb649f01809",
+      "record_digest": "sha256:3972d3e310cc7308692ce8236bd7d5c0df9d08737d04698d534dccb10c3eeed1",
+      "subject_ref": "semantic:org.java-websocket.draft6455.framing.post-payload-rejection-site:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-5.5"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFrame",
+      "rationale_quote": "DIVERGENCE (rejection SITE, not verdict): both the RFC expectation and pinned Java reject RSV-bit and non-final control frames with 1002, but Java's observable rejection site is after the full frame is consumed, not at the header.",
+      "argument": "The verdicts AGREE: this record's own opening sentence says 'both the RFC expectation and pinned Java reject RSV-bit and non-final control frames with 1002'. The only difference is the observable rejection SITE -- Java consumes the full frame first. RFC 6455 does not fix a detection site, and the chain says so itself one record later: sequence 21's sealed rfc_value reads 'reject: fail with 1002 on an over-125 control payload length (the RFC states no detection site)'. So the RFC does not determine the disputed observable, and Java and an RFC-minimal parser differ on a point it leaves open: underspecified-behavior. Recorded as a reading, not a refutation: this record's own rfc_expectation says 'an RFC-strict endpoint detects both at the frame header', which describes what a strict endpoint would do rather than what the RFC requires.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 21,
+      "delta_id": "delta-ecf707c2483b2d5926928fd287c15706ee3c14f6af85c7d012a3173accd81ceb",
+      "record_digest": "sha256:0d8231f40ee0933acad7462ed60f048fdaa6e1dc0df0d5a0afe3f08a79bedbc9",
+      "subject_ref": "semantic:org.java-websocket.draft6455.framing.control-extended-length-marker-site:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.5"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFramePayloadLength",
+      "rationale_quote": "DIVERGENCE (detection-site granularity): verdicts agree (1002), but pinned Java rejects the control extended-length MARKER at header byte 2 without reading the declared length, so its consumed-byte observable differs from an RFC-minimal parser that reads the length first.",
+      "argument": "The record settles its own class. The verdicts agree (1002) and its sealed rfc_value says in as many words that 'the RFC states no detection site', so the disputed observable -- rejecting the control extended-length MARKER at header byte 2 without reading the declared length -- is one RFC 6455 does not determine. Java chose byte 2; an RFC-minimal parser reads the length first; the consumed-byte observable differs. That is underspecified-behavior exactly as the vocabulary defines it, and internal/deltaledger's RFC-determinacy rule is not even reached, because the leading token is 'reject'.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 22,
+      "delta_id": "delta-4e6bffb12b05856babb99a3df92f459e207b6d7f38e8c28fa374ad29eb06398c",
+      "record_digest": "sha256:572f741bba9fa12d046cbbd2d7f2edd4289a7a7ef809da8c5287b0a7aff7ae87",
+      "subject_ref": "semantic:org.java-websocket.draft6455.framing.consumed-bytes-error-sites:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateFrame",
+      "rationale_quote": "DIVERGENCE (error-site observables): the reject verdicts match the RFC, but the pinned runtime's consumed-byte offsets and its discard-the-chunk translate semantics are Java-specific observables an RFC-minimal parser would not produce.",
+      "argument": "The record's opening sentence is the argument: 'the reject verdicts match the RFC, but the pinned runtime's consumed-byte offsets and its discard-the-chunk translate semantics are Java-specific observables an RFC-minimal parser would not produce'. Section 5.2 defines the frame grammar and the verdict; it says nothing about how many bytes a receiver has consumed when it fails, and nothing about whether frames already decoded from the same transport chunk survive a later frame's rejection. Both are choices the RFC leaves open and on which Java and an RFC-minimal parser differ: underspecified-behavior.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 23,
+      "delta_id": "delta-cf346fa356a2d1389ce2b76679c979f1b78b061dc5b9cdef6ec5f3419c182088",
+      "record_digest": "sha256:9751f959140a43d945568870bea0500eb00c1166d64acb932daecaec03d06808",
+      "subject_ref": "semantic:org.java-websocket.charsetfunctions.two-stage-utf8-timing:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-8.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.util.Charsetfunctions:isValidUTF8",
+      "rationale_quote": "DIVERGENCE (validation timing): both reject invalid UTF-8 with 1007, but pinned Java's two-stage gate first records the frame (translate DFA accepts dangling incomplete tails) and only the process-time strict gate rejects, producing a frame-record observable an RFC-strict single-pass validator would not emit.",
+      "argument": "Both sides reach the same RFC-mandated verdict. Section 8.1 requires failing with 1007 on invalid UTF-8 and pinned Java does fail with 1007; even the record's own strict reading acts 'when the message completes'. What differs is an intermediate observable -- Java's translate-time Hoehrmann DFA accepts a dangling incomplete tail and RECORDS the frame before the strict process-time gate rejects the assembled message. RFC 6455 does not specify whether a receiver may emit a per-frame record before completing message-level validation, so the two-stage timing is a choice on a point it leaves open: underspecified-behavior, not a departure from a determinate rule.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 24,
+      "delta_id": "delta-cc022411648aecebadcfe735d38c7e242220ce98a1873c028e94cd49927aee70",
+      "record_digest": "sha256:7aecab8ef4c364b8d4068405625513f8a4577c14d898bd1f4acd95b21fe917a1",
+      "subject_ref": "semantic:org.java-websocket.draft6455.buffer-limit-check-sites:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-10.4"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:checkBufferLimit",
+      "rationale_quote": "DIVERGENCE (limit check sites and overflow vocabulary): the RFC-shaped expectation checks every fragment; pinned Java checks only at starts and fins and splits the overflow observable (1009 vs BUFFER_LIMIT_EXCEEDED-no-close-code) by fragment position.",
+      "argument": "Section 10.4 is genuinely in scope here -- unlike sequences 45-47, this record is about frames and reassembled messages, which is exactly what 10.4 addresses -- and it still does not determine the observable. It expects implementations to have limits; it fixes neither the SITE at which the accumulated size is checked nor the vocabulary in which an overflow is reported. Java checks only at message starts and fins (checkBufferLimit, quirk Q23) and splits the overflow observable by fragment position (1009 at a fin, BUFFER_LIMIT_EXCEEDED with no close code on a non-fin continuation); an every-fragment checker would report differently. Two conforming choices on an open point: underspecified-behavior.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 25,
+      "delta_id": "delta-5abebb2c95dd8c36770b608f05d6969e7b44acb1bb15b9583578477b8cf59949",
+      "record_digest": "sha256:71260e23843b24fea7859e31e5a50dfd70f96b34ae6e9a01b238d92ab062fe02",
+      "subject_ref": "semantic:org.java-websocket.draft6455.no-automatic-pong:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.5.2",
+        "rfc6455#section-5.5.3"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:processFrame",
+      "rationale_quote": "DIVERGENCE (automatic pong): the RFC requires a pong response to every ping; the pinned runtime's oracle-observable core never auto-pongs \u2014 ping is delivered as an event and any pong policy lives ABOVE the core (rust/ws-core/src/control.rs module doc).",
+      "argument": "Section 5.5.2 is a MUST -- an endpoint receiving a Ping MUST send a Pong with identical application data unless it already sent a Close -- and the rfc_value normalizes it to 'auto-respond'. The pinned runtime's oracle-observable behaviour produces a ping event and NO pong write (quirk Q18; derive.go:671-674), live-executed on corpus families us005.pub.0002 and us005.pub.0071 with no pong write recorded. Java is on the other side of a determinate MUST: java-quirk. STATED LIMIT OF THIS ATTRIBUTION: the observation is scoped to the Draft-level oracle entry point the corpus measures, and the record says so ('no pong write is ever produced by the core'). Nothing in this ledger records whether the shipped full stack pongs; if it does, this is the same entry-point split sequences 44, 48 and 49 carry, and the class would still be java-quirk at the measured point.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 26,
+      "delta_id": "delta-c926e243eac766289c68ad61e8f5ccf711190736d7e44cc029ae46f0023857b6",
+      "record_digest": "sha256:0bdbecda0b1964965409e13713173da505d73acc33daa51e1aee4c3378a40b0e",
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.send-control-no-payload-cap:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.5"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:sendFrame",
+      "rationale_quote": "DIVERGENCE (send-path control cap): the RFC caps control payloads at 125 bytes; the pinned runtime sends oversized control payloads without any check.",
+      "argument": "Section 5.5 is determinate: all control frames MUST have a payload length of 125 bytes or less, and the rfc_value normalizes it to 'refuse-send'. The pinned runtime's send path performs no check at all (quirk Q17; Execution.sendControl mirrors WebSocketImpl.sendFrame), so an oversized local ping or pong is encoded with an extended length and written to the wire. Java is on the other side of a determinate rule: java-quirk. The deliberate asymmetry the record names -- inbound over-125 control frames are still rejected 1002 -- is a property of the port's reproduction, not of the class.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 27,
+      "delta_id": "delta-d509ac380f51587105ed2fb3b24687994246e5d94a10325e907659219c8a5035",
+      "record_digest": "sha256:54f4efe90b3c87de690fa3e02da8aa97cd030c358a337b9381992b00107f68e7",
+      "subject_ref": "semantic:org.java-websocket.closeframe.one-byte-close-payload:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.5.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:setPayload",
+      "rationale_quote": "DIVERGENCE (one-byte close payload): the RFC treats a 1-byte close payload as malformed; the pinned runtime converts it into a VALID close with code 1002 and completes the close handshake.",
+      "argument": "Section 5.5.1 is determinate: a close payload is either empty or begins with a 2-byte status code, so a 1-byte payload is malformed and the rfc_value normalizes it to 'reject: treat the 1-byte close payload as a protocol failure'. CloseFrame.setPayload instead maps the single byte to code 1002 with an empty reason and the frame proceeds as a VALID close through an ordinary close handshake (quirk Q11, live-oracle-confirmed on us005.pub.0035). Java is on the other side of a determinate rule: java-quirk.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 28,
+      "delta_id": "delta-954132f2fb7819743b45017417b2aa5f780cd1102f1cd51896616fb9f6d04bf4",
+      "record_digest": "sha256:8e3993a0f8e48f5f95c46a800328ccae0b862848b9dca5b9cb6504f229037d57",
+      "subject_ref": "semantic:org.java-websocket.closeframe.constructor-payload-echo:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.5.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:constructor",
+      "rationale_quote": "DIVERGENCE (close echo payload): the RFC-shaped echo reflects the received status code; the pinned runtime echoes the constructor payload [0x03,0xe8] while open (Q19 echo-while-open with Q10 constructor payload) and records the inbound close with the same constructor payload.",
+      "argument": "Section 5.5.1 determines this observable through a SHOULD -- an endpoint answering a Close echoes the status code it received -- and the rfc_value normalizes it to 'echo-received-code'. I treat a SHOULD as determinate for classification: RFC 2119 allows ignoring one only with the full implications understood, and no such reason is recorded here. The pinned runtime's echoed frame object always carries the CloseFrame constructor payload [0x03,0xe8] regardless of the received code (quirks Q10/Q19), and the inbound frame RECORD carries it too. Java is on the other side: java-quirk. Distinguish sequence 33, which is the WIRE composition of the same ingredients and comes out rust-defect, because there the shipped full stack agrees with the RFC and the port did not.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 29,
+      "delta_id": "delta-e6f5b06cb674e666de6a371db233a8d9d8bd3aebdc3a34c0dc23a7c05f96e255",
+      "record_digest": "sha256:c7c0d69f3c00ad3472d61346b9ac49afd8fd86a34a763d193584db7f08c33718",
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.eof-ordinary-close:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-7.1.4",
+        "rfc6455#section-7.1.5"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:eot",
+      "rationale_quote": "DIVERGENCE (EOF classification): the RFC-strict design distinguishes EOF failure classes; the pinned runtime collapses every EOF into the ordinary close vocabulary with the governing close's detail.",
+      "argument": "Section 7.1.4 defines the closed state and 7.1.5 the connection close code; neither mandates that a receiver expose DISTINCT application-visible failure classes for EOF before, during and after a close handshake. The record's own rfc_expectation says only that 'an RFC-strict endpoint reports these as distinct failure classes', which is an inference about a strict design rather than a clause. The pinned runtime collapses every EOF into one close vocabulary (quirk Q20, WebSocketImpl.eot) and a strict design would not: two choices on a point the RFC leaves open, so underspecified-behavior. The record's own residual honest gap -- EOF before the handshake completes is an Unimplemented refusal -- is outside this record and does not change the class.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 30,
+      "delta_id": "delta-4b0ac3601774119a9d7f5fb6c7c9fb6eef3ee153cd17f3eb69a9be36969f4804",
+      "record_digest": "sha256:e7ece61aa0534d51a4a9126829aa3b4fa6262a1cc59116ad202134ab5f2f7525",
+      "subject_ref": "semantic:org.java-websocket.closeframe.isvalid-rejection-chain:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-7.4.1",
+        "rfc6455#section-7.4.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:isValid",
+      "rationale_quote": "DIVERGENCE (close-code table semantics): the RFC's registry classes and Java's isValid chain disagree in both membership granularity and the REPORTED code (Java reports the 1007-empty-reason rejection as 1007, everything else as 1002, and bans the entire 1016-2999 band).",
+      "argument": "Sections 7.4.1 and 7.4.2 determine the close-code table: which values are legal on the wire, which are reserved and never sent, and 1002 as the protocol-error code. The pinned runtime's CloseFrame.isValid chain (quirk Q13; CloseFrame.java:226-243) disagrees with that table in two ways at once, as the record's own opening sentence says: in membership granularity, banning the whole 1016-2999 band the RFC reserves for future definition rather than for rejection, and in the REPORTED code, answering the 1007-with-empty-reason case AS 1007 where the table makes it a protocol error. Java is on the other side of a determinate registry: java-quirk.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 31,
+      "delta_id": "delta-03e9d066f84aeb9b9ca0d3e634fc20dd84f1e611a46d27b499ea17ebd1a9c090",
+      "record_digest": "sha256:2e93701af578f1fda2bce1449dd73a4f1afa8d374797784dcd2902d029354968",
+      "subject_ref": "semantic:org.java-websocket.closeframe.setcode-1015-normalization:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-7.4.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:setCode",
+      "rationale_quote": "DIVERGENCE (1015 send normalization): the RFC-shaped refusal names the 1015 reserved-code violation; the pinned runtime silently rewrites 1015 to 1005 before validation and the observable rejection is the 1005-case outcome.",
+      "argument": "The RFC-governed observable is satisfied by both sides, and this record's own safety note says so: section 7.4.1's rule is that 1015 MUST NOT be SENT in a Close frame, and 'no reserved code reaches the wire (the isValid chain still rejects 1005/1015), so the RFC's on-the-wire prohibition is never violated'. What differs is how a LOCAL send_close(1015) request is reported back to its caller: Java's CloseFrame.setCode silently rewrites 1015 to 1005 before validation and the refusal surfaces as the 1005 case, where an RFC-shaped API would name the 1015 violation. RFC 6455 says nothing about local API error reporting, so this is a choice on a point it does not reach: underspecified-behavior.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 32,
+      "delta_id": "delta-bfeedfec04c8e1ca64975dfe00d91280fc036df814d8829717fa384e803d4322",
+      "record_digest": "sha256:b7a8492493d2752b8826a5d85d817f1dc90c7d6fa644ffdeb9b4886b3e99516e",
+      "subject_ref": "semantic:org.java-websocket.closeframe.invalid-utf8-reason-runtime-rejection:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.5.1",
+        "rfc6455#section-8.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:isValid",
+      "rationale_quote": "DIVERGENCE (invalid-UTF-8 close reason vocabulary): the RFC fails with 1007; the pinned runtime surfaces a NullPointerException-class rejection with NO close code (Q12).",
+      "argument": "Sections 5.5.1 and 8.1 are determinate: the close reason after the 2-byte code must be valid UTF-8 and a receiver that gets an invalid one fails the connection with 1007, which the rfc_value normalizes to 'reject: 1007 close on an invalid-UTF-8 close reason'. In the pinned runtime the reason decodes to null and the isValid dereference raises a NullPointerException-class rejection with NO close code at all (quirk Q12, oracle failure code JAVA_RUNTIME_REJECTION at translate time). Java is on the other side of a determinate rule, and 'no close code' is as far from 1007 as an observable gets: java-quirk.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 33,
+      "delta_id": "delta-c5429efb69d93e52fcbc5e26542b511df205a8a932c8cd3bb981d961ca00b58b",
+      "record_digest": "sha256:133abcb3d4ce5011f3afcfdc4e11d59ddc77af4bafce932e3c7a732207cde1f3",
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.close-echo-wire-composition:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "rust-defect",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.5.1",
+        "rfc6455#section-7.4.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:close",
+      "rationale_quote": "DIVERGENCE (close-echo wire composition, Autobahn 7.3.2): the ingredients were already ledgered at the core-observable level \u2014 delta-d509ac380f51587105ed2fb3 (a 1-byte close payload is a VALID 1002 close) and delta-954132f2fb781974 (the echo/record carries the constructor payload [0x03,0xE8]) \u2014 but their WIRE-LEVEL COMPOSITION replied 1000 to a malformed close, which wstest scores WRONG CODE.",
+      "argument": "THIS ONE IS A RUST DEFECT, AND THE DISCRIMINATOR IS WHICH SIDE JAVA IS ON. Section 5.5.1's SHOULD-echo and section 7.4.1's 1002 both point at a 1002 reply to a malformed 1-byte close, and the SHIPPED FULL STACK agrees with them: Draft_6455.processFrame routes CLOSING to processFrameClosing, which reads the DECODED cf.getCloseCode() and calls webSocketImpl.close(code, reason, true), so WebSocketImpl builds its own frame carrying the received code. RFC and Java agree; the port's core-level Q19/Q10 composition replied 1000, which wstest scores WRONG CODE. A port short of a target Java and the RFC share is rust-defect by definition. It is REMEDIED, in ws-driver's CloseEchoPolicy, with ws_core byte-identical -- so the class records where the mismatch came from, not whether it is still open.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 34,
+      "delta_id": "delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8",
+      "record_digest": "sha256:a8bf37b4b9e40dd803b6d36386f5bd50e3035e1d8e51c26e6f3d04b1b4e08f11",
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.4",
+        "rfc6455#section-7.1.7"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
+      "rationale_quote": "DIVERGENCE (dispatch-phase echo enqueue vs fail-before-delivery, Autobahn 5.15): the fuzzer sends a complete 2-fragment text message, a CONTINUATION frame with FIN=false where there is nothing to continue, and an unfragmented text, all in ONE chop.",
+      "argument": "The record's sealed rfc_value is 'unordered: the RFC permits either the echo-then-fail or the fail-immediately observable', which settles the class before any argument: section 5.4 requires a completed fragmented message to be delivered and section 7.1.7 permits failing immediately on a violation, and the RFC does not fix which wins when one read carries both. Java's two-phase decode enqueues the echo during dispatch and the failure path's flushAndClose flushes it; the port's typed failure lands before delivery. Two conforming choices on an open point, which Autobahn itself scores as OK versus NON-STRICT rather than pass versus fail: underspecified-behavior.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 35,
+      "delta_id": "delta-9dd3ab86744b6c2dc69a0452ea51ec26c5d170dc50e15b923bcb507af8a0b1ae",
+      "record_digest": "sha256:3fcd461cfea72e049628a0031bfbb90addecea2f2bb6997e62280cad1962656d",
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.rejected-local-close-readystate:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-7.1.3",
+        "rfc6455#section-7.4.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:close",
+      "rationale_quote": "DIVERGENCE (rejected local close, ReadyState): the RFC leaves an endpoint that never sent a Close frame in OPEN; shipped WebSocketImpl.close reaches CLOSING anyway via its unconditional tail assignment.",
+      "argument": "The RFC determines this observable and the record's rfc_value normalizes it to 'stay-open': section 7.1.3 makes CLOSING the state an endpoint occupies once it has SENT a Close frame, and an endpoint whose local close request is refused before any frame reaches the wire has sent none. Shipped WebSocketImpl.close reaches CLOSING anyway, through an unconditional tail assignment at WebSocketImpl.java:503 on the caught-InvalidDataException path. That is Java on the other side of a determinate rule: java-quirk. THE PORT IS ON THE RFC'S SIDE HERE, and not by preference: the change to match the source was implemented, measured, and reverted when the public corpus failed 1 of 74 because live Java's own recording of us005.pub.0000 is final_state open. The class names where the mismatch originates; the measured refutation is why the port does not reproduce it.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 36,
+      "delta_id": "delta-70c5f46a16b595df41cf57e958a968cac146b164f08680bf86fb2c612c3fad21",
+      "record_digest": "sha256:625551d2672c3a9011d2ea4d0082e8791bd17f02edacfaf191b2311e69b4bff1",
+      "subject_ref": "semantic:org.java-websocket.draft6455.client-handshake.limit-total-bytes:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "SAFE STRENGTHENING, NOT A LENIENCY DIVERGENCE (client handshake, limit-total-bytes; mapping-row direction=server_response key=HS_LIMIT_TOTAL_BYTES): the port retains a CONFIGURED total-byte budget for the handshake head; shipped Java has none and will grow the head for as long as the peer keeps sending.",
+      "argument": "The record's sealed rfc_value is 'no-requirement: the RFC prescribes no handshake head-size, header-count or header-line bound, so both an unbounded parser and a budgeted one conform'. That is decisive and mechanical: internal/deltaledger's determinacy rule refuses java-quirk on any record whose rfc_value opens with that token, because a class asserting the RFC determines the observable cannot stand where the record's own preimage says it does not. Shipped Java is unbounded (WebSocketImpl.java:370-387 grows tmpHandshakeBytes without a ceiling); the port keeps a configured budget and refuses with ClientHandshakeOutcome::LimitExceeded. Java and the port each chose differently on a point the RFC leaves open: underspecified-behavior. The direction is the unusual one -- the port is STRICTER -- which the record itself flags as a SAFE STRENGTHENING; direction bears on the disposition, not on the class.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 37,
+      "delta_id": "delta-0699136f87788d0424b76424c11132394329fbe8d08a92716f54fc39d4b8ac43",
+      "record_digest": "sha256:c1f8f7c4cf2f3f8c0300f0e16d35624b2216fcfe920c756b56b4d5392589a87f",
+      "subject_ref": "semantic:org.java-websocket.draft6455.client-handshake.limit-header-count:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "SAFE STRENGTHENING, NOT A LENIENCY DIVERGENCE (client handshake, limit-header-count; mapping-row direction=server_response key=HS_LIMIT_HEADER_COUNT): the port retains a CONFIGURED header-count budget; shipped Java has none, and unknown extra headers are stored and never consulted.",
+      "argument": "The record's sealed rfc_value is 'no-requirement: the RFC prescribes no handshake head-size, header-count or header-line bound, so both an unbounded parser and a budgeted one conform'. That is decisive and mechanical: internal/deltaledger's determinacy rule refuses java-quirk on any record whose rfc_value opens with that token, because a class asserting the RFC determines the observable cannot stand where the record's own preimage says it does not. Shipped Java is unbounded (the header loop in translateHandshakeHttp, Draft.java:113-127, has no count bound); the port keeps a configured budget and refuses with ClientHandshakeOutcome::LimitExceeded. Java and the port each chose differently on a point the RFC leaves open: underspecified-behavior. The direction is the unusual one -- the port is STRICTER -- which the record itself flags as a SAFE STRENGTHENING; direction bears on the disposition, not on the class.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 38,
+      "delta_id": "delta-9ac2c78dd8cf9108ea03d3da6aa92e82431cdaf89f19ec6f9be204677ff679b4",
+      "record_digest": "sha256:ec3b60cc4a55ce329a617313c47bde480137ea61cb43b7bee154b9d070095b3d",
+      "subject_ref": "semantic:org.java-websocket.draft6455.client-handshake.limit-header-line:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "SAFE STRENGTHENING, NOT A LENIENCY DIVERGENCE (client handshake, limit-header-line; mapping-row direction=server_response key=HS_LIMIT_HEADER_LINE_BYTES): the port retains a CONFIGURED per-line budget; shipped Java has none and will accumulate a single header line without bound.",
+      "argument": "The record's sealed rfc_value is 'no-requirement: the RFC prescribes no handshake head-size, header-count or header-line bound, so both an unbounded parser and a budgeted one conform'. That is decisive and mechanical: internal/deltaledger's determinacy rule refuses java-quirk on any record whose rfc_value opens with that token, because a class asserting the RFC determines the observable cannot stand where the record's own preimage says it does not. Shipped Java is unbounded (readLine accumulates to the CRLF pair with no per-line ceiling, Draft.java:70-87); the port keeps a configured budget and refuses with ClientHandshakeOutcome::LimitExceeded. Java and the port each chose differently on a point the RFC leaves open: underspecified-behavior. The direction is the unusual one -- the port is STRICTER -- which the record itself flags as a SAFE STRENGTHENING; direction bears on the disposition, not on the class.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 39,
+      "delta_id": "delta-7271c3cb553389862af1bc44821e305788e5ca49119c30855f7e259fea91d502",
+      "record_digest": "sha256:0464c57db1a321f63349bbf0347bbd4edbab56d01cba5006626c7006e9e22f07",
+      "subject_ref": "semantic:org.java-websocket.draft6455.client-handshake.bare-lf:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:readLine",
+      "rationale_quote": "DIVERGENCE (client handshake, bare-lf; mapping-row direction=server_response key=HS_BARE_LF): the corpus's RFC-derived model rejects the bare-LF response (HS_BARE_LF); shipped Java neither rejects nor accepts it but stalls as an incomplete head, and the port reproduces that stall.",
+      "argument": "The record's sealed rfc_value is 'recipient-choice: RFC 9112 section 2.2 permits but does not require recognizing a bare LF as a line terminator, so accepting the response and never completing it are both conformant', and it says explicitly that an earlier draft claiming section 2.2 'forbids' a bare LF was wrong. The RFC therefore does not determine the observable; shipped Java declines the MAY (Draft.readLine returns only on the CR-LF pair, Draft.java:78) and stalls as an incomplete head, and the corpus's RFC-derived MODEL rejects. Model versus Java on a point the RFC leaves to the recipient: underspecified-behavior. This record is the reason sequence 13, which binds the OPPOSITE reading of the same clause on the server direction, is filed as contested.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 40,
+      "delta_id": "delta-575251bebcf1d07defe3f5d1def263e0421876f1236125f1b0be70363d88f685",
+      "record_digest": "sha256:4d3494bc5aea784bf5c750354844f2db1dd5d203c56c6e6623c374b11aca9daf",
+      "subject_ref": "semantic:org.java-websocket.draft6455.client-handshake.header-name-not-token:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "DIVERGENCE (client handshake, header-name-not-token; mapping-row direction=server_response key=HS_HEADER_NAME_NOT_TOKEN): the RFC-derived model rejects the non-token header name; the pinned Java client stores it unvalidated.",
+      "argument": "The record's rfc_value is 'reject: refuse the server's opening handshake', resting on RFC 9110 section 5.1's field-name = token, which a name containing a space is not. Java performs no header-name validation on either direction: translateHandshakeHttp splits on the FIRST colon and stores whatever precedes it (Draft.java:113-127). The record's own seed makes the mechanism visible -- 'Up grade' is stored as a field named 'Up grade', so the lookup for 'Upgrade' finds nothing and basicAccept rejects NOT_MATCHED, the right outcome for the wrong reason, while a non-token name on any header the client never consults is accepted outright. Java is on the other side of a determinate rule: java-quirk.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 41,
+      "delta_id": "delta-a3f29baee924524931c42e2054738ea3dd913af225e5843ceb6a6e59359cc586",
+      "record_digest": "sha256:cfcc1f58b02c38a03a92c8a01caef97d6c005ee342be9b14f151e29c7aeec6b7",
+      "subject_ref": "semantic:org.java-websocket.draft6455.client-handshake.duplicate-header:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.2"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "DIVERGENCE (client handshake, duplicate-header; mapping-row direction=server_response key=HS_DUPLICATE_HEADER): the RFC-derived model rejects the duplicated field; the pinned Java client combines it with a non-specified separator and judges the joined value.",
+      "argument": "The record's rfc_value is 'malformed-message-or-comma-combine', and its own corrected text is precise about what section 5.3 does and does not say: it places the MUST NOT on the SENDER, it permits a recipient to combine duplicates, and where a recipient combines them it fixes the separator -- 'separated by a comma (\",\") and optional whitespace'. Java joins with the literal '; ' (Draft.java:119-125), a separator the RFC does not specify, and judges the joined value. On the separator the RFC is determinate and Java is on the other side: java-quirk. LIKE SEQUENCE 10, THIS IS CONTESTABLE and I record it as a reading: a reviewer who holds section 5.3's comma clause to be descriptive of list-based fields only would class it underspecified-behavior. The two records get the same answer for the same reason, which is the point of stating the rule once.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 42,
+      "delta_id": "delta-399674b2e79d8af9250e10d53bf7778cf673c1044d3bfc16f254a153b6f12a06",
+      "record_digest": "sha256:891afd563fe952515efc31e62be4854455e74e7a873faf1c96cc86aa0860f635",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.transfer-encoding-ignored:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "DIVERGENCE (server handshake, Transfer-Encoding ignored): RFC 9112 section 6.3 requires a 400 and a close when a request's Transfer-Encoding does not end in chunked; shipped Java has no transfer-coding handling at all and the field is inert.",
+      "argument": "RFC 9112 section 6.3 is quoted verbatim in the record's own rfc_expectation and is a MUST: where a request's Transfer-Encoding does not end in chunked the server MUST respond 400 and close, and the rfc_value normalizes that to 'reject'. Shipped Java has no transfer-coding handling of any kind -- the record establishes the absence by search rather than assumption, noting the string 'Transfer-Encoding' does not occur anywhere in src/main/java -- so the field is parsed into the map and never read. Java is on the other side of a determinate MUST: java-quirk. The record's request-smuggling note is a deployment-topology risk that follows from the quirk; it does not change where the mismatch originates.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 43,
+      "delta_id": "delta-3b7389f93842e70405f57e9a865907acceac79977882ecdd3f914cf59fdb54ca",
+      "record_digest": "sha256:2a78ac7642d3c152fc4b294ac2e1112929fd8fe42b9a19b52166f7839e8aaeaf",
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.pre-open-send-refusal-recoverability:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-5.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:send",
+      "rationale_quote": "DIVERGENCE (pre-open sends, refusal recoverability) \u2014 AND THE DIRECTION IS THE UNUSUAL ONE: the port is STRICTER than shipped Java, so this is a port-versus-Java safe strengthening, not a Java-versus-RFC leniency the port reproduces.",
+      "argument": "The record's sealed rfc_value is 'unspecified: the RFC neither requires nor forbids the connection remaining usable after a pre-handshake send is refused', so the determinacy rule forbids java-quirk here and the RFC-silence arm is the one that applies. Shipped Java's refusal is RECOVERABLE -- the WebsocketNotConnectedException throw at WebSocketImpl.java:667 mutates nothing and the instance stays usable -- while the port refuses with FailureCode::StateViolation and POISONS the core under its uniform partial-execution discipline. Java and the port each chose differently on a point outside the protocol entirely: underspecified-behavior. The record notes the arm is corpus-invisible, so no live-oracle observation bears on it either way.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 44,
+      "delta_id": "delta-137c3716a7e7280172a22e7f2cd0e468a923442aec3eea765c3b36c6e7ddacac",
+      "record_digest": "sha256:b57d875bd26862ceec797dc611edf80d89042bdbf3842068160480d52055a021",
+      "subject_ref": "semantic:org.java-websocket.draft6455.framing.rsv-rejection-readystate:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-7.1.7"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.extensions.DefaultExtension:isFrameValid",
+      "rationale_quote": "DIVERGENCE (reserved-bit rejection, resulting ReadyState): the RFC requires failing the connection, which takes the endpoint out of OPEN; the port leaves it OPEN because that is what the live pinned Java oracle records.",
+      "argument": "The RFC determines this one and the record's rfc_value normalizes it to 'closed': section 5.2 requires an endpoint receiving a nonzero RSV bit with no negotiated extension to Fail the WebSocket Connection, and 7.1.7 makes failing it take the endpoint out of OPEN. The MEASURED pinned runtime does not: the live recording for us005.pub.0005 keeps final_state open. Java at the observation point this ledger measures is on the other side of a determinate rule: java-quirk. TWO THINGS THE READER SHOULD WEIGH AGAINST THIS. The record's java_value is 'entry-point-dependent' -- WebSocketImpl.decodeFrames DOES close on the caught exception, so a full-stack reading would put Java on the RFC's side and the port alone in the open, which is the shape that makes sequences 33 and 49 rust-defect. And the Codex plane at df6aa20 ranks the RFC above Java at this exact pointer while classing Java's open as java_quirk, which agrees with this attribution even where it disagrees about what to do.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 45,
+      "delta_id": "delta-79c18cfe541d54e0c858e0da17e67f122da8b08b8a068d850b9770dbd6293a82",
+      "record_digest": "sha256:3d1fa4456447795af706f3af6809f0efa86fc52ecf5b9104529b186f8c868f62",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-total-bytes.hs0046.corrected:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "SUPERSEDES ledger-sequence=14 delta=delta-0b3b46bc555629de7e873b3210c312d74baebd4314170b0997d4c2fd3537d99e subject=semantic:org.java-websocket.draft6455.server-handshake.limit-total-bytes.hs0046:provisional-v1 reason=wrong-rfc-basis-10.4-is-scoped-to-frames-not-the-handshake; SUPERSEDING CORRECTION for ledger sequence 14 (delta-0b3b46bc555629de7e873b3210c312d74baebd4314170b0997d4c2fd3537d99e, subject semantic:org.java-websocket.draft6455.server-handshake.limit-total-bytes.hs0046:provisional-v1).",
+      "argument": "This is the CORRECTING record, and its own corrected basis settles the class. Its sealed rfc_value is 'no-requirement: the RFC prescribes no handshake head-size, header-count or header-line bound', reached by quoting section 10.4 verbatim and finding it scoped to frames and to total message size after reassembly rather than to the opening handshake. internal/deltaledger's determinacy rule therefore refuses java-quirk on it mechanically. Shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132, and WebSocketImpl.java:370-387 grows tmpHandshakeBytes without bound); the port keeps the configured budget deliberately under the AC-amendment's rule that checked config limits are not relaxed. Two conforming choices on a point the RFC leaves open: underspecified-behavior. The superseded record at sequence 14 carries the same class for the same reason.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 46,
+      "delta_id": "delta-b7de70c681542c0ff650b7de1a7704826f79ed81058d7deb44aae0e5dc790e96",
+      "record_digest": "sha256:4989f3cf366d104c25aa476289c3935c70891228ab67c6da0ba80d16955b4591",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-count.hs0047.corrected:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "SUPERSEDES ledger-sequence=15 delta=delta-ffc8fa535cdeb82aaedb59919ef6b02f67b19815662737ee837c93eacacbe991 subject=semantic:org.java-websocket.draft6455.server-handshake.limit-header-count.hs0047:provisional-v1 reason=wrong-rfc-basis-10.4-is-scoped-to-frames-not-the-handshake; SUPERSEDING CORRECTION for ledger sequence 15 (delta-ffc8fa535cdeb82aaedb59919ef6b02f67b19815662737ee837c93eacacbe991, subject semantic:org.java-websocket.draft6455.server-handshake.limit-header-count.hs0047:provisional-v1).",
+      "argument": "This is the CORRECTING record, and its own corrected basis settles the class. Its sealed rfc_value is 'no-requirement: the RFC prescribes no handshake head-size, header-count or header-line bound', reached by quoting section 10.4 verbatim and finding it scoped to frames and to total message size after reassembly rather than to the opening handshake. internal/deltaledger's determinacy rule therefore refuses java-quirk on it mechanically. Shipped Java is unbounded (the header loop in translateHandshakeHttp is unbounded, Draft.java:113-127); the port keeps the configured budget deliberately under the AC-amendment's rule that checked config limits are not relaxed. Two conforming choices on a point the RFC leaves open: underspecified-behavior. The superseded record at sequence 15 carries the same class for the same reason.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 47,
+      "delta_id": "delta-7270836da2cecf6acc2a8e0d2a4fd8f15873f8f8d588494c2789358d369c5f0d",
+      "record_digest": "sha256:68991d1b2663ff9ef45fbb9e45eefe3bcb37e56c576bed33ecbe68290b1e09b4",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048.corrected:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "underspecified-behavior",
+      "cited_rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+      "rationale_quote": "SUPERSEDES ledger-sequence=16 delta=delta-ccbff7cfa1813dadd889b86f540da4328a921a0c93972b172177b323f5f5354f subject=semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048:provisional-v1 reason=wrong-rfc-basis-10.4-is-scoped-to-frames-not-the-handshake; SUPERSEDING CORRECTION for ledger sequence 16 (delta-ccbff7cfa1813dadd889b86f540da4328a921a0c93972b172177b323f5f5354f, subject semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048:provisional-v1).",
+      "argument": "This is the CORRECTING record, and its own corrected basis settles the class. Its sealed rfc_value is 'no-requirement: the RFC prescribes no handshake head-size, header-count or header-line bound', reached by quoting section 10.4 verbatim and finding it scoped to frames and to total message size after reassembly rather than to the opening handshake. internal/deltaledger's determinacy rule therefore refuses java-quirk on it mechanically. Shipped Java is unbounded (readLine returns only on the CRLF pair with no per-line ceiling, Draft.java:70-87); the port keeps the configured budget deliberately under the AC-amendment's rule that checked config limits are not relaxed. Two conforming choices on a point the RFC leaves open: underspecified-behavior. The superseded record at sequence 16 carries the same class for the same reason.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 48,
+      "delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "record_digest": "sha256:ab9277cb6bf4c822196999367a91bb6f357296b7b2584c3489cbe893cf78c2ac",
+      "subject_ref": "semantic:org.java-websocket.oracle-adapter.protocol-rejection-readystate-class:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "java-quirk",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-7.1.7",
+        "rfc6455#section-7.4.1",
+        "rfc6455#section-8.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
+      "rationale_quote": "DIVERGENCE (inbound protocol-decode rejection, resulting ReadyState \u2014 CLASS record): under an RFC-strict reading every one of these rejections fails the WebSocket connection and therefore does NOT leave the endpoint OPEN; the port stays OPEN because that is what the live pinned Java oracle records, on all eighteen affected public-corpus scenarios.",
+      "argument": "The class record for the same proposition sequence 44 carries on one instance, and it gets the same answer for the same reason. Section 7.1.7's Fail the WebSocket Connection is determinate and the rfc_value normalizes it to 'closed: every inbound protocol-level decode rejection takes the endpoint out of OPEN'. On all eighteen public-corpus scenarios the measured runtime records JAVA_INVALID_DATA raised on a bytes step with final_state nevertheless open. Java at the measured entry point is on the other side of a determinate rule: java-quirk. The record's own framing is the caution to carry forward -- shipped WebSocketImpl.decodeFrames DOES close on these rejections and the adapter path never reaches it, so both readings are faithful to different entry points of one jar, and this attribution is made at the entry point the corpus measures.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    },
+    {
+      "sequence": 49,
+      "delta_id": "delta-5b9964124dd65f22a4dbf8a7450937d130e7f32c23c9e8b700a67425457a10cd",
+      "record_digest": "sha256:eaa6eac8795ec8f6083e945ff8d6ec1778b37dd099c8acfaa6d4da36f1c01bbc",
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.protocol-violation-close-reaction:provisional-v1",
+      "examination": "evidence-settles-it",
+      "mismatch_class": "rust-defect",
+      "cited_rfc_refs": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-7.1.7",
+        "rfc6455#section-7.4.1"
+      ],
+      "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
+      "rationale_quote": "DIVERGENCE (protocol-violation reaction): the RFC and shipped WebSocketImpl answer a post-handshake protocol violation with a Close frame; our stack answered with nothing and dropped TCP, because it is Draft-level/oracle-faithful end to end.",
+      "argument": "RUST DEFECT, and the same discriminator as sequence 33: at the observation point where this divergence was externally visible, the RFC and shipped Java AGREE and the port was short of both. Section 7.1.7 requires a Close frame with an appropriate status code before the connection goes away and the rfc_value normalizes it to 'send-1002-then-close'; WebSocketImpl.decodeFrames answers exactly that (WebSocketImpl.java:405-408). Our stack answered with nothing and dropped TCP. The owner ruled c6-match-java-fully, which names Java as the target -- the definition's own second arm for rust-defect. It is REMEDIED at one layer, in ws-testee's io_loop, with ws_core deliberately unchanged at the Draft-level entry point the differential corpus measures; the class records where the mismatch came from, and the retained half is a disposition question this entry does not touch.",
+      "blocking_question": "",
+      "contests_record_basis": false,
+      "supersession_draft": ""
+    }
+  ]
+}

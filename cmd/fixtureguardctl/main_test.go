@@ -26,6 +26,23 @@ func fakeRoot(t *testing.T, files map[string]string) string {
 	if err := os.Symlink(abs, filepath.Join(root, "cmd", "fixtureguardctl", "testdata")); err != nil {
 		t.Fatal(err)
 	}
+	// Every declared production budget's anchor must exist, because the gate
+	// verifies it on every run (budget.go, verifyBudgetAnchors). A fake
+	// repository that omitted it would be testing a tree the real rule refuses
+	// to scan; TestAnchorlessTreeIsRefused omits it on purpose.
+	for _, pb := range productionBudgets {
+		if _, given := files[pb.Anchor]; given {
+			continue
+		}
+		anchorPath := filepath.Join(root, filepath.FromSlash(pb.Anchor))
+		if err := os.MkdirAll(filepath.Dir(anchorPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		stub := "fn drive() {\n    " + pb.LoopText + " {\n    }\n}\npub enum LoopOutcome { " + pb.Outcome + " }\n"
+		if err := os.WriteFile(anchorPath, []byte(stub), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for rel, body := range files {
 		p := filepath.Join(root, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -122,7 +139,9 @@ func TestRunAlwaysRunsTheSelfcheck(t *testing.T) {
 		"history/F005-pre-fix-concurrency.rs",
 		"refusals_before_the_drop",
 		"POLL_BUDGET",
-		"step=selfcheck cases=6 firing=3 silent=3 result=PASS",
+		"synthetic/production_budget_roles.rs",
+		"shape=C counter=max_polls",
+		"step=selfcheck cases=7 firing=4 silent=3 result=PASS",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("the run must show the historical self-check (%q missing):\n%s", want, out)

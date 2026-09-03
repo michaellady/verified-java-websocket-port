@@ -211,15 +211,35 @@ fn mock_server(scripts: Vec<MockScript>) -> (SocketAddr, thread::JoinHandle<Vec<
     (address, handle)
 }
 
+/// A poll budget stated as the WALL-CLOCK window it buys, instead of chosen as
+/// a magnitude (shape C of `make -C rust fixture-guard`; the full rationale is
+/// on the identical helper in `rust/ws-testee/tests/loopback.rs`).
+///
+/// `IoBounds` gives the shared I/O loop only a count, so the fixture states the
+/// deadline it actually means and converts it through the one cost a WAITING
+/// adapter pays per poll — `read_timeout`, the socket read it blocks in when it
+/// has nothing to do. A waiting run therefore cannot spend this budget in less
+/// than `deadline` however fast this host is, and the count follows
+/// `read_timeout` instead of silently shrinking the window whenever that
+/// changes.
+fn polls_for(deadline: Duration, read_timeout: Duration) -> u64 {
+    let per_poll = read_timeout.max(Duration::from_micros(1));
+    let polls = deadline.as_micros() / per_poll.as_micros();
+    u64::try_from(polls).unwrap_or(u64::MAX).max(1)
+}
+
 /// Test-only I/O bounds for the AGENT under test. The production default
 /// (200k polls at a 25 ms read timeout) lets a wedged connection sit for
 /// over an hour; a test must fail fast and visibly instead. Behavior under
 /// test is unchanged — only the give-up point moves.
 fn test_bounds() -> IoBounds {
+    let read_timeout = Duration::from_millis(2);
     IoBounds {
-        read_timeout: Duration::from_millis(2),
+        read_timeout,
         write_timeout: Duration::from_millis(2),
-        max_polls: 20_000,
+        // 40s, the window the old `max_polls: 20_000` bought at this
+        // read_timeout. The count is unchanged; only its derivation is.
+        max_polls: polls_for(Duration::from_secs(40), read_timeout),
         ..IoBounds::default()
     }
 }
@@ -235,10 +255,14 @@ fn test_bounds() -> IoBounds {
 /// ([`serve_mock`]). The agent keeps the larger budget precisely so the
 /// mock is always the side that hangs up first.
 fn mock_bounds() -> IoBounds {
+    let read_timeout = Duration::from_millis(1);
     IoBounds {
-        read_timeout: Duration::from_millis(1),
+        read_timeout,
         write_timeout: Duration::from_millis(1),
-        max_polls: 2_000,
+        // 2s against the agent's 40s, so the mock is still always the side
+        // that hangs up first — the ordering the doc above states is now an
+        // ordering of DURATIONS rather than of two chosen magnitudes.
+        max_polls: polls_for(Duration::from_secs(2), read_timeout),
         ..IoBounds::default()
     }
 }

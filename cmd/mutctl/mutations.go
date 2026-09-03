@@ -425,6 +425,17 @@ func CuratedMutations() []Mutation {
 		// The AC5 clauses of US-013..US-016 name specific defect classes by
 		// hand; each one below is the literal seeded defect for a named class
 		// so the AC5 evidence is class-complete, not merely operator-complete.
+		//
+		// THIS COMMENT CANNOT FAIL, AND US-020's OWN AC5 CLAUSE WAS NEVER GIVEN
+		// THE SAME TREATMENT. Both halves of that are closed in
+		// internal/ac5class: the seven classes US-020 AC5 names are PARSED out
+		// of the PRD, every one binds to a seeded variant that must resolve in
+		// the shipped tree, and `ac5ctl run` executes each variant's named
+		// detector and MEASURES which normalized observation fields it moves.
+		// TestAC5RegisterCampaignBindingHolds (main_test.go) is what keeps that
+		// register and this table from drifting apart: a register row that
+		// claims to be part of this campaign must actually be a row of it,
+		// literal for literal.
 		{
 			// US-013 AC5 "event-order".
 			ID: "m013-close-event-order-swap", Operator: "event-order-swap", File: connection,

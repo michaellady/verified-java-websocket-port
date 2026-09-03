@@ -802,6 +802,148 @@
       ],
       "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
       "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee"
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.protocol-violation-close-reaction:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-7.1.7",
+        "rfc6455#section-7.4.1"
+      ],
+      "rfc_expectation_digest": "sha256:a53a0d2e0b9e0779f266b64d379210943c22d99ff9e59286ad40f48ecd08c4cc",
+      "rfc_value_digest": "sha256:a9fb2991972bd5c4accf25d429b97005122e760b18cfcb253ddaab1ebfe23f4d",
+      "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
+      "java_observation_digest": "sha256:39566ca56ec8b5adcf52306316ce98f8f6a3d52b79f8368041f537cfac946f16",
+      "java_value_digest": "sha256:4e4ecb8af1c235714f28766d2abc0b3002ffaa8a6cee5c5b6dd972fe9a87909f",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:3.2",
+        "autobahn-v25.10.1:4.1.1",
+        "autobahn-v25.10.1:7.7.5"
+      ],
+      "autobahn_result_digest": "sha256:7239172370c594f502d52a6f0e26ceb68960ab543a59d221c27db176584261c9",
+      "autobahn_value_digest": "sha256:4c5327c70813a0b255dfe3f8aeee40b56b0987e68d2548889fa516f821d93dd6"
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.adapter.role-gated-transport-close:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-5.5.1",
+        "rfc6455#section-7.1.1",
+        "rfc6455#section-7.1.2"
+      ],
+      "rfc_expectation_digest": "sha256:ccb5b10d2e391a05f2a2fbfc7d77d6d170455a632745e2b8e72fa43b6acd5841",
+      "rfc_value_digest": "sha256:63b02a2651f38cd565dcb5919e8ac2c32649e70b408d539774eac364c22e7ecf",
+      "java_ref": "java-v1.6.0:org.java_websocket.SocketChannelIOHelper:batch",
+      "java_observation_digest": "sha256:bf293453bbc8f95b36490edd96dc3566ea3128bf7947cbeaec988b7397263458",
+      "java_value_digest": "sha256:011514dc592bd8188109af30f11c7ceaac4dd9f6810da64a5e65b69217ac20cc",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:7.1.1"
+      ],
+      "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+      "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee"
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.failure-close-frame-emission:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-7.1.7",
+        "rfc6455#section-7.4.1"
+      ],
+      "rfc_expectation_digest": "sha256:614c0ae91441858a4698f81ef7541d053f4408d1c5d732b39bc887a0d5499027",
+      "rfc_value_digest": "sha256:6d0b15cb943c1e218a40203792421f4becf8f9354fc46ba3f09fc31ceeafb887",
+      "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:close",
+      "java_observation_digest": "sha256:a4748b2485312374c2d3a28193fb84658c8c7d6e4db90942292e42bd6a5cdee4",
+      "java_value_digest": "sha256:da0f913f66fb1d03c033b2d62d0ca30a910432cdb43e1fd9159dac7c2a8f4612",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:2.5",
+        "autobahn-v25.10.1:3.1",
+        "autobahn-v25.10.1:6.3.1",
+        "autobahn-v25.10.1:7.1.3"
+      ],
+      "autobahn_result_digest": "sha256:5a76b6d68dc6bbe1addc1c4f3ba6c94116341aed5002fa2fe875c4712c896e79",
+      "autobahn_value_digest": "sha256:770bee7c11dbf19208cf22cad7c134c9f60e90da1345919f641f4500aaf1dddb"
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.server-tcp-close-after-close-handshake:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-7.1.1"
+      ],
+      "rfc_expectation_digest": "sha256:347eb46d9ce1e086f36d9ddc69ea8340f8eb8cada7b1b153c549bfe343a81cbf",
+      "rfc_value_digest": "sha256:443661416bf1bd3ff19f9c9633b91bf8d1ee7187e6b9b3fdf207828d6409d44b",
+      "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:closeConnection",
+      "java_observation_digest": "sha256:a33fc81a0d965f9048b1367d902c837f5c24da5a8389561129d080961fcbe02d",
+      "java_value_digest": "sha256:8eb5a8c249696ce8a8a7cb32398f739737e1b9e25db2d6dff2de2cf91c896c75",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:1.1.1",
+        "autobahn-v25.10.1:1.1.6",
+        "autobahn-v25.10.1:7.1.1"
+      ],
+      "autobahn_result_digest": "sha256:3c828cd1826fa1a636d481ad1ac76deaf75e16f14ce86ce279705cb3901e7bea",
+      "autobahn_value_digest": "sha256:00750637c33b1303a284742334b1ac76d07fa545018c2c70818cc11e11da2540"
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.closeframe.invalid-utf8-reason-transport-stall:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-7.1.6",
+        "rfc6455#section-8.1"
+      ],
+      "rfc_expectation_digest": "sha256:c72f896f92af3c63d5f644554079ead17d81cce0a9329c068601cd3cf699432d",
+      "rfc_value_digest": "sha256:5877426239ab1aebffdd69b3528a983b53259563d5c5966ca34fde625b1f1df3",
+      "java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:isValid",
+      "java_observation_digest": "sha256:873ed9282aced750c42b0e6b72a2f08274a4861b0c89df4126911abb91eccac4",
+      "java_value_digest": "sha256:36d1a17cba2ec97a4f37585ea684fd8f1bbeb59ae6623c5d21f39910a63e556a",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:7.5.1"
+      ],
+      "autobahn_result_digest": "sha256:fb38e88594e72a79bab8252df5ffbd5a3c3962ca898553eb18e0184318642cbd",
+      "autobahn_value_digest": "sha256:3a116902e64f791d21a0204aae971929aab7f93bc80eea2d35c59b2610cce094"
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.pending-echo-versus-close-ordering:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-5.5.1",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_expectation_digest": "sha256:eff0b133b0f231e45d30b9a80ec0b2b8bd54ae3994e8f58ebc7af771a0d0c574",
+      "rfc_value_digest": "sha256:4b637e1cf8f2b73b3c75c576df93fd1971860d231a7369d5efd5b618e219dc73",
+      "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
+      "java_observation_digest": "sha256:4382cc72e4fb1d691882d4aa603a1fd920718171095b8da8949d992f6349c4b4",
+      "java_value_digest": "sha256:1c53b149f64c6e11cf036f642a6ae4a093d6b3521642ec4ce60be1b275a11be1",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:7.1.6"
+      ],
+      "autobahn_result_digest": "sha256:684e0e52f43b244f79c50515508a7e8226cf0cd9689591cd84716c4437f3e53e",
+      "autobahn_value_digest": "sha256:9e1c2665bc3f56d1649ad2384a8df904c1867e97704aca74b2f33863bbab3527"
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-4.2.2"
+      ],
+      "rfc_expectation_digest": "sha256:46476bd524837b1ff2314f10001962f97fe73c9736027e3c36c6d3da4ceb14c8",
+      "rfc_value_digest": "sha256:2d157bd8a80385099ec932a6d0211b9436dbf00f0027a11d4457f6af5b3c2ef5",
+      "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:postProcessHandshakeResponseAsServer",
+      "java_observation_digest": "sha256:85266e6f6c5bf0b42bd7db110ced48d72209cc3e2505dd239cefee45dc082f96",
+      "java_value_digest": "sha256:3e825da3c7c9c703d4f0caf8bfd0b1afacddc7e4d82f85b4a5a79ea90e485df1",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:1.1.1"
+      ],
+      "autobahn_result_digest": "sha256:72c1d42039356dfc302783492b9efe69520be9e067587f188aae776936a42081",
+      "autobahn_value_digest": "sha256:714570734d8c4e18464a5de67c662abac5eb6122dc8e492d4c0e7c6311f99f60"
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.handshake.field-emission-order:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-4.1"
+      ],
+      "rfc_expectation_digest": "sha256:099b3c1dff2dd21e0b6a13a52285d8b411758f684329c61337b43f73e083cca9",
+      "rfc_value_digest": "sha256:114e2fd321ccf1b0a0954c269a69a0d8e9d4aa883a5eb6b6da7230447d9c191d",
+      "java_ref": "java-v1.6.0:org.java_websocket.handshake.HandshakedataImpl1:put",
+      "java_observation_digest": "sha256:b033c1c3edce92366e4951a2a27cb8552e80a88608d4b62a37e5fb2e3ce9aac0",
+      "java_value_digest": "sha256:404ad02f54195b02e5640b84bf712239dc43c9d3ceaf2738fe76a47dd7efaaf1",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:1.1.1"
+      ],
+      "autobahn_result_digest": "sha256:040b0f51ca240137cc51dc87b05c0fcac4c6ebfab448c2744165c1126554c100",
+      "autobahn_value_digest": "sha256:060a0c7a166ce02918b7aeeb9125085bc73dd27c35172abfc35a7c2fa59963b7"
     }
   ],
   "provenance": [
@@ -1215,14 +1357,19 @@
       "evidence": [
         "java-oracle/src/main/java/OracleEngine.java",
         "rust/ws-core/src/connection.rs",
-        "rust/ws-core/src/framing.rs"
+        "rust/ws-core/src/framing.rs",
+        "rust/ws-driver/src/lib.rs",
+        "rust/ws-driver/tests/close_composition.rs",
+        "rust/ws-testee/tests/loopback.rs"
       ]
     },
     {
       "subject_ref": "semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering:provisional-v1",
       "source_kind": "public-corpus-proposition-plus-pinned-java-source",
       "evidence": [
-        "rust/ws-core/src/connection.rs"
+        "rust/ws-core/src/connection.rs",
+        "rust/ws-driver/src/lib.rs",
+        "rust/ws-testee/src/io_loop.rs"
       ]
     },
     {
@@ -1428,6 +1575,73 @@
         "us005.pub.0065",
         "us005.pub.0066",
         "us005.pub.0067"
+      ]
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.protocol-violation-close-reaction:provisional-v1",
+      "source_kind": "public-corpus-proposition-plus-pinned-java-source",
+      "evidence": [
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "protected/us017-c6-layer-split-owner-decision-2026-08-28.json",
+        "protected/us017-post-failure-owner-decisions-2026-08-28.json",
+        "rust/ws-core/src/connection.rs",
+        "rust/ws-testee/src/io_loop.rs",
+        "rust/ws-testee/tests/loopback.rs",
+        "us005.pub.0005"
+      ]
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.adapter.role-gated-transport-close:provisional-v1",
+      "source_kind": "pinned-java-source-plus-adapter-loopback-regression",
+      "evidence": [
+        "rust/ws-testee/src/io_loop.rs",
+        "rust/ws-testee/tests/loopback.rs"
+      ]
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.failure-close-frame-emission:provisional-v1",
+      "source_kind": "public-corpus-proposition-plus-pinned-java-source",
+      "evidence": [
+        "evidence/java/observed-close-divergences.json",
+        "rust/ws-testee/src/io_loop.rs",
+        "rust/ws-testee/tests/loopback.rs"
+      ]
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.server-tcp-close-after-close-handshake:provisional-v1",
+      "source_kind": "public-corpus-proposition-plus-pinned-java-source",
+      "evidence": [
+        "evidence/java/observed-close-divergences.json",
+        "rust/ws-testee/src/io_loop.rs"
+      ]
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.closeframe.invalid-utf8-reason-transport-stall:provisional-v1",
+      "source_kind": "public-corpus-proposition-plus-pinned-java-source",
+      "evidence": [
+        "evidence/java/observed-close-divergences.json"
+      ]
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.pending-echo-versus-close-ordering:provisional-v1",
+      "source_kind": "public-corpus-proposition-plus-pinned-java-source",
+      "evidence": [
+        "evidence/java/observed-close-divergences.json"
+      ]
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields:provisional-v1",
+      "source_kind": "executed-divergence-sweep-plus-pinned-java-source",
+      "evidence": [
+        "evidence/java/observed-close-divergences.json",
+        "rust/ws-core/src/handshake/server.rs"
+      ]
+    },
+    {
+      "subject_ref": "semantic:org.java-websocket.handshake.field-emission-order:provisional-v1",
+      "source_kind": "executed-divergence-sweep-plus-pinned-java-source",
+      "evidence": [
+        "evidence/java/observed-close-divergences.json"
       ]
     }
   ]

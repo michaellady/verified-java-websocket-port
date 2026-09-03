@@ -13,6 +13,32 @@ use ws_testee::{
     loopback_only, run_client_once, run_server_once,
 };
 
+/// A poll budget stated as the WALL-CLOCK window it buys, instead of chosen as
+/// a magnitude.
+///
+/// F005's rule for a fixture's own liveness guard is a generous wall-clock
+/// deadline, and `IoBounds` gives the shared I/O loop only a count. So the
+/// fixture states the deadline and converts it through the one cost a WAITING
+/// adapter actually pays per poll — `read_timeout`, the socket read it blocks
+/// in when it has nothing to do. A run that is waiting therefore cannot spend
+/// this budget in less than `deadline`, however fast this host is, and the
+/// number follows `read_timeout` instead of silently shrinking the window
+/// whenever that changes.
+///
+/// What this removes is the chosen magnitude. `max_polls: 50_000` was a number
+/// someone hoped was big enough; F005's `POLL_BUDGET = 2_000_000` was the same
+/// hope, on the same class, and it still lost a race with a 200-command
+/// producer under load. A duration is the bound these fixtures actually mean.
+///
+/// It does NOT apply to a test whose subject IS the budget (`max_polls: 0`,
+/// `: 1`): there, reaching the bound is the asserted result, the number is the
+/// thing under test, and it is written inline and left alone.
+fn polls_for(deadline: Duration, read_timeout: Duration) -> u64 {
+    let per_poll = read_timeout.max(Duration::from_micros(1));
+    let polls = deadline.as_micros() / per_poll.as_micros();
+    u64::try_from(polls).unwrap_or(u64::MAX).max(1)
+}
+
 fn server_thread(listener: TcpListener, bounds: IoBounds) -> thread::JoinHandle<ConnectionReport> {
     thread::spawn(move || {
         let fixture = ServerFixture {
@@ -463,11 +489,17 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
     driver
         .begin_client_handshake("/chat", "localhost")
         .expect("handshake start");
+    // The budget is a WALL-CLOCK window, not a magnitude: this run races the
+    // 300ms write-stall deadline three lines up, and it was `max_polls: 50_000`
+    // — a count that only happened to be worth about 100 seconds at this
+    // fixture's 2ms read timeout, and that would have silently become 1.6
+    // seconds if the timeout ever moved to 32 microseconds.
+    let stalled_read_timeout = Duration::from_millis(2);
     let bounds = IoBounds {
-        read_timeout: Duration::from_millis(2),
+        read_timeout: stalled_read_timeout,
         write_timeout: Duration::from_millis(10),
         write_stall_limit: Duration::from_millis(300),
-        max_polls: 50_000,
+        max_polls: polls_for(Duration::from_secs(100), stalled_read_timeout),
         ..IoBounds::default()
     };
     let mut report = ws_testee::io_loop::empty_report();
@@ -749,9 +781,10 @@ fn a_hard_handshake_write_error_shuts_down_and_reports_the_committed_request() {
         .begin_client_handshake("/chat", "localhost")
         .expect("handshake start commits the request frame");
     let mut report = ws_testee::io_loop::empty_report();
+    let handshake_read_timeout = Duration::from_millis(5);
     let bounds = IoBounds {
-        read_timeout: Duration::from_millis(5),
-        max_polls: 64,
+        read_timeout: handshake_read_timeout,
+        max_polls: polls_for(Duration::from_secs(5), handshake_read_timeout),
         ..IoBounds::default()
     };
     let opened =
@@ -1185,7 +1218,7 @@ fn a_rejected_server_handshake_delivers_its_committed_error_head_before_failing(
     let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
     let address = listener.local_addr().expect("bound address");
     let bounds = IoBounds {
-        max_polls: 4_000,
+        max_polls: polls_for(Duration::from_secs(100), IoBounds::default().read_timeout),
         ..IoBounds::default()
     };
     let server = server_thread(listener, bounds);
@@ -1392,14 +1425,18 @@ fn drain_until_eof_or_timeout(peer: &mut TcpStream) -> (Vec<u8>, bool) {
     }
 }
 
-/// Bounds with a 1ms socket read timeout and an explicit poll budget. An
-/// endpoint that does NOT close the transport spends this whole budget waiting
-/// on its peer, so the budget is also the window in which a wrongly-closing
-/// endpoint would have had every chance to close.
-fn prompt_bounds(max_polls: u64) -> IoBounds {
+/// Bounds with a 1ms socket read timeout and an explicit WALL-CLOCK window,
+/// converted to the poll count the shared loop takes (`polls_for`). An
+/// endpoint that does NOT close the transport spends this whole window waiting
+/// on its peer, so the window is also the time in which a wrongly-closing
+/// endpoint would have had every chance to close — which is why it has to be a
+/// duration and not a count of this host's turns.
+const PROMPT_READ_TIMEOUT: Duration = Duration::from_millis(1);
+
+fn prompt_bounds(deadline: Duration) -> IoBounds {
     IoBounds {
-        read_timeout: Duration::from_millis(1),
-        max_polls,
+        read_timeout: PROMPT_READ_TIMEOUT,
+        max_polls: polls_for(deadline, PROMPT_READ_TIMEOUT),
         ..IoBounds::default()
     }
 }
@@ -1427,7 +1464,7 @@ fn a_server_closes_the_tcp_connection_once_its_close_echo_has_drained() {
         &mut driver,
         &sender,
         &mut stream,
-        &prompt_bounds(2_000),
+        &prompt_bounds(Duration::from_secs(2)),
         ws_core::connection::Role::Server,
         &mut policy,
         &mut report,
@@ -1486,7 +1523,7 @@ fn a_client_does_not_close_the_tcp_connection_after_its_close_echo() {
         &mut driver,
         &sender,
         &mut stream,
-        &prompt_bounds(250),
+        &prompt_bounds(Duration::from_millis(250)),
         ws_core::connection::Role::Client,
         &mut policy,
         &mut report,
@@ -1535,7 +1572,7 @@ fn the_server_fixture_reaches_its_terminal_without_the_peer_ever_closing() {
     // handshake, so the witness is the adapter a caller actually runs.
     let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
     let address = listener.local_addr().expect("bound address");
-    let server = server_thread(listener, prompt_bounds(2_000));
+    let server = server_thread(listener, prompt_bounds(Duration::from_secs(2)));
 
     let mut peer = TcpStream::connect(address).expect("connect");
     peer.set_read_timeout(Some(Duration::from_secs(5)))
@@ -1604,7 +1641,7 @@ fn a_server_that_initiates_a_close_hangs_up_without_waiting_for_the_echo() {
         &mut driver,
         &sender,
         &mut stream,
-        &prompt_bounds(2_000),
+        &prompt_bounds(Duration::from_secs(2)),
         ws_core::connection::Role::Server,
         &mut policy,
         &mut report,
@@ -1690,7 +1727,7 @@ fn the_servers_101_date_field_carries_a_live_clock_not_a_fixed_instant() {
     let server = thread::spawn(move || {
         let fixture = ServerFixture {
             config: ConnectionConfig::default(),
-            bounds: prompt_bounds(20_000),
+            bounds: prompt_bounds(Duration::from_secs(20)),
         };
         run_server_once(&listener, &fixture)
     });
@@ -1785,7 +1822,7 @@ fn each_accepted_connection_stamps_its_own_date_not_the_fixtures() {
     let server = thread::spawn(move || {
         let fixture = ServerFixture {
             config: ConnectionConfig::default(),
-            bounds: prompt_bounds(20_000),
+            bounds: prompt_bounds(Duration::from_secs(20)),
         };
         // Both sessions come from ONE fixture value.
         for _ in 0..2 {
@@ -1829,4 +1866,167 @@ fn each_accepted_connection_stamps_its_own_date_not_the_fixtures() {
     );
 
     server.join().expect("server thread");
+}
+
+// ---------------------------------------------------------------------------
+// RESIDUAL 1 from `drafts/self-review/server-close-parity-round-1.md`: the
+// `pending_chunk.is_empty()` operand of the role-gated transport close had NO
+// failing witness. Attack A5 removed it and the whole `ws-testee` suite stayed
+// green (4 + 22 + 8 passed, exit 0). These two tests are that witness and its
+// control.
+//
+// Why no witness existed, established by reading the loop rather than by
+// trying fixtures until one worked. Inside `drive_connection`, `pending_chunk`
+// is filled ONLY by `stream.read`, and that read is reached only on a drained
+// `Idle` turn — after the role gate. On such a turn a SERVER already in
+// `Closing` has hung up one statement earlier, so the read never happens; and
+// the state cannot become `Closing` while a chunk IS pending, because every
+// route into `Closing` is either the chunk itself (consuming it, which empties
+// `pending_chunk`) or a producer command, and a held command is applied on the
+// preceding `Wake` turn — the very turn that did the read. The operand is
+// therefore unreachable through `drive_connection`'s own entry point, which is
+// exactly why deleting it changed nothing.
+//
+// `drive_connection_from` is where it becomes reachable, and that entry point
+// is not invented for the test: a peer may pipeline its first frames into the
+// same TCP segment as the handshake response (the Autobahn fuzzing server
+// does), leaving the caller holding message-phase bytes the socket will never
+// return again. The witness below is that shape with the driver already in
+// `Closing`.
+// ---------------------------------------------------------------------------
+
+/// `count` masked, empty-payload client->server PING frames back to back, as
+/// one pipelined TCP segment.
+///
+/// Twenty-one of them is the interesting size and the number is derived, not
+/// tuned: `ConnectionCore::handle_bytes` runs an ATOMICITY precheck before it
+/// mutates anything, refusing the whole chunk unless the event queue can hold
+/// `1 + EVENT_SLOTS_PER_FRAME * spans + CLOSE_ECHO_EVENT_SLOTS` = `3 + 3*spans`
+/// records. At the default `event_queue_capacity` of 64 that is satisfied up
+/// to 20 frames (63 slots) and refused from 21 (66 slots) — as non-fatal
+/// backpressure, so the adapter keeps the identical bytes and retries them.
+/// That refusal is the only way a driver can hold inbound bytes across a
+/// drained turn, which is what this gate's third operand exists to notice.
+fn pipelined_masked_pings(count: usize) -> Vec<u8> {
+    let mut segment = Vec::new();
+    for _ in 0..count {
+        segment.push(0x89u8);
+        segment.push(0x80u8);
+        segment.extend_from_slice(&TEST_MASK);
+    }
+    segment
+}
+
+#[test]
+fn a_server_in_closing_hangs_up_once_the_driver_has_taken_every_inbound_byte() {
+    // THE CONTROL for the witness below, differing in exactly one value: the
+    // carryover. With nothing carried over, the gate fires on the first
+    // drained turn and the run reaches its exactly-once terminal.
+    let (mut stream, mut peer) = socket_pair();
+    peer.set_read_timeout(Some(Duration::from_millis(750)))
+        .expect("peer read timeout");
+    let (sender, mut driver) = ws_driver::connection_driver_in_state(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Server,
+        ws_core::connection::InitialState::Closing,
+    );
+
+    let mut report = ws_testee::io_loop::empty_report();
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection_from(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &prompt_bounds(Duration::from_millis(250)),
+        ws_core::connection::Role::Server,
+        &mut policy,
+        &mut report,
+        Vec::new(),
+    );
+
+    let (_received, saw_eof) = drain_until_eof_or_timeout(&mut peer);
+    assert!(
+        saw_eof,
+        "control: a closing SERVER with no deferred bytes closes the transport itself"
+    );
+    assert!(
+        report.clean(),
+        "control: and that close is what carries the run to its terminal: {}",
+        report.summary()
+    );
+}
+
+#[test]
+fn a_server_must_not_hang_up_on_bytes_the_driver_has_not_taken_yet() {
+    // THE WITNESS for `pending_chunk.is_empty()`. Same closing SERVER, same
+    // bounds, same role — the only change is that the caller hands over bytes
+    // it already read off the socket and the driver defers them.
+    //
+    // Without the operand the adapter shuts the socket down BOTH ways on the
+    // first drained turn and pumps `TransportEof`, which carries the core to
+    // `Closed`; the loop then re-offers the identical bytes it never dropped,
+    // `handle_bytes` answers `closed + nonzero payload` with the quirk-Q26
+    // STATE VIOLATION, and the run ends `ProtocolFailure` with a 1002 close
+    // pushed at a socket that is already gone. With the operand the adapter
+    // holds the socket open for bytes that are still the driver's to take.
+    let (mut stream, mut peer) = socket_pair();
+    peer.set_read_timeout(Some(Duration::from_millis(750)))
+        .expect("peer read timeout");
+    let (sender, mut driver) = ws_driver::connection_driver_in_state(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Server,
+        ws_core::connection::InitialState::Closing,
+    );
+
+    let mut report = ws_testee::io_loop::empty_report();
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection_from(
+        &mut driver,
+        &sender,
+        &mut stream,
+        // The budget is this test's SUBJECT, not its liveness guard: the run
+        // is supposed to end by spending it, which is what the outcome
+        // assertion below states. A count is the right shape for that, and it
+        // is written inline so nothing has to infer the role.
+        &IoBounds {
+            read_timeout: PROMPT_READ_TIMEOUT,
+            max_polls: 64,
+            ..IoBounds::default()
+        },
+        ws_core::connection::Role::Server,
+        &mut policy,
+        &mut report,
+        pipelined_masked_pings(21),
+    );
+
+    // `stream` is still owned here and deliberately NOT dropped, exactly as in
+    // the echo test above: the only way the peer can see EOF is this endpoint
+    // having closed it.
+    let (received, saw_eof) = drain_until_eof_or_timeout(&mut peer);
+
+    assert!(
+        !saw_eof,
+        "REGRESSION: the adapter hung up while the driver was still holding {} \
+         deferred inbound byte(s); Java's gate is `outQueue.isEmpty()` — every \
+         committed byte on the wire — and bytes the OWNER has not applied yet \
+         are not that. report: {}",
+        pipelined_masked_pings(21).len(),
+        report.summary()
+    );
+    assert!(
+        received.is_empty(),
+        "REGRESSION: hanging up on deferred bytes made the adapter answer its \
+         own retry with a violation close ({received:02x?})"
+    );
+    assert_eq!(
+        report.outcome,
+        ws_testee::io_loop::LoopOutcome::BudgetExhausted,
+        "the run must end by spending its budget on bytes the driver kept \
+         refusing, never by tearing the transport down under them: {}",
+        report.summary()
+    );
+    assert_eq!(
+        report.violation_close_sent, None,
+        "REGRESSION: no protocol violation occurred here at all"
+    );
 }

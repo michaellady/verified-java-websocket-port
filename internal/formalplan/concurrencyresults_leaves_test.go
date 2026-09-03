@@ -435,19 +435,64 @@ func crPrintable(value any) string {
 // ---------------------------------------------------------------------------
 
 // crExpectedLeafCount is the document's leaf cardinality. It is pinned so the
-// denominator of every "N of 337" statement is itself a measurement. It was
+// denominator of every "N of 401" statement is itself a measurement. It was
 // 162 until the landing union merged claude/us017-ac2's record into this one,
-// and 327 until the claude/post-failure landing modelled the explored
-// SCENARIOS: bounds.scenarios and bounds.actions_across_scenarios replaced the
-// single bounds.actions_per_schedule, bounds.scenario_shapes added five leaves
-// per scenario, and execution.counters.terminal_rejections went away with the
-// disposition it counted (+12 -2 = +10).
-const crExpectedLeafCount = 337
+// 327 until the claude/post-failure landing modelled the explored SCENARIOS,
+// and 337 after that landing's own review round. This branch takes it to 401,
+// and the +64 is four changes and no others (measured leaf-path by leaf-path
+// against the pre-branch document, not counted by hand):
+//
+//   - +56 -1: `revision_note`, ONE string carrying every accumulated
+//     paragraph, becomes `revision_history`, EIGHT paragraphs of seven leaves
+//     each (identity, status, superseded_by, note, and the three counters the
+//     paragraph quotes);
+//   - +5: the appended clean-finish-inbound-ping scenario adds a
+//     bounds.scenario_shapes entry;
+//   - +3: the harness's three clean-route coverage readings -
+//     distinct_clean_terminal_digests, clean_terminal_scenarios and
+//     halted_terminals - are recorded beside the run count instead of being
+//     computed and discarded;
+//   - +1: limitations[12], the clean-route coverage ceiling.
+const crExpectedLeafCount = 401
 
 // crInertLeaves is the residual set: leaves that still accept a plausible
 // wrong value. Transcribed from CR_LEAF_ENUM=print, not chosen.
 //
-// WHAT IS LEFT, AND WHY EACH ONE IS LEFT. Four classes, and none of them is
+// THE READING THIS BRANCH MOVED. 75 inert of 337 before, 70 of 401 after, and
+// the delta is six leaves in three directions:
+//
+//   - `revision_note` is GONE, which was finding 2 of the post-failure landing
+//     review. It had been on this list in every round since the list existed,
+//     always with the same justification - "session prose" - and that
+//     justification was true only because nothing had been asked of it. The
+//     field is replaced by revision_history, whose 56 leaves are ALL checked:
+//     an identity stamped at both ends of its own paragraph, a status of which
+//     exactly one may be CURRENT and it must be last, a chain that must reach
+//     the next paragraph, an anchor that must be the oldest paragraph, and a
+//     counters_quoted triple held to the partition every exploration reading
+//     obeys.
+//   - The FOUR scenario-prose leaves are GONE. bounds.scenario_shapes[*]
+//     .models and .why_explored were added to this list at the post-failure
+//     landing with the reasoning that they are "prose about history ...
+//     nothing in this tree can contradict it". That was wrong in the same way:
+//     what a scenario models and why it is explored is decided in the harness,
+//     and the harness now declares both under `RECORD <field>:` markers that
+//     crValidateScenarioProse compares as normalised word sequences. The two
+//     leaves of the THIRD scenario are checked from the moment it lands, so
+//     appending a scenario no longer appends inert leaves.
+//   - `preregistered_plan.conformance` was CHECKED before this branch and
+//     measured INERT after it, and is now checked again. This is the reading
+//     the enumeration exists for: appending a third scenario re-worded the
+//     sentence from "across BOTH scenarios" to "across ALL 3 scenarios", and
+//     the battery's candidate for a sentence carrying a number moves the FIRST
+//     number - so `across ALL 4 scenarios` was accepted at zero findings,
+//     because the prose tokenizer that guards this document's counters applies
+//     a four-digit floor. A single re-wording un-bound a scenario count in the
+//     sentence that says the exploration stayed inside its preregistered
+//     bounds. crValidatePlanConformanceShape renders the three scenario
+//     clauses from bounds.scenario_shapes and requires each verbatim.
+//
+// WHAT IS LEFT, AND WHY EACH ONE IS LEFT. Three classes, and none of them is
 // "we ran out of ideas":
 //
 //   - Defect narrative (description, fix, found_by, note, finding_verbatim,
@@ -455,11 +500,11 @@ const crExpectedLeafCount = 337
 //     defects the landed record rolls. How a defect was found, what it was,
 //     what the reviewer wrote and how it was fixed is prose about history. It
 //     carries no number, verdict, identity or scope claim that anything in
-//     this tree can contradict. The claim ceiling inside a defect record — its
+//     this tree can contradict. The claim ceiling inside a defect record - its
 //     RED evidence, its regression coverage, its shrink, its reproduction's
-//     seed — is bound; the story around it is not.
-//   - Seven RED readings — defects 3, 4, 5, 6, 8, 9 and the sweep's
-//     harness_polarity_read — each accept ONE candidate: a number moved inside
+//     seed - is bound; the story around it is not.
+//   - Seven RED readings - defects 3, 4, 5, 6, 8, 9 and the sweep's
+//     harness_polarity_read - each accept ONE candidate: a number moved inside
 //     the runtime output they quote (frames=1 becoming frames=2 in a label the
 //     failing test printed; "budget 1:" becoming "budget 2:" in the violation
 //     the pre-fix sweep printed). The quoted ASSERTION text is resolved into
@@ -468,7 +513,7 @@ const crExpectedLeafCount = 337
 //     "MUTATED", a neighbour's reading and a truncation are refused; the
 //     values the pre-fix run printed exist nowhere in the committed tree to
 //     compare against.
-//   - Prose that accepts one candidate — a number moved inside a citation
+//   - Prose that accepts one candidate - a number moved inside a citation
 //     token (AC2, round-2, io_loop.rs:228, US-017, a commit id, a session id)
 //     or a truncation that keeps every load-bearing clause: adapter_model,
 //     the two run citations' binding and executed_against sentences, the
@@ -479,8 +524,18 @@ const crExpectedLeafCount = 337
 //     are checked (phrases from both halves, re-derived numbers where the
 //     sentence quotes a counter, the seed's own fields where it names a seed);
 //     the token values are attested, not derived.
-//   - native_stress.rustc and revision_note, as in every round before this
-//     one: a compiler version string and the session prose.
+//   - native_stress.rustc, as in every round before this one: a compiler
+//     version string. It is now the ONLY survivor of the pair this list has
+//     carried since it was written; revision_note, the other one, is above.
+//
+// LIMITATIONS[12] IS NOT ON THIS LIST, and it is the entry this branch added.
+// The clean-route coverage ceiling is bound twice over: crValidateQuotedCounters
+// re-derives the four counters it quotes, and crValidateCleanRouteCeiling
+// requires the three clauses that make it a ceiling rather than a paragraph of
+// arithmetic AND resolves the revision_history identity it names. The second
+// check exists because the first was not enough: with only the counters bound,
+// cutting the limitation in half was accepted at zero findings, since all four
+// counters occur in its first 863 characters.
 //
 // THE SIX found_index ORDINALS ARE GONE FROM THIS LIST, after being named in
 // it for three rounds. They were the class the reviewer kept re-flagging: the
@@ -489,14 +544,16 @@ const crExpectedLeafCount = 337
 // nothing disagreed. The retention test in
 // rust/ws-driver/tests/schedule_exploration.rs now writes `found_index=` into
 // the seed body it re-derives and byte-compares, and the Go validator compares
-// the document's ordinal to the seed's — so the ordinals are pinned by exactly
+// the document's ordinal to the seed's - so the ordinals are pinned by exactly
 // the digest that already pinned the schedule beside them. Measured after the
 // fix: substituting another artifact's real ordinal, an adjacent ordinal, or a
 // plausible small integer each produces RESULTS_SEED_CONTENT_CONTRADICTED.
+// They are unchanged by this branch because the new scenario is APPENDED, so
+// no schedule index in the first two scenarios moves.
 //
 // THE FATAL-TERMINATION SWEEP'S MAGNITUDES ARE GONE FROM THIS LIST TOO. At the
 // 2026-09-02 landing union the document carried the sweep block claude/us017-ac2
-// added — two totals and, after the union, five per-budget maps — and the
+// added - two totals and, after the union, five per-budget maps - and the
 // first enumeration of the merged document read every one of those numbers as
 // INERT: fatal_path_drop_runs_total moved from 56189 to 56190 and nothing
 // disagreed, exactly the transcription the record's own limitation admitted.
@@ -504,22 +561,8 @@ const crExpectedLeafCount = 337
 // (execution.fatal_termination_sweep.executed_run.sweep_stdout_lines, compared
 // element-for-element by assert_committed_results_cite_this_sweep) and
 // crValidateSweepRun re-derives the block from them.
-// THE SCENARIO PROSE IS THE ONE CLASS THIS LANDING ADDS, and it is four leaves,
-// not six. bounds.scenario_shapes[*].models and [*].why_explored say what a
-// scenario stands for and why the owner asked for it; that is prose about
-// history, exactly the defect-narrative class above, and nothing in this tree
-// can contradict it. The NAMES beside them are NOT in this list: a name is an
-// identity a reader takes at face value (terminal_disposition_model says which
-// scenario the clean terminals are all in), it measured INERT with "MUTATED"
-// accepted in either position, and crValidateScenarioNames now derives both
-// from the harness's own SCENARIOS table - the harness this record already
-// pins by identity and git_blob.
 var crInertLeaves = []string{
 	"adapter_model",
-	"bounds.scenario_shapes[0].models",
-	"bounds.scenario_shapes[0].why_explored",
-	"bounds.scenario_shapes[1].models",
-	"bounds.scenario_shapes[1].why_explored",
 	"defects_found_and_fixed[0].description",
 	"defects_found_and_fixed[0].fix",
 	"defects_found_and_fixed[0].found_by",
@@ -589,7 +632,6 @@ var crInertLeaves = []string{
 	"retention.minimized_artifacts[6].added_by",
 	"retention.pinned_artifacts_unchanged_by_review_round",
 	"retention.real_defect_regressions[1]",
-	"revision_note",
 }
 
 // TestConcurrencyResultsLeafInertnessIsPinned is the measurement of record.

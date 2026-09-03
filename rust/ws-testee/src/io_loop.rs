@@ -215,29 +215,52 @@ pub fn drive_connection(
     );
 }
 
-/// [`drive_connection`] starting from bytes that already arrived.
+/// [`drive_connection`] starting from bytes that have ALREADY been read off
+/// the socket and not yet handed to the driver.
 ///
 /// `carryover` is the message-phase remainder of the read that completed the
 /// opening handshake ([`HandshakeOutcome::carryover`]). A peer is free to
-/// pipeline its first frames into the same TCP segment as the handshake —
-/// the Autobahn fuzzing SERVER does exactly that, answering `/getCaseCount`
-/// with the 101 response, the case-count text frame, and a close frame
-/// back-to-back. Those bytes must be processed before the socket is read
-/// again or the message is lost and the connection ends at a bare EOF.
+/// pipeline its first frames into the same TCP segment as the opening-
+/// handshake response — the Autobahn fuzzing SERVER does exactly that,
+/// answering `/getCaseCount` with the 101, the case-count text frame and a
+/// close frame back to back — so a caller that completed the handshake with
+/// its own read holds a message-phase remainder no socket read will ever
+/// return again. Handing it here is the only way it is not lost.
+///
+/// This is also the ONE entry point through which the drained-`Idle` path can
+/// be reached while the driver is still holding deferred inbound bytes: inside
+/// the loop, `pending_chunk` is filled only by a read, a read happens only on
+/// a drained `Idle` turn, and on that turn a SERVER already in
+/// [`ReadyState::Closing`] has hung up one statement earlier. The
+/// `pending_chunk.is_empty()` operand of that gate therefore has no witness
+/// through [`drive_connection`] alone, and
+/// `a_server_must_not_hang_up_on_bytes_the_driver_has_not_taken_yet` is its
+/// witness through this one.
 ///
 /// `role` carries the same single decision it carries on
 /// [`drive_connection`]: the role-gated transport close of
 /// [`server_closes_transport`]. This is the function that owns the loop, so
 /// every entry point — the plain one, the agent, and the mutant controls —
 /// must state its role here rather than inherit one.
-///
-/// The eight parameters are the driver, its command sender, the socket, the
-/// I/O bounds, the role, the event policy, the report, and the carryover —
-/// each one a distinct thing this loop needs and none of them derivable from
-/// another. Grouping them behind a struct would satisfy the lint by hiding
-/// the role, which is the opposite of what the role gate is for, so the lint
-/// is suppressed HERE and named in the branch's residual list rather than
-/// silenced globally.
+// Eight parameters, one over clippy's default: the driver, its command
+// sender, the socket, the I/O bounds, the role, the event policy, the report
+// and the carryover — each a distinct thing this loop needs and none of them
+// derivable from another.
+//
+// The alternative is a grouping struct. It would satisfy the lint by
+// RELOCATING the seam rather than narrowing it: the same eight values still
+// have to be supplied at every call site, and a new public type appears that
+// `evidence/linkage` has to pin as a node it does not pin today. It would
+// also carry `role` — the parameter the role-gated transport close made
+// MANDATORY and POSITIONAL so no call site could acquire that behaviour by
+// omission (see `drive_connection`'s doc) — and any `Default` on such a
+// struct hands that back. A struct with no `Default` would keep `role`
+// mandatory, so that last point bounds the risk rather than settling the
+// question; the settled reasons are relocation-not-reduction and the new
+// pinned surface.
+//
+// The seam is wide because the adapter's seam is wide, and it is stated here
+// on the one function rather than hidden behind a type or silenced globally.
 #[allow(clippy::too_many_arguments)]
 pub fn drive_connection_from(
     driver: &mut ConnectionDriver,
@@ -265,16 +288,29 @@ pub fn drive_connection_from(
             let chunk = std::mem::take(&mut pending_chunk);
             let step = pump(driver, DriverInput::Inbound(&chunk), report);
             match step.input {
-                // The driver did not consume the bytes; retry the identical
-                // chunk after this output is handled.
-                InputDisposition::Deferred(_) => pending_chunk = chunk,
-                // The driver consumes only what it could use this turn: one
-                // read can carry several frames, so anything it did not take
-                // must be re-offered, never dropped.
+                // The driver reports what it actually applied, which under
+                // its shipped-Java inbound feed policy can be LESS than what
+                // was offered (`ws_driver::InboundFeedPolicy`, DIV-05). The
+                // driver consumes only what it could use this turn: one read
+                // can carry several frames, so the unapplied tail is retained
+                // and re-offered, never dropped. This loop owns transport, so
+                // it never asks WHY the split fell where it did.
                 InputDisposition::Consumed { bytes } if bytes < chunk.len() => {
                     pending_chunk = chunk[bytes..].to_vec();
                 }
-                InputDisposition::Consumed { .. } | InputDisposition::Rejected(_) => {}
+                InputDisposition::Consumed { .. } => {}
+                // The driver did not consume the bytes; retry the identical
+                // chunk after this output is handled.
+                //
+                // `Rejected` is UNREACHABLE on this arm: the driver builds it
+                // only for `Shutdown`, `TransportEof` and `WriteProgress`
+                // inputs (`ws_driver`: `reject_pending_eof_overflow` and the
+                // `InvalidWriteProgress` guard), never for `Inbound`. It is
+                // grouped here for exhaustiveness, and no test can tell this
+                // grouping apart from dropping the chunk.
+                InputDisposition::Deferred(_) | InputDisposition::Rejected(_) => {
+                    pending_chunk = chunk;
+                }
             }
             step
         };

@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verified-java-websocket-port.invalid/schemas/legacy-record-adjudications-1.0.0.schema.json",
+  "title": "Legacy-record adjudications, version 1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "evidence_kind",
+    "accepted_root_digest",
+    "ledger_document",
+    "pre_vocabulary_sequence",
+    "pre_vocabulary_head",
+    "records_without_ac3_class",
+    "adjudications"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/legacy-record-adjudications-1.0.0.schema.json"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "evidence_kind": {
+      "const": "legacy-record-adjudications"
+    },
+    "accepted_root_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "The accepted root the ledger document binds. Same value, so this document cannot be read against a different baseline."
+    },
+    "ledger_document": {
+      "const": "evidence/java/behavior-delta-ledger.json"
+    },
+    "pre_vocabulary_sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The last ledger sequence appended before the 1.2.0 disposition vocabulary existed. internal/deltaledger.VerifyLegacyAdjudications requires it to equal the PreVocabularySequence constant, so this document cannot claim to adjudicate a different set of records than the one that actually predates the field."
+    },
+    "pre_vocabulary_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "The RECORD DIGEST at pre_vocabulary_sequence. The chain is hash-linked, so this one value pins every byte of every record from 1 to that sequence -- a superset of the frozen prefix at sequence 35. If any adjudicated record changes, this stops matching and every entry in this document is refused at once."
+    },
+    "records_without_ac3_class": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "RECOMPUTED, NEVER PINNED. How many records in the whole chain state no US-020 AC3 mismatch class ANYWHERE -- neither in the record's own `mismatch_class` field nor in a sealed adjudication below. internal/deltaledger.VerifyLegacyAdjudications recounts it over the committed chain and refuses a document that understates it. There is deliberately no `const: 0` here and there must never be one: a number a schema pins to zero is exactly the fake gate `unledgered_disagreements` used to be before it was made a recomputation. NOTE that this is NOT the same number as the ledger document's own `records_without_mismatch_class`, which counts only records with no FIELD and stays at 49 because forty-nine sealed digest preimages cannot gain one."
+    },
+    "adjudications": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "delta_id",
+          "record_digest",
+          "subject_ref",
+          "examination",
+          "mismatch_class",
+          "cited_rfc_refs",
+          "cited_java_ref",
+          "rationale_quote",
+          "argument",
+          "blocking_question",
+          "contests_record_basis",
+          "supersession_draft"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "delta_id": {
+            "type": "string",
+            "pattern": "^delta-[0-9a-f]{64}$",
+            "description": "The record's delta identity. The gate does not merely compare it to the record's field: it RECOMPUTES the identity from the record's own disagreement digest and requires this to equal that, so an adjudication is bound to a record by the record's evidence rather than by a name typed beside it."
+          },
+          "record_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "The digest of the record this entry adjudicates. Any change to any byte of that record refuses this entry."
+          },
+          "subject_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "examination": {
+            "enum": [
+              "evidence-settles-it",
+              "evidence-does-not-settle-it",
+              "not-examined"
+            ],
+            "description": "The three honest states, and the third exists SO THAT IT CAN BE SAID. `evidence-settles-it` obliges a mismatch_class and forbids a blocking_question. `evidence-does-not-settle-it` forbids a class and obliges a blocking_question saying what WOULD settle it. `not-examined` forbids both and is counted against records_without_ac3_class exactly as an unclassed record is: a design in which \"I did not look\" is unrepresentable forces an author to misreport it as one of the other two."
+          },
+          "mismatch_class": {
+            "enum": [
+              "",
+              "java-quirk",
+              "rust-defect",
+              "underspecified-behavior"
+            ],
+            "description": "US-020 AC3's three classes, with the empty string for a record the evidence does not settle or that was not examined. Same meanings as the ledger's own per-record field: `java-quirk` = RFC 6455 determines the observable and the pinned Java runtime is on the other side of it; `rust-defect` = Java and the RFC agree (or Java is the equivalence target on a point the RFC leaves open) and the PORT fails to reproduce it; `underspecified-behavior` = RFC 6455 does not determine the observable and Java and the port each chose differently."
+          },
+          "cited_rfc_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "description": "Must be a subset of the RECORD'S OWN rfc_refs. An adjudication may not reach for a clause the record does not bind."
+          },
+          "cited_java_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Must equal the record's own java_ref."
+          },
+          "rationale_quote": {
+            "type": "string",
+            "minLength": 60,
+            "maxLength": 4096,
+            "description": "A VERBATIM substring of the record's own hashed rationale, at least 60 bytes, that appears in NO OTHER record's rationale in the chain. This is the binding that makes an adjudication impossible to write without reading its record: the rationale is inside the digest preimage, so the quote is content rather than a name, and the uniqueness requirement makes the shared retention boilerplate that forty-five of the records carry unusable for it."
+          },
+          "argument": {
+            "type": "string",
+            "minLength": 160,
+            "maxLength": 8192,
+            "description": "The adjudication itself, argued from the record's own evidence. It is published rather than hashed into anything BECAUSE it is a judgement: whether a class is RIGHT is meant to be overturnable, and a claim you cannot find is one you cannot argue with. The 160-byte floor is a floor on effort, not a judge of quality."
+          },
+          "blocking_question": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "What would settle a record the evidence does not. Required (at 60 bytes or more) when examination is `evidence-does-not-settle-it`, forbidden otherwise. \"The evidence does not settle it\" is an answer only when it says what WOULD."
+          },
+          "contests_record_basis": {
+            "type": "boolean",
+            "description": "True when the record's OWN sealed RFC basis or Java observation is contradicted by evidence recorded LATER in the chain. It is a declaration, and it carries a mechanical obligation with exactly two discharges: name a `supersession_draft` that exists under drafts/ledger-proposals/, or name the `superseded_by_sequence` the chain already carries. AN EARLIER VERSION OF THIS DOCUMENT LEFT SEQUENCES 14-16 UNMARKED and said in their `argument` prose that the chain had already corrected them. That was a finding recorded where nothing checks it: internal/deltaledger.VerifyLegacyAdjudications now re-derives the supersession links from the RECORDS' own hashed rationales and refuses an entry that adjudicates a withdrawn record without saying it is withdrawn."
+          },
+          "supersession_draft": {
+            "type": "string",
+            "maxLength": 512,
+            "description": "Repository-relative path to the committed draft proposing the superseding record. Must exist under drafts/ledger-proposals/ when named, and may be named only when contests_record_basis is true. Nothing on this path appends to the ledger -- corrections are DRAFTED and appending one is an owner decision."
+          },
+          "superseded_by_sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The sequence whose record supersedes this one, for a record the chain has ALREADY corrected. Not a label: the gate re-derives the supersession links from the records' own hashed rationales and refuses a value the chain does not say, refuses its absence when the chain records a supersession, and refuses the entry entirely if the class filed here disagrees with the class filed for the superseding record. Absent when the chain records no supersession of this record."
+          }
+        }
+      }
+    }
+  },
+  "description": "LEGACY-RECORD ADJUDICATIONS. US-020 AC3 requires every mismatch to be filed as a Java quirk, a Rust defect or underspecified behavior. The behavior-delta ledger gained that vocabulary at document schema 1.2.0 and the seven records appended at sequences 50-56 carry it in a per-record `mismatch_class` field. The forty-nine records sealed before the field existed cannot: a record's digest preimage is the canonical JSON of its whole delta, so adding a byte to any one of them rewrites the hash chain from that record on and breaks the frozen prefix at sequence 35 that protected/ledger-frozen-prefix-owner-decision-2026-08-28.json requires to stay byte-identical. THIS DOCUMENT IS WHERE THOSE FORTY-NINE ADJUDICATIONS LIVE, and internal/deltaledger.VerifyLegacyAdjudications is what stops it from being a place to type words: every entry is bound to its record by recomputed identity, by record digest, and by a verbatim quote of the record's own hashed rationale that no other record carries; the document is bound to the chain by the record digest at the pre-vocabulary sequence; the set of entries must be TOTAL over records 1..pre_vocabulary_sequence with nothing outside it, so the residual cannot fall by omission; and the residual is recomputed rather than declared. WHY NOT A SIDE TABLE FOR NEW RECORDS TOO: because a new record CAN carry the field, and an adjudication that could be sealed into the hash chain and instead lives beside it is unsealed for no reason. That is why entries for sequences after pre_vocabulary_sequence are refused outright. WHY NOT FORTY-NINE SUPERSEDING RECORDS: `supersededSubjects` marks the originals withdrawn, and coveringDefinitionsForRow, VerifyCensusRowsAreLedgered and UnledgeredEvidenceDemands all refuse a superseded record as census coverage, so adjudicating the forty-nine that way would strip the handshake-mapping and public-corpus censuses of their coverage and drive unledgered_disagreements off zero."
+}

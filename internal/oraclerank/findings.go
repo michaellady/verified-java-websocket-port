@@ -3,6 +3,7 @@ package oraclerank
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // Finding is a conclusion this census COMPUTES. Every field of every finding is
@@ -86,8 +87,9 @@ func Findings(reg Register, families []Family) []Finding {
 			ID:       fmt.Sprintf("ORACLE-RANK-INDISTINGUISHABLE-%d-%d", uint8(p.Higher), uint8(p.Lower)),
 			Severity: "BLOCKING",
 			Statement: fmt.Sprintf(
-				"%s is EMPIRICALLY INDISTINGUISHABLE from %s on this evidence: %d shared propositions where the two read different bytes, %d disagreements. AC2 gives %s authority over %s, and nothing here shows it is a separate oracle rather than a relabelling.",
-				p.Higher, p.Lower, p.CoVotes, p.Disagreements, p.Higher, p.Lower),
+				"%s is EMPIRICALLY INDISTINGUISHABLE from %s on this evidence: %d shared propositions where the two read different bytes, %d disagreements. AC2 gives %s authority over %s, and nothing here shows it is a separate oracle rather than a relabelling.%s",
+				p.Higher, p.Lower, p.CoVotes, p.Disagreements, p.Higher, p.Lower,
+				hollowCoVoteQualifier(p, families)),
 			Basis: append([]string{
 				fmt.Sprintf("independence_probe[%s vs %s].co_votes = %d, .disagreements = %d", p.Higher, p.Lower, p.CoVotes, p.Disagreements),
 			}, familyBasis(p)...),
@@ -132,8 +134,132 @@ func Findings(reg Register, families []Family) []Finding {
 		})
 	}
 
+	// F-6a: scored pairs whose co-votes carry ONE answer. The probe counts
+	// propositions; a family's projection onto a three-value verdict space
+	// can make N propositions carry a single distinguishable answer, and a
+	// reader who takes N for a body of evidence is reading a collision
+	// rather than a measurement. This is a different fault from a
+	// relabelling and it is disclosed separately so the two are not confused.
+	for _, p := range reg.IndependenceProbe {
+		for _, fp := range p.ByFamily {
+			if fp.Verdict != ProbeNotDistinguished && fp.Verdict != ProbeDistinguished {
+				continue
+			}
+			if fp.CoVotes < 2 || fp.Resolution.DistinctVerdictPairs != 1 {
+				continue
+			}
+			only := fp.Resolution.Pairs[0]
+			out = append(out, Finding{
+				ID:       fmt.Sprintf("ORACLE-RANK-COVOTE-COLLISION-%d-%d-%s", uint8(p.Higher), uint8(p.Lower), fp.Family),
+				Severity: "DISCLOSURE",
+				Statement: fmt.Sprintf(
+					"The %d co-votes %s and %s share in %s carry ONE distinct answer: %s said %q and %s said %q on every one of them. Those %d propositions are %d question asked %d times under this family's %d-value verdict space, so the probe's %s verdict there rests on a collision of the projection rather than on %d independent measurements. internal/normcollide measures the same collapse one layer down.",
+					fp.CoVotes, p.Higher, p.Lower, fp.Family, p.Higher, only.Higher, p.Lower, only.Lower,
+					fp.CoVotes, 1, fp.CoVotes, fp.Resolution.VerdictSpace, fp.Verdict, fp.CoVotes),
+				Basis: []string{
+					fmt.Sprintf("independence_probe[%s vs %s].by_family[%s].co_votes = %d", p.Higher, p.Lower, fp.Family, fp.CoVotes),
+					fmt.Sprintf("independence_probe[%s vs %s].by_family[%s].co_vote_resolution.distinct_verdict_pairs = %d", p.Higher, p.Lower, fp.Family, fp.Resolution.DistinctVerdictPairs),
+					fmt.Sprintf("independence_probe[%s vs %s].by_family[%s].co_vote_resolution.largest_class = %d", p.Higher, p.Lower, fp.Family, fp.Resolution.LargestClass),
+				},
+				OwnerActionRequired: fmt.Sprintf(
+					"put %s and %s in front of a question in %s whose answer varies, or read the pair's co-vote count as %d rather than %d.",
+					p.Higher, p.Lower, fp.Family, 1, fp.CoVotes),
+			})
+		}
+	}
+
+	// F-6: rank pairs the census JOINS on a key derived from the higher
+	// rank's own verdict. The independence probe's group test does not catch
+	// these: the two ranks are read from different documents, so the probe
+	// scores the pair, but the lookup makes disagreement impossible. Every
+	// co-vote such a pair contributes is a property of the join.
+	for _, f := range families {
+		for _, jd := range f.JoinDegeneracy {
+			if !jd.Degenerate {
+				continue
+			}
+			cov, dis := familyCoVotes(reg, jd)
+			out = append(out, Finding{
+				ID:       fmt.Sprintf("ORACLE-RANK-JOIN-DEGENERATE-%d-%d", uint8(jd.Higher), uint8(jd.Lower)),
+				Severity: "DISCLOSURE",
+				Statement: fmt.Sprintf(
+					"%s The independence probe scores this pair in this family because the two ranks are read from different documents, and it reports %d co-votes and %d disagreements there. Those %d co-votes carry no information about whether %s is a separate oracle from %s: %d was the only number the join could produce.",
+					jd.Statement, cov, dis, cov, jd.Higher, jd.Lower, dis),
+				Basis: []string{
+					fmt.Sprintf("families[%s].join_degeneracy[0].disagreement_structurally_impossible = %v", jd.Family, jd.Degenerate),
+					fmt.Sprintf("families[%s].join_degeneracy[0].lower_rank_verdicts_reachable_from_each_higher_verdict = %v", jd.Family, jd.ReachableVerdicts),
+					fmt.Sprintf("independence_probe[%s vs %s].by_family[%s] = co_votes %d, disagreements %d", jd.Higher, jd.Lower, jd.Family, cov, dis),
+				},
+				OwnerActionRequired: fmt.Sprintf(
+					"read %s's rank-four opinions from a per-case observation of the pinned Java process rather than from a table keyed by rank three's own verdict, or state in this family's rank_sources that the pair is not comparable here.",
+					jd.Family),
+			})
+		}
+	}
+
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
+}
+
+// familyCoVotes reads the probe's own numbers for one pair inside one family,
+// so the finding restates the register rather than recounting the evidence.
+func familyCoVotes(reg Register, jd JoinDegeneracy) (coVotes, disagreements int) {
+	for _, p := range reg.IndependenceProbe {
+		if p.Higher != jd.Higher || p.Lower != jd.Lower {
+			continue
+		}
+		for _, fp := range p.ByFamily {
+			if fp.Family == jd.Family {
+				return fp.CoVotes, fp.Disagreements
+			}
+		}
+	}
+	return 0, 0
+}
+
+// hollowCoVoteQualifier appends, to an indistinguishability finding, how many
+// of the pair's co-votes could not have been a disagreement in the first place.
+//
+// It does NOT change when the finding fires or its severity. It exists because
+// "N shared propositions, 0 disagreements" reads as a large body of agreement,
+// and a reader must not be able to take a number for evidence when the census's
+// own join forbade disagreement (join_degeneracy) or the family's projection
+// collapsed the co-votes onto one answer (co_vote_resolution). Both figures are
+// computed elsewhere in this document; this sentence points at them.
+func hollowCoVoteQualifier(p PairProbe, families []Family) string {
+	degenerate := map[string]bool{}
+	for _, f := range families {
+		for _, jd := range f.JoinDegeneracy {
+			if jd.Degenerate && jd.Higher == p.Higher && jd.Lower == p.Lower {
+				degenerate[jd.Family] = true
+			}
+		}
+	}
+
+	forced, single, informative := 0, 0, 0
+	var reasons []string
+	for _, fp := range p.ByFamily {
+		if fp.Verdict != ProbeNotDistinguished && fp.Verdict != ProbeDistinguished {
+			continue
+		}
+		switch {
+		case degenerate[fp.Family]:
+			forced += fp.CoVotes
+			reasons = append(reasons, fmt.Sprintf("%d in %s where the census's own join makes disagreement structurally impossible", fp.CoVotes, fp.Family))
+		case fp.Resolution.DistinctVerdictPairs == 1 && fp.CoVotes > 1:
+			single += fp.CoVotes
+			reasons = append(reasons, fmt.Sprintf("%d in %s that carry one distinct answer between them", fp.CoVotes, fp.Family))
+		default:
+			informative += fp.CoVotes
+		}
+	}
+	if forced+single == 0 {
+		return ""
+	}
+	sort.Strings(reasons)
+	return fmt.Sprintf(
+		" READ THE %d WITH CARE: %s, leaving %d co-vote(s) that could have come out either way. See this document's join_degeneracy and co_vote_resolution.",
+		p.CoVotes, strings.Join(reasons, ", and "), informative)
 }
 
 func familyBasis(p PairProbe) []string {

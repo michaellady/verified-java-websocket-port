@@ -6044,6 +6044,7 @@
       "recommendation": "FIX_IN_PORT",
       "why": "The equivalence target is shipped Java 1.6.0, quirks included. Java's close code and reason are observable to every peer, and the distinct reason strings this run recorded are listed under this dimension's value_pairs; a peer that logs or branches on them sees a different program. The fix already exists on claude/post-failure and is queued as P2(a); this sweep measures its exact extent and gives it a per-case acceptance set.",
       "proposed_ledger_subject_ref": "semantic:org.java-websocket.websocketimpl.failure-close-frame-emission:provisional-v1",
+      "landed_ledger_sequence": 51,
       "case_counts_by_subject_role": {
         "client": 119,
         "server": 122
@@ -6323,6 +6324,7 @@
       "recommendation": "FIX_IN_PORT",
       "why": "RFC 6455 section 7.1.1 says the server should close the TCP connection first, and shipped Java does. Leaving it open is both a divergence from the equivalence target and a resource-holding difference a production peer would feel. This is queued as P2(b); the sweep supplies the case set and the two ways the suite scores it.",
       "proposed_ledger_subject_ref": "semantic:org.java-websocket.websocketimpl.server-tcp-close-after-close-handshake:provisional-v1",
+      "landed_ledger_sequence": 52,
       "case_counts_by_subject_role": {
         "server": 123
       },
@@ -6476,6 +6478,7 @@
       "recommendation": "FIX_IN_PORT",
       "why": "Not a separate defect and not a case to preserve: it is DIV-01's mechanism with the polarity reversed, and the same fix governs it. It is called out separately because it is the ONE case in 494 where the port ends a TCP connection Java leaves open, and a fix for DIV-01 that does not also reproduce Java's stall here would leave a divergence behind. Its acceptance criterion is therefore 'this case still differs from today's port after the DIV-01 fix' — which is why it must not be folded into DIV-01's count.",
       "proposed_ledger_subject_ref": "semantic:org.java-websocket.closeframe.invalid-utf8-reason-transport-stall:provisional-v1",
+      "landed_ledger_sequence": 53,
       "case_counts_by_subject_role": {
         "server": 1
       },
@@ -6536,6 +6539,7 @@
       "recommendation": "FIX_IN_PORT",
       "why": "Autobahn scores this case INFORMATIONAL for both subjects, so no scoring gate in this repository can see it, and the public corpus has no 256 KiB echo-versus-close race. Dropping an already-complete application message on close is a user-visible behaviour difference, not a strictness choice. It is a candidate defect and should be reproduced as a ws-core or ws-driver test before any fix; if reproduction shows the port cannot enqueue the echo without breaking a ledgered ordering, it becomes a ledger record instead. Recorded as FIX_IN_PORT with that reproduction as its precondition.",
       "proposed_ledger_subject_ref": "semantic:org.java-websocket.websocketimpl.pending-echo-versus-close-ordering:provisional-v1",
+      "landed_ledger_sequence": 54,
       "case_counts_by_subject_role": {
         "client": 1,
         "server": 1
@@ -6566,6 +6570,7 @@
       "recommendation": "FIX_IN_PORT",
       "why": "This is on every one of the 247 server-role cases and no gate in this repository sees it: Autobahn scores the upgrade, not the response fields, and the handshake exam scores the accept/reject decision and the Sec-WebSocket-Accept value. The port's own doc comment cites postProcessHandshakeResponseAsServer as the authority for the three fields it writes, while that same method writes five — an incomplete citation of the cited method. Date carries a clock so it cannot be reproduced byte-for-byte, which is a reason to disclose the field's VALUE as non-deterministic, not a reason to omit the field.",
       "proposed_ledger_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields:provisional-v1",
+      "landed_ledger_sequence": 55,
       "case_counts_by_subject_role": {
         "server": 247
       },
@@ -6836,6 +6841,7 @@
       "recommendation": "LEDGER_INTENTIONAL_CORRECTION",
       "why": "HTTP header order is not semantically significant under RFC 7230 for distinct field names, and no measured behaviour in this run depends on it: the suite accepted every one of the 247 requests. It is nonetheless an observable byte-level difference against the equivalence target, present on every case, and a peer that digests the raw request head would see it. It should be ledgered as a disclosed, deliberate ordering difference rather than either hidden or chased, unless the owner rules that byte-level handshake fidelity is in scope, in which case it becomes FIX_IN_PORT alongside DIV-06.",
       "proposed_ledger_subject_ref": "semantic:org.java-websocket.handshake.field-emission-order:provisional-v1",
+      "landed_ledger_sequence": 56,
       "case_counts_by_subject_role": {
         "client": 247
       },

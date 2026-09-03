@@ -1,4 +1,5 @@
 {
+  "$schema": "../../schemas/oracle-hierarchy-adjudication-register-1.0.0.schema.json",
   "schema_version": "1.0.0",
   "entity_type": "OracleHierarchyAdjudicationRegister",
   "statement": "US-020 AC2 says RFC 6455 is rank one, in-scope Autobahn is rank two, independent neutral expectations are rank three, Java observation is rank four and Rust observation is rank five, and that agreement between Java and Rust cannot override a higher oracle. Until this register that sentence had no mechanism anywhere in this tree: one prose string in internal/deltaledger/definitions_gap_closure.go, no type, no field and no check. internal/oraclerank is the mechanism. This document is what it computes from committed evidence, and cmd/oraclerankctl --check recomputes it and refuses any difference, so it is a gate rather than a document. The register is exact in both directions over its override list: an overridden agreement the evidence exhibits and this list omits fails, and an entry this list carries that the evidence does not exhibit fails.",
@@ -51,7 +52,7 @@
       "rank": 3,
       "rank_name": "rank3-neutral-expectation",
       "strength": "CONTENT_BOUND_TO_RECORDED_READING",
-      "statement": "Rank three is bound to the committed expectations in corpora/public/scenarios.jsonl and corpora/handshake/cases.jsonl, hashed on every run. The two tiers are NOT equally independent and this binding does not average them. Every one of the 74 public scenarios records expectation_status=\"REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION\", and internal/corpora.ReferenceBehavior -- the model those expectations are derived from -- documents itself as mirroring the pinned Java-WebSocket 1.6.0 sources. The handshake tier's expectations cite RFC clauses directly and do diverge from the Java observable; the independence probe in this document decides which tier is empirically distinguishable from rank four rather than taking either claim on trust.",
+      "statement": "Rank three is bound to two things, hashed on every run, and this binding does not average them. On the HANDSHAKE tier it is the committed expectations in corpora/handshake/cases.jsonl, whose basis cites RFC 6455, RFC 9110 and RFC 9112 clauses directly. On the PUBLIC tier it is no longer the corpus expectation at all: all 74 of those record expectation_status=\"REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION\" and are produced by internal/corpora.DeriveExpected under a reference model documenting itself as mirroring pinned Java-WebSocket 1.6.0, and rank four is deduced from that same expectation, so reading rank three out of it made the two ranks one oracle under two names. The public tier's rank-three opinions are now DERIVED ON THIS RUN by internal/rfcneutral from the stated rules of RFC 6455 sections 5 and 7 applied to each scenario's own inbound octets in corpora/public/scenarios.jsonl; the rule table at internal/rfcneutral/rules.go is hashed here so the register pins the exact reading that produced them.",
       "artifacts": [
         {
           "path": "corpora/public/scenarios.jsonl",
@@ -62,10 +63,15 @@
           "path": "corpora/handshake/cases.jsonl",
           "sha256": "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605",
           "bytes": 26254
+        },
+        {
+          "path": "internal/rfcneutral/rules.go",
+          "sha256": "sha256:7b60092996962a454d73d79de5d0829c93e6ad4797cee9c51d4eb2624b77838f",
+          "bytes": 11929
         }
       ],
-      "not_bound_to": "an oracle independent of rank four, on the public tier. All 74 public expectations are REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION, derived by internal/corpora.DeriveExpected under a reference model whose own doc comment says its defaults mirror pinned Java-WebSocket 1.6.0. A rank-three verdict on that tier is a restatement of a Java-shaped model, so it cannot be counted as an independent check on rank four there.",
-      "owner_action_required": "confirm the public-tier expectations against an oracle that is not the Java-mirroring reference model, or relabel that tier so rank three is not read as independent on it. The handshake tier needs no such action."
+      "not_bound_to": "the RFC 6455 text, on the public tier -- exactly as rank one is not. evidence/intake/source-pins.json pins https://www.rfc-editor.org/rfc/rfc6455.txt at sha256:765775326aee0ecca9b04bde3fd1f52932d498e33e34e428bd61b8a24da0fa3b (162067 bytes) and no file in this repository carries those bytes, so every rule in internal/rfcneutral/rules.go is a RECORDED READING written by hand and a misreading of a clause would pass this gate unchanged. This rank claims no more binding than rank one has. What it does claim is narrower and checkable: the rules are stated once and applied uniformly by a decoder to the scenario's own octets, and no Java artifact and no reference-model output is read on the way. On the handshake tier this rank is bound to a committed corpus expectation and NOT to any independent execution of it.",
+      "owner_action_required": "check the readings in internal/rfcneutral/rules.go clause by clause against https://www.rfc-editor.org/rfc/rfc6455.txt once those bytes are in the tree; each rule records the sentence it rests on for that purpose. On the handshake tier, supply a per-case observation of the pinned Java process so rank four is not looked up by a key computed from this rank's own verdict -- see the ORACLE-RANK-JOIN-DEGENERATE finding."
     },
     {
       "rank": 4,
@@ -220,7 +226,7 @@
             "corpora/handshake/cases.jsonl"
           ],
           "artifact_group": "handshake-corpus",
-          "note": "The committed handshake corpus's own `expected.verdict`, whose `basis` cites RFC 6455, RFC 9110 and RFC 9112 clauses directly. This tier's expectations are NOT the Java-mirroring reference model that produces the public tier's; they disagree with the Java observable on a large fraction of cases, which the independence probe measures rather than assumes."
+          "note": "The committed handshake corpus's own `expected.verdict`, whose `basis` cites RFC 6455, RFC 9110 and RFC 9112 clauses directly. This tier's expectations are NOT the Java-mirroring reference model that produces the public tier's. An earlier version of this note claimed they disagree with the Java observable on a large fraction of cases; THAT CLAIM WAS FALSE and is corrected here rather than deleted. The probe measured zero disagreements, and join_degeneracy below shows why zero was the only number the census's own join could produce: rank four's opinion is looked up by a key computed from this rank's verdict."
         },
         {
           "rank": 4,
@@ -248,7 +254,57 @@
       "cross_checks": [
         "every one of the 49 handshake cases resolved to an outcome key present in evidence/us005-handshake-live-mapping.json; an unmapped key is an error",
         "the mapping's rfc_verdict and java_observable were read as separate opinions and never reconciled by the census",
-        "the 19 outcome keys the mapping marks divergent are EXACTLY the 19 whose java_observable it records as `conditional`, asserted in both directions; rank four abstains on all of them, so this family cannot exhibit a rank-one-overrides-rank-four adjudication at all"
+        "the 19 outcome keys the mapping marks divergent are EXACTLY the 19 whose java_observable it records as `conditional`, asserted in both directions; rank four abstains on all of them, so this family cannot exhibit a rank-one-overrides-rank-four adjudication at all",
+        "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank1-rfc6455 and rank3-neutral-expectation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's rfc_verdict either v or `conditional`, and rank1-rfc6455 abstains on `conditional` (0 of the 42 keys). rank1-rfc6455's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles.",
+        "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank3-neutral-expectation and rank4-java-observation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's java_observable either v or `conditional`, and rank4-java-observation abstains on `conditional` (19 of the 42 keys). rank4-java-observation's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles."
+      ],
+      "join_degeneracy": [
+        {
+          "family_id": "handshake-verdict",
+          "higher_rank": 1,
+          "higher_rank_name": "rank1-rfc6455",
+          "lower_rank": 3,
+          "lower_rank_name": "rank3-neutral-expectation",
+          "key_derivation": "oraclerank.handshakeOutcomeKey(c) computes the mapping key from the corpus case's own expected.verdict -- rank3-neutral-expectation's verdict: `accept` and `incomplete` map to themselves, and `reject` maps to the case's reject_code. rank1-rfc6455's opinion is then read from the mapping's rfc_verdict at that key. The key is therefore a function of rank3-neutral-expectation's verdict.",
+          "disagreement_structurally_impossible": true,
+          "lower_rank_verdicts_reachable_from_each_higher_verdict": {
+            "accept": [
+              "accept"
+            ],
+            "incomplete": [
+              "incomplete"
+            ],
+            "reject": [
+              "reject"
+            ]
+          },
+          "lookup_keys_considered": 42,
+          "lookup_keys_that_make_the_lower_rank_abstain": 0,
+          "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank1-rfc6455 and rank3-neutral-expectation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's rfc_verdict either v or `conditional`, and rank1-rfc6455 abstains on `conditional` (0 of the 42 keys). rank1-rfc6455's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles."
+        },
+        {
+          "family_id": "handshake-verdict",
+          "higher_rank": 3,
+          "higher_rank_name": "rank3-neutral-expectation",
+          "lower_rank": 4,
+          "lower_rank_name": "rank4-java-observation",
+          "key_derivation": "oraclerank.handshakeOutcomeKey(c) computes the mapping key from the corpus case's own expected.verdict -- rank3-neutral-expectation's verdict: `accept` and `incomplete` map to themselves, and `reject` maps to the case's reject_code. rank4-java-observation's opinion is then read from the mapping's java_observable at that key. The key is therefore a function of rank3-neutral-expectation's verdict.",
+          "disagreement_structurally_impossible": true,
+          "lower_rank_verdicts_reachable_from_each_higher_verdict": {
+            "accept": [
+              "accept"
+            ],
+            "incomplete": [
+              "incomplete"
+            ],
+            "reject": [
+              "reject"
+            ]
+          },
+          "lookup_keys_considered": 42,
+          "lookup_keys_that_make_the_lower_rank_abstain": 19,
+          "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank3-neutral-expectation and rank4-java-observation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's java_observable either v or `conditional`, and rank4-java-observation abstains on `conditional` (19 of the 42 keys). rank4-java-observation's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles."
+        }
       ],
       "proposition_count": 49,
       "outcome_counts": {
@@ -291,12 +347,13 @@
         {
           "rank": 3,
           "rank_name": "rank3-neutral-expectation",
-          "strength": "CONTENT",
+          "strength": "RECORDED_READING",
           "paths": [
-            "corpora/public/scenarios.jsonl"
+            "corpora/public/scenarios.jsonl",
+            "internal/rfcneutral/rules.go"
           ],
-          "artifact_group": "public-corpus-expectation",
-          "note": "The corpus's own `expected.final_state`. Every scenario records expectation_status REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION, and rank four in this family is deduced from that same expectation plus a clean-sweep aggregate, so ranks three and four here are NOT independently sourced and the independence probe declines to score that pair."
+          "artifact_group": "rfc6455-mechanical-derivation",
+          "note": "DERIVED ON THIS RUN by internal/rfcneutral from the stated rules of RFC 6455 sections 5 and 7, applied by a frame decoder to each scenario's own inbound octets. It is NOT the corpus's expected.final_state, which is REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION under a model that mirrors pinned Java-WebSocket 1.6.0 and which rank four in this family is deduced from; reading rank three out of that expectation made ranks three and four one oracle under two names. The rule table is a RECORDED READING of the standard, hashed as an artifact of this rank, and claims no more binding than rank one has: the RFC text is not in this repository. The derivation abstains, naming the rule, wherever RFC 6455 does not decide -- a local application send, a harness limit the RFC does not state, a closing handshake whose CLOSING/CLOSED distinction belongs to the W3C API rather than to this protocol, and a declared non-open initial state."
         },
         {
           "rank": 4,
@@ -308,7 +365,7 @@
             "corpora/public/scenarios.jsonl"
           ],
           "artifact_group": "public-corpus-expectation",
-          "note": "No per-scenario Java transcript for the public tier is committed. The per-scenario Java observation is DEDUCED: both aggregates record 74 executed, 74 passed, 0 failed against the pristine java-oracle, and under a clean sweep every scenario's observed final_state equals its recorded expectation. The census refuses this deduction when either aggregate is short of a clean sweep."
+          "note": "No per-scenario Java transcript for the public tier is committed. The per-scenario Java observation is DEDUCED: both aggregates record 74 executed, 74 passed, 0 failed against the pristine java-oracle, and under a clean sweep every scenario's observed final_state equals its recorded expectation. The census refuses this deduction when either aggregate is short of a clean sweep. That expectation is the reference model's, which is why rank three is no longer read from it."
         },
         {
           "rank": 5,
@@ -333,24 +390,26 @@
         "evidence/us005-candidate-public-proof.json records the pristine java-oracle arm at 74/74 with evaluate_exit 0",
         "rust/ws-oracle-harness/baseline/borrow-batch-c-public-baseline.json records the Rust arm at 74/74 with exit_code 0",
         "every scenario id in corpora/public/scenarios.jsonl resolves to exactly one record in rust/ws-oracle-harness/baseline/borrow-batch-c-public-transcript.jsonl",
-        "every scenario enrolled by evidence/us005-public-rfc-divergence-census.json carries a recorded_observable equal to the corpus expectation it cites"
+        "every scenario enrolled by evidence/us005-public-rfc-divergence-census.json carries a recorded_observable equal to the corpus expectation it cites",
+        "rank three's 74 public-tier opinions are derived on this run by internal/rfcneutral from RFC 6455 sections 5 and 7: 29 open, 18 closed, 27 abstentions. By rule: A-harness-limit-not-stated-by-rfc6455 on 3; A-no-provision-governs-a-local-application-send on 14; A-readystate-not-defined-by-rfc6455-closing-handshake-started on 4; A-readystate-not-defined-by-rfc6455-non-open-initial-state on 6; R-5.2-nonzero-rsv-without-extension on 3; R-5.2-reserved-opcode on 2; R-5.4-continuation-without-a-fragmented-message on 2; R-5.4-data-frame-inside-a-fragmented-message on 2; R-5.5-control-frame-over-125-octets on 2; R-5.5-fragmented-control-frame on 1; R-5.5.1-close-body-of-exactly-one-octet on 1; R-5.6-text-payload-not-valid-utf8 on 2; R-7.4-close-status-code-not-defined-for-the-wire on 3; R-terminal-no-provision-required-failing on 29. The derivation reads scenario_id, role, initial_state, limits and steps and nothing else -- its scenario struct has no expected field -- and internal/rfcneutral.TestDerivationIgnoresRecordedExpectation re-derives over a corpus whose every expectation has been replaced with a contradictory one and requires identical decisions.",
+        "two independent readings of RFC 6455 compared, not reconciled: rank one's committed reading in evidence/us005-public-rfc-divergence-census.json enrols 18 scenarios as RFC-strict failures; rank three's mechanical derivation returns `closed` on 18. Where both give a verdict they agree on 17 and differ on 0. Enrolled by rank one but not decided `closed` by rank three: us005.pub.0031. Decided `closed` by rank three but not enrolled by rank one: us005.pub.0035."
       ],
       "proposition_count": 74,
       "outcome_counts": {
-        "CONCORDANT": 56,
-        "HIGHER_ORACLE_OVERRIDES": 18
+        "CONCORDANT": 55,
+        "HIGHER_ORACLE_OVERRIDES": 19
       },
       "votes_by_rank": {
         "rank1-rfc6455": 18,
         "rank2-autobahn-in-scope": 0,
-        "rank3-neutral-expectation": 74,
+        "rank3-neutral-expectation": 47,
         "rank4-java-observation": 74,
         "rank5-rust-observation": 74
       },
       "abstains_by_rank": {
         "rank1-rfc6455": 56,
         "rank2-autobahn-in-scope": 0,
-        "rank3-neutral-expectation": 0,
+        "rank3-neutral-expectation": 27,
         "rank4-java-observation": 0,
         "rank5-rust-observation": 0
       }
@@ -442,14 +501,9 @@
       "higher_rank_name": "rank1-rfc6455",
       "lower_rank": 3,
       "lower_rank_name": "rank3-neutral-expectation",
-      "verdict": "DISTINGUISHED",
-      "co_votes": 67,
-      "disagreements": 18,
-      "disagreement_examples": [
-        "public-corpus-ready-state/us005.pub.0005",
-        "public-corpus-ready-state/us005.pub.0019",
-        "public-corpus-ready-state/us005.pub.0020"
-      ],
+      "verdict": "NOT_DISTINGUISHED",
+      "co_votes": 66,
+      "disagreements": 0,
       "by_family": [
         {
           "family_id": "handshake-verdict",
@@ -457,23 +511,52 @@
           "higher_artifact_group": "handshake-live-mapping",
           "lower_artifact_group": "handshake-corpus",
           "co_votes": 49,
-          "disagreements": 0
+          "disagreements": 0,
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 3,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "reject",
+                "lower_verdict": "reject",
+                "propositions": 36
+              },
+              {
+                "higher_verdict": "accept",
+                "lower_verdict": "accept",
+                "propositions": 9
+              },
+              {
+                "higher_verdict": "incomplete",
+                "lower_verdict": "incomplete",
+                "propositions": 4
+              }
+            ],
+            "largest_class": 36,
+            "family_verdict_space_size": 3
+          }
         },
         {
           "family_id": "public-corpus-ready-state",
-          "verdict": "DISTINGUISHED",
+          "verdict": "NOT_DISTINGUISHED",
           "higher_artifact_group": "public-rfc-divergence-census",
-          "lower_artifact_group": "public-corpus-expectation",
-          "co_votes": 18,
-          "disagreements": 18,
-          "disagreement_examples": [
-            "public-corpus-ready-state/us005.pub.0005",
-            "public-corpus-ready-state/us005.pub.0019",
-            "public-corpus-ready-state/us005.pub.0020"
-          ]
+          "lower_artifact_group": "rfc6455-mechanical-derivation",
+          "co_votes": 17,
+          "disagreements": 0,
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 1,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "closed",
+                "lower_verdict": "closed",
+                "propositions": 17
+              }
+            ],
+            "largest_class": 17,
+            "family_verdict_space_size": 3
+          }
         }
       ],
-      "note": "rank1-rfc6455 differed from rank3-neutral-expectation on 18 of 67 independently sourced shared propositions ([public-corpus-ready-state])."
+      "note": "rank1-rfc6455 and rank3-neutral-expectation both gave a verdict on 66 independently sourced shared propositions and never differed. On this evidence rank1-rfc6455 cannot be shown to be a separate oracle from rank3-neutral-expectation."
     },
     {
       "higher_rank": 1,
@@ -495,7 +578,29 @@
           "higher_artifact_group": "handshake-live-mapping",
           "lower_artifact_group": "handshake-live-mapping",
           "co_votes": 32,
-          "disagreements": 0
+          "disagreements": 0,
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 3,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "reject",
+                "lower_verdict": "reject",
+                "propositions": 19
+              },
+              {
+                "higher_verdict": "accept",
+                "lower_verdict": "accept",
+                "propositions": 9
+              },
+              {
+                "higher_verdict": "incomplete",
+                "lower_verdict": "incomplete",
+                "propositions": 4
+              }
+            ],
+            "largest_class": 19,
+            "family_verdict_space_size": 3
+          }
         },
         {
           "family_id": "public-corpus-ready-state",
@@ -508,7 +613,19 @@
             "public-corpus-ready-state/us005.pub.0005",
             "public-corpus-ready-state/us005.pub.0019",
             "public-corpus-ready-state/us005.pub.0020"
-          ]
+          ],
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 1,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "closed",
+                "lower_verdict": "open",
+                "propositions": 18
+              }
+            ],
+            "largest_class": 18,
+            "family_verdict_space_size": 3
+          }
         }
       ],
       "note": "rank1-rfc6455 differed from rank4-java-observation on 18 of 18 independently sourced shared propositions ([public-corpus-ready-state])."
@@ -538,7 +655,19 @@
             "public-corpus-ready-state/us005.pub.0005",
             "public-corpus-ready-state/us005.pub.0019",
             "public-corpus-ready-state/us005.pub.0020"
-          ]
+          ],
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 1,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "closed",
+                "lower_verdict": "open",
+                "propositions": 18
+              }
+            ],
+            "largest_class": 18,
+            "family_verdict_space_size": 3
+          }
         }
       ],
       "note": "rank1-rfc6455 differed from rank5-rust-observation on 18 of 18 independently sourced shared propositions ([public-corpus-ready-state])."
@@ -579,7 +708,24 @@
             "autobahn-behavior-class/client/3.2",
             "autobahn-behavior-class/client/3.3",
             "autobahn-behavior-class/client/4.1.3"
-          ]
+          ],
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 2,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "OK",
+                "lower_verdict": "OK",
+                "propositions": 468
+              },
+              {
+                "higher_verdict": "OK",
+                "lower_verdict": "NON-STRICT",
+                "propositions": 20
+              }
+            ],
+            "largest_class": 468,
+            "family_verdict_space_size": 5
+          }
         }
       ],
       "note": "rank2-autobahn-in-scope differed from rank4-java-observation on 20 of 488 independently sourced shared propositions ([autobahn-behavior-class])."
@@ -609,7 +755,24 @@
             "autobahn-behavior-class/client/3.2",
             "autobahn-behavior-class/client/3.3",
             "autobahn-behavior-class/client/4.1.3"
-          ]
+          ],
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 2,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "OK",
+                "lower_verdict": "OK",
+                "propositions": 466
+              },
+              {
+                "higher_verdict": "OK",
+                "lower_verdict": "NON-STRICT",
+                "propositions": 22
+              }
+            ],
+            "largest_class": 466,
+            "family_verdict_space_size": 5
+          }
         }
       ],
       "note": "rank2-autobahn-in-scope differed from rank5-rust-observation on 22 of 488 independently sourced shared propositions ([autobahn-behavior-class])."
@@ -619,9 +782,14 @@
       "higher_rank_name": "rank3-neutral-expectation",
       "lower_rank": 4,
       "lower_rank_name": "rank4-java-observation",
-      "verdict": "NOT_DISTINGUISHED",
-      "co_votes": 32,
-      "disagreements": 0,
+      "verdict": "DISTINGUISHED",
+      "co_votes": 79,
+      "disagreements": 18,
+      "disagreement_examples": [
+        "public-corpus-ready-state/us005.pub.0005",
+        "public-corpus-ready-state/us005.pub.0019",
+        "public-corpus-ready-state/us005.pub.0020"
+      ],
       "by_family": [
         {
           "family_id": "handshake-verdict",
@@ -629,38 +797,119 @@
           "higher_artifact_group": "handshake-corpus",
           "lower_artifact_group": "handshake-live-mapping",
           "co_votes": 32,
-          "disagreements": 0
+          "disagreements": 0,
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 3,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "reject",
+                "lower_verdict": "reject",
+                "propositions": 19
+              },
+              {
+                "higher_verdict": "accept",
+                "lower_verdict": "accept",
+                "propositions": 9
+              },
+              {
+                "higher_verdict": "incomplete",
+                "lower_verdict": "incomplete",
+                "propositions": 4
+              }
+            ],
+            "largest_class": 19,
+            "family_verdict_space_size": 3
+          }
         },
         {
           "family_id": "public-corpus-ready-state",
-          "verdict": "NOT_PROBEABLE_SHARED_DERIVATION",
-          "higher_artifact_group": "public-corpus-expectation",
+          "verdict": "DISTINGUISHED",
+          "higher_artifact_group": "rfc6455-mechanical-derivation",
           "lower_artifact_group": "public-corpus-expectation",
-          "co_votes": 74,
-          "disagreements": 0
+          "co_votes": 47,
+          "disagreements": 18,
+          "disagreement_examples": [
+            "public-corpus-ready-state/us005.pub.0005",
+            "public-corpus-ready-state/us005.pub.0019",
+            "public-corpus-ready-state/us005.pub.0020"
+          ],
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 3,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "open",
+                "lower_verdict": "open",
+                "propositions": 29
+              },
+              {
+                "higher_verdict": "closed",
+                "lower_verdict": "open",
+                "propositions": 17
+              },
+              {
+                "higher_verdict": "closed",
+                "lower_verdict": "closing",
+                "propositions": 1
+              }
+            ],
+            "largest_class": 29,
+            "family_verdict_space_size": 3
+          }
         }
       ],
-      "note": "rank3-neutral-expectation and rank4-java-observation both gave a verdict on 32 independently sourced shared propositions and never differed. On this evidence rank3-neutral-expectation cannot be shown to be a separate oracle from rank4-java-observation."
+      "note": "rank3-neutral-expectation differed from rank4-java-observation on 18 of 79 independently sourced shared propositions ([public-corpus-ready-state])."
     },
     {
       "higher_rank": 3,
       "higher_rank_name": "rank3-neutral-expectation",
       "lower_rank": 5,
       "lower_rank_name": "rank5-rust-observation",
-      "verdict": "NOT_DISTINGUISHED",
-      "co_votes": 74,
-      "disagreements": 0,
+      "verdict": "DISTINGUISHED",
+      "co_votes": 47,
+      "disagreements": 18,
+      "disagreement_examples": [
+        "public-corpus-ready-state/us005.pub.0005",
+        "public-corpus-ready-state/us005.pub.0019",
+        "public-corpus-ready-state/us005.pub.0020"
+      ],
       "by_family": [
         {
           "family_id": "public-corpus-ready-state",
-          "verdict": "NOT_DISTINGUISHED",
-          "higher_artifact_group": "public-corpus-expectation",
+          "verdict": "DISTINGUISHED",
+          "higher_artifact_group": "rfc6455-mechanical-derivation",
           "lower_artifact_group": "rust-public-transcript",
-          "co_votes": 74,
-          "disagreements": 0
+          "co_votes": 47,
+          "disagreements": 18,
+          "disagreement_examples": [
+            "public-corpus-ready-state/us005.pub.0005",
+            "public-corpus-ready-state/us005.pub.0019",
+            "public-corpus-ready-state/us005.pub.0020"
+          ],
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 3,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "open",
+                "lower_verdict": "open",
+                "propositions": 29
+              },
+              {
+                "higher_verdict": "closed",
+                "lower_verdict": "open",
+                "propositions": 17
+              },
+              {
+                "higher_verdict": "closed",
+                "lower_verdict": "closing",
+                "propositions": 1
+              }
+            ],
+            "largest_class": 29,
+            "family_verdict_space_size": 3
+          }
         }
       ],
-      "note": "rank3-neutral-expectation and rank5-rust-observation both gave a verdict on 74 independently sourced shared propositions and never differed. On this evidence rank3-neutral-expectation cannot be shown to be a separate oracle from rank5-rust-observation."
+      "note": "rank3-neutral-expectation differed from rank5-rust-observation on 18 of 47 independently sourced shared propositions ([public-corpus-ready-state])."
     },
     {
       "higher_rank": 4,
@@ -685,7 +934,34 @@
           "disagreement_examples": [
             "autobahn-behavior-class/client/5.15",
             "autobahn-behavior-class/server/5.15"
-          ]
+          ],
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 4,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "OK",
+                "lower_verdict": "OK",
+                "propositions": 466
+              },
+              {
+                "higher_verdict": "NON-STRICT",
+                "lower_verdict": "NON-STRICT",
+                "propositions": 20
+              },
+              {
+                "higher_verdict": "INFORMATIONAL",
+                "lower_verdict": "INFORMATIONAL",
+                "propositions": 6
+              },
+              {
+                "higher_verdict": "OK",
+                "lower_verdict": "NON-STRICT",
+                "propositions": 2
+              }
+            ],
+            "largest_class": 466,
+            "family_verdict_space_size": 5
+          }
         },
         {
           "family_id": "public-corpus-ready-state",
@@ -693,7 +969,29 @@
           "higher_artifact_group": "public-corpus-expectation",
           "lower_artifact_group": "rust-public-transcript",
           "co_votes": 74,
-          "disagreements": 0
+          "disagreements": 0,
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 3,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "open",
+                "lower_verdict": "open",
+                "propositions": 59
+              },
+              {
+                "higher_verdict": "closed",
+                "lower_verdict": "closed",
+                "propositions": 8
+              },
+              {
+                "higher_verdict": "closing",
+                "lower_verdict": "closing",
+                "propositions": 7
+              }
+            ],
+            "largest_class": 59,
+            "family_verdict_space_size": 3
+          }
         },
         {
           "family_id": "differential-regression-probe",
@@ -701,20 +999,116 @@
           "higher_artifact_group": "differential-java-arm",
           "lower_artifact_group": "differential-rust-arm",
           "co_votes": 23,
-          "disagreements": 0
+          "disagreements": 0,
+          "co_vote_resolution": {
+            "distinct_verdict_pairs": 11,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "outcome=error;final_state=closed;error_code=STATE_VIOLATION;actions=0;buffered_bytes=0;consumed_bytes=0;frames=0;input_bytes=0;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=error;final_state=closed;error_code=STATE_VIOLATION;actions=0;buffered_bytes=0;consumed_bytes=0;frames=0;input_bytes=0;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 6
+              },
+              {
+                "higher_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=17;frames=0;input_bytes=25;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=17;frames=0;input_bytes=25;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 5
+              },
+              {
+                "higher_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=9;frames=0;input_bytes=9;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=9;frames=0;input_bytes=9;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 2
+              },
+              {
+                "higher_verdict": "outcome=ok;final_state=closing;actions=0;buffered_bytes=0;consumed_bytes=0;frames=0;input_bytes=0;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=ok;final_state=closing;actions=0;buffered_bytes=0;consumed_bytes=0;frames=0;input_bytes=0;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 2
+              },
+              {
+                "higher_verdict": "outcome=ok;final_state=open;actions=0;buffered_bytes=0;consumed_bytes=8;frames=1;input_bytes=8;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=ok;final_state=open;actions=0;buffered_bytes=0;consumed_bytes=8;frames=1;input_bytes=8;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 2
+              },
+              {
+                "higher_verdict": "outcome=error;final_state=closing;error_code=STATE_VIOLATION;actions=0;buffered_bytes=0;consumed_bytes=8;frames=1;input_bytes=8;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=error;final_state=closing;error_code=STATE_VIOLATION;actions=0;buffered_bytes=0;consumed_bytes=8;frames=1;input_bytes=8;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 1
+              },
+              {
+                "higher_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=142;frames=0;input_bytes=150;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=142;frames=0;input_bytes=150;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 1
+              },
+              {
+                "higher_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=25;frames=0;input_bytes=25;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=25;frames=0;input_bytes=25;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 1
+              },
+              {
+                "higher_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=9;frames=0;input_bytes=17;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=error;final_state=open;error_code=JAVA_INVALID_DATA;close_code=1002;actions=0;buffered_bytes=0;consumed_bytes=9;frames=0;input_bytes=17;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 1
+              },
+              {
+                "higher_verdict": "outcome=ok;final_state=closed;actions=0;buffered_bytes=0;consumed_bytes=0;frames=0;input_bytes=0;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=ok;final_state=closed;actions=0;buffered_bytes=0;consumed_bytes=0;frames=0;input_bytes=0;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 1
+              },
+              {
+                "higher_verdict": "outcome=ok;final_state=open;actions=0;buffered_bytes=0;consumed_bytes=0;frames=0;input_bytes=0;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "lower_verdict": "outcome=ok;final_state=open;actions=0;buffered_bytes=0;consumed_bytes=0;frames=0;input_bytes=0;message_buffered_bytes=0;wire_buffered_bytes=0",
+                "propositions": 1
+              }
+            ],
+            "largest_class": 6,
+            "family_verdict_space_size": 1
+          }
         }
       ],
       "note": "rank4-java-observation differed from rank5-rust-observation on 2 of 591 independently sourced shared propositions ([autobahn-behavior-class])."
+    }
+  ],
+  "family_resolution": [
+    {
+      "family_id": "autobahn-behavior-class",
+      "propositions": 494,
+      "distinct_opinion_tuples": 4,
+      "propositions_sharing_a_tuple_with_another": 494,
+      "largest_equivalence_class": 466,
+      "statement": "494 propositions carrying 4 distinct opinion tuples over a 5-value verdict space; 494 of them share a tuple with another proposition and the largest class holds 466. This census cannot distinguish two propositions in the same class, so agreement inside one is a property of the projection rather than a repeated measurement."
+    },
+    {
+      "family_id": "handshake-verdict",
+      "propositions": 49,
+      "distinct_opinion_tuples": 4,
+      "propositions_sharing_a_tuple_with_another": 49,
+      "largest_equivalence_class": 19,
+      "statement": "49 propositions carrying 4 distinct opinion tuples over a 3-value verdict space; 49 of them share a tuple with another proposition and the largest class holds 19. This census cannot distinguish two propositions in the same class, so agreement inside one is a property of the projection rather than a repeated measurement."
+    },
+    {
+      "family_id": "public-corpus-ready-state",
+      "propositions": 74,
+      "distinct_opinion_tuples": 7,
+      "propositions_sharing_a_tuple_with_another": 72,
+      "largest_equivalence_class": 29,
+      "statement": "74 propositions carrying 7 distinct opinion tuples over a 3-value verdict space; 72 of them share a tuple with another proposition and the largest class holds 29. This census cannot distinguish two propositions in the same class, so agreement inside one is a property of the projection rather than a repeated measurement."
+    },
+    {
+      "family_id": "differential-regression-probe",
+      "propositions": 23,
+      "distinct_opinion_tuples": 11,
+      "propositions_sharing_a_tuple_with_another": 17,
+      "largest_equivalence_class": 6,
+      "statement": "23 propositions carrying 11 distinct opinion tuples over a 1-value verdict space; 17 of them share a tuple with another proposition and the largest class holds 6. This census cannot distinguish two propositions in the same class, so agreement inside one is a property of the projection rather than a repeated measurement."
     }
   ],
   "findings": [
     {
       "id": "ORACLE-RANK-AC2-OVERRIDES",
       "severity": "BLOCKING",
-      "statement": "38 of the 589 propositions where Java and Rust agree are OVERRIDDEN by a higher oracle. On each of them the differential result reads as agreement and AC2 forbids reading that agreement as parity. Governing: [rank1-rfc6455 on 18 rank2-autobahn-in-scope on 20]. By family: [autobahn-behavior-class on 20 public-corpus-ready-state on 18].",
+      "statement": "39 of the 589 propositions where Java and Rust agree are OVERRIDDEN by a higher oracle. On each of them the differential result reads as agreement and AC2 forbids reading that agreement as parity. Governing: [rank1-rfc6455 on 18 rank2-autobahn-in-scope on 20 rank3-neutral-expectation on 1]. By family: [autobahn-behavior-class on 20 public-corpus-ready-state on 19].",
       "basis": [
         "accounting.java_rust_consensus = 589",
-        "accounting.java_rust_consensus_overridden = 38",
+        "accounting.java_rust_consensus_overridden = 39",
         "every entry is enrolled in java_rust_agreements_overridden_by_a_higher_oracle and the enrolment is exact in both directions (internal/oraclerank.VerifyRules)"
       ],
       "owner_action_required": "adjudicate each enrolled proposition -- Java quirk to preserve, port defect to fix, or underspecified behaviour -- and record the disposition. This register states that the question is open; it does not answer it, and it is not a waiver list."
@@ -732,33 +1126,78 @@
     {
       "id": "ORACLE-RANK-BINDING-3",
       "severity": "DISCLOSURE",
-      "statement": "rank3-neutral-expectation is CONTENT_BOUND_TO_RECORDED_READING, not CONTENT_BOUND. an oracle independent of rank four, on the public tier. All 74 public expectations are REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION, derived by internal/corpora.DeriveExpected under a reference model whose own doc comment says its defaults mirror pinned Java-WebSocket 1.6.0. A rank-three verdict on that tier is a restatement of a Java-shaped model, so it cannot be counted as an independent check on rank four there.",
+      "statement": "rank3-neutral-expectation is CONTENT_BOUND_TO_RECORDED_READING, not CONTENT_BOUND. the RFC 6455 text, on the public tier -- exactly as rank one is not. evidence/intake/source-pins.json pins https://www.rfc-editor.org/rfc/rfc6455.txt at sha256:765775326aee0ecca9b04bde3fd1f52932d498e33e34e428bd61b8a24da0fa3b (162067 bytes) and no file in this repository carries those bytes, so every rule in internal/rfcneutral/rules.go is a RECORDED READING written by hand and a misreading of a clause would pass this gate unchanged. This rank claims no more binding than rank one has. What it does claim is narrower and checkable: the rules are stated once and applied uniformly by a decoder to the scenario's own octets, and no Java artifact and no reference-model output is read on the way. On the handshake tier this rank is bound to a committed corpus expectation and NOT to any independent execution of it.",
       "basis": [
         "rank_bindings[rank3-neutral-expectation].strength = CONTENT_BOUND_TO_RECORDED_READING",
-        "rank_bindings[rank3-neutral-expectation] hashes 2 committed artifact(s) on every run"
+        "rank_bindings[rank3-neutral-expectation] hashes 3 committed artifact(s) on every run"
       ],
-      "owner_action_required": "confirm the public-tier expectations against an oracle that is not the Java-mirroring reference model, or relabel that tier so rank three is not read as independent on it. The handshake tier needs no such action."
+      "owner_action_required": "check the readings in internal/rfcneutral/rules.go clause by clause against https://www.rfc-editor.org/rfc/rfc6455.txt once those bytes are in the tree; each rule records the sentence it rests on for that purpose. On the handshake tier, supply a per-case observation of the pinned Java process so rank four is not looked up by a key computed from this rank's own verdict -- see the ORACLE-RANK-JOIN-DEGENERATE finding."
     },
     {
-      "id": "ORACLE-RANK-INDISTINGUISHABLE-3-4",
-      "severity": "BLOCKING",
-      "statement": "rank3-neutral-expectation is EMPIRICALLY INDISTINGUISHABLE from rank4-java-observation on this evidence: 32 shared propositions where the two read different bytes, 0 disagreements. AC2 gives rank3-neutral-expectation authority over rank4-java-observation, and nothing here shows it is a separate oracle rather than a relabelling.",
+      "id": "ORACLE-RANK-COVOTE-COLLISION-1-3-public-corpus-ready-state",
+      "severity": "DISCLOSURE",
+      "statement": "The 17 co-votes rank1-rfc6455 and rank3-neutral-expectation share in public-corpus-ready-state carry ONE distinct answer: rank1-rfc6455 said \"closed\" and rank3-neutral-expectation said \"closed\" on every one of them. Those 17 propositions are 1 question asked 17 times under this family's 3-value verdict space, so the probe's NOT_DISTINGUISHED verdict there rests on a collision of the projection rather than on 17 independent measurements. internal/normcollide measures the same collapse one layer down.",
       "basis": [
-        "independence_probe[rank3-neutral-expectation vs rank4-java-observation].co_votes = 32, .disagreements = 0",
-        "independence_probe[rank3-neutral-expectation vs rank4-java-observation].by_family[handshake-verdict] = NOT_DISTINGUISHED (co_votes 32, disagreements 0, groups \"handshake-corpus\" vs \"handshake-live-mapping\")",
-        "independence_probe[rank3-neutral-expectation vs rank4-java-observation].by_family[public-corpus-ready-state] = NOT_PROBEABLE_SHARED_DERIVATION (co_votes 74, disagreements 0, groups \"public-corpus-expectation\" vs \"public-corpus-expectation\")"
+        "independence_probe[rank1-rfc6455 vs rank3-neutral-expectation].by_family[public-corpus-ready-state].co_votes = 17",
+        "independence_probe[rank1-rfc6455 vs rank3-neutral-expectation].by_family[public-corpus-ready-state].co_vote_resolution.distinct_verdict_pairs = 1",
+        "independence_probe[rank1-rfc6455 vs rank3-neutral-expectation].by_family[public-corpus-ready-state].co_vote_resolution.largest_class = 17"
       ],
-      "owner_action_required": "supply evidence at rank3-neutral-expectation that is derived independently of rank4-java-observation and can disagree with it, or stop reading rank3-neutral-expectation as an independent check on rank4-java-observation."
+      "owner_action_required": "put rank1-rfc6455 and rank3-neutral-expectation in front of a question in public-corpus-ready-state whose answer varies, or read the pair's co-vote count as 1 rather than 17."
     },
     {
-      "id": "ORACLE-RANK-INDISTINGUISHABLE-3-5",
-      "severity": "BLOCKING",
-      "statement": "rank3-neutral-expectation is EMPIRICALLY INDISTINGUISHABLE from rank5-rust-observation on this evidence: 74 shared propositions where the two read different bytes, 0 disagreements. AC2 gives rank3-neutral-expectation authority over rank5-rust-observation, and nothing here shows it is a separate oracle rather than a relabelling.",
+      "id": "ORACLE-RANK-COVOTE-COLLISION-1-4-public-corpus-ready-state",
+      "severity": "DISCLOSURE",
+      "statement": "The 18 co-votes rank1-rfc6455 and rank4-java-observation share in public-corpus-ready-state carry ONE distinct answer: rank1-rfc6455 said \"closed\" and rank4-java-observation said \"open\" on every one of them. Those 18 propositions are 1 question asked 18 times under this family's 3-value verdict space, so the probe's DISTINGUISHED verdict there rests on a collision of the projection rather than on 18 independent measurements. internal/normcollide measures the same collapse one layer down.",
       "basis": [
-        "independence_probe[rank3-neutral-expectation vs rank5-rust-observation].co_votes = 74, .disagreements = 0",
-        "independence_probe[rank3-neutral-expectation vs rank5-rust-observation].by_family[public-corpus-ready-state] = NOT_DISTINGUISHED (co_votes 74, disagreements 0, groups \"public-corpus-expectation\" vs \"rust-public-transcript\")"
+        "independence_probe[rank1-rfc6455 vs rank4-java-observation].by_family[public-corpus-ready-state].co_votes = 18",
+        "independence_probe[rank1-rfc6455 vs rank4-java-observation].by_family[public-corpus-ready-state].co_vote_resolution.distinct_verdict_pairs = 1",
+        "independence_probe[rank1-rfc6455 vs rank4-java-observation].by_family[public-corpus-ready-state].co_vote_resolution.largest_class = 18"
       ],
-      "owner_action_required": "supply evidence at rank3-neutral-expectation that is derived independently of rank5-rust-observation and can disagree with it, or stop reading rank3-neutral-expectation as an independent check on rank5-rust-observation."
+      "owner_action_required": "put rank1-rfc6455 and rank4-java-observation in front of a question in public-corpus-ready-state whose answer varies, or read the pair's co-vote count as 1 rather than 18."
+    },
+    {
+      "id": "ORACLE-RANK-COVOTE-COLLISION-1-5-public-corpus-ready-state",
+      "severity": "DISCLOSURE",
+      "statement": "The 18 co-votes rank1-rfc6455 and rank5-rust-observation share in public-corpus-ready-state carry ONE distinct answer: rank1-rfc6455 said \"closed\" and rank5-rust-observation said \"open\" on every one of them. Those 18 propositions are 1 question asked 18 times under this family's 3-value verdict space, so the probe's DISTINGUISHED verdict there rests on a collision of the projection rather than on 18 independent measurements. internal/normcollide measures the same collapse one layer down.",
+      "basis": [
+        "independence_probe[rank1-rfc6455 vs rank5-rust-observation].by_family[public-corpus-ready-state].co_votes = 18",
+        "independence_probe[rank1-rfc6455 vs rank5-rust-observation].by_family[public-corpus-ready-state].co_vote_resolution.distinct_verdict_pairs = 1",
+        "independence_probe[rank1-rfc6455 vs rank5-rust-observation].by_family[public-corpus-ready-state].co_vote_resolution.largest_class = 18"
+      ],
+      "owner_action_required": "put rank1-rfc6455 and rank5-rust-observation in front of a question in public-corpus-ready-state whose answer varies, or read the pair's co-vote count as 1 rather than 18."
+    },
+    {
+      "id": "ORACLE-RANK-INDISTINGUISHABLE-1-3",
+      "severity": "BLOCKING",
+      "statement": "rank1-rfc6455 is EMPIRICALLY INDISTINGUISHABLE from rank3-neutral-expectation on this evidence: 66 shared propositions where the two read different bytes, 0 disagreements. AC2 gives rank1-rfc6455 authority over rank3-neutral-expectation, and nothing here shows it is a separate oracle rather than a relabelling. READ THE 66 WITH CARE: 17 in public-corpus-ready-state that carry one distinct answer between them, and 49 in handshake-verdict where the census's own join makes disagreement structurally impossible, leaving 0 co-vote(s) that could have come out either way. See this document's join_degeneracy and co_vote_resolution.",
+      "basis": [
+        "independence_probe[rank1-rfc6455 vs rank3-neutral-expectation].co_votes = 66, .disagreements = 0",
+        "independence_probe[rank1-rfc6455 vs rank3-neutral-expectation].by_family[handshake-verdict] = NOT_DISTINGUISHED (co_votes 49, disagreements 0, groups \"handshake-live-mapping\" vs \"handshake-corpus\")",
+        "independence_probe[rank1-rfc6455 vs rank3-neutral-expectation].by_family[public-corpus-ready-state] = NOT_DISTINGUISHED (co_votes 17, disagreements 0, groups \"public-rfc-divergence-census\" vs \"rfc6455-mechanical-derivation\")"
+      ],
+      "owner_action_required": "supply evidence at rank1-rfc6455 that is derived independently of rank3-neutral-expectation and can disagree with it, or stop reading rank1-rfc6455 as an independent check on rank3-neutral-expectation."
+    },
+    {
+      "id": "ORACLE-RANK-JOIN-DEGENERATE-1-3",
+      "severity": "DISCLOSURE",
+      "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank1-rfc6455 and rank3-neutral-expectation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's rfc_verdict either v or `conditional`, and rank1-rfc6455 abstains on `conditional` (0 of the 42 keys). rank1-rfc6455's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles. The independence probe scores this pair in this family because the two ranks are read from different documents, and it reports 49 co-votes and 0 disagreements there. Those 49 co-votes carry no information about whether rank1-rfc6455 is a separate oracle from rank3-neutral-expectation: 0 was the only number the join could produce.",
+      "basis": [
+        "families[handshake-verdict].join_degeneracy[0].disagreement_structurally_impossible = true",
+        "families[handshake-verdict].join_degeneracy[0].lower_rank_verdicts_reachable_from_each_higher_verdict = map[accept:[accept] incomplete:[incomplete] reject:[reject]]",
+        "independence_probe[rank1-rfc6455 vs rank3-neutral-expectation].by_family[handshake-verdict] = co_votes 49, disagreements 0"
+      ],
+      "owner_action_required": "read handshake-verdict's rank-four opinions from a per-case observation of the pinned Java process rather than from a table keyed by rank three's own verdict, or state in this family's rank_sources that the pair is not comparable here."
+    },
+    {
+      "id": "ORACLE-RANK-JOIN-DEGENERATE-3-4",
+      "severity": "DISCLOSURE",
+      "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank3-neutral-expectation and rank4-java-observation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's java_observable either v or `conditional`, and rank4-java-observation abstains on `conditional` (19 of the 42 keys). rank4-java-observation's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles. The independence probe scores this pair in this family because the two ranks are read from different documents, and it reports 32 co-votes and 0 disagreements there. Those 32 co-votes carry no information about whether rank3-neutral-expectation is a separate oracle from rank4-java-observation: 0 was the only number the join could produce.",
+      "basis": [
+        "families[handshake-verdict].join_degeneracy[0].disagreement_structurally_impossible = true",
+        "families[handshake-verdict].join_degeneracy[0].lower_rank_verdicts_reachable_from_each_higher_verdict = map[accept:[accept] incomplete:[incomplete] reject:[reject]]",
+        "independence_probe[rank3-neutral-expectation vs rank4-java-observation].by_family[handshake-verdict] = co_votes 32, disagreements 0"
+      ],
+      "owner_action_required": "read handshake-verdict's rank-four opinions from a per-case observation of the pinned Java process rather than from a table keyed by rank three's own verdict, or state in this family's rank_sources that the pair is not comparable here."
     },
     {
       "id": "ORACLE-RANK-POLARITY-CONTROL",
@@ -774,15 +1213,15 @@
   "accounting": {
     "propositions": 640,
     "undetermined": 0,
-    "concordant": 600,
-    "higher_oracle_overrides": 40,
+    "concordant": 599,
+    "higher_oracle_overrides": 41,
     "java_rust_consensus": 589,
-    "java_rust_consensus_overridden": 38,
+    "java_rust_consensus_overridden": 39,
     "governing_rank_counts": {
       "rank1-rfc6455": 67,
       "rank2-autobahn-in-scope": 488,
-      "rank3-neutral-expectation": 56,
-      "rank4-java-observation": 29
+      "rank3-neutral-expectation": 30,
+      "rank4-java-observation": 55
     }
   },
   "java_rust_agreements_overridden_by_a_higher_oracle": [
@@ -1045,6 +1484,16 @@
       "governing_rank_name": "rank1-rfc6455",
       "governing_verdict": "closed",
       "governing_source": "evidence/us005-public-rfc-divergence-census.json#/entries[us005.pub.0033]/rfc_strict_expectation"
+    },
+    {
+      "proposition_id": "public-corpus-ready-state/us005.pub.0035",
+      "family": "public-corpus-ready-state",
+      "question": "Public scenario us005.pub.0035 (family close-payload-1): open or closed after the run?",
+      "java_rust_consensus_verdict": "closing",
+      "governing_rank": 3,
+      "governing_rank_name": "rank3-neutral-expectation",
+      "governing_verdict": "closed",
+      "governing_source": "internal/rfcneutral applied to corpora/public/scenarios.jsonl#\u003cus005.pub.0035\u003e/steps under rule R-5.5.1-close-body-of-exactly-one-octet"
     },
     {
       "proposition_id": "public-corpus-ready-state/us005.pub.0036",

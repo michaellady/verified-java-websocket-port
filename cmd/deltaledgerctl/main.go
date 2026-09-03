@@ -150,10 +150,25 @@ func run(root string, check bool) error {
 			deltaledger.LedgerRelativePath, len(built.Records), built.Head, deltaledger.LedgerSchemaVersion)
 		fmt.Printf("ok: %s equals the chain's supersession map (%d link(s), also declared in the ledger document)\n",
 			deltaledger.SupersessionsRelativePath, len(supersessions.Links))
+		legacy, err := deltaledger.ReadLegacyAdjudications(root)
+		if err != nil {
+			return err
+		}
 		fmt.Printf("ok: ledger integrity verified (frozen prefix through sequence %d, evidence document schemas, "+
 			"observation provenance, handshake mapping census, protocol-rejection class, census evidence and ledger "+
-			"binding, supersessions, unledgered_disagreements recomputed = %d)\n",
-			deltaledger.FrozenPrefixSequence, built.UnledgeredDisagreements)
+			"binding, supersessions, adjudication, held proposal drafts, legacy-record adjudications, "+
+			"unledgered_disagreements recomputed = %d, records_without_mismatch_class recomputed = %d)\n",
+			deltaledger.FrozenPrefixSequence, built.UnledgeredDisagreements, built.RecordsWithoutMismatchClass)
+		// TWO COUNTERS, TWO QUESTIONS, BOTH RECOMPUTED. The ledger's own
+		// records_without_mismatch_class counts records with no FIELD and stays
+		// at 49 because forty-nine sealed digest preimages cannot gain one;
+		// records_without_ac3_class counts records that state no US-020 AC3
+		// class ANYWHERE. Printing them together is deliberate: reading either
+		// one alone misdescribes the chain.
+		fmt.Printf("ok: %s adjudicates records 1-%d, each bound to its record by recomputed identity, record "+
+			"digest and a unique verbatim rationale quote (records_without_ac3_class recomputed = %d of %d)\n",
+			deltaledger.LegacyAdjudicationsRelativePath, deltaledger.PreVocabularySequence,
+			legacy.RecordsWithoutAC3Class, len(built.Records))
 		fmt.Printf("ok: %s equals the derivation and %d governance record digest(s) recomputed from the protected "+
 			"store and matched\n", deltaledger.OwnerDecisionManifestRelativePath, verifiedDecisions)
 		return nil
@@ -175,5 +190,7 @@ func run(root string, check bool) error {
 	fmt.Printf("wrote %s: %d governance record digest(s)\n",
 		deltaledger.OwnerDecisionManifestRelativePath, len(manifest.Decisions))
 	fmt.Printf("unledgered_disagreements = %d\n", built.UnledgeredDisagreements)
+	fmt.Printf("records_without_mismatch_class = %d of %d\n",
+		built.RecordsWithoutMismatchClass, len(built.Records))
 	return nil
 }

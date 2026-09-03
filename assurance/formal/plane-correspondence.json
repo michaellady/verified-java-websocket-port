@@ -1,0 +1,176 @@
+{
+  "schema_version": "1.0.0",
+  "document_id": "us023-plane-correspondence",
+  "entity_type": "PlaneCorrespondence",
+  "statement": "What is known, and what is not known, about the relationship between the plane the vendored 24-obligation catalog is ABOUT and the plane it is being read ON. The catalog at assurance/formal/obligation-catalog.json is vendored byte-identically from the Codex plane and its Rust column names that plane's files, crates and symbols. Read against this plane those names resolve to nothing, and this document exists so that the resolution failure is reported as what it is -- a plane mismatch -- rather than as a defect in the catalog. It establishes NO correspondence. Every row here records evidence and states what the evidence falls short of; the mapping from the origin plane's crates to this plane's is an owner decision, and this document is the material for making it, not a substitute for it.",
+  "catalog": {
+    "path": "assurance/formal/obligation-catalog.json",
+    "sha256": "sha256:21112518f48443b4e20ecae537bed72b8c9e19167ad00bc6f325bff9374cdf59",
+    "git_blob": "be929320dc8f6e52a357a6124bc17fa1db197d2b"
+  },
+  "origin_plane": {
+    "name": "verified-java-websocket-port-codex (Codex authority plane)",
+    "ref": "origin/codex/race-catchup",
+    "commit": "4110462f52719d3bba5afc6c182af4df59b6f41b",
+    "writable_from_here": false,
+    "statement": "The plane the catalog came from and the plane its Rust column is about. It is fetch-only from here: this document reads it and never writes to it. Its columns below (directory, library name, declaration lines) are recorded provenance read at the commit named above; they are NOT recomputed by the verifier, because a checkout is not required to have the ref fetched. Everything this document says about THIS plane is recomputed on every run."
+  },
+  "this_plane": {
+    "name": "verified-java-websocket-port-claude (Claude authority plane)",
+    "ref": "claude/feature/verified-java-websocket-port",
+    "commit": "",
+    "writable_from_here": true,
+    "statement": "The plane formalcoverctl runs on and the plane every recomputed column below is read from. The commit is deliberately left empty: pinning it would make this document stale on the next commit, and the facts it records about this plane are recomputed rather than quoted."
+  },
+  "crates": [
+    {
+      "catalog_namespace": "websocket_core",
+      "obligation_count": 22,
+      "origin_plane_directory": "rust/connection-core",
+      "origin_plane_lib_name": "websocket_core",
+      "candidate_directory_on_this_plane": "rust/ws-core",
+      "candidate_lib_name_on_this_plane": "ws_core",
+      "correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "evidence": [
+        "git merge-base HEAD origin/codex/race-catchup = 66f33d4264b289e8b00cbd69f9143d7cddbdb059 (2026-08-26). At that commit rust/ holds exactly one crate, rust/connection-core, whose [package] name is connection-core with no [lib] name override, and whose src/ is close.rs, connection.rs, control.rs, framing.rs, handshake.rs, lib.rs.",
+        "This plane renamed the crate at 9fe68ff \"feat(us-009-prep): rename scaffold crate to ws_core per owner decision\". git show -M reports the move as pure renames: rust/{connection-core => ws-core}/src/{close,connection,control,framing,handshake}.rs with zero changed lines.",
+        "The origin plane kept the directory name and set [lib] name = \"websocket_core\" in rust/connection-core/Cargo.toml, so the catalog's namespace is that plane's LIBRARY name and not its directory name.",
+        "evidence/governance/decisions/us009-us008-owner-decisions-2026-08-27.json decides us009_crate_naming = ws_core for THIS plane: \"The rust/connection-core scaffold is renamed to match; the PRD text's crates/websocket-core is superseded.\" The decision is about this plane's own scaffold. It does not name the origin plane's crate and does not reach across the planes."
+      ],
+      "why_this_is_not_an_identity": "The scaffold the two crates share is the 2026-08-26 rust/connection-core, which had src/framing.rs and no frame/ module. Since the fork the origin plane replaced framing.rs with frame/{decode,encode,mask,mod}.rs and added utf8.rs; this plane kept framing.rs and added config.rs, error.rs, event.rs, message.rs, queue.rs. Shared ancestry at a scaffold is a fact about commits. It is not a claim that either crate's behaviour today is the other's, and the obligations in the catalog are about behaviour."
+    },
+    {
+      "catalog_namespace": "websocket_driver",
+      "obligation_count": 2,
+      "origin_plane_directory": "rust/websocket-driver",
+      "origin_plane_lib_name": "websocket_driver",
+      "candidate_directory_on_this_plane": "rust/ws-driver",
+      "candidate_lib_name_on_this_plane": "ws_driver",
+      "correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "evidence": [
+        "Neither plane had this crate at the fork: 66f33d4264b289e8b00cbd69f9143d7cddbdb059:rust/ contains only connection-core.",
+        "evidence/governance/decisions/borrow-receipt-batch-c.json records rust/websocket-driver/src/lib.rs (blob 43acb6c3) adapted into rust/ws-driver/src/lib.rs, integration commit 7867681 \"borrow(us-015,us-016,us-017,us-018) ... (adapted to ws_core, Java-fidelity corrections applied)\".",
+        "That receipt's own adaptation_summary lists what was REPLACED rather than taken: \"their AdmissionGate+mpsc::sync_channel producer machinery -> the incumbent ws_core CommandQueue/CommandSender bounded boundary\", \"their StepResult-batch commit ledger -> direct draining of the core's own bounded queues\", \"their ProducersDropped disposition dropped\"."
+      ],
+      "why_this_is_not_an_identity": "The receipt's word is \"adapted\", and it enumerates three mechanisms of the borrowed design that were deliberately not taken. An adaptation is weaker than an identity by construction: it records that one plane read the other, not that the two behave alike. The type the catalog names is also absent -- rust/ws-driver/src/lib.rs:643 declares `impl ConnectionDriver {` where the origin plane's rust/websocket-driver/src/lib.rs:373 declares `pub struct ConnectionOwner {`."
+    }
+  ],
+  "source_paths": [
+    {
+      "catalog_source_path": "rust/connection-core/src/connection.rs",
+      "obligation_count": 10,
+      "catalog_path_exists_on_this_plane": false,
+      "candidate_path_on_this_plane": "rust/ws-core/src/connection.rs",
+      "candidate_path_exists_on_this_plane": true,
+      "correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "evidence": [
+        "Both files descend from 66f33d4264b289e8b00cbd69f9143d7cddbdb059:rust/connection-core/src/connection.rs; 9fe68ff moved this plane's copy with zero changed lines.",
+        "evidence/governance/decisions/borrow-receipt-batch-c.json records the origin plane's connection.rs US-015 and US-016 arms as \"studied, NOT grafted\" and its close machinery as \"NOT adopted -- nearly every behavior diverges from shipped Java\"."
+      ],
+      "why_this_is_not_an_identity": "The receipts record this plane deliberately NOT taking the origin plane's connection.rs behaviour, twice and by name. What the two files share is the 2026-08-26 scaffold; what the catalog's ten obligations are about is everything added since."
+    },
+    {
+      "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+      "obligation_count": 9,
+      "catalog_path_exists_on_this_plane": false,
+      "candidate_path_on_this_plane": "rust/ws-core/src/framing.rs",
+      "candidate_path_exists_on_this_plane": true,
+      "correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "evidence": [
+        "evidence/governance/decisions/borrow-receipt-batch-a.json maps rust/connection-core/src/frame/decode.rs -> \"rust/ws-core/src/framing.rs (Draft6455::decode_frame_header / translate path)\".",
+        "The same receipt maps rust/connection-core/src/frame/encode.rs -> \"rust/ws-core/src/framing.rs (Draft6455::encode_frame)\", so the mapping into framing.rs is many-to-one.",
+        "Its adaptation_summary: \"DESIGN adopted, body not grafted verbatim ... Their validation ORDER is RFC-strict at header time (RSV, control-fin, mask-by-role, canonical length) where shipped Java validates post-payload or not at all, so the translate body was written against derive.go's site-exact semantics with the borrowed design elements\"."
+      ],
+      "why_this_is_not_an_identity": "Two of the origin plane's files map onto one of this plane's, so a per-file claim about decode.rs has no per-file counterpart here. Worse for substitution, the receipt states that the two differ precisely in validation ORDER at header time -- which is what five of the nine obligations this path carries are about (control-fin-and-length, the three length-canonical rows, role-masking)."
+    },
+    {
+      "catalog_source_path": "rust/connection-core/src/frame/mask.rs",
+      "obligation_count": 3,
+      "catalog_path_exists_on_this_plane": false,
+      "candidate_path_on_this_plane": "",
+      "candidate_path_exists_on_this_plane": false,
+      "correspondence_state": "NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE",
+      "evidence": [
+        "No borrow receipt in evidence/governance/decisions/ names rust/connection-core/src/frame/mask.rs as a source; batches A, B and C between them name utf8.rs, frame/decode.rs, frame/encode.rs, fragment.rs, the five handshake files, control.rs, close.rs, the driver and the testee, and not this one.",
+        "The nearest code on this plane is Draft6455::apply_mask at rust/ws-core/src/framing.rs:269, which no receipt and no decision connects to this path."
+      ],
+      "why_this_is_not_an_identity": "A resemblance nobody wrote down is not a mapping. This plane does hold masking code, and that is exactly why the row says NO_RECORDED_CORRESPONDENCE rather than NO_COUNTERPART: the danger is not an empty tree, it is a plausible-looking function being adopted as the subject of somebody else's proof without anyone deciding that it is."
+    },
+    {
+      "catalog_source_path": "rust/websocket-driver/src/lib.rs",
+      "obligation_count": 2,
+      "catalog_path_exists_on_this_plane": false,
+      "candidate_path_on_this_plane": "rust/ws-driver/src/lib.rs",
+      "candidate_path_exists_on_this_plane": true,
+      "correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "evidence": [
+        "evidence/governance/decisions/borrow-receipt-batch-c.json maps rust/websocket-driver/src/lib.rs (blob 43acb6c3) -> rust/ws-driver/src/lib.rs.",
+        "This is the only one of the catalog's four Rust source paths whose mapping into this plane is one file to one file."
+      ],
+      "why_this_is_not_an_identity": "One-to-one at the file level is still an adaptation: the receipt names three mechanisms replaced and one disposition dropped. The catalog's two obligations on this path are about the owner's serialized command order and about the adapter not duplicating protocol state, and the receipt's replacements are in exactly those two mechanisms."
+    }
+  ],
+  "production_symbols": [
+    {
+      "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+      "obligation_count": 9,
+      "nearest_declaration_file_on_this_plane": "rust/ws-core/src/connection.rs",
+      "nearest_declaration_line": 393,
+      "nearest_declaration_text": "    pub fn handle(&mut self, input: Input<'_>) -> Result<(), TypedProtocolFailure> {",
+      "correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "difference_that_defeats_substitution": "Both planes declare a type called ConnectionCore, and neither declares the other's driving method. The origin plane's `pub fn step(&mut self, input: CoreInput<'_>) -> StepResult` returns one aggregate result; this plane drives with `handle` returning Result<(), TypedProtocolFailure> and drains separately through next_write and next_event. A property proved about a single-call step result is not a property of a three-call drive-and-drain, and nine of the twenty-four obligations rest on this symbol."
+    },
+    {
+      "catalog_production_symbol": "websocket_core::FailureKind",
+      "obligation_count": 1,
+      "nearest_declaration_file_on_this_plane": "rust/ws-core/src/error.rs",
+      "nearest_declaration_line": 38,
+      "nearest_declaration_text": "pub enum FailureCode {",
+      "correspondence_state": "NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE",
+      "difference_that_defeats_substitution": "A different enum, in a different module, of a different name. No receipt and no decision maps FailureKind onto FailureCode. surface.errors.protocol-fault requires that protocol faults stay typed and fail closed; on this plane that property is carried by TypedProtocolFailure over FailureCode, and asserting the two enums enumerate the same faults is precisely the work nobody has done."
+    },
+    {
+      "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "obligation_count": 9,
+      "nearest_declaration_file_on_this_plane": "rust/ws-core/src/framing.rs",
+      "nearest_declaration_line": 357,
+      "nearest_declaration_text": "    pub fn decode_frame_header(",
+      "correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "difference_that_defeats_substitution": "This plane declares no FrameHeaderDecoder; the header decode entry point is an inherent method on Draft6455. The batch-A receipt records the borrowed body being rewritten because the origin plane's header-time validation order is RFC-strict where this plane's is Java-faithful, so the two functions do not accept and reject the same inputs by construction -- and five of this symbol's nine obligations (control-fin-and-length, the three length-canonical rows, role-masking) are claims about exactly which inputs are rejected at header time."
+    },
+    {
+      "catalog_production_symbol": "websocket_core::frame::mask::apply_mask_in_place",
+      "obligation_count": 3,
+      "nearest_declaration_file_on_this_plane": "rust/ws-core/src/framing.rs",
+      "nearest_declaration_line": 269,
+      "nearest_declaration_text": "    pub fn apply_mask(payload: &mut [u8], key: [u8; 4]) {",
+      "correspondence_state": "NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE",
+      "difference_that_defeats_substitution": "The origin plane's function is `apply_mask_in_place(bytes: &mut [u8], key: [u8; 4], payload_offset: usize)` at rust/connection-core/src/frame/mask.rs:8 -- it takes the offset as an argument. This plane's takes a payload slice already cut and has no offset parameter. obligation.mask-equation reads \"Masking applies RFC 6455 XOR at the correct offset\"; the offset it is about is a parameter this plane's function does not have, so the obligation cannot even be stated against it without first deciding where the equivalent cut is made."
+    },
+    {
+      "catalog_production_symbol": "websocket_driver::ConnectionOwner::poll",
+      "obligation_count": 2,
+      "nearest_declaration_file_on_this_plane": "rust/ws-driver/src/lib.rs",
+      "nearest_declaration_line": 756,
+      "nearest_declaration_text": "    pub fn poll<'owner>(&'owner mut self, input: DriverInput<'_>) -> PollResult<'owner> {",
+      "correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "difference_that_defeats_substitution": "The signature is character-for-character the origin plane's (rust/websocket-driver/src/lib.rs:438). The RECEIVER is not: line 643 of this plane's file reads `impl ConnectionDriver {` where the origin plane's line 373 reads `pub struct ConnectionOwner {`. This is the one row where a name-normalising rule would be most tempting and most misleading -- an identical signature on a differently named type whose queueing and commit machinery the receipt says was replaced."
+    }
+  ],
+  "owner_question": "Can this plane be measured against master US-008's 24-obligation denominator at all? The denominator is a Codex-plane document whose Rust column names Codex-plane crates, files and symbols. All five of its denominator_basis pins are correct about the Codex plane -- four about that plane's current files, the fifth about a Codex commit it has since moved past -- and exactly one of the five is also correct here, only because that file has not diverged since the fork. No row in this document reaches ESTABLISHED_BY_OWNER_DECISION, so today the honest answer is no: a coverage number over this catalog computed on this plane would be a number about a document that is about another tree. The decision the owner has to make is whether to (a) declare a plane correspondence, crate by crate and symbol by symbol, with the evidence below as its material; (b) re-vendor the catalog from the Codex plane's current state and rebind its Rust column to this plane's crates, which changes the denominator and therefore every number over it; or (c) rule that US-008's denominator is measured on the Codex plane only, and that this plane carries a separate denominator of its own. What must NOT happen is (d): a name-normalising rule that rewrites websocket_core to ws_core inside the tooling, which would make an unbound column read as bound and is the defect this document exists to prevent.",
+  "evidence_required_to_answer_it": [
+    "A decision on whether the two crates are the same subject for measurement. The material is here: shared ancestry at 66f33d4264b289e8b00cbd69f9143d7cddbdb059 for the core, borrow receipts for the driver and testee, and a divergence list per file. What is missing is an owner ruling, and it cannot be inferred from any of that evidence.",
+    "For each of the five production symbols, a decision on whether this plane's nearest declaration is the same subject. Three of the five differ in a way that changes what the obligation says: step vs handle+drain, an offset parameter that exists on one side only, and an enum with a different name in a different module.",
+    "A ruling on the fifth denominator_basis pin. Four pins match the Codex plane's current files; the fifth, assurance/formal/proof-targets.json, matches blob cb1baec1c1171dff015d02f64c522bc0b572400e at Codex commit 89ecf1e, which that plane has since moved past. Whether the catalog should be re-pinned or read as of 89ecf1e is a decision about which snapshot the denominator is over.",
+    "Independent review. Everything in this document is owner-attested and was produced by the same agent that wrote the tool reading it; assurance is OWNER_ATTESTED_NOT_INDEPENDENT and independent_review_claimed is false."
+  ],
+  "not_claims": [
+    "This document establishes no correspondence. Every row states evidence and then states what the evidence falls short of; no row reaches ESTABLISHED_BY_OWNER_DECISION and the verifier requires a decision record in the protected store before any row may.",
+    "The origin-plane columns are recorded provenance, not recomputed facts. They were read from origin/codex/race-catchup at 4110462f52719d3bba5afc6c182af4df59b6f41b and are not re-derived on each run, because a checkout is not required to have that ref. Only the columns about THIS plane are recomputed.",
+    "A shared ancestor is not a shared behaviour and an adaptation is not an identity. Both states in this document's vocabulary that sound like correspondence are weaker than correspondence, and they are named so that a reader cannot round them up.",
+    "Nothing here says the catalog is defective on its Rust side. Its Rust column resolves cleanly on the plane it is about. What is defective, and separately, is its JAVA column -- fifteen synthesised paths that treat a method as a file and exist on NEITHER plane, one whole-archive source_sha256 shared by all twenty-four rows, and all twenty-four connection_state DISCONNECTED. That finding is plane-independent and this document does not weaken it.",
+    "This is owner-attested, not independent, and not production."
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false
+}

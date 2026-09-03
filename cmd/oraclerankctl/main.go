@@ -36,6 +36,10 @@ func main() {
 	}
 
 	if *check {
+		if err := oraclerank.ValidateAgainstSchema(*root); err != nil {
+			fmt.Fprintf(os.Stderr, "oraclerankctl: %v\n", err)
+			os.Exit(1)
+		}
 		if err := oraclerank.Verify(*root); err != nil {
 			fmt.Fprintf(os.Stderr, "oraclerankctl: %v\n", err)
 			os.Exit(1)
@@ -58,6 +62,13 @@ func main() {
 	encoded, err := oraclerank.Write(*root)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "oraclerankctl: %v\n", err)
+		os.Exit(1)
+	}
+	// A document that does not satisfy its own schema must not be left on
+	// disk looking committed, so the write is validated before it is
+	// reported as a write.
+	if err := oraclerank.ValidateAgainstSchema(*root); err != nil {
+		fmt.Fprintf(os.Stderr, "oraclerankctl: wrote a register that does not satisfy its schema: %v\n", err)
 		os.Exit(1)
 	}
 	reg, _, err := oraclerank.Recompute(*root)

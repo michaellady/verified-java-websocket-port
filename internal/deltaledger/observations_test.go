@@ -57,6 +57,14 @@ var degradedRootArtifacts = []string{
 	PublicCorpusManifestRelativePath,
 	OwnerDecisionManifestRelativePath,
 	OwnerDecisionManifestSchemaRelativePath,
+	LegacyAdjudicationsRelativePath,
+	LegacyAdjudicationsSchemaRelativePath,
+	// The one draft a committed adjudication entry names. It is copied because
+	// VerifyLegacyAdjudications STATS it: a contesting entry that names a
+	// supersession draft which does not exist is refused, and a degraded root
+	// that silently lacked the file would turn that rule into noise on every
+	// unrelated probe.
+	"drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json",
 }
 
 // withProtectedStore points VJWP_PROTECTED_STORE at the real governance store

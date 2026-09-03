@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0.0",
+  "draft_kind": "ledger-record-description-correction",
+  "draft_status": "NOT APPENDED, NOT EDITED — a proposal only",
+  "drafted_at": "2026-09-03",
+  "drafted_by": "claude/div05-close-overtakes-echo",
+  "targets_record": {
+    "evidence_document": "evidence/java/behavior-delta-ledger.json",
+    "sequence": 54,
+    "delta_id": "delta-02e2846c025deec4fd7e279956a7b997c6cab42aa57d0e91df2acb4107c4afb8",
+    "record_digest": "sha256:6410ab14f60aeb3eecd98a9cc486d21414897bf9c8520eace64ce5d7a882b624",
+    "subject_ref": "semantic:org.java-websocket.websocketimpl.pending-echo-versus-close-ordering:provisional-v1"
+  },
+  "why_this_is_a_draft_and_not_an_append_or_an_edit": "Sequence 54 sits in an append-only chain (`evidence/java/behavior-delta-ledger.json`, each record carrying `previous_digest` and `record_digest`) whose prefix is frozen through sequence 35 by `evidence/governance/decisions/ledger-frozen-prefix-owner-decision-2026-08-28.json`. Editing record 54's rationale in place would re-digest it and break every following link; appending a new record would enter a divergence that does not exist. Both are owner moves. This file states the correction and stops. `go run ./cmd/deltaledgerctl --root . --check` was re-read on this branch and reports the chain intact (56 records, head sha256:a44191d3c2db7850557e594e281e6a51badf2e913d9d3f0aa959fb973d84a56c) — nothing in the ledger was touched.",
+
+  "what_is_being_corrected": "The prose in `delta.rationale`. NOT the disposition (`fix-in-port` stands), NOT the mismatch class (`rust-defect` stands), NOT the measured extent (1 server case and 1 client case of 247, both roles, recomputed by internal/divergencesweep — unchallenged), NOT any digest.",
+
+  "corrections": [
+    {
+      "id": "C1",
+      "quote_from_record": "with a 256 KiB text message followed immediately by a Close, shipped Java delivers the echo and answers the close with 1000; the port drops the echo and sends no close",
+      "what_is_wrong": "The 256 KiB has no causal role. It is a property of the Autobahn 7.1.6 case that MAKES the real condition overwhelmingly likely on the wire, not the condition itself.",
+      "what_the_reproduction_shows": "The discriminator is whether the completed data frame and the Close frame reach the subject in the SAME transport read. Held everything else fixed — same 5-byte text message `hello`, same close frame, same single socket write by the peer, unmodified mainline port sources (131b7b8) — and varied only the SUBJECT's `IoBounds::read_buffer`:",
+      "measurement": [
+        {
+          "read_buffer_bytes": 4096,
+          "peer_received_frames": "[(opcode 0x8, 6 bytes)]",
+          "meaning": "the text echo is dropped",
+          "subject_outcome": "ProtocolFailure(TypedProtocolFailure { code: StateViolation, close_code: None })"
+        },
+        {
+          "read_buffer_bytes": 1,
+          "peer_received_frames": "[(opcode 0x1, 5 bytes), (opcode 0x8, 6 bytes)]",
+          "meaning": "shipped Java's order",
+          "subject_outcome": "Terminal"
+        }
+      ],
+      "proposed_wording": "with a completed data frame and a Close arriving in the SAME transport read, shipped Java delivers the echo and then answers the close; the port applies both frames in one core call, is already Closing when the message event is drained, and refuses the echo. The 256 KiB message of Autobahn 7.1.6 is what makes the coalescing certain, not what causes the divergence: the same divergence reproduces on a five-byte message whenever the two frames share a read, and disappears on the same five-byte message when they cannot.",
+      "how_to_check_it": "rust/ws-testee/tests/close_overtakes_echo.rs :: a_close_sharing_one_read_with_a_completed_text_frame_does_not_cancel_the_echo is the coalesced half, RED against mainline and GREEN on this branch. The read_buffer=1 half was run as a scratch experiment and is reported in drafts/self-review/div05-close-overtakes-echo.md section 3 with both readings."
+    },
+    {
+      "id": "C2",
+      "quote_from_record": "the port drops the echo and sends no close",
+      "what_is_wrong": "The `sends no close` half is STALE, not wrong-at-the-time. It describes the port build the sweep measured, not the port as it stands.",
+      "provenance_of_the_stale_reading": "evidence/java/observed-close-divergences.json `recomputed_from.subject_commit` = 518b77aa3ecdc180c832a0d988adf498d687e1b8 (branch claude/us019-native-run, run us019-prov-20260828T183623Z, captured 2026-08-28). The close-composition (E5b `CloseEchoPolicy::WebSocketImplComposition`) and server-close-parity landings postdate it.",
+      "what_the_reproduction_shows": "At mainline 131b7b8 the port DOES put a close frame on the wire in both shapes: (0x8, 6 bytes) on the small burst and (0x8, 2 bytes) on the recorded 7.1.6 shape. What it drops is the MESSAGE echo, and only that.",
+      "proposed_wording": "the port drops the echo; it answers the close (the close echo the E5b composition policy produces), so the surviving divergence is the missing message, not a missing close.",
+      "note": "The Autobahn per-case artefact the record cites (`rxFrameStats {}` for the port against `{\"1\":2,\"8\":1}` for Java) is a property of the 518b77aa build and is not re-measured here — confirming it on the real suite would need an Autobahn re-run, which is an owner gate."
+    }
+  ],
+
+  "what_held_up": {
+    "disposition_fix_in_port": "UPHELD. The record's own precondition was `this must first be reproduced as a rust/ws-core or rust/ws-driver test`. It is now reproduced — as a real-socket fixture through the ws-testee adapter and as ws-driver unit tests — and the reproduction is RED against unmodified mainline with exit code 101.",
+    "mismatch_class_rust_defect": "UPHELD. Shipped Java's per-frame dispatch (WebSocketImpl.java:394-398 with a synchronous onWebsocketMessage at Draft_6455.java:982-990) and RFC 6455 5.5.1 agree that the already-received message is not discarded, so the mismatch originates in the port.",
+    "the_supersession_branch_was_not_taken": "The record said `if the reproduction shows the port cannot enqueue the echo without breaking the ordering ledgered at sequence 34, that finding supersedes this disposition`. The port CAN enqueue the echo. But see `related_record_side_effect` below — sequence 34 is touched in the other direction.",
+    "no_gate_sees_it": "UPHELD and re-confirmed. The corpus differential is structurally pinned to `InboundFeedPolicy::WholeChunk` on the harness seam, so a green 74/74 and 49/49 cannot see this fix either way; Autobahn scores 7.1.6 INFORMATIONAL for both subjects."
+  },
+
+  "related_record_side_effect": {
+    "record": "behavior-delta ledger sequence 34, delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8, disposition `unresolved`, Autobahn 5.15",
+    "why_it_is_raised_here": "Sequence 34 describes the SAME Java mechanism from the other side: `Java translates the whole chop first, then dispatches frame by frame, so the echo is ENQUEUED during the second fragment's dispatch ... the Rust adapter's typed failure lands before the completed message's Text event is delivered, so the echo is never enqueued at all.` The DIV-05 fix installs precisely that Java dispatch order in the port's full-stack path. It is therefore expected to CHANGE the port's answer on the 5.15 shape as well — on a record whose disposition is `unresolved`, i.e. one the owner has not decided.",
+    "status": "MEASURED, AND IT DOES MOVE.",
+    "measurement": {
+      "wire": "one chop: TEXT FIN=0 \"fragment1\", CONTINUATION FIN=1 \"fragment2\" (a COMPLETE message), CONTINUATION FIN=0 \"fragment3\" (the violation: nothing to continue), TEXT FIN=1 \"fragment4\" — the Autobahn 5.15 shape, delivered in a single socket write to the shipped ServerFixture echo policy over a real loopback socket",
+      "mainline_131b7b8": {
+        "peer_received": "[(0x8, 2 bytes)] — the 1002 violation close only",
+        "texts_delivered": 0,
+        "outcome": "ProtocolFailure(JavaInvalidData, close_code Some(1002))"
+      },
+      "this_branch": {
+        "peer_received": "[(0x1, 18 bytes) = \"fragment1fragment2\", (0x8, 2 bytes)] — the completed message's echo, THEN the 1002 close",
+        "texts_delivered": 1,
+        "outcome": "ProtocolFailure(JavaInvalidData, close_code Some(1002))"
+      },
+      "reading": "The branch's answer is shipped Java's, exactly as sequence 34's own rationale describes Java. It is also the RFC-LESS-strict answer: RFC 6455 7.1.7 permits failing immediately on the violation, which is what the port used to do, and that permission is why sequence 34 is `unresolved` rather than a defect. So the DIV-05 fix resolves sequence 34 in Java's direction as a SIDE EFFECT, on a record the owner has not decided.",
+      "how_to_check_it": "rust/ws-testee/tests/close_overtakes_echo.rs :: the_autobahn_5_15_chop_now_returns_the_completed_echo_before_the_violation_close. It is labelled in its own doc comment as a side-effect pin, not a DIV-05 check, and it exists so the change cannot happen silently.",
+      "what_was_NOT_done": "No Autobahn run. Confirming 5.15's suite verdict is an owner gate. The record notes Autobahn classes both behaviours as passing (OK vs NON-STRICT), so no behaviour-class gate is expected to move either way — that expectation is untested here."
+    },
+    "this_proposal_does_not_decide_it": "Nothing here asks for a change to sequence 34. It flags that a decision the owner has not yet made now has a moved subject, and that the move happened inside a branch whose commit messages never mention sequence 34 — even though sequence 54's own rationale names it as the record to check against."
+  },
+
+  "asks_of_the_owner": [
+    "Read C1 and C2 and decide whether sequence 54's rationale prose should be corrected by the mechanism the ledger provides for it (a superseding record, or the supersessions map in evidence/java/ledger-supersessions.json) — nothing here presumes which.",
+    "Note the sequence 34 side effect before this branch lands, because it moves a subject under an `unresolved` disposition."
+  ]
+}

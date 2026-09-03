@@ -8,36 +8,6 @@
         "disposition": "BLOCK",
         "target": "cargo-fuzz-libfuzzer",
         "detail": "probe \"cargo fuzz --version\" exit=101 -- engine is NOT installed in this environment; AC3 blocks"
-      },
-      {
-        "code": "FUZZ_FAMILY_HAS_NO_DEDICATED_TARGET",
-        "disposition": "NOTE",
-        "target": "close-eof",
-        "detail": "AC2 family \"close-eof\" is generated only inside another family's target; no dedicated target, corpus, or campaign bound of its own: Close payloads ARE generated: draw_close_payload draws empty, one-byte, and hostile code/reason pairs across a 14-code table plus uniformly random u16 codes, with invalid-UTF-8 reasons. Transport EOF IS generated, but only inside family_command_interleave (one step in ten, over 5,000 cases) -- byte_soup and frame_soup never emit EOF at all. So close/EOF has no dedicated target and EOF in particular is exercised by exactly one family. Recorded as shared coverage."
-      },
-      {
-        "code": "FUZZ_FAMILY_HAS_NO_DEDICATED_TARGET",
-        "disposition": "NOTE",
-        "target": "fragment-control-sequences",
-        "detail": "AC2 family \"fragment-control-sequences\" is generated only inside another family's target; no dedicated target, corpus, or campaign bound of its own: Fragment and control sequences ARE generated -- draw_frame in adversarial_fuzz.rs draws continuation/text/binary/close/ping/pong and reserved opcodes, clears FIN one time in five, sets RSV bits, and draw_stream concatenates one to ten such frames with optional garbage tails and truncations. But they are generated only INSIDE the frame-decode target: this family has no target of its own, no campaign bound of its own, and no separately captured artifact. Recorded as shared coverage, not as a dedicated target, so the record cannot be read as more than it is."
-      },
-      {
-        "code": "FUZZ_TARGET_ABSENT",
-        "disposition": "BLOCK",
-        "target": "handshake-client",
-        "detail": "AC2 family \"handshake-client\" has no generative fuzz target: rust/ws-core/fuzz-seeds/us010 holds 11 committed handshake-client seeds and rust/ws-core/tests/handshake_seeds.rs replays them at FIXED expectations. That is a regression corpus, not a fuzz target: no byte of handshake input is ever GENERATED. rust/ws-core/tests/adversarial_fuzz.rs contains zero handshake drives (its only occurrence of the word is the MaxHandshakeBytes limit field). rust/ws-core/tests/handshake_client.rs is fixed-example unit testing. No generator, no campaign, no artifact capture, no replay of a generated case exists for ClientHandshake."
-      },
-      {
-        "code": "FUZZ_TARGET_ABSENT",
-        "disposition": "BLOCK",
-        "target": "handshake-server",
-        "detail": "AC2 family \"handshake-server\" has no generative fuzz target: Same shape as handshake-client one parser over: rust/ws-core/fuzz-seeds/us011 holds 17 committed server seeds replayed at fixed expectations by rust/ws-core/tests/handshake_seeds.rs, and rust/ws-core/tests/handshake_server.rs is fixed-example unit testing. ServerHandshake never receives a generated request. Note that family_seed_corpus_anchors in adversarial_fuzz.rs DOES read the us010/us011 hex files, but it feeds them to ConnectionCore as post-handshake FRAME bytes; that exercises the frame decoder over handshake-shaped bytes and gives the handshake parsers no coverage at all."
-      },
-      {
-        "code": "FUZZ_TARGET_ABSENT",
-        "disposition": "BLOCK",
-        "target": "owner-driver-command-byte-schedules",
-        "detail": "AC2 family \"owner-driver-command-byte-schedules\" has no generative fuzz target: Nothing generates command/byte schedules at the ws-driver seam. rust/ws-driver/tests/schedule_exploration.rs EXHAUSTIVELY ENUMERATES every interleaving of five fixed actor programs within a context-switch bound -- systematic, deterministic, and valuable, but not generative fuzzing: it draws nothing and has no random or evolving input. The retained rust/ws-driver/fuzz-seeds/us017 corpus (16 files) is consumed as byte-for-byte EXPECTED OUTPUT of the minimizer, not as fuzz seeds fed to a generator. family_command_interleave in adversarial_fuzz.rs does interleave generated commands with bytes, but at the ws-core seam, against ConnectionCore, with no ConnectionDriver, no owner poll loop, and no transport write path -- a different seam from the one AC2 names."
       }
     ],
     "engine_availability": [
@@ -59,6 +29,114 @@
   },
   "campaigns": [
     {
+      "target": "handshake-client",
+      "runs": [
+        {
+          "run": 1,
+          "command": "cargo test --locked -p ws-core --test handshake_fuzz",
+          "dir": "rust",
+          "exit": 0,
+          "exit_text": "exit=0",
+          "deadline_hit": false,
+          "wall_seconds": 7.226,
+          "log_path": "assurance/fuzz/campaign/handshake-client/handshake-client-run1.log",
+          "outcome_lines": [
+            "test handshake_budget_refusal_races_the_parse_rejection_under_rechunking ... ok",
+            "test handshake_client_budget_refusals ... ok",
+            "test handshake_client_modeled_responses ... ok",
+            "test handshake_client_seed_mutations ... ok",
+            "test handshake_client_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test handshake_server_budget_refusals ... ok",
+            "test handshake_server_modeled_requests ... ok",
+            "test handshake_server_seed_mutations ... ok",
+            "test handshake_server_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test handshake_shrinker_normal_forms_are_pinned ... ok",
+            "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+          ],
+          "outcome_digest": "sha256:68e3933286560fdcbab675c7b7e5d510e20e9bd7dfcb4c342904fd3b98f66687"
+        },
+        {
+          "run": 2,
+          "command": "cargo test --locked -p ws-core --test handshake_fuzz",
+          "dir": "rust",
+          "exit": 0,
+          "exit_text": "exit=0",
+          "deadline_hit": false,
+          "wall_seconds": 6.718,
+          "log_path": "assurance/fuzz/campaign/handshake-client/handshake-client-run2.log",
+          "outcome_lines": [
+            "test handshake_budget_refusal_races_the_parse_rejection_under_rechunking ... ok",
+            "test handshake_client_budget_refusals ... ok",
+            "test handshake_client_modeled_responses ... ok",
+            "test handshake_client_seed_mutations ... ok",
+            "test handshake_client_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test handshake_server_budget_refusals ... ok",
+            "test handshake_server_modeled_requests ... ok",
+            "test handshake_server_seed_mutations ... ok",
+            "test handshake_server_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test handshake_shrinker_normal_forms_are_pinned ... ok",
+            "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+          ],
+          "outcome_digest": "sha256:68e3933286560fdcbab675c7b7e5d510e20e9bd7dfcb4c342904fd3b98f66687"
+        }
+      ],
+      "reproduced": true
+    },
+    {
+      "target": "handshake-server",
+      "runs": [
+        {
+          "run": 1,
+          "command": "cargo test --locked -p ws-core --test handshake_fuzz",
+          "dir": "rust",
+          "exit": 0,
+          "exit_text": "exit=0",
+          "deadline_hit": false,
+          "wall_seconds": 6.645,
+          "log_path": "assurance/fuzz/campaign/handshake-server/handshake-server-run1.log",
+          "outcome_lines": [
+            "test handshake_budget_refusal_races_the_parse_rejection_under_rechunking ... ok",
+            "test handshake_client_budget_refusals ... ok",
+            "test handshake_client_modeled_responses ... ok",
+            "test handshake_client_seed_mutations ... ok",
+            "test handshake_client_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test handshake_server_budget_refusals ... ok",
+            "test handshake_server_modeled_requests ... ok",
+            "test handshake_server_seed_mutations ... ok",
+            "test handshake_server_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test handshake_shrinker_normal_forms_are_pinned ... ok",
+            "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+          ],
+          "outcome_digest": "sha256:68e3933286560fdcbab675c7b7e5d510e20e9bd7dfcb4c342904fd3b98f66687"
+        },
+        {
+          "run": 2,
+          "command": "cargo test --locked -p ws-core --test handshake_fuzz",
+          "dir": "rust",
+          "exit": 0,
+          "exit_text": "exit=0",
+          "deadline_hit": false,
+          "wall_seconds": 6.717,
+          "log_path": "assurance/fuzz/campaign/handshake-server/handshake-server-run2.log",
+          "outcome_lines": [
+            "test handshake_budget_refusal_races_the_parse_rejection_under_rechunking ... ok",
+            "test handshake_client_budget_refusals ... ok",
+            "test handshake_client_modeled_responses ... ok",
+            "test handshake_client_seed_mutations ... ok",
+            "test handshake_client_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test handshake_server_budget_refusals ... ok",
+            "test handshake_server_modeled_requests ... ok",
+            "test handshake_server_seed_mutations ... ok",
+            "test handshake_server_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test handshake_shrinker_normal_forms_are_pinned ... ok",
+            "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+          ],
+          "outcome_digest": "sha256:68e3933286560fdcbab675c7b7e5d510e20e9bd7dfcb4c342904fd3b98f66687"
+        }
+      ],
+      "reproduced": true
+    },
+    {
       "target": "frame-decode",
       "runs": [
         {
@@ -68,7 +146,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 3.201,
+          "wall_seconds": 2.078,
           "log_path": "assurance/fuzz/campaign/frame-decode/frame-decode-run1.log",
           "outcome_lines": [
             "test close_ack_emits_the_close_event_before_the_terminal_transition ... ok",
@@ -96,7 +174,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 3.933,
+          "wall_seconds": 2.029,
           "log_path": "assurance/fuzz/campaign/frame-decode/frame-decode-run2.log",
           "outcome_lines": [
             "test close_ack_emits_the_close_event_before_the_terminal_transition ... ok",
@@ -130,7 +208,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 0.583,
+          "wall_seconds": 0.52,
           "log_path": "assurance/fuzz/campaign/message-utf8/message-utf8-run1.log",
           "outcome_lines": [
             "test close_code_tables_exhaustive_against_the_java_model ... ok",
@@ -153,7 +231,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 0.582,
+          "wall_seconds": 0.221,
           "log_path": "assurance/fuzz/campaign/message-utf8/message-utf8-run2.log",
           "outcome_lines": [
             "test close_code_tables_exhaustive_against_the_java_model ... ok",
@@ -177,59 +255,43 @@
       "runs": [
         {
           "run": 1,
-          "command": "cargo test --locked -p ws-core --test adversarial_fuzz",
+          "command": "cargo test --locked -p ws-core --test fragment_control_fuzz",
           "dir": "rust",
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 3.152,
+          "wall_seconds": 1.184,
           "log_path": "assurance/fuzz/campaign/fragment-control-sequences/fragment-control-sequences-run1.log",
           "outcome_lines": [
-            "test close_ack_emits_the_close_event_before_the_terminal_transition ... ok",
-            "test control_payload_exactly_125_delivers ... ok",
-            "test family_byte_soup_no_panic_bounded_deterministic ... ok",
-            "test family_command_interleave_no_panic_deterministic ... ok",
-            "test family_config_boundaries ... ok",
-            "test family_declared_length_headers ... ok",
-            "test family_frame_soup_no_panic_bounded_deterministic ... ok",
-            "test family_queue_pressure_typed_backpressure ... ok",
-            "test family_rechunk_invariance_multi_frame ... ok",
-            "test family_rechunk_invariance_single_frame ... ok",
-            "test family_seed_corpus_anchors ... ok",
-            "test fragment_accumulation_to_exactly_max_buffered_is_accepted ... ok",
-            "test mask_key_derivation_advances_per_outbound_frame ... ok",
-            "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out",
-            "test send_payload_at_exactly_max_buffered_sends ... ok"
+            "test fragment_control_hostile_soup_no_panic_deterministic ... ok",
+            "test fragment_control_interleave_is_transparent_to_reassembly ... ok",
+            "test fragment_control_modeled_programs ... ok",
+            "test fragment_control_shrinker_normal_forms_are_pinned ... ok",
+            "test fragment_control_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test fragment_split_and_rechunk_invariance ... ok",
+            "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
           ],
-          "outcome_digest": "sha256:494d7a2f4d21cffd8b5896cbdcf860347b63d7278784563a6f884a33ae65b054"
+          "outcome_digest": "sha256:2c28f43935113802826ce92225a87f4b9f796611577e344de64cdfc680455117"
         },
         {
           "run": 2,
-          "command": "cargo test --locked -p ws-core --test adversarial_fuzz",
+          "command": "cargo test --locked -p ws-core --test fragment_control_fuzz",
           "dir": "rust",
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 2.841,
+          "wall_seconds": 1.093,
           "log_path": "assurance/fuzz/campaign/fragment-control-sequences/fragment-control-sequences-run2.log",
           "outcome_lines": [
-            "test close_ack_emits_the_close_event_before_the_terminal_transition ... ok",
-            "test control_payload_exactly_125_delivers ... ok",
-            "test family_byte_soup_no_panic_bounded_deterministic ... ok",
-            "test family_command_interleave_no_panic_deterministic ... ok",
-            "test family_config_boundaries ... ok",
-            "test family_declared_length_headers ... ok",
-            "test family_frame_soup_no_panic_bounded_deterministic ... ok",
-            "test family_queue_pressure_typed_backpressure ... ok",
-            "test family_rechunk_invariance_multi_frame ... ok",
-            "test family_rechunk_invariance_single_frame ... ok",
-            "test family_seed_corpus_anchors ... ok",
-            "test fragment_accumulation_to_exactly_max_buffered_is_accepted ... ok",
-            "test mask_key_derivation_advances_per_outbound_frame ... ok",
-            "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out",
-            "test send_payload_at_exactly_max_buffered_sends ... ok"
+            "test fragment_control_hostile_soup_no_panic_deterministic ... ok",
+            "test fragment_control_interleave_is_transparent_to_reassembly ... ok",
+            "test fragment_control_modeled_programs ... ok",
+            "test fragment_control_shrinker_normal_forms_are_pinned ... ok",
+            "test fragment_control_shrinker_reaches_1_minimal_witnesses ... ok",
+            "test fragment_split_and_rechunk_invariance ... ok",
+            "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
           ],
-          "outcome_digest": "sha256:494d7a2f4d21cffd8b5896cbdcf860347b63d7278784563a6f884a33ae65b054"
+          "outcome_digest": "sha256:2c28f43935113802826ce92225a87f4b9f796611577e344de64cdfc680455117"
         }
       ],
       "reproduced": true
@@ -239,59 +301,81 @@
       "runs": [
         {
           "run": 1,
-          "command": "cargo test --locked -p ws-core --test adversarial_fuzz",
+          "command": "cargo test --locked -p ws-core --test close_eof_fuzz",
           "dir": "rust",
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 1.609,
+          "wall_seconds": 0.195,
           "log_path": "assurance/fuzz/campaign/close-eof/close-eof-run1.log",
           "outcome_lines": [
-            "test close_ack_emits_the_close_event_before_the_terminal_transition ... ok",
-            "test control_payload_exactly_125_delivers ... ok",
-            "test family_byte_soup_no_panic_bounded_deterministic ... ok",
-            "test family_command_interleave_no_panic_deterministic ... ok",
-            "test family_config_boundaries ... ok",
-            "test family_declared_length_headers ... ok",
-            "test family_frame_soup_no_panic_bounded_deterministic ... ok",
-            "test family_queue_pressure_typed_backpressure ... ok",
-            "test family_rechunk_invariance_multi_frame ... ok",
-            "test family_rechunk_invariance_single_frame ... ok",
-            "test family_seed_corpus_anchors ... ok",
-            "test fragment_accumulation_to_exactly_max_buffered_is_accepted ... ok",
-            "test mask_key_derivation_advances_per_outbound_frame ... ok",
-            "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out",
-            "test send_payload_at_exactly_max_buffered_sends ... ok"
+            "test close_eof_hostile_soup_no_panic_deterministic ... ok",
+            "test close_eof_modeled_schedules ... ok",
+            "test close_eof_terminal_is_exactly_once_and_post_terminal_is_inert ... ok",
+            "test close_payload_parse_differential ... ok",
+            "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
           ],
-          "outcome_digest": "sha256:494d7a2f4d21cffd8b5896cbdcf860347b63d7278784563a6f884a33ae65b054"
+          "outcome_digest": "sha256:9a9559aea2b1e79789881ccb35c2817ad29d9a42426c159aabe451cfb8ef3c3f"
         },
         {
           "run": 2,
-          "command": "cargo test --locked -p ws-core --test adversarial_fuzz",
+          "command": "cargo test --locked -p ws-core --test close_eof_fuzz",
           "dir": "rust",
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 1.27,
+          "wall_seconds": 0.18,
           "log_path": "assurance/fuzz/campaign/close-eof/close-eof-run2.log",
           "outcome_lines": [
-            "test close_ack_emits_the_close_event_before_the_terminal_transition ... ok",
-            "test control_payload_exactly_125_delivers ... ok",
-            "test family_byte_soup_no_panic_bounded_deterministic ... ok",
-            "test family_command_interleave_no_panic_deterministic ... ok",
-            "test family_config_boundaries ... ok",
-            "test family_declared_length_headers ... ok",
-            "test family_frame_soup_no_panic_bounded_deterministic ... ok",
-            "test family_queue_pressure_typed_backpressure ... ok",
-            "test family_rechunk_invariance_multi_frame ... ok",
-            "test family_rechunk_invariance_single_frame ... ok",
-            "test family_seed_corpus_anchors ... ok",
-            "test fragment_accumulation_to_exactly_max_buffered_is_accepted ... ok",
-            "test mask_key_derivation_advances_per_outbound_frame ... ok",
-            "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out",
-            "test send_payload_at_exactly_max_buffered_sends ... ok"
+            "test close_eof_hostile_soup_no_panic_deterministic ... ok",
+            "test close_eof_modeled_schedules ... ok",
+            "test close_eof_terminal_is_exactly_once_and_post_terminal_is_inert ... ok",
+            "test close_payload_parse_differential ... ok",
+            "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
           ],
-          "outcome_digest": "sha256:494d7a2f4d21cffd8b5896cbdcf860347b63d7278784563a6f884a33ae65b054"
+          "outcome_digest": "sha256:9a9559aea2b1e79789881ccb35c2817ad29d9a42426c159aabe451cfb8ef3c3f"
+        }
+      ],
+      "reproduced": true
+    },
+    {
+      "target": "owner-driver-command-byte-schedules",
+      "runs": [
+        {
+          "run": 1,
+          "command": "cargo test --locked -p ws-driver --test driver_schedule_fuzz",
+          "dir": "rust",
+          "exit": 0,
+          "exit_text": "exit=0",
+          "deadline_hit": false,
+          "wall_seconds": 0.686,
+          "log_path": "assurance/fuzz/campaign/owner-driver-command-byte-schedules/owner-driver-command-byte-schedules-run1.log",
+          "outcome_lines": [
+            "test owner_driver_invalid_write_progress_on_a_quiescent_owner_moves_nothing ... ok",
+            "test owner_driver_producer_backpressure_is_typed ... ok",
+            "test owner_driver_schedule_soup_no_panic_deterministic ... ok",
+            "test owner_driver_transport_termination_accounting ... ok",
+            "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+          ],
+          "outcome_digest": "sha256:04f4a76beae1f8b3d3696198afe4fdce096777fa910c5b62dbbd623b5cb5f097"
+        },
+        {
+          "run": 2,
+          "command": "cargo test --locked -p ws-driver --test driver_schedule_fuzz",
+          "dir": "rust",
+          "exit": 0,
+          "exit_text": "exit=0",
+          "deadline_hit": false,
+          "wall_seconds": 0.272,
+          "log_path": "assurance/fuzz/campaign/owner-driver-command-byte-schedules/owner-driver-command-byte-schedules-run2.log",
+          "outcome_lines": [
+            "test owner_driver_invalid_write_progress_on_a_quiescent_owner_moves_nothing ... ok",
+            "test owner_driver_producer_backpressure_is_typed ... ok",
+            "test owner_driver_schedule_soup_no_panic_deterministic ... ok",
+            "test owner_driver_transport_termination_accounting ... ok",
+            "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+          ],
+          "outcome_digest": "sha256:04f4a76beae1f8b3d3696198afe4fdce096777fa910c5b62dbbd623b5cb5f097"
         }
       ],
       "reproduced": true

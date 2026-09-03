@@ -186,6 +186,179 @@ pub enum AutoResponsePolicy {
     Disabled,
 }
 
+/// How much of one inbound chunk reaches the core per turn (DIV-05,
+/// behavior-delta ledger sequence 54).
+///
+/// # What shipped Java does
+///
+/// `WebSocketImpl.decodeFrames(ByteBuffer)` (WebSocketImpl.java:391-419)
+/// translates the WHOLE socket buffer into a `List<Framedata>` in one call
+/// (`frames = draft.translateFrame(socketBuffer)`, :394) and then walks that
+/// list ONE FRAME AT A TIME:
+/// `for (Framedata f : frames) { draft.processFrame(this, f); }` (:395-398).
+/// `Draft_6455.processFrame` (drafts/Draft_6455.java:893-918) dispatches TEXT
+/// to `processFrameText` (:982-990), which calls `onWebsocketMessage`
+/// SYNCHRONOUSLY inside that iteration, so an echoing listener's frame is
+/// already in `outQueue` (`WebSocketImpl.send(String)` :640-646 ->
+/// `send(Collection)` :667-680) before the NEXT iteration reaches the close
+/// frame. `processFrameClosing` (drafts/Draft_6455.java:1054-1073) then calls
+/// `webSocketImpl.close(code, reason, true)` (:1068), which appends the close
+/// BEHIND the echo (WebSocketImpl.java:481-487) and calls `flushAndClose`
+/// (:494), whose `onWriteDemand` "ensures that all outgoing frames are
+/// flushed before closing the connection" (:594-595);
+/// `SocketChannelIOHelper.batch` (SocketChannelIOHelper.java:110-113) only
+/// hangs up once `ws.outQueue.isEmpty()`.
+///
+/// So Java's wire answer to `[data frame][close frame]` in ONE read is the
+/// echo, then the close echo, then the hang-up.
+///
+/// # Why the port needed a policy for it
+///
+/// `ws_core` is Sans-I/O: it CANNOT call back into the application mid-chunk.
+/// `ConnectionCore::handle(TransportBytes)` applies every frame of a chunk in
+/// one call and queues the semantic events for the owner to drain afterwards.
+/// A close sharing a chunk with a completed data frame therefore moves the
+/// core to `Closing` BEFORE the owner's policy is handed the message, and the
+/// echo it then enqueues meets the core's `requireOpen` gate (quirk Q26 —
+/// Java's own `send(Collection)` isOpen throw, WebSocketImpl.java:667-670)
+/// and is refused with a fatal `STATE_VIOLATION`. The message is dropped.
+/// Autobahn 7.1.6 is exactly that shape.
+///
+/// This crate is the `WebSocketImpl` mirror, so `decodeFrames`' per-frame
+/// dispatch loop belongs here — the same layering decision as
+/// [`AutoResponsePolicy`] and [`CloseEchoPolicy`], and the same one the
+/// US-018 `adapter-linkage` architecture gate enforces by forbidding the
+/// networking adapter to name `ws_core::framing` at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InboundFeedPolicy {
+    /// The ORACLE observable, and the default: the whole chunk goes to the
+    /// core in one `handle` call, producing one `input_chunk {bytes}` record
+    /// for it. `corpora/public/scenarios.jsonl` SCORES those records, so the
+    /// corpus differential path must keep this arm.
+    #[default]
+    WholeChunk,
+    /// Shipped-Java full-stack behavior: at most ONE frame reaches the core
+    /// per turn, and no further inbound is applied until everything that
+    /// frame committed has drained — the port's image of `processFrame`
+    /// having RETURNED. Partial consumption is reported honestly as
+    /// [`InputDisposition::Consumed`] with the byte count actually applied,
+    /// and a turn refused for dispatch is
+    /// [`DeferredReason::FrameDispatchPending`].
+    OneFramePerTurn,
+}
+
+/// The largest WebSocket frame header: 2 base bytes + 8 extended-length bytes
+/// + a 4-byte mask key.
+const MAX_FRAME_HEADER_BYTES: usize = 14;
+
+/// Frame-boundary bookkeeping for [`InboundFeedPolicy::OneFramePerTurn`].
+///
+/// It finds BOUNDARIES ONLY, through the core's own
+/// [`ws_core::framing::Draft6455::decode_frame_header`] and with NO frame-size
+/// cap of its own (`u64::MAX`), so it can never accept anything the core would
+/// reject or reject anything the core would accept: every limit, every
+/// validity rule and every typed failure stays in the core. The moment the
+/// grammar cannot place a boundary — a header the decoder rejects, or a
+/// declared length wider than this platform's `usize` — it stops splitting and
+/// hands the core whole chunks again, which is
+/// [`InboundFeedPolicy::WholeChunk`]'s behaviour, and the core answers as the
+/// authority.
+///
+/// Its state is bounded: at most [`MAX_FRAME_HEADER_BYTES`] of retained header
+/// plus a byte counter, whatever the frame size.
+#[derive(Debug)]
+struct FrameAlignedFeed {
+    /// Bytes of the frame currently being fed that the core has not been
+    /// handed yet. `None` while the header is still too short to size.
+    remaining: Option<usize>,
+    /// The head of the frame currently being sized, at most
+    /// [`MAX_FRAME_HEADER_BYTES`] bytes.
+    head: Vec<u8>,
+    /// Cleared once the wire stops parsing: from there on the core gets whole
+    /// chunks and decides for itself.
+    aligning: bool,
+}
+
+impl FrameAlignedFeed {
+    fn new() -> FrameAlignedFeed {
+        FrameAlignedFeed {
+            remaining: None,
+            head: Vec::with_capacity(MAX_FRAME_HEADER_BYTES),
+            aligning: true,
+        }
+    }
+
+    /// How many leading bytes of `chunk` may reach the core now without
+    /// crossing a frame boundary. Never zero for a non-empty chunk, so the
+    /// owner always makes progress.
+    fn limit(&mut self, chunk: &[u8]) -> usize {
+        if !self.aligning || chunk.is_empty() {
+            return chunk.len();
+        }
+        if let Some(remaining) = self.remaining {
+            return remaining.min(chunk.len());
+        }
+        let mut probe = self.head.clone();
+        let want = MAX_FRAME_HEADER_BYTES
+            .saturating_sub(probe.len())
+            .min(chunk.len());
+        probe.extend_from_slice(&chunk[..want]);
+        match Draft6455::decode_frame_header(&probe, u64::MAX) {
+            Ok(HeaderDecode::Header(header)) => {
+                let Ok(payload) = usize::try_from(header.payload_len) else {
+                    // A declared length this platform cannot address. The
+                    // core's own frame-size gate is the right refusal, so stop
+                    // splitting and let it see the bytes.
+                    self.aligning = false;
+                    return chunk.len();
+                };
+                let Some(total) = header.header_len.checked_add(payload) else {
+                    self.aligning = false;
+                    return chunk.len();
+                };
+                let owed = total.saturating_sub(self.head.len());
+                self.remaining = Some(owed);
+                owed.min(chunk.len())
+            }
+            // Everything held so far is shorter than one header, so the
+            // boundary is past the end of this chunk: none of it can cross one.
+            Ok(HeaderDecode::Insufficient) => chunk.len(),
+            // The core is the authority on a rejection; hand it the bytes.
+            Err(_) => {
+                self.aligning = false;
+                chunk.len()
+            }
+        }
+    }
+
+    /// Record that `fed` reached the core.
+    fn advance(&mut self, fed: &[u8]) {
+        if !self.aligning {
+            return;
+        }
+        match self.remaining {
+            Some(remaining) => {
+                let left = remaining.saturating_sub(fed.len());
+                if left == 0 {
+                    self.head.clear();
+                    self.remaining = None;
+                } else {
+                    self.remaining = Some(left);
+                }
+            }
+            None => {
+                // Still sizing: keep the head so the next chunk can complete
+                // the header. Bounded by construction — `limit` only returns
+                // an unsized span when everything held is shorter than one
+                // header.
+                let room = MAX_FRAME_HEADER_BYTES.saturating_sub(self.head.len());
+                let take = room.min(fed.len());
+                self.head.extend_from_slice(&fed[..take]);
+            }
+        }
+    }
+}
+
 /// The close-echo WIRE composition policy (E5b).
 ///
 /// `ws_core` answers an inbound close received while Open with the Q19
@@ -235,14 +408,49 @@ pub enum CloseEchoPolicy {
 /// Builds the bounded producer handle and its sole pull-driven owner for a
 /// fresh (`NotYetConnected`) connection, under the default
 /// [`AutoResponsePolicy::PongInboundPing`] (the shipped-Java listener
-/// default) and [`CloseEchoPolicy::WebSocketImplComposition`] (the
-/// shipped-Java full-stack close composition).
+/// default), [`CloseEchoPolicy::WebSocketImplComposition`] (the shipped-Java
+/// full-stack close composition) and
+/// [`InboundFeedPolicy::OneFramePerTurn`] (shipped Java's `decodeFrames`
+/// per-frame dispatch loop, DIV-05).
+///
+/// THIS IS THE FULL-STACK CONSTRUCTOR: all three policies are the shipped
+/// ones, because a fresh connection is what a real peer talks to. It is
+/// therefore NOT the same as
+/// `connection_driver_with_policies(config, role, Default::default(), Default::default())`
+/// — that pair keeps [`InboundFeedPolicy`]'s own default,
+/// [`InboundFeedPolicy::WholeChunk`], which is the ORACLE observable the
+/// public corpus scores. Callers that need the oracle observable must say so,
+/// as `ws-oracle-harness` does.
 #[must_use]
 pub fn connection_driver(
     config: ConnectionConfig,
     role: Role,
 ) -> (CommandSender, ConnectionDriver) {
-    connection_driver_with_policy(config, role, AutoResponsePolicy::default())
+    connection_driver_with_all_policies(
+        config,
+        role,
+        AutoResponsePolicy::default(),
+        CloseEchoPolicy::default(),
+        InboundFeedPolicy::OneFramePerTurn,
+    )
+}
+
+/// [`connection_driver`] with all three adapter-layer policies stated
+/// explicitly, including [`InboundFeedPolicy`].
+#[must_use]
+pub fn connection_driver_with_all_policies(
+    config: ConnectionConfig,
+    role: Role,
+    policy: AutoResponsePolicy,
+    close_echo: CloseEchoPolicy,
+    inbound_feed: InboundFeedPolicy,
+) -> (CommandSender, ConnectionDriver) {
+    let (queue, sender) = CommandQueue::new(&config);
+    let core = ConnectionCore::new(config, role);
+    (
+        sender,
+        ConnectionDriver::new(core, queue, policy, close_echo, inbound_feed),
+    )
 }
 
 /// [`connection_driver`] with an explicit automatic-response policy.
@@ -267,7 +475,13 @@ pub fn connection_driver_with_policies(
     let core = ConnectionCore::new(config, role);
     (
         sender,
-        ConnectionDriver::new(core, queue, policy, close_echo),
+        ConnectionDriver::new(
+            core,
+            queue,
+            policy,
+            close_echo,
+            InboundFeedPolicy::default(),
+        ),
     )
 }
 
@@ -317,7 +531,13 @@ pub fn connection_driver_in_state_with_policies(
     let core = ConnectionCore::new_in_state(config, role, state);
     (
         sender,
-        ConnectionDriver::new(core, queue, policy, close_echo),
+        ConnectionDriver::new(
+            core,
+            queue,
+            policy,
+            close_echo,
+            InboundFeedPolicy::default(),
+        ),
     )
 }
 
@@ -357,6 +577,11 @@ pub enum DeferredReason {
     /// The core refused the chunk with its non-fatal backpressure code; the
     /// adapter drains outputs (by polling) and retries the identical bytes.
     Backpressure,
+    /// [`InboundFeedPolicy::OneFramePerTurn`] only: the frame applied on an
+    /// earlier turn has not finished dispatching — some output it committed,
+    /// or a command an event of it provoked, is still undrained. The adapter
+    /// drains outputs (by polling) and retries the identical bytes.
+    FrameDispatchPending,
 }
 
 /// Why a driver input was rejected without any state change.
@@ -638,6 +863,24 @@ pub struct ConnectionDriver {
     /// consumed while Open — the Q19 echo whose wire bytes
     /// `WebSocketImpl.close` composes itself (WebSocketImpl.java:482-486).
     close_echo_armed: bool,
+    /// The configured inbound feed policy (DIV-05).
+    inbound_feed: InboundFeedPolicy,
+    /// Frame-boundary bookkeeping for
+    /// [`InboundFeedPolicy::OneFramePerTurn`]; inert under
+    /// [`InboundFeedPolicy::WholeChunk`].
+    feed: FrameAlignedFeed,
+    /// [`InboundFeedPolicy::OneFramePerTurn`]: a frame has been applied and
+    /// its dispatch has not finished. Set by every accepted inbound span and
+    /// cleared only by a quiescent turn — the port's image of `processFrame`
+    /// having RETURNED, which is where `decodeFrames`' loop takes its next
+    /// frame (WebSocketImpl.java:395-398).
+    ///
+    /// A quiescent turn is the only honest signal available: the driver's
+    /// [`Self::has_pending_output`] deliberately counts offered writes,
+    /// dropped writes and a pending failure but NOT undrained EVENTS, so it
+    /// cannot be used here — an event carrying the message the policy is
+    /// about to echo is exactly what would still be queued.
+    frame_dispatch_pending: bool,
 }
 
 impl ConnectionDriver {
@@ -646,6 +889,7 @@ impl ConnectionDriver {
         commands: CommandQueue,
         policy: AutoResponsePolicy,
         close_echo: CloseEchoPolicy,
+        inbound_feed: InboundFeedPolicy,
     ) -> ConnectionDriver {
         ConnectionDriver {
             core,
@@ -664,6 +908,9 @@ impl ConnectionDriver {
             dropped_writes: None,
             close_echo,
             close_echo_armed: false,
+            inbound_feed,
+            feed: FrameAlignedFeed::new(),
+            frame_dispatch_pending: false,
         }
     }
 
@@ -934,11 +1181,50 @@ impl ConnectionDriver {
                         input_disposition = InputDisposition::Deferred(DeferredReason::CommandTurn);
                         command_disposition = self.apply_held_command();
                     }
+                    // DIV-05: under `OneFramePerTurn` a frame already applied
+                    // must finish dispatching before the next one is taken,
+                    // exactly as `decodeFrames`' loop only reaches its next
+                    // iteration once `processFrame` has RETURNED
+                    // (WebSocketImpl.java:395-398).
+                    DriverInput::Inbound(_)
+                        if self.inbound_feed == InboundFeedPolicy::OneFramePerTurn
+                            && self.frame_dispatch_pending =>
+                    {
+                        input_disposition =
+                            InputDisposition::Deferred(DeferredReason::FrameDispatchPending);
+                    }
                     DriverInput::Inbound(bytes) => {
                         self.command_turn = true;
                         let state_before = self.core.state();
+                        // DIV-05: at most ONE frame reaches the core, and the
+                        // partial consumption is reported honestly below.
+                        //
+                        // NOT during the opening handshake. `WebSocketImpl.decode`
+                        // runs `decodeHandshake` while NOT_YET_CONNECTED and
+                        // only reaches `decodeFrames` once the connection is
+                        // OPEN (WebSocketImpl.java:220-242), so there is no
+                        // frame grammar to align to yet — an HTTP request head
+                        // read as a frame header is not a frame boundary, it
+                        // is a category error, and `FrameAlignedFeed` would
+                        // (correctly, for wire bytes) give up on the first
+                        // undefined opcode and never align again.
+                        let framed = self.inbound_feed == InboundFeedPolicy::OneFramePerTurn
+                            && self.core.state() != ReadyState::NotYetConnected;
+                        let bytes = if framed {
+                            &bytes[..self.feed.limit(bytes)]
+                        } else {
+                            bytes
+                        };
                         match self.core.handle(Input::TransportBytes(bytes)) {
-                            Ok(()) => self.arm_close_echo(state_before),
+                            Ok(()) => {
+                                if framed {
+                                    self.feed.advance(bytes);
+                                    self.frame_dispatch_pending = true;
+                                    input_disposition =
+                                        InputDisposition::Consumed { bytes: bytes.len() };
+                                }
+                                self.arm_close_echo(state_before);
+                            }
                             Err(failure) if !failure.code.is_fatal() => {
                                 // Non-fatal backpressure: nothing was
                                 // consumed; the adapter drains (by polling)
@@ -948,7 +1234,14 @@ impl ConnectionDriver {
                             }
                             Err(failure) => {
                                 // The decode path — the one origin shipped
-                                // Java answers with a close frame.
+                                // Java answers with a close frame. Only the
+                                // span actually handed to the core may be
+                                // reported consumed, whatever the caller
+                                // offered.
+                                if framed {
+                                    input_disposition =
+                                        InputDisposition::Consumed { bytes: bytes.len() };
+                                }
                                 return self.finish_poll(
                                     input_disposition,
                                     None,
@@ -1355,6 +1648,12 @@ impl ConnectionDriver {
             self.terminal_delivered = true;
             return DriverOutput::Terminal(TerminalOutcome);
         }
+        // DIV-05: nothing is offered, nothing is held, nothing is queued —
+        // every output the last applied frame committed has drained and every
+        // command its events provoked has been applied. That is `processFrame`
+        // having RETURNED, and it is where `decodeFrames`' loop takes its next
+        // frame (WebSocketImpl.java:395-398).
+        self.frame_dispatch_pending = false;
         DriverOutput::Idle
     }
 }
@@ -1765,5 +2064,118 @@ mod pending_eof_ceiling_tests {
         assert_eq!(driver.pending_eofs, u32::MAX);
         assert!(!driver.admit_eof(), "the next one does not fit");
         assert_eq!(driver.pending_eofs, u32::MAX);
+    }
+}
+
+/// DIV-05 (behavior-delta ledger sequence 54): the frame-boundary bookkeeping
+/// behind [`InboundFeedPolicy::OneFramePerTurn`]. These are here rather than
+/// in an integration test because the split they pin — a frame header cut by
+/// a read boundary — is not reachable through a socket fixture that writes
+/// its bytes in one go, and a check that cannot fail is not evidence.
+#[cfg(test)]
+mod inbound_feed_tests {
+    use super::*;
+
+    /// Replays `wire` through [`FrameAlignedFeed`] in reads of `read_size`
+    /// and returns the byte spans it would hand the core, in order.
+    fn spans_fed(wire: &[u8], read_size: usize) -> Vec<usize> {
+        let mut feed = FrameAlignedFeed::new();
+        let mut spans = Vec::new();
+        let mut pending: Vec<u8> = Vec::new();
+        let mut at = 0usize;
+        while at < wire.len() || !pending.is_empty() {
+            if pending.is_empty() {
+                let end = (at + read_size).min(wire.len());
+                pending = wire[at..end].to_vec();
+                at = end;
+            }
+            let take = feed.limit(&pending);
+            assert!(take > 0, "a non-empty chunk must always make progress");
+            spans.push(take);
+            feed.advance(&pending[..take]);
+            pending = pending[take..].to_vec();
+        }
+        spans
+    }
+
+    fn wire_frame(opcode: u8, payload_len: usize) -> Vec<u8> {
+        let mut frame = vec![0x80 | opcode];
+        if payload_len < 126 {
+            #[allow(clippy::cast_possible_truncation)]
+            frame.push(0x80 | payload_len as u8);
+        } else {
+            frame.push(0x80 | 126);
+            #[allow(clippy::cast_possible_truncation)]
+            frame.extend_from_slice(&(payload_len as u16).to_be_bytes());
+        }
+        frame.extend_from_slice(&[0x11, 0x22, 0x33, 0x44]);
+        frame.extend(std::iter::repeat_n(0x00u8, payload_len));
+        frame
+    }
+
+    #[test]
+    fn one_read_carrying_two_frames_is_split_at_the_boundary() {
+        let mut wire = wire_frame(0x1, 5);
+        wire.extend_from_slice(&wire_frame(0x8, 6));
+        // 11 = 2 header + 4 mask + 5 payload; 12 = 2 + 4 + 6.
+        assert_eq!(spans_fed(&wire, 4096), vec![11, 12]);
+    }
+
+    /// The retained-head arithmetic, which no socket fixture can reach: a
+    /// header is only ever SPLIT when a read boundary falls inside it, and
+    /// [`FrameAlignedFeed::limit`] must then subtract the bytes already fed
+    /// (`total - self.head.len()`) rather than starting the frame's countdown
+    /// over. Getting that wrong drifts every later boundary by the size of the
+    /// retained head.
+    #[test]
+    fn a_frame_header_split_across_reads_still_lands_the_boundary() {
+        let mut wire = wire_frame(0x1, 130); // 8-byte header (126 marker)
+        wire.extend_from_slice(&wire_frame(0x8, 6));
+        wire.extend_from_slice(&wire_frame(0x1, 3));
+        // Reads of 5 bytes cut inside both extended headers AND never land on
+        // a frame end, so the feed's own boundaries are the only ones here.
+        let spans = spans_fed(&wire, 5);
+        assert_eq!(
+            spans.iter().sum::<usize>(),
+            wire.len(),
+            "every byte is fed exactly once: {spans:?}"
+        );
+        let mut boundaries = Vec::new();
+        let mut running = 0usize;
+        for span in &spans {
+            running += span;
+            boundaries.push(running);
+        }
+        for end in [138usize, 138 + 12, 138 + 12 + 9] {
+            assert!(
+                boundaries.contains(&end),
+                "a frame boundary at byte {end} must be a feed boundary; \
+                 the feed stopped at {boundaries:?}"
+            );
+        }
+    }
+
+    /// A header the grammar rejects (0x3 is not a defined opcode) must hand
+    /// the CORE the bytes rather than making a decision here.
+    #[test]
+    fn an_unparsable_header_stops_splitting_and_defers_to_the_core() {
+        let mut feed = FrameAlignedFeed::new();
+        let chunk = [0x83u8, 0x80, 0x11, 0x22, 0x33, 0x44];
+        assert_eq!(feed.limit(&chunk), chunk.len());
+        assert!(
+            !feed.aligning,
+            "an unparsable header disables alignment for the rest of the run"
+        );
+        // And it stays disabled: every later chunk goes whole to the core.
+        assert_eq!(feed.limit(&[0x81, 0x80, 0, 0, 0, 0][..]), 6);
+    }
+
+    /// The policy default is the ORACLE observable. The public corpus scores
+    /// `input_chunk {bytes}` per surviving chunk, so a default that split
+    /// chunks would move pinned bytes the moment anyone used a builder
+    /// without stating the policy.
+    #[test]
+    fn the_inbound_feed_default_is_the_whole_chunk() {
+        assert_eq!(InboundFeedPolicy::default(), InboundFeedPolicy::WholeChunk);
     }
 }

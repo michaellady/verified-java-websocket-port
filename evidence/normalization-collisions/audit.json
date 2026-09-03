@@ -1,0 +1,1020 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "NormalizationCollisionAudit",
+  "note": "Normalization-collision census. A collision is two genuinely different wire behaviours mapping onto one normalized observation. Every probe below was DECIDED BY RUNNING the real harness on two seed requests and applying the real differential comparator to the two answers; no verdict is predicted. Confirmed collisions are separated from undecided candidates, and a candidate is never counted as a finding. A candidate later DECIDED does not become a collision by default: refutations[] holds the probes that found the observation DOES carry the distinction, and they are counted apart from probes[] so a reader cannot mistake nine decided probes for nine collisions.",
+  "recomputed_from": {
+    "harness": "ws-oracle-harness sha256:9ab5701892135aa9a6163138515e508fc2fd5781ff99a8b1397f1ee11669776d",
+    "comparator": "internal/diffregress.CompareResponses (the comparator the headline number uses)",
+    "identity_fields_stripped": [
+      "case_id",
+      "request_digest",
+      "request_id"
+    ],
+    "probe_count": 9,
+    "confirmed_count": 7,
+    "refuted_count": 2,
+    "undecided_candidate_count": 2,
+    "decided_candidate_count": 3,
+    "candidate_count_at_first_pass": 5
+  },
+  "normalization_surface": [
+    {
+      "id": "behaviour.ok",
+      "site": "rust/ws-oracle-harness/src/response.rs ok_response",
+      "trigger": "the scenario ran to completion",
+      "drops": [
+        "cross-array ordering between events[], frames[] and transitions[]",
+        "frame mask keys (quirk Q28: payloads are recorded unmasked)",
+        "every transport-layer fact: socket lifecycle, TCP FIN/RST, flush boundaries, timing"
+      ],
+      "scorer": "internal/corpora.EvaluateOracleResponse (ok branch)",
+      "scores": [
+        "request_id",
+        "request_digest",
+        "protocol",
+        "version",
+        "outcome",
+        "close",
+        "counts",
+        "events",
+        "final_state",
+        "frames",
+        "initial_state",
+        "role",
+        "transitions"
+      ]
+    },
+    {
+      "id": "behaviour.failure",
+      "site": "rust/ws-oracle-harness/src/response.rs failure_response",
+      "trigger": "the scenario failed part-way (mirrors OracleEngine.failure)",
+      "drops": [
+        "events[] — the entire semantic event stream",
+        "frames[] — the entire frame record stream",
+        "transitions[] — the entire state-transition stream",
+        "close — the governing close detail",
+        "role and initial_state (request echoes, recoverable from request_digest)"
+      ],
+      "scorer": "internal/corpora.EvaluateOracleResponse (error branch)",
+      "scores": [
+        "request_id",
+        "request_digest",
+        "protocol",
+        "version",
+        "outcome",
+        "error.code",
+        "error.close_code",
+        "final_state",
+        "counts"
+      ]
+    },
+    {
+      "id": "behaviour.output_limit",
+      "site": "rust/ws-oracle-harness/src/response.rs output_limit_response",
+      "trigger": "the canonicalized response exceeds the request's max_output_bytes",
+      "drops": [
+        "events[], frames[], transitions[], close",
+        "counts — every counter",
+        "final_state",
+        "runtime — the responder's own identity",
+        "error.close_code"
+      ],
+      "scorer": "internal/corpora.EvaluateOracleResponse (error branch)",
+      "scores": [
+        "request_id",
+        "request_digest",
+        "protocol",
+        "version",
+        "outcome",
+        "error.code"
+      ]
+    },
+    {
+      "id": "behaviour.envelope_error",
+      "site": "rust/ws-oracle-harness/src/response.rs envelope_error_response",
+      "trigger": "the line never reached scenario execution (mirrors OracleMain.error)",
+      "drops": [
+        "request_id is literally null — there is no id binding",
+        "request_digest — there is no request binding at all",
+        "counts, final_state, runtime and every observation stream"
+      ],
+      "scorer": "NONE — diffregress.LoadTranscript REFUSES a null request_id, so a transcript containing one of these cannot be compared at all",
+      "scores": []
+    },
+    {
+      "id": "handshake.judged",
+      "site": "rust/ws-oracle-harness/src/handshake_adapter.rs respond",
+      "trigger": "any handshake-protocol line",
+      "drops": [
+        "the entire HTTP head — status line, header set, header order, Date",
+        "subprotocol negotiation (Sec-WebSocket-Protocol)",
+        "extension negotiation (Sec-WebSocket-Extensions)",
+        "request path and Host",
+        "how many bytes an `incomplete` consumed, and in what state it stopped",
+        "the Sec-WebSocket-Key on any rejected case"
+      ],
+      "scorer": "internal/corpora.evaluateHandshakeLiveResponse",
+      "scores": [
+        "case_id",
+        "request_digest",
+        "protocol",
+        "version",
+        "runtime",
+        "java_observable",
+        "reject_channel",
+        "close_code",
+        "sec_websocket_accept"
+      ]
+    }
+  ],
+  "probes": [
+    {
+      "id": "NC-01",
+      "expected_verdict": "CONFIRMED",
+      "projection": "behaviour.failure",
+      "erases": "Any difference in what the connection actually did before it failed: a differing outbound payload, a differing frame, a differing transition, a differing close detail. An error row carries none of them.",
+      "mechanism": "failure_response emits only base+error+counts+final_state+runtime, mirroring OracleEngine.failure. EvaluateOracleResponse's error branch then compares only error.code, error.close_code, final_state and counts — and error.detail is excused by diffregress as non-semantic (DetailField).",
+      "disclosure": "The DROP is disclosed (failure_response's doc comment says the failure envelope retains only counts and final state). The CONSEQUENCE — that this makes 26 of the 74 public rows blind to every observation stream — is not stated anywhere in the tree that this audit found.",
+      "active_in_scored_corpora": true,
+      "collision_a": {
+        "id": "nc01.col.a",
+        "steps": [
+          {
+            "action": "send_text",
+            "kind": "action",
+            "text": "AA"
+          },
+          {
+            "action": "send_close",
+            "code": 999,
+            "kind": "action",
+            "reason": "bad"
+          }
+        ]
+      },
+      "collision_b": {
+        "id": "nc01.col.b",
+        "steps": [
+          {
+            "action": "send_text",
+            "kind": "action",
+            "text": "BB"
+          },
+          {
+            "action": "send_close",
+            "code": 999,
+            "kind": "action",
+            "reason": "bad"
+          }
+        ]
+      },
+      "witness_a": {
+        "id": "nc01.wit.a",
+        "steps": [
+          {
+            "action": "send_text",
+            "kind": "action",
+            "text": "AA"
+          }
+        ]
+      },
+      "witness_b": {
+        "id": "nc01.wit.b",
+        "steps": [
+          {
+            "action": "send_text",
+            "kind": "action",
+            "text": "BB"
+          }
+        ]
+      },
+      "request_lines": [
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:be7d8e083b93ff3b2d76ea9248d0bfae99f3c5a5d20fcb65ba61339dbf247932\",\"request_id\":\"nc01.col.a\",\"role\":\"client\",\"steps\":[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"AA\"},{\"action\":\"send_close\",\"code\":999,\"kind\":\"action\",\"reason\":\"bad\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:a0e0f95afc99d1b6e607ff45b3a64c99b3df64a9a39f8a94f39d525ff1973fee\",\"request_id\":\"nc01.col.b\",\"role\":\"client\",\"steps\":[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"BB\"},{\"action\":\"send_close\",\"code\":999,\"kind\":\"action\",\"reason\":\"bad\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:7811f167fb8f51fece18a59a0ac980f09045ed2ce48c718e6c916874d253bf50\",\"request_id\":\"nc01.wit.a\",\"role\":\"client\",\"steps\":[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"AA\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:8c7e5bcf5eac0570ad6a457e561e23921c22671200278c3529dd0d4acd588ec8\",\"request_id\":\"nc01.wit.b\",\"role\":\"client\",\"steps\":[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"BB\"}],\"version\":\"1.0.0\"}"
+      ],
+      "result": {
+        "probe_id": "NC-01",
+        "verdict": "CONFIRMED",
+        "collision_diff_paths": null,
+        "witness_diff_paths": [
+          "frames[0].payload_base64"
+        ],
+        "witness_kind": "pair",
+        "collision_a_keys": [
+          "counts",
+          "error",
+          "final_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "runtime",
+          "version"
+        ],
+        "collision_b_keys": [
+          "counts",
+          "error",
+          "final_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "runtime",
+          "version"
+        ],
+        "identity_fields_that_differ": [
+          "request_digest",
+          "request_id"
+        ]
+      }
+    },
+    {
+      "id": "NC-02",
+      "expected_verdict": "CONFIRMED",
+      "projection": "behaviour.output_limit",
+      "erases": "EVERYTHING the request produced, plus the responder's own identity. Two behaviours that differ in final_state, in close, in transitions and in every event collapse to the same six keys with a constant detail string.",
+      "mechanism": "output_limit_response emits base+error{code,detail} only, mirroring Execution.failure(minimal=true). Because `runtime` is absent, a Java row and a Rust row for the same request are BYTE-IDENTICAL.",
+      "disclosure": "The drop is disclosed in output_limit_response's doc comment, which lists runtime among the omissions. The consequence for the differential is not.",
+      "active_in_scored_corpora": false,
+      "collision_a": {
+        "id": "nc02.col.a",
+        "steps": [
+          {
+            "action": "send_text",
+            "kind": "action",
+            "text": "AAAA"
+          }
+        ],
+        "max_output_bytes": 512
+      },
+      "collision_b": {
+        "id": "nc02.col.b",
+        "steps": [
+          {
+            "action": "send_close",
+            "code": 1000,
+            "kind": "action",
+            "reason": "z"
+          }
+        ],
+        "max_output_bytes": 512
+      },
+      "witness_a": {
+        "id": "nc02.wit.a",
+        "steps": [
+          {
+            "action": "send_text",
+            "kind": "action",
+            "text": "AAAA"
+          }
+        ]
+      },
+      "witness_b": {
+        "id": "nc02.wit.b",
+        "steps": [
+          {
+            "action": "send_close",
+            "code": 1000,
+            "kind": "action",
+            "reason": "z"
+          }
+        ]
+      },
+      "request_lines": [
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":512},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:af5eb488e5e5dcf67467ce05c544c2072274ccecd8ebe55b941ad2373a2d3b85\",\"request_id\":\"nc02.col.a\",\"role\":\"client\",\"steps\":[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"AAAA\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":512},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:cf6324e4e7b605b0fae5c7ab4b091906bd54dc41a0186739d561c75866696a9c\",\"request_id\":\"nc02.col.b\",\"role\":\"client\",\"steps\":[{\"action\":\"send_close\",\"code\":1000,\"kind\":\"action\",\"reason\":\"z\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:d6787009bf07bc2338c2bc7a801d97a2349fe146a940e56aaea98843dad74c12\",\"request_id\":\"nc02.wit.a\",\"role\":\"client\",\"steps\":[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"AAAA\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:0eb5613090cd54d13385e136a97039f7bb4b91e3edb8748fc9c7a09a0f5b1c7b\",\"request_id\":\"nc02.wit.b\",\"role\":\"client\",\"steps\":[{\"action\":\"send_close\",\"code\":1000,\"kind\":\"action\",\"reason\":\"z\"}],\"version\":\"1.0.0\"}"
+      ],
+      "result": {
+        "probe_id": "NC-02",
+        "verdict": "CONFIRMED",
+        "collision_diff_paths": null,
+        "witness_diff_paths": [
+          "close",
+          "events.length",
+          "final_state",
+          "frames[0].opcode",
+          "frames[0].payload_base64",
+          "frames[0].payload_bytes",
+          "frames[0].wire_bytes",
+          "transitions.length"
+        ],
+        "witness_kind": "pair",
+        "collision_a_keys": [
+          "error",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "version"
+        ],
+        "collision_b_keys": [
+          "error",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "version"
+        ],
+        "identity_fields_that_differ": [
+          "request_digest",
+          "request_id"
+        ]
+      }
+    },
+    {
+      "id": "NC-03",
+      "expected_verdict": "CONFIRMED",
+      "projection": "behaviour.ok",
+      "erases": "The four-octet frame mask key of every inbound frame.",
+      "mechanism": "FrameRecord has no mask-key member at all (observe.rs: \"Client mask keys are deliberately absent (quirk Q28): frames are observed semantically, with unmasked payloads\"). No projection can represent it, so no witness pair exists.",
+      "disclosure": "DISCLOSED as quirk Q28 in observe.rs. This probe adds only the constructive proof that two different wire octet sequences really do produce identical rows.",
+      "active_in_scored_corpora": true,
+      "collision_a": {
+        "id": "nc03.col.a",
+        "steps": [
+          {
+            "data_base64": "gYIBAgMEaWs=",
+            "kind": "bytes"
+          }
+        ],
+        "role": "server"
+      },
+      "collision_b": {
+        "id": "nc03.col.b",
+        "steps": [
+          {
+            "data_base64": "gYKqu8zdwtI=",
+            "kind": "bytes"
+          }
+        ],
+        "role": "server"
+      },
+      "wire_witness": "the two bytes steps carry 818201020304696b and 8182aabbccddc2d2 — eight octets each, differing in six of them",
+      "request_lines": [
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:b83faf82e321f85131a435cc7d1a072ca95dcb99fb5573a8381bd36452e6ee40\",\"request_id\":\"nc03.col.a\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gYIBAgMEaWs=\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:937500e2ad8fa3153312976e277c8826ae8588e57892d5c5210999c0a67cce8a\",\"request_id\":\"nc03.col.b\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gYKqu8zdwtI=\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}"
+      ],
+      "result": {
+        "probe_id": "NC-03",
+        "verdict": "CONFIRMED",
+        "collision_diff_paths": null,
+        "witness_kind": "wire",
+        "collision_a_keys": [
+          "close",
+          "counts",
+          "events",
+          "final_state",
+          "frames",
+          "initial_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "role",
+          "runtime",
+          "transitions",
+          "version"
+        ],
+        "collision_b_keys": [
+          "close",
+          "counts",
+          "events",
+          "final_state",
+          "frames",
+          "initial_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "role",
+          "runtime",
+          "transitions",
+          "version"
+        ],
+        "identity_fields_that_differ": [
+          "request_digest",
+          "request_id"
+        ]
+      }
+    },
+    {
+      "id": "NC-04",
+      "expected_verdict": "CONFIRMED",
+      "projection": "behaviour.failure",
+      "erases": "The FIN bit of a rejected frame. This probe is NOT synthesized: its two seeds are the shipped steps of us005.pub.0039 and us005.pub.0066, two of the seventy-four public scenarios. Their frames differ in the FIN bit (0x80 versus 0x00) and in every payload octet, both are rejected as \"Continuous frame sequence was not started\", and their scored rows are IDENTICAL.",
+      "mechanism": "Same as NC-01 — failure_response emits no frames[] — but instantiated inside the corpus the 74/74 is computed over, so it costs the headline number a row rather than bounding a hypothetical one.",
+      "disclosure": "NOT DISCLOSED. Nothing this audit found records that two of the 74 public scenarios are indistinguishable to the differential.",
+      "active_in_scored_corpora": true,
+      "collision_a": {
+        "id": "us005.pub.0039",
+        "steps": [
+          {
+            "data_base64": "gIMcm8rf/vVB",
+            "kind": "bytes"
+          }
+        ]
+      },
+      "collision_b": {
+        "id": "us005.pub.0066",
+        "steps": [
+          {
+            "data_base64": "AIMdOb7brW1E",
+            "kind": "bytes"
+          }
+        ]
+      },
+      "witness_a": {
+        "id": "nc04.wit.a",
+        "steps": [
+          {
+            "data_base64": "gYIBAgMEaWs=",
+            "kind": "bytes"
+          }
+        ],
+        "role": "server"
+      },
+      "witness_b": {
+        "id": "nc04.wit.b",
+        "steps": [
+          {
+            "data_base64": "AYIBAgMEaWs=",
+            "kind": "bytes"
+          }
+        ],
+        "role": "server"
+      },
+      "request_lines": [
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:d58b37b91f7de1fb9856e6b38841243004a2c353f6ca7f56713e191a7ccc091e\",\"request_id\":\"us005.pub.0039\",\"role\":\"client\",\"steps\":[{\"data_base64\":\"gIMcm8rf/vVB\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:bd9ee2d06fc4ee72db15f2605010eacd0a27ccd59b3871bde127738cf89a5e99\",\"request_id\":\"us005.pub.0066\",\"role\":\"client\",\"steps\":[{\"data_base64\":\"AIMdOb7brW1E\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:1db7cc8bed01f270b14e127cc1a182be0b149d1647d758ad372c56d38cf844ee\",\"request_id\":\"nc04.wit.a\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gYIBAgMEaWs=\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:e12b685ef5c661cf9ba4d357b18cde910e27dcb3861914b999a92c271e844296\",\"request_id\":\"nc04.wit.b\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"AYIBAgMEaWs=\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}"
+      ],
+      "result": {
+        "probe_id": "NC-04",
+        "verdict": "CONFIRMED",
+        "collision_diff_paths": null,
+        "witness_diff_paths": [
+          "counts.buffered_bytes",
+          "counts.message_buffered_bytes",
+          "events.length",
+          "frames[0].fin"
+        ],
+        "witness_kind": "pair",
+        "collision_a_keys": [
+          "counts",
+          "error",
+          "final_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "runtime",
+          "version"
+        ],
+        "collision_b_keys": [
+          "counts",
+          "error",
+          "final_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "runtime",
+          "version"
+        ],
+        "identity_fields_that_differ": [
+          "request_digest",
+          "request_id"
+        ]
+      }
+    },
+    {
+      "id": "NC-07",
+      "expected_verdict": "CONFIRMED",
+      "projection": "handshake.judged",
+      "erases": "The entire HTTP request head apart from the key: path, Host, and — the part that matters most — Sec-WebSocket-Protocol and Sec-WebSocket-Extensions. Subprotocol and extension negotiation is unobservable to the 49-case exam.",
+      "mechanism": "handshake_adapter.rs::judge discards the response head by its own admission (\"never the response head, which it discards below\") and respond() emits only java_observable plus sec_websocket_accept on a server-side accept.",
+      "disclosure": "The head-discard is disclosed in the adapter's own comment, scoped to the RESPONSE head. That the REQUEST's negotiation headers are equally unscored is not stated, and permessage-deflate is precisely the kind of behaviour a port could get wrong.",
+      "active_in_scored_corpora": true,
+      "collision_a": {
+        "id": "nc07.col.a",
+        "direction": "client_request"
+      },
+      "collision_b": {
+        "id": "nc07.col.b",
+        "direction": "client_request"
+      },
+      "wire_witness": "164 request octets versus 258, differing in path, Host, and two whole negotiation headers the observation vocabulary has no member for",
+      "request_lines": [
+        "{\"case_id\":\"nc07.col.a\",\"config\":{\"max_handshake_bytes\":4096,\"max_header_count\":32,\"max_header_line_bytes\":512},\"context\":{},\"direction\":\"client_request\",\"protocol\":\"java-websocket-handshake-oracle\",\"raw_base64\":\"R0VUIC9zb2NrZXQvYWFhYSBIVFRQLzEuMQ0KSG9zdDogaG9zdC1hLmV4YW1wbGUNClVwZ3JhZGU6IHdlYnNvY2tldA0KQ29ubmVjdGlvbjogVXBncmFkZQ0KU2VjLVdlYlNvY2tldC1LZXk6IDdRZzhKdzNxUUw0RVJyL244M1lON3c9PQ0KU2VjLVdlYlNvY2tldC1WZXJzaW9uOiAxMw0KDQo=\",\"request_digest\":\"sha256:f625ce7aa2f3032c1a370a43980338c725414d020e523def751afdcedb324c87\",\"version\":\"1.0.0\"}",
+        "{\"case_id\":\"nc07.col.b\",\"config\":{\"max_handshake_bytes\":4096,\"max_header_count\":32,\"max_header_line_bytes\":512},\"context\":{},\"direction\":\"client_request\",\"protocol\":\"java-websocket-handshake-oracle\",\"raw_base64\":\"R0VUIC90b3RhbGx5L2RpZmZlcmVudC9wYXRoIEhUVFAvMS4xDQpIb3N0OiBob3N0LXp6enp6enp6LmV4YW1wbGUNClVwZ3JhZGU6IHdlYnNvY2tldA0KQ29ubmVjdGlvbjogVXBncmFkZQ0KU2VjLVdlYlNvY2tldC1LZXk6IDdRZzhKdzNxUUw0RVJyL244M1lON3c9PQ0KU2VjLVdlYlNvY2tldC1WZXJzaW9uOiAxMw0KU2VjLVdlYlNvY2tldC1Qcm90b2NvbDogY2hhdA0KU2VjLVdlYlNvY2tldC1FeHRlbnNpb25zOiBwZXJtZXNzYWdlLWRlZmxhdGUNCg0K\",\"request_digest\":\"sha256:04230eb38c101a676fa347f9c4f16286afe95f6b3132d8b229aaa0adfec8a040\",\"version\":\"1.0.0\"}"
+      ],
+      "result": {
+        "probe_id": "NC-07",
+        "verdict": "CONFIRMED",
+        "collision_diff_paths": null,
+        "witness_kind": "wire",
+        "collision_a_keys": [
+          "case_id",
+          "java_observable",
+          "protocol",
+          "request_digest",
+          "runtime",
+          "sec_websocket_accept",
+          "version"
+        ],
+        "collision_b_keys": [
+          "case_id",
+          "java_observable",
+          "protocol",
+          "request_digest",
+          "runtime",
+          "sec_websocket_accept",
+          "version"
+        ],
+        "identity_fields_that_differ": [
+          "case_id",
+          "request_digest"
+        ]
+      }
+    },
+    {
+      "id": "NC-08",
+      "expected_verdict": "CONFIRMED",
+      "projection": "handshake.judged",
+      "erases": "Everything about an incomplete handshake: how many octets arrived, which headers had been seen, where the parser stopped.",
+      "mechanism": "Observable::Incomplete carries no payload, so respond() emits the bare literal \"incomplete\" and nothing else.",
+      "disclosure": "NOT DISCLOSED anywhere this audit found.",
+      "active_in_scored_corpora": true,
+      "collision_a": {
+        "id": "nc08.col.a",
+        "direction": "client_request"
+      },
+      "collision_b": {
+        "id": "nc08.col.b",
+        "direction": "client_request"
+      },
+      "wire_witness": "16 octets versus a whole upgrade request one CRLF short of complete — and the observation is the same single word. NOTE: an earlier version of this probe truncated with a fixed [:160] slice that did not actually cut the shorter request, so collision B was a COMPLETE handshake and the run REFUTED the probe (collision_diff_paths = [java_observable sec_websocket_accept]). The refutation was correct and is why the truncation is now computed rather than guessed.",
+      "request_lines": [
+        "{\"case_id\":\"nc08.col.a\",\"config\":{\"max_handshake_bytes\":4096,\"max_header_count\":32,\"max_header_line_bytes\":512},\"context\":{},\"direction\":\"client_request\",\"protocol\":\"java-websocket-handshake-oracle\",\"raw_base64\":\"R0VUIC8gSFRUUC8xLjENCg==\",\"request_digest\":\"sha256:e8772361ceb5be3df61789f1ebca9d0faeb20015560d5d573d7d6316d1634d9c\",\"version\":\"1.0.0\"}",
+        "{\"case_id\":\"nc08.col.b\",\"config\":{\"max_handshake_bytes\":4096,\"max_header_count\":32,\"max_header_line_bytes\":512},\"context\":{},\"direction\":\"client_request\",\"protocol\":\"java-websocket-handshake-oracle\",\"raw_base64\":\"R0VUIC94IEhUVFAvMS4xDQpIb3N0OiBoLmV4YW1wbGUNClVwZ3JhZGU6IHdlYnNvY2tldA0KQ29ubmVjdGlvbjogVXBncmFkZQ0KU2VjLVdlYlNvY2tldC1LZXk6IDdRZzhKdzNxUUw0RVJyL244M1lON3c9PQ0KU2VjLVdlYlNvY2tldC1WZXJzaW9uOiAxMw0K\",\"request_digest\":\"sha256:2c885449a29ff8265acf6edb11ad3d54b84e8f738ebca9765fa564cc7e16e13b\",\"version\":\"1.0.0\"}"
+      ],
+      "result": {
+        "probe_id": "NC-08",
+        "verdict": "CONFIRMED",
+        "collision_diff_paths": null,
+        "witness_kind": "wire",
+        "collision_a_keys": [
+          "case_id",
+          "java_observable",
+          "protocol",
+          "request_digest",
+          "runtime",
+          "version"
+        ],
+        "collision_b_keys": [
+          "case_id",
+          "java_observable",
+          "protocol",
+          "request_digest",
+          "runtime",
+          "version"
+        ],
+        "identity_fields_that_differ": [
+          "case_id",
+          "request_digest"
+        ]
+      }
+    },
+    {
+      "id": "NC-09",
+      "expected_verdict": "CONFIRMED",
+      "projection": "handshake.judged",
+      "erases": "Every distinction between two rejected handshakes that take the same draft-API channel — including the Sec-WebSocket-Key, which is never echoed on a reject. close_code is a CONSTANT (HANDSHAKE_REJECT_CLOSE_CODE) and carries no information at all.",
+      "mechanism": "respond() emits reject_channel plus a hardcoded 1002. evaluateHandshakeLiveResponse compares exactly those two.",
+      "disclosure": "DISCLOSED, and unusually well: evidence/us005-handshake-live-mapping.json's granularity_statement says the Java runtime cannot observably distinguish most HS_* reject codes and that the draft-API channel is \"the finest honest granularity\". This probe measures the size of the resulting classes.",
+      "active_in_scored_corpora": true,
+      "collision_a": {
+        "id": "nc09.col.a",
+        "direction": "client_request"
+      },
+      "collision_b": {
+        "id": "nc09.col.b",
+        "direction": "client_request"
+      },
+      "wire_witness": "different path, different Host, DIFFERENT Sec-WebSocket-Key, and an extra header — one identical scored row",
+      "request_lines": [
+        "{\"case_id\":\"nc09.col.a\",\"config\":{\"max_handshake_bytes\":4096,\"max_header_count\":32,\"max_header_line_bytes\":512},\"context\":{},\"direction\":\"client_request\",\"protocol\":\"java-websocket-handshake-oracle\",\"raw_base64\":\"R0VUIC9hIEhUVFAvMS4xDQpIb3N0OiBhLmV4YW1wbGUNClVwZ3JhZGU6IHdlYnNvY2tldA0KQ29ubmVjdGlvbjogVXBncmFkZQ0KU2VjLVdlYlNvY2tldC1LZXk6IDdRZzhKdzNxUUw0RVJyL244M1lON3c9PQ0KDQo=\",\"request_digest\":\"sha256:fa3b41b9efa28970ea251299f090cd6d2e1e69b664f42854cbe1d8b3e6c9201d\",\"version\":\"1.0.0\"}",
+        "{\"case_id\":\"nc09.col.b\",\"config\":{\"max_handshake_bytes\":4096,\"max_header_count\":32,\"max_header_line_bytes\":512},\"context\":{},\"direction\":\"client_request\",\"protocol\":\"java-websocket-handshake-oracle\",\"raw_base64\":\"R0VUIC9jb21wbGV0ZWx5L290aGVyIEhUVFAvMS4xDQpIb3N0OiB6enp6enouZXhhbXBsZQ0KVXBncmFkZTogd2Vic29ja2V0DQpDb25uZWN0aW9uOiBVcGdyYWRlDQpTZWMtV2ViU29ja2V0LUtleTogRUxrNnM0ZFdQOG5EazZxUmx2VnozQT09DQpYLVBhZDogMTIzNDUNCg0K\",\"request_digest\":\"sha256:60009c2f412ca0b9979b641bf6d4834934dfe0e8bc028905cf20ef90848d7051\",\"version\":\"1.0.0\"}"
+      ],
+      "result": {
+        "probe_id": "NC-09",
+        "verdict": "CONFIRMED",
+        "collision_diff_paths": null,
+        "witness_kind": "wire",
+        "collision_a_keys": [
+          "case_id",
+          "close_code",
+          "java_observable",
+          "protocol",
+          "reject_channel",
+          "request_digest",
+          "runtime",
+          "version"
+        ],
+        "collision_b_keys": [
+          "case_id",
+          "close_code",
+          "java_observable",
+          "protocol",
+          "reject_channel",
+          "request_digest",
+          "runtime",
+          "version"
+        ],
+        "identity_fields_that_differ": [
+          "case_id",
+          "request_digest"
+        ]
+      }
+    }
+  ],
+  "refutations": [
+    {
+      "id": "NC-10",
+      "expected_verdict": "REFUTED",
+      "projection": "behaviour.ok",
+      "erases": "NOTHING — this probe measures the CAND-WIREBYTES candidate and finds it represented. The distinction is a non-minimal frame length encoding: the same two-octet payload under the 7-bit length form and under the 126 extended form.",
+      "mechanism": "frames[].wire_bytes is the CONSUMED SPAN, not a recomputed minimum: core_adapter.rs:1398 copies frame.wire_bytes straight through, and ws-core sets it from the span it actually ate (connection.rs `frame.wire_bytes = span.size`). The two extra header octets therefore land in the row. counts.consumed_bytes, counts.input_bytes and events[].bytes move with it.",
+      "disclosure": "The ACCEPTANCE of non-minimal lengths is disclosed, and unusually well: framing.rs's module header records that the Codex codec's non-canonical 16/64-bit length rejection was STRIPPED for Java fidelity. That the resulting difference is OBSERVABLE in the normalized row was not stated; this probe measures it.",
+      "active_in_scored_corpora": true,
+      "collision_a": {
+        "id": "nc10.col.a",
+        "steps": [
+          {
+            "data_base64": "gYIBAgMEaWs=",
+            "kind": "bytes"
+          }
+        ],
+        "role": "server"
+      },
+      "collision_b": {
+        "id": "nc10.col.b",
+        "steps": [
+          {
+            "data_base64": "gf4AAgECAwRpaw==",
+            "kind": "bytes"
+          }
+        ],
+        "role": "server"
+      },
+      "wire_witness": "818201020304696b (8 octets, 7-bit length form) versus 81fe000201020304696b (10 octets, 126 extended form) — identical opcode, identical mask key, identical masked payload octets, differing only in the length encoding",
+      "required_diff_paths": [
+        "frames[0].wire_bytes"
+      ],
+      "request_lines": [
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:d7a1be239b8ee61e6b2a556462f089688fee442139a24696371b812628a2894d\",\"request_id\":\"nc10.col.a\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gYIBAgMEaWs=\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:3918383efd51adffe617254de42696da26edb1b07aac9c3fc13c186ac0c3fada\",\"request_id\":\"nc10.col.b\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gf4AAgECAwRpaw==\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}"
+      ],
+      "result": {
+        "probe_id": "NC-10",
+        "verdict": "REFUTED",
+        "collision_diff_paths": [
+          "counts.consumed_bytes",
+          "counts.input_bytes",
+          "events[0].bytes",
+          "frames[0].wire_bytes"
+        ],
+        "witness_kind": "wire",
+        "collision_a_keys": [
+          "close",
+          "counts",
+          "events",
+          "final_state",
+          "frames",
+          "initial_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "role",
+          "runtime",
+          "transitions",
+          "version"
+        ],
+        "collision_b_keys": [
+          "close",
+          "counts",
+          "events",
+          "final_state",
+          "frames",
+          "initial_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "role",
+          "runtime",
+          "transitions",
+          "version"
+        ],
+        "identity_fields_that_differ": [
+          "request_digest",
+          "request_id"
+        ]
+      }
+    },
+    {
+      "id": "NC-11",
+      "expected_verdict": "REFUTED",
+      "projection": "behaviour.ok",
+      "erases": "NOTHING — this probe measures the CAND-CHUNKING candidate and finds it represented. The distinction is how one frame's octets were split across input steps: one 8-octet chunk versus two 4-octet chunks carrying the same frame.",
+      "mechanism": "observe.rs emits one `input_chunk` event per surviving bytes step, carrying that step's own byte count, and every event and frame carries the `step` index it belongs to. A 4+4 split therefore produces THREE events where the single chunk produces two, and the delivered text lands on step 1 rather than step 0.",
+      "disclosure": "Disclosed by construction — the event's documented shape is `input_chunk` with `{bytes}`, one per surviving bytes step. The audit reasoned this was represented and listed it anyway because a reasoned negative is not a measured one. This is the measurement.",
+      "active_in_scored_corpora": true,
+      "collision_a": {
+        "id": "nc11.col.a",
+        "steps": [
+          {
+            "data_base64": "gYIBAgMEaWs=",
+            "kind": "bytes"
+          }
+        ],
+        "role": "server"
+      },
+      "collision_b": {
+        "id": "nc11.col.b",
+        "steps": [
+          {
+            "data_base64": "gYIBAg==",
+            "kind": "bytes"
+          },
+          {
+            "data_base64": "AwRpaw==",
+            "kind": "bytes"
+          }
+        ],
+        "role": "server"
+      },
+      "wire_witness": "the same eight octets 818201020304696b, delivered as one step and as two four-octet steps — the same frame either way",
+      "required_diff_paths": [
+        "events.length"
+      ],
+      "request_lines": [
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:57599891bfcabcd4f11651ac2b2c1d7d02c483a08d3a52d99edd9bb5c75a99f1\",\"request_id\":\"nc11.col.a\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gYIBAgMEaWs=\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}",
+        "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:cf1be64914d70bf1d85f00a6c07861ea4cc1356a63dfae2009f1f6cb0115f9d8\",\"request_id\":\"nc11.col.b\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gYIBAg==\",\"kind\":\"bytes\"},{\"data_base64\":\"AwRpaw==\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}"
+      ],
+      "result": {
+        "probe_id": "NC-11",
+        "verdict": "REFUTED",
+        "collision_diff_paths": [
+          "events.length",
+          "frames[0].step"
+        ],
+        "witness_kind": "wire",
+        "collision_a_keys": [
+          "close",
+          "counts",
+          "events",
+          "final_state",
+          "frames",
+          "initial_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "role",
+          "runtime",
+          "transitions",
+          "version"
+        ],
+        "collision_b_keys": [
+          "close",
+          "counts",
+          "events",
+          "final_state",
+          "frames",
+          "initial_state",
+          "outcome",
+          "protocol",
+          "request_digest",
+          "request_id",
+          "role",
+          "runtime",
+          "transitions",
+          "version"
+        ],
+        "identity_fields_that_differ": [
+          "request_digest",
+          "request_id"
+        ]
+      }
+    }
+  ],
+  "candidate_emptiness": {
+    "id": "NC-UTF8-PREMISE",
+    "candidate": "CAND-UTF8",
+    "argument": "UTF-8 is injective on valid input, so if the decode is STRICT then distinct accepted octet sequences give distinct Strings and an invalid sequence yields no text event at all — the candidate class is EMPTY rather than merely unwitnessed. The argument rests entirely on strictness, so the premises below are checks that strictness has not been swapped out, and the run is the experiment a lossy decode would fail.",
+    "premises": [
+      {
+        "id": "U8-P1",
+        "claim": "ws-core's text decode site (Charsetfunctions::string_utf8) is the STRICT String::from_utf8, mapping failure to an error rather than substituting.",
+        "kind": "source",
+        "scope": "rust/ws-core/src/message.rs",
+        "holds": true,
+        "evidence": "body \"String::from_utf8(bytes).map_err(|_| Utf8DecodeError)\"; strict=true lossy=false"
+      },
+      {
+        "id": "U8-P2-rust.ws-core.src",
+        "claim": "no lossy decode and no replacement character anywhere under rust/ws-core/src — so no site can substitute U+FFFD for an octet sequence it could not decode.",
+        "kind": "source",
+        "scope": "rust/ws-core/src",
+        "holds": true,
+        "evidence": "scanned 16 .rs files (rust/ws-core/src/close.rs rust/ws-core/src/config.rs rust/ws-core/src/connection.rs rust/ws-core/src/control.rs rust/ws-core/src/error.rs rust/ws-core/src/event.rs rust/ws-core/src/fragment.rs rust/ws-core/src/framing.rs rust/ws-core/src/handshake.rs rust/ws-core/src/handshake/client.rs rust/ws-core/src/handshake/crypto.rs rust/ws-core/src/handshake/http.rs rust/ws-core/src/handshake/server.rs rust/ws-core/src/lib.rs rust/ws-core/src/message.rs rust/ws-core/src/queue.rs), 0 lossy/replacement markers"
+      },
+      {
+        "id": "U8-P2-rust.ws-oracle-harness.src",
+        "claim": "no lossy decode and no replacement character anywhere under rust/ws-oracle-harness/src — so no site can substitute U+FFFD for an octet sequence it could not decode.",
+        "kind": "source",
+        "scope": "rust/ws-oracle-harness/src",
+        "holds": true,
+        "evidence": "scanned 10 .rs files (rust/ws-oracle-harness/src/base64.rs rust/ws-oracle-harness/src/core_adapter.rs rust/ws-oracle-harness/src/handshake_adapter.rs rust/ws-oracle-harness/src/json.rs rust/ws-oracle-harness/src/lib.rs rust/ws-oracle-harness/src/main.rs rust/ws-oracle-harness/src/observe.rs rust/ws-oracle-harness/src/request.rs rust/ws-oracle-harness/src/response.rs rust/ws-oracle-harness/src/sha256.rs), 0 lossy/replacement markers"
+      },
+      {
+        "id": "U8-P3",
+        "claim": "the octet sequence a lossy decoder would map ONTO U+FFFD (a lone 0xFF) produces NO text event, while the encoded U+FFFD itself produces one — so the two do NOT collide, which they would under a lossy decode.",
+        "kind": "run",
+        "scope": "ncutf8.accepted, ncutf8.rejected",
+        "holds": true,
+        "evidence": "accepted seed (EF BF BD, the encoded U+FFFD) -> outcome \"ok\" with 1 text event(s) {\"step\":0,\"text\":\"�\",\"type\":\"text\",\"utf8_bytes\":3}; rejected seed (FF, what a lossy decode turns INTO U+FFFD) -> outcome \"error\", error JAVA_INVALID_DATA/close 1007, 0 text event(s). Under a lossy decode both would read text=U+FFFD utf8_bytes=3."
+      }
+    ],
+    "request_lines": [
+      "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:6e44e5e352e132d13a3225b4dbf27782599e767ed15893bf5171f452cdc908ec\",\"request_id\":\"ncutf8.accepted\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gYMBAgME7r2+\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}",
+      "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":64,\"max_buffered_bytes\":65536,\"max_frames\":64,\"max_input_bytes\":65536,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:102d69b638c1b24eb6e78bd8bf9d2b0a4165d1a08fa80c53492a0b4aa3225c87\",\"request_id\":\"ncutf8.rejected\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gYEBAgME/g==\",\"kind\":\"bytes\"}],\"version\":\"1.0.0\"}"
+    ],
+    "status": "EMPTY"
+  },
+  "decided_candidates": [
+    {
+      "id": "CAND-UTF8",
+      "distinction": "Two different inbound octet sequences that decode to the same text, since the `text` event records the decoded String and utf8_bytes = len(String), never the received octets.",
+      "why_it_was_open": "Not run. Whether such a pair EXISTS depends on whether ws_core replaces malformed UTF-8 with U+FFFD or rejects the frame; if it rejects, there is no pair and the candidate is empty. Deciding it needs a seed per malformed-input class, which this pass did not build.",
+      "decided_by": "NC-UTF8-PREMISE",
+      "consequence": "EMPTY, so neither ceiling can be blamed on UTF-8 decoding. The decode is strict, so a text event's decoded String is a total injection of the accepted octets and an unaccepted sequence produces no text event at all. This removes one candidate explanation for the 73-of-74 and 26-of-49 shortfalls; it does not move either number, because both shortfalls are already attributed to CONFIRMED probes.",
+      "status": "EMPTY"
+    },
+    {
+      "id": "CAND-WIREBYTES",
+      "distinction": "Non-minimal frame length encoding: a short payload sent under the 126 extended-length form.",
+      "why_it_was_open": "Not run. frames[].wire_bytes is a total, so a non-minimal encoding changes it and the distinction MAY be represented — which would make this a REFUTED candidate rather than a collision. Untested either way.",
+      "decided_by": "NC-10",
+      "consequence": "REFUTED on behaviour.ok: the row moves on frames[0].wire_bytes, counts.consumed_bytes, counts.input_bytes and events[0].bytes, and BOTH answers are ok rows, so the movement is representation and not rejection. Two public rows differing only in length encoding would therefore be distinguishable, and the 73-of-74 shortfall cannot be attributed to this. NOT refuted on behaviour.failure, where frames[] is absent entirely — a rejected frame's length encoding is erased by NC-01's mechanism, which already owns that class.",
+      "status": "REFUTED"
+    },
+    {
+      "id": "CAND-CHUNKING",
+      "distinction": "How input octets were split across steps.",
+      "why_it_was_open": "Reasoned to be REPRESENTED (input_chunk events carry a per-step bytes count, so a 1+1 split and a 2 split differ in the events array) but not run. Listed because a reasoned negative is still not a measured one.",
+      "decided_by": "NC-11",
+      "consequence": "REFUTED on behaviour.ok, and the run says more than the reasoning did: the pair moves on events.length (two events versus three) AND on frames[0].step and events[1], because the step index the delivery lands on moves with the split. The 73-of-74 shortfall cannot be attributed to chunking. NOT refuted on behaviour.failure, where events[] is absent entirely.",
+      "status": "REFUTED"
+    }
+  ],
+  "undecided_candidates": [
+    {
+      "id": "CAND-TRANSPORT",
+      "distinction": "Socket lifecycle: who sends TCP FIN, when, and whether RST follows.",
+      "why": "This is DIV-02's class and it is already registered in internal/ac5class. It cannot be decided by a seed in THIS package because the oracle protocol has no step that feeds or observes a socket — the witness has to be a real peer socket, which is ws-testee's loopback test, not a transcript comparison. Confirmed elsewhere, out of scope here, and listed so the surface is not silently missing its most famous member.",
+      "status": "HYPOTHESIS"
+    },
+    {
+      "id": "CAND-CROSSARRAY",
+      "distinction": "The relative order of an event, a frame and a transition caused by the same step.",
+      "why": "This is the known US-013 AC5 case (Events[] and Transitions[] are separate arrays, internal/lab/oracle.go:315 and :325). It is NOT decided here because the harness generates all three arrays from one pass, so no request this package can write makes the port emit them in a different relative order — seeding it needs a MUTATED harness, which is cmd/mutctl's instrument, not this one. Reasoned, not run.",
+      "status": "HYPOTHESIS"
+    }
+  ],
+  "scored_corpus_census": [
+    {
+      "source": "evidence/ac5-class-completeness/java-arm-public.jsonl",
+      "rows": 74,
+      "distinct_scored_rows": 73,
+      "rows_sharing_an_observation_with_another_row": 2,
+      "largest_equivalence_class": 2,
+      "key_sets": [
+        {
+          "keys": [
+            "close",
+            "counts",
+            "events",
+            "final_state",
+            "frames",
+            "initial_state",
+            "outcome",
+            "protocol",
+            "request_digest",
+            "request_id",
+            "role",
+            "runtime",
+            "transitions",
+            "version"
+          ],
+          "rows": 48,
+          "projection": "behaviour.ok"
+        },
+        {
+          "keys": [
+            "counts",
+            "error",
+            "final_state",
+            "outcome",
+            "protocol",
+            "request_digest",
+            "request_id",
+            "runtime",
+            "version"
+          ],
+          "rows": 26,
+          "projection": "behaviour.failure"
+        }
+      ]
+    },
+    {
+      "source": "corpora/handshake/cases.jsonl (driven through the harness)",
+      "rows": 49,
+      "distinct_scored_rows": 26,
+      "rows_sharing_an_observation_with_another_row": 27,
+      "largest_equivalence_class": 11,
+      "key_sets": [
+        {
+          "keys": [
+            "case_id",
+            "close_code",
+            "java_observable",
+            "protocol",
+            "reject_channel",
+            "request_digest",
+            "runtime",
+            "version"
+          ],
+          "rows": 20,
+          "projection": "handshake.judged"
+        },
+        {
+          "keys": [
+            "case_id",
+            "java_observable",
+            "protocol",
+            "request_digest",
+            "runtime",
+            "sec_websocket_accept",
+            "version"
+          ],
+          "rows": 22,
+          "projection": "handshake.judged"
+        },
+        {
+          "keys": [
+            "case_id",
+            "java_observable",
+            "protocol",
+            "request_digest",
+            "runtime",
+            "version"
+          ],
+          "rows": 7,
+          "projection": "handshake.judged"
+        }
+      ]
+    }
+  ],
+  "headline_bounds": {
+    "public_corpus_rows": 74,
+    "public_rows_whose_projection_erases_every_observation_stream": 26,
+    "public_distinct_scored_observations": 73,
+    "public_rows_sharing_an_observation": 2,
+    "public_statement": "26 of the 74 public rows are error rows. NC-01 and NC-04 are CONFIRMED on that projection, so for those 26 rows the differential compares error.code, error.close_code, final_state and the seven counters — and NOTHING about what the connection did. events[], frames[], transitions[] and close are absent from the row entirely, and error.detail is classified non-semantic. So 74/74 means: 74 requests were answered, 48 of them scored on the full observation surface and 26 scored on ten scalars. It does not mean 74 behaviours were compared. MEASURED, not inferred: the 74 rows carry only 73 DISTINCT scored observations, because 2 of them (us005.pub.0039 and us005.pub.0066, probe NC-04) are byte-identical once identity is removed — two different frames, differing in the FIN bit and in every payload octet, that the corpus cannot tell apart. The headline's ceiling is therefore 73 distinguishable answers, not 74.",
+    "handshake_corpus_cases": 49,
+    "handshake_distinct_scored_observations": 26,
+    "handshake_cases_sharing_an_observation": 27,
+    "handshake_largest_equivalence_class": 11,
+    "handshake_statement": "The 49 handshake cases produce only 26 DISTINCT scored observations. 27 of the 49 cases share their observation with at least one other case, and the largest equivalence class holds 11 cases. 49/49 therefore certifies at most 26 distinguishable answers, not 49. NC-07, NC-08 and NC-09 are the confirmed mechanisms: the HTTP head is discarded, `incomplete` carries no content, and a rejection reports only a two-valued channel plus a constant close code.",
+    "refutation_statement": "Three of the first pass's 5 open candidates are now DECIDED, and all three came back NEGATIVE — the observation carries the distinction. CAND-WIREBYTES (probe NC-10): a two-octet payload under the 7-bit length form and under the 126 extended form are BOTH accepted — ws-core strips the RFC's non-minimal-length rejection for Java fidelity — and the two ok rows differ on counts.consumed_bytes, counts.input_bytes, events[0].bytes, frames[0].wire_bytes. CAND-CHUNKING (probe NC-11): the same eight octets as one step and as two four-octet steps differ on events.length, frames[0].step. CAND-UTF8 (check NC-UTF8-PREMISE): status EMPTY — the decode is strict at every site in both crates, so the octets a lossy decoder would fold onto U+FFFD produce NO text event at all; the accepted seed yields one text event and the rejected seed yields none, which they could not do under a lossy decode. WHAT THIS DOES TO THE CEILINGS: neither number moves. 73-of-74 and 26-of-49 are unchanged, because both shortfalls were already attributed to CONFIRMED probes — NC-04 on behaviour.failure for the public corpus, NC-07/08/09 on handshake.judged for the exam. What changes is what the shortfalls may be BLAMED on: all three decided candidates are behaviour.ok distinctions and all three are represented or empty there, so none of them is an admissible explanation for either ceiling, and no future corpus loses rows to them on an ok row. The refutations do NOT extend to behaviour.failure or behaviour.output_limit, where frames[] and events[] are absent from the envelope entirely: a rejected frame's length encoding and a failed request's chunking are erased by NC-01's and NC-02's mechanisms, which already own those classes. 2 candidate(s) remain HYPOTHESIS and are still admissible explanations, along with anything the surface enumeration missed.",
+    "claim_vocabulary": "BOUNDED. Each confirmed collision is an OBSERVED fact about the shipped projection, established by running it. The ENUMERATION of the surface is not proved complete: it reads five named sites, and a distinction none of them mentions cannot be found by reading them. DIV-02 is exactly that case and is in this document only because a person had already found it out of band."
+  },
+  "scope_limits": [
+    "This audit ran ONE arm. Every probe was answered by the Rust harness; the pinned Java oracle was NOT executed. That is sound for the claim being made — a collision is a property of the PROJECTION, and both arms share the projection by construction — but it means nothing here is a Java-versus-Rust fidelity result.",
+    "No AWS, benchmark or Autobahn run was performed.",
+    "The surface enumeration covers the two oracle protocols only. Anything the protocols never carry — sockets, timing, memory, scheduling — is outside it by construction, which is exactly how DIV-02 hid.",
+    "NC-02's projection (behaviour.output_limit) is CONFIRMED but DORMANT: no row of the current 74 reaches it, because every public scenario carries the full 4194304-byte budget. It bounds what a future corpus could hide, not today's number.",
+    "The handshake census measures OUR arm's answers to the 49 committed cases. It is a measurement of how coarse the observation is, not of who produced it.",
+    "The two REFUTED candidates are refuted on behaviour.ok ONLY. On behaviour.failure and behaviour.output_limit the envelope carries no frames[] and no events[] at all, so the same two distinctions are erased there — by NC-01's and NC-02's mechanisms, which already own those classes. A refutation is a statement about the projection the probe ran on, not about the surface as a whole.",
+    "CAND-UTF8's EMPTY status rests on premise checks that SCAN this repository's own Rust sources for a lossy decode. They read rust/ws-core/src and rust/ws-oracle-harness/src, which are the two crates that can produce a `text` event's String; they do NOT read third-party dependencies, and they are a textual scan rather than a proof of absence. What they buy is that the refutation cannot rot SILENTLY: a swapped-in lossy decode at either site turns the premise red rather than leaving a stale EMPTY standing.",
+    "CAND-TRANSPORT and CAND-CROSSARRAY are STILL undecided and were deliberately not forced. Neither is reachable from a seed in this package — one needs a real peer socket, the other a mutated harness — and manufacturing a verdict for either would have been the exact failure this catalogue exists to refuse."
+  ]
+}

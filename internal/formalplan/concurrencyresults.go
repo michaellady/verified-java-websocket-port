@@ -307,24 +307,40 @@ type crExecutedRun struct {
 }
 
 type crExecution struct {
-	ExploredSchedules       int                     `json:"explored_schedules"`
-	ExhaustiveWithinBound   bool                    `json:"exhaustive_within_bound"`
-	Truncated               bool                    `json:"truncated"`
-	EnumerationBranches     int                     `json:"enumeration_branches"`
-	DistinctScheduleDigests int                     `json:"distinct_schedule_digests"`
-	Executions              int                     `json:"executions"`
-	ReplayDeterminism       string                  `json:"replay_determinism"`
-	DistinctTraceDigests    int                     `json:"distinct_semantic_trace_digests"`
-	ClosedTerminalRuns      int                     `json:"closed_terminal_runs"`
-	FailureHaltedRuns       int                     `json:"failure_halted_runs"`
-	TerminalExclusivity     string                  `json:"terminal_disposition_exclusivity"`
-	Counters                crCounters              `json:"counters"`
-	WeakFairness            []string                `json:"weak_fairness"`
-	ProducerAdmissionClaim  bool                    `json:"producer_admission_fairness_claimed"`
-	ExecutedRun             *crExecutedRun          `json:"executed_run"`
-	Outcome                 string                  `json:"outcome"`
-	NewDispositionCoverage  string                  `json:"new_disposition_coverage"`
-	FatalTerminationSweep   crFatalTerminationSweep `json:"fatal_termination_sweep"`
+	ExploredSchedules       int    `json:"explored_schedules"`
+	ExhaustiveWithinBound   bool   `json:"exhaustive_within_bound"`
+	Truncated               bool   `json:"truncated"`
+	EnumerationBranches     int    `json:"enumeration_branches"`
+	DistinctScheduleDigests int    `json:"distinct_schedule_digests"`
+	Executions              int    `json:"executions"`
+	ReplayDeterminism       string `json:"replay_determinism"`
+	DistinctTraceDigests    int    `json:"distinct_semantic_trace_digests"`
+	ClosedTerminalRuns      int    `json:"closed_terminal_runs"`
+	// CleanTerminalDigests, CleanTerminalScenarios and HaltedTerminals are
+	// the clean-route COVERAGE readings, added on
+	// claude/concurrency-coverage-disclosure in answer to the post-failure
+	// landing review's finding 1.
+	//
+	// ClosedTerminalRuns counts runs, and the review's whole point is that a
+	// run count is not a coverage reading: at that landing it stood at 49
+	// while the 49 runs carried eighteen distinct traces, in one scenario.
+	// The properties that hold ONLY on the clean route are exercised against
+	// the distinct-trace count, not the run count, so the distinct count is
+	// recorded beside it and re-derived from the same cited line. HaltedTerminals
+	// is the clean Terminal taken by a run that LATER halted: the harness has
+	// always computed it and always thrown it away.
+	CleanTerminalDigests   int                     `json:"distinct_clean_terminal_digests"`
+	CleanTerminalScenarios int                     `json:"clean_terminal_scenarios"`
+	HaltedTerminals        int                     `json:"halted_terminals"`
+	FailureHaltedRuns      int                     `json:"failure_halted_runs"`
+	TerminalExclusivity    string                  `json:"terminal_disposition_exclusivity"`
+	Counters               crCounters              `json:"counters"`
+	WeakFairness           []string                `json:"weak_fairness"`
+	ProducerAdmissionClaim bool                    `json:"producer_admission_fairness_claimed"`
+	ExecutedRun            *crExecutedRun          `json:"executed_run"`
+	Outcome                string                  `json:"outcome"`
+	NewDispositionCoverage string                  `json:"new_disposition_coverage"`
+	FatalTerminationSweep  crFatalTerminationSweep `json:"fatal_termination_sweep"`
 }
 
 // crFatalTerminationSweep models the US-017 AC2 fatal-termination sweep block
@@ -450,30 +466,32 @@ type crNativeStress struct {
 }
 
 type crResults struct {
-	SchemaVersion        string              `json:"schema_version"`
-	EvidenceKind         string              `json:"evidence_kind"`
-	StoryID              string              `json:"story_id"`
-	State                string              `json:"state"`
-	ClaimScope           string              `json:"claim_scope"`
-	ClaimScopeStatement  string              `json:"claim_scope_statement"`
-	RecordedAt           string              `json:"recorded_at"`
-	RecordedAtProvenance string              `json:"recorded_at_provenance"`
-	RevisionNote         string              `json:"revision_note"`
-	Target               crTarget            `json:"target"`
-	PreregisteredPlan    crPreregisteredPlan `json:"preregistered_plan"`
-	Bounds               crBounds            `json:"bounds"`
-	AdapterModel         string              `json:"adapter_model"`
-	Execution            crExecution         `json:"execution"`
-	Invariants           []crInvariant       `json:"invariants"`
-	TerminalModel        string              `json:"terminal_disposition_model"`
-	DefectsFoundFixed    []crDefect          `json:"defects_found_and_fixed"`
-	Retention            crRetention         `json:"retention"`
-	NativeStress         crNativeStress      `json:"native_stress"`
-	Limitations          []string            `json:"limitations"`
-	Assurance            string              `json:"assurance"`
-	IndependentReview    bool                `json:"independent_review_claimed"`
-	Production           bool                `json:"production"`
-	Publication          bool                `json:"publication"`
+	SchemaVersion        string `json:"schema_version"`
+	EvidenceKind         string `json:"evidence_kind"`
+	StoryID              string `json:"story_id"`
+	State                string `json:"state"`
+	ClaimScope           string `json:"claim_scope"`
+	ClaimScopeStatement  string `json:"claim_scope_statement"`
+	RecordedAt           string `json:"recorded_at"`
+	RecordedAtProvenance string `json:"recorded_at_provenance"`
+	// RevisionHistory replaces the single `revision_note` string that carried
+	// every accumulated paragraph undifferentiated. See crRevision.
+	RevisionHistory   []crRevision        `json:"revision_history"`
+	Target            crTarget            `json:"target"`
+	PreregisteredPlan crPreregisteredPlan `json:"preregistered_plan"`
+	Bounds            crBounds            `json:"bounds"`
+	AdapterModel      string              `json:"adapter_model"`
+	Execution         crExecution         `json:"execution"`
+	Invariants        []crInvariant       `json:"invariants"`
+	TerminalModel     string              `json:"terminal_disposition_model"`
+	DefectsFoundFixed []crDefect          `json:"defects_found_and_fixed"`
+	Retention         crRetention         `json:"retention"`
+	NativeStress      crNativeStress      `json:"native_stress"`
+	Limitations       []string            `json:"limitations"`
+	Assurance         string              `json:"assurance"`
+	IndependentReview bool                `json:"independent_review_claimed"`
+	Production        bool                `json:"production"`
+	Publication       bool                `json:"publication"`
 }
 
 // ValidateConcurrencyResults reports every way the committed exploration
@@ -529,6 +547,10 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 
 	findings = append(findings, crValidateProvenance(results, inputs)...)
 	findings = append(findings, crValidateScenarioNames(results, inputs)...)
+	findings = append(findings, crValidateScenarioProse(results, inputs)...)
+	findings = append(findings, crValidateRevisionHistory(results, inputs.ResultsPath)...)
+	findings = append(findings, crValidateCleanRouteCeiling(results, inputs)...)
+	findings = append(findings, crValidatePlanConformanceShape(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateExecutedRun(results, rawLine, rawLineErr, inputs.ResultsPath)...)
 	findings = append(findings, crValidateSweepRun(results, raw, inputs.ResultsPath)...)
 	findings = append(findings, crValidateAccounting(results, inputs.ResultsPath)...)
@@ -799,27 +821,34 @@ var crRunFieldToCounter = map[string]string{
 	// 7 and editing the small-number prose passed both validators at exit 0.
 	// The exploration holds all four as constants, so it now prints them and
 	// they are re-derived like every other number.
-	"command_queue_capacity":  "bounds.command_queue_capacity",
-	"write_queue_capacity":    "bounds.write_queue_capacity",
-	"event_queue_capacity":    "bounds.event_queue_capacity",
-	"drain_budget_polls":      "bounds.drain_budget_polls",
-	"schedules":               "execution.explored_schedules",
-	"branches":                "execution.enumeration_branches",
-	"executions":              "execution.executions",
-	"distinct_trace_digests":  "execution.distinct_semantic_trace_digests",
-	"closed_terminal_runs":    "execution.closed_terminal_runs",
-	"failure_halted_runs":     "execution.failure_halted_runs",
-	"accepted":                "execution.counters.accepted_commands",
-	"refused_full":            "execution.counters.queue_full_refusals",
-	"applied":                 "execution.counters.applied",
-	"rejected":                "execution.counters.typed_rejections",
-	"events":                  "execution.counters.events_drained",
-	"failures":                "execution.counters.surfaced_typed_failures",
-	"deferred_output_pending": "execution.counters.deferred_output_pending",
-	"deferred_command_turn":   "execution.counters.deferred_command_turn",
-	"deferred_backpressure":   "execution.counters.deferred_backpressure",
-	"rejected_inputs":         "execution.counters.typed_input_rejections",
-	"max_drain_polls":         "execution.counters.max_drain_polls_observed",
+	"command_queue_capacity": "bounds.command_queue_capacity",
+	"write_queue_capacity":   "bounds.write_queue_capacity",
+	"event_queue_capacity":   "bounds.event_queue_capacity",
+	"drain_budget_polls":     "bounds.drain_budget_polls",
+	"schedules":              "execution.explored_schedules",
+	"branches":               "execution.enumeration_branches",
+	"executions":             "execution.executions",
+	"distinct_trace_digests": "execution.distinct_semantic_trace_digests",
+	"closed_terminal_runs":   "execution.closed_terminal_runs",
+	// The clean-route coverage readings the harness prints since
+	// claude/concurrency-coverage-disclosure. They are re-derived like every
+	// other counter, which is what stops the record saying "1176 clean runs"
+	// without saying how few behaviours that is.
+	"clean_terminal_digests":   "execution.distinct_clean_terminal_digests",
+	"clean_terminal_scenarios": "execution.clean_terminal_scenarios",
+	"halted_terminals":         "execution.halted_terminals",
+	"failure_halted_runs":      "execution.failure_halted_runs",
+	"accepted":                 "execution.counters.accepted_commands",
+	"refused_full":             "execution.counters.queue_full_refusals",
+	"applied":                  "execution.counters.applied",
+	"rejected":                 "execution.counters.typed_rejections",
+	"events":                   "execution.counters.events_drained",
+	"failures":                 "execution.counters.surfaced_typed_failures",
+	"deferred_output_pending":  "execution.counters.deferred_output_pending",
+	"deferred_command_turn":    "execution.counters.deferred_command_turn",
+	"deferred_backpressure":    "execution.counters.deferred_backpressure",
+	"rejected_inputs":          "execution.counters.typed_input_rejections",
+	"max_drain_polls":          "execution.counters.max_drain_polls_observed",
 	// The six write-drop and receiver-drop tokens the harness prints since
 	// claude/us017-ac2 (landed 7262a29): each re-derives the counter the
 	// document records under execution.counters, so a document that keeps the
@@ -946,6 +975,9 @@ func crDocumentCounters(results crResults) map[string]int {
 		"execution.executions":                                results.Execution.Executions,
 		"execution.distinct_semantic_trace_digests":           results.Execution.DistinctTraceDigests,
 		"execution.closed_terminal_runs":                      results.Execution.ClosedTerminalRuns,
+		"execution.distinct_clean_terminal_digests":           results.Execution.CleanTerminalDigests,
+		"execution.clean_terminal_scenarios":                  results.Execution.CleanTerminalScenarios,
+		"execution.halted_terminals":                          results.Execution.HaltedTerminals,
 		"execution.failure_halted_runs":                       results.Execution.FailureHaltedRuns,
 		"execution.counters.accepted_commands":                counters.AcceptedCommands,
 		"execution.counters.queue_full_refusals":              counters.QueueFullRefusals,
@@ -1097,7 +1129,39 @@ func crSHA256(content []byte) string {
 var (
 	crScenarioTableStart  = regexp.MustCompile(`const SCENARIOS:[^=]*=\s*\[`)
 	crScenarioNamePattern = regexp.MustCompile(`\(\s*"([^"]+)"\s*,`)
+	// crScenarioEntryPattern reads the table's PAIRS - the name and the
+	// ProgramSet constant it binds - so a scenario's prose can be resolved
+	// into that constant's own doc comment rather than searched for anywhere
+	// in the file.
+	//
+	// THE TRAILING COMMA IS NOT OPTIONAL DECORATION. rustfmt breaks a table
+	// entry across lines once it is long enough and then adds a trailing
+	// comma, and the first version of this pattern required the constant to
+	// be followed directly by `)`. The third scenario's entry was short
+	// enough to fit on one line as written and long enough to be split the
+	// moment `cargo fmt` ran, at which point this validator stopped finding
+	// the scenario at all - RESULTS_SCENARIO_PROSE_UNDERIVED against a
+	// document that was correct. A derivation that a formatter can break is
+	// not a derivation.
+	crScenarioEntryPattern = regexp.MustCompile(`\(\s*"([^"]+)"\s*,\s*([A-Z][A-Z0-9_]*)\s*,?\s*\)`)
 )
+
+// crScenarioProseFields are the bounds.scenario_shapes[*] leaves whose text
+// the harness declares under a `RECORD <field>:` marker in the scenario
+// constant's doc comment, and which this validator therefore DERIVES instead
+// of accepting as attestation.
+//
+// WHY. Both leaves measured INERT for four enumeration rounds and the pinned
+// list justified it as "prose about history ... nothing in this tree can
+// contradict it". That was true only because nothing had been asked to. What
+// a scenario models and why it is explored is not free prose: it is the
+// scenario's justification, the thing that makes it a real adapter shape
+// rather than a shape chosen to make a gate green, and the harness is where
+// that justification is decided. Deriving it from the harness — the file this
+// record already pins by identity AND git_blob, so the check cannot be
+// redirected at a file that happens to contain the right words — makes the
+// record's account of a scenario the harness's own account of it.
+var crScenarioProseFields = []string{"models", "why_explored"}
 
 // crValidateScenarioNames re-derives bounds.scenario_shapes[*].name from the
 // harness this record already binds by git_blob.
@@ -1618,6 +1682,38 @@ func crValidateAccounting(results crResults, path string) []ModelFinding {
 		contradiction(fmt.Sprintf("distinct_semantic_trace_digests %d exceeds explored_schedules %d",
 			execution.DistinctTraceDigests, execution.ExploredSchedules))
 	}
+	// CLEAN-ROUTE COVERAGE, held to the same accounting as everything else
+	// (post-failure landing review finding 1). Distinct clean behaviours
+	// cannot outnumber the clean runs that produced them, nor the distinct
+	// behaviours of the whole space; a clean terminal cannot be reached in
+	// more scenarios than the space has; and a clean Terminal taken by a run
+	// that later halted is by construction one of the halted runs. Each of
+	// these is a relation a transcribed number breaks and a measured one
+	// cannot.
+	if execution.CleanTerminalDigests > execution.ClosedTerminalRuns {
+		contradiction(fmt.Sprintf("distinct_clean_terminal_digests %d exceeds closed_terminal_runs %d: a run cannot carry more than one trace",
+			execution.CleanTerminalDigests, execution.ClosedTerminalRuns))
+	}
+	if execution.CleanTerminalDigests > execution.DistinctTraceDigests {
+		contradiction(fmt.Sprintf("distinct_clean_terminal_digests %d exceeds distinct_semantic_trace_digests %d: the clean traces are a subset of all traces",
+			execution.CleanTerminalDigests, execution.DistinctTraceDigests))
+	}
+	if execution.ClosedTerminalRuns > 0 && execution.CleanTerminalDigests < 1 {
+		contradiction(fmt.Sprintf("closed_terminal_runs is %d but distinct_clean_terminal_digests is %d: clean runs that carry no trace at all",
+			execution.ClosedTerminalRuns, execution.CleanTerminalDigests))
+	}
+	if execution.CleanTerminalScenarios > results.Bounds.Scenarios {
+		contradiction(fmt.Sprintf("clean_terminal_scenarios %d exceeds bounds.scenarios %d",
+			execution.CleanTerminalScenarios, results.Bounds.Scenarios))
+	}
+	if execution.ClosedTerminalRuns > 0 && execution.CleanTerminalScenarios < 1 {
+		contradiction(fmt.Sprintf("closed_terminal_runs is %d but clean_terminal_scenarios is %d: clean runs belonging to no scenario",
+			execution.ClosedTerminalRuns, execution.CleanTerminalScenarios))
+	}
+	if execution.HaltedTerminals > execution.FailureHaltedRuns {
+		contradiction(fmt.Sprintf("halted_terminals %d exceeds failure_halted_runs %d: a clean terminal taken before a halt belongs to a halted run",
+			execution.HaltedTerminals, execution.FailureHaltedRuns))
+	}
 	// Declared bounds are ceilings, and the conformance claim rests on them.
 	if execution.ExploredSchedules > results.Bounds.ScheduleCountMax {
 		contradiction(fmt.Sprintf("explored_schedules %d exceeds the declared schedule_count_max %d",
@@ -1847,6 +1943,28 @@ func crValidateQuotedCounters(results crResults, path string) []ModelFinding {
 			name:     "execution.outcome",
 			text:     execution.Outcome,
 			expected: []int{execution.ExploredSchedules, crSweepSchedulesPerBudget(execution)},
+		},
+		{
+			// THE CLEAN-ROUTE CEILING (post-failure landing review, finding
+			// 1). This limitation is the one place the record states how
+			// thin the clean route is, so it is the last place its numbers
+			// should be transcribed. The sentence must quote, in order, the
+			// schedules explored, the clean-terminal runs among them, the
+			// failure-halted remainder, and the distinct traces of the whole
+			// space — every one re-derived from the cited run.
+			//
+			// The clean-terminal DIGEST count, the scenario count and the
+			// historical readings are deliberately not in this sequence:
+			// they are below the four-digit floor or belong to a space this
+			// tree no longer produces, and they are bound instead by
+			// crRunFieldToCounter and by revision_history's superseded
+			// entries respectively.
+			name: "limitations.clean_route_ceiling",
+			text: crCleanRouteLimitation(results),
+			expected: []int{
+				execution.ExploredSchedules, execution.ClosedTerminalRuns,
+				execution.FailureHaltedRuns, execution.DistinctTraceDigests,
+			},
 		},
 	}
 
@@ -2144,7 +2262,6 @@ func crValidateNarrative(results crResults, path string) []ModelFinding {
 		{"claim_scope", results.ClaimScope},
 		{"claim_scope_statement", results.ClaimScopeStatement},
 		{"recorded_at_provenance", results.RecordedAtProvenance},
-		{"revision_note", results.RevisionNote},
 		{"adapter_model", results.AdapterModel},
 		{"assurance", results.Assurance},
 		{"bounds.program_shape", results.Bounds.ProgramShape},
@@ -4678,6 +4795,566 @@ func crValidateNamedArtifacts(results crResults, inputs ConcurrencyResultsInputs
 			missing(fmt.Sprintf(
 				"%s/%s.seed is pinned in the tree but retention.minimized_artifacts does not record it, so the "+
 					"record understates the retained fault set", crMinimizedSeedDir, seed))
+		}
+	}
+	return findings
+}
+
+// crNormalisePhrase folds a sentence to its words so a comparison is about
+// what it SAYS, not about how it was wrapped. Rust doc comments break at
+// column 72 and the JSON value does not, so a byte comparison would be a
+// comparison of line widths.
+func crNormalisePhrase(text string) string {
+	var builder strings.Builder
+	lastSpace := true
+	for _, r := range strings.ToLower(text) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			builder.WriteRune(r)
+			lastSpace = false
+			continue
+		}
+		if !lastSpace {
+			builder.WriteByte(' ')
+			lastSpace = true
+		}
+	}
+	return strings.TrimSpace(builder.String())
+}
+
+// crDocComment returns the contiguous `///` block immediately preceding the
+// declaration of `ident`, with the comment markers stripped.
+func crDocComment(body, ident string) (string, bool) {
+	declaration := regexp.MustCompile(`(?m)^const ` + regexp.QuoteMeta(ident) + `\s*:`)
+	at := declaration.FindStringIndex(body)
+	if at == nil {
+		return "", false
+	}
+	lines := strings.Split(body[:at[0]], "\n")
+	var block []string
+	for index := len(lines) - 1; index >= 0; index-- {
+		line := strings.TrimSpace(lines[index])
+		if line == "" && len(block) == 0 {
+			continue
+		}
+		if !strings.HasPrefix(line, "///") {
+			break
+		}
+		block = append([]string{strings.TrimSpace(strings.TrimPrefix(line, "///"))}, block...)
+	}
+	if len(block) == 0 {
+		return "", false
+	}
+	return strings.Join(block, "\n"), true
+}
+
+// crRecordSpan pulls the text the harness declares for one `RECORD <field>:`
+// marker: everything from the marker to the next RECORD marker or the end of
+// the doc block.
+func crRecordSpan(doc, field string) (string, bool) {
+	marker := "RECORD " + field + ":"
+	start := strings.Index(doc, marker)
+	if start < 0 {
+		return "", false
+	}
+	rest := doc[start+len(marker):]
+	if next := strings.Index(rest, "RECORD "); next >= 0 {
+		rest = rest[:next]
+	}
+	return strings.TrimSpace(rest), true
+}
+
+// crValidateScenarioProse derives bounds.scenario_shapes[*].models and
+// .why_explored from the harness, exactly as crValidateScenarioNames derives
+// the names beside them.
+//
+// EQUALITY, NOT CONTAINMENT. A containment check ("the record's sentence
+// appears somewhere in the harness") accepts a truncation, which is the
+// softening this document's own enumeration lists as a live candidate: half a
+// justification still reads as a justification. The normalised word sequences
+// must be equal, so a truncation, a neighbour scenario's prose, a shifted
+// number and a MUTATED sentinel are each refused.
+func crValidateScenarioProse(results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
+	var findings []ModelFinding
+	if inputs.Root == "" {
+		return append(findings, mpAdvisory("RESULTS_PROVENANCE_UNVERIFIED", inputs.ResultsPath,
+			"no tree root supplied: the scenario prose was NOT checked against the harness"))
+	}
+	content, err := os.ReadFile(filepath.Join(inputs.Root, filepath.FromSlash(crCanonicalHarnessPath)))
+	if err != nil {
+		return append(findings, mpFinding("RESULTS_PROVENANCE_MISSING", crCanonicalHarnessPath, err.Error()))
+	}
+	body := string(content)
+	start := crScenarioTableStart.FindStringIndex(body)
+	if start == nil {
+		return append(findings, mpFinding("RESULTS_SCENARIO_TABLE_UNREADABLE", crCanonicalHarnessPath,
+			"the harness declares no SCENARIOS table, so the record's scenario prose derives from nothing"))
+	}
+	end := strings.Index(body[start[1]:], "];")
+	if end < 0 {
+		return append(findings, mpFinding("RESULTS_SCENARIO_TABLE_UNREADABLE", crCanonicalHarnessPath,
+			"the harness's SCENARIOS table is unterminated"))
+	}
+	constants := map[string]string{}
+	for _, match := range crScenarioEntryPattern.FindAllStringSubmatch(body[start[1]:start[1]+end], -1) {
+		constants[match[1]] = match[2]
+	}
+
+	for index, shape := range results.Bounds.ScenarioShapes {
+		ident, known := constants[shape.Name]
+		if !known {
+			findings = append(findings, mpFinding("RESULTS_SCENARIO_PROSE_UNDERIVED", inputs.ResultsPath, fmt.Sprintf(
+				"bounds.scenario_shapes[%d] names the scenario %q, which the harness's SCENARIOS table does not bind to a program set, so its prose derives from nothing",
+				index, shape.Name)))
+			continue
+		}
+		doc, found := crDocComment(body, ident)
+		if !found {
+			findings = append(findings, mpFinding("RESULTS_SCENARIO_PROSE_UNDERIVED", inputs.ResultsPath, fmt.Sprintf(
+				"the harness declares %s with no doc comment, so bounds.scenario_shapes[%d]'s prose derives from nothing",
+				ident, index)))
+			continue
+		}
+		recorded := map[string]string{"models": shape.Models, "why_explored": shape.WhyExplored}
+		for _, field := range crScenarioProseFields {
+			declared, marked := crRecordSpan(doc, field)
+			if !marked {
+				findings = append(findings, mpFinding("RESULTS_SCENARIO_PROSE_UNDERIVED", inputs.ResultsPath, fmt.Sprintf(
+					"the harness's %s doc comment carries no `RECORD %s:` marker, so bounds.scenario_shapes[%d].%s rests on nothing",
+					ident, field, index, field)))
+				continue
+			}
+			if want, got := crNormalisePhrase(declared), crNormalisePhrase(recorded[field]); want != got {
+				findings = append(findings, mpFinding("RESULTS_SCENARIO_PROSE_CONTRADICTED", inputs.ResultsPath, fmt.Sprintf(
+					"bounds.scenario_shapes[%d].%s is not what the harness declares for %s.\n  harness: %s\n  record:  %s",
+					index, field, ident, want, got)))
+			}
+		}
+	}
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// The revision history, and why it replaced revision_note
+// ---------------------------------------------------------------------------
+
+// crRevision is one accumulated paragraph of this record's revision history,
+// with an explicit identity and an explicit status.
+//
+// WHAT WENT WRONG WITH THE FIELD THIS REPLACES (post-failure landing review,
+// finding 2). `revision_note` was ONE string holding every paragraph any
+// revision had ever added, in no stated order, with no marker separating a
+// paragraph that describes today's document from one that describes a
+// predecessor. At the post-failure landing it therefore asserted, in the
+// present tense, "SWEEP COUNTERS ARE UNCHANGED, re-executed and read
+// identical: 79,920 schedules, ... 56,777/23,143 closed/halted" — every one
+// of which the same document had by then superseded. And nothing could catch
+// it: the only rule any validator applied to `revision_note` was that it not
+// be empty, which is why four enumeration rounds in a row listed it as INERT.
+//
+// WHAT IS FIXED IS THE SHAPE, NOT THE SENTENCE. The paragraphs are kept
+// verbatim, but each is now an entry that must SAY which revision it is and
+// whether it is CURRENT or SUPERSEDED, must chain to the entry that
+// superseded it, and must hoist the exploration counters it speaks about into
+// a structured block that this validator holds to the same arithmetic as
+// every other counter in the record. A superseded counter block is therefore
+// addressable — a reader and a check can both name it — and a superseded
+// block cannot masquerade as the current one, because exactly one entry may
+// be CURRENT, it must be the last, and its counters must equal the ones the
+// cited run printed.
+type crRevision struct {
+	// Revision is the paragraph's identity. It is stamped at BOTH ends of
+	// the note, so a truncated, swapped or number-shifted paragraph stops
+	// being this revision's paragraph.
+	Revision string `json:"revision"`
+	// Status is CURRENT or SUPERSEDED. Exactly one entry is CURRENT and it
+	// is the last one.
+	Status string `json:"status"`
+	// SupersededBy names the revision that replaced this one: the NEXT
+	// entry's identity, and empty exactly on the current entry. The chain is
+	// what makes the ordering a claim rather than an accident of array order.
+	SupersededBy string `json:"superseded_by"`
+	// CountersQuoted is the exploration reading this paragraph speaks about.
+	// The three fields are mutually determined — a clean-terminal run and a
+	// failure-halted run are the only two dispositions, so they partition the
+	// schedules — which is what makes every one of them checkable even for a
+	// revision whose numbers exist nowhere in the tree any more.
+	CountersQuoted crRevisionCounters `json:"counters_quoted"`
+	Note           string             `json:"note"`
+}
+
+type crRevisionCounters struct {
+	Schedules          int `json:"schedules"`
+	ClosedTerminalRuns int `json:"closed_terminal_runs"`
+	FailureHaltedRuns  int `json:"failure_halted_runs"`
+}
+
+const (
+	crRevisionCurrent    = "CURRENT"
+	crRevisionSuperseded = "SUPERSEDED"
+)
+
+// crRevisionIdentity constrains the identity to a token a reader can quote
+// and a check can compare: no spaces, so the note's opening and closing
+// stamps are unambiguous.
+var crRevisionIdentity = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{7,79}$`)
+
+// crRevisionHistoryAnchor is the identity of the OLDEST paragraph this record
+// carries, and it is pinned here rather than derived because it can never
+// legitimately change: the history is append-only at the tail, so a document
+// whose history begins somewhere else has had its beginning removed.
+//
+// MEASURED, not anticipated. TestConcurrencyResultsEveryModeledKeyIsRequired
+// walks every removable position in the document and deleting
+// `revision_history[0]` produced NO finding: the forward chain is relative, so
+// a shortened array still chains, still carries exactly one CURRENT entry at
+// its end, and still agrees with the counters. That is the same omission gap
+// the round-3 review found for the claim-ceiling booleans, reappearing in the
+// field added to close a disclosure gap — the oldest paragraph, which is the
+// one a reader is least likely to miss, was the one nothing held down.
+const crRevisionHistoryAnchor = "round2-blocking-findings-2026-09-02"
+
+// crValidateRevisionHistory is the whole of finding 2's fix.
+func crValidateRevisionHistory(results crResults, path string) []ModelFinding {
+	var findings []ModelFinding
+	refuse := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_REVISION_HISTORY_UNSOUND", path, detail))
+	}
+	history := results.RevisionHistory
+	if len(history) == 0 {
+		refuse("revision_history is empty: the record accounts for none of its own revisions")
+		return findings
+	}
+
+	// The head. Without this the array can be shortened from the front and
+	// every other rule here still holds — measured, see crRevisionHistoryAnchor.
+	if history[0].Revision != crRevisionHistoryAnchor {
+		refuse(fmt.Sprintf(
+			"revision_history begins at %q, not at this record's oldest paragraph %q: the history is append-only at the tail, so a history that starts later has had its beginning deleted",
+			history[0].Revision, crRevisionHistoryAnchor))
+	}
+
+	seen := map[string]int{}
+	currents := 0
+	for index, entry := range history {
+		where := fmt.Sprintf("revision_history[%d]", index)
+		if !crRevisionIdentity.MatchString(entry.Revision) {
+			refuse(fmt.Sprintf("%s.revision %q is not a quotable identity (lower-case token, 8-80 characters, no spaces)", where, entry.Revision))
+		}
+		if first, duplicate := seen[entry.Revision]; duplicate {
+			refuse(fmt.Sprintf("%s.revision %q is already the identity of revision_history[%d]: two paragraphs cannot be the same revision", where, entry.Revision, first))
+		} else {
+			seen[entry.Revision] = index
+		}
+
+		switch entry.Status {
+		case crRevisionCurrent:
+			currents++
+			if index != len(history)-1 {
+				refuse(fmt.Sprintf("%s is %s but is not the last entry: the current paragraph is the one nothing has superseded", where, crRevisionCurrent))
+			}
+		case crRevisionSuperseded:
+			if index == len(history)-1 {
+				refuse(fmt.Sprintf("%s is the last entry and is %s, so this record's history ends with a paragraph that describes a predecessor and nothing describes the document itself", where, crRevisionSuperseded))
+			}
+		default:
+			refuse(fmt.Sprintf("%s.status is %q, which is neither %s nor %s", where, entry.Status, crRevisionCurrent, crRevisionSuperseded))
+		}
+
+		// The chain. An entry that is not last must name the entry that
+		// replaced it, and the current entry must name nothing.
+		if index+1 < len(history) {
+			if entry.SupersededBy != history[index+1].Revision {
+				refuse(fmt.Sprintf("%s.superseded_by is %q but the paragraph that follows it is %q: the history does not chain, so its order is an accident of the array rather than a claim",
+					where, entry.SupersededBy, history[index+1].Revision))
+			}
+		} else if entry.SupersededBy != "" {
+			refuse(fmt.Sprintf("%s is the current paragraph and names %q as having superseded it", where, entry.SupersededBy))
+		}
+
+		// The counters this paragraph speaks about, held to the partition
+		// every exploration reading obeys. This is what binds a number whose
+		// value exists nowhere in the tree any more: it need not be
+		// RECOVERABLE to be CHECKABLE.
+		counters := entry.CountersQuoted
+		if counters.Schedules < 0 || counters.ClosedTerminalRuns < 0 || counters.FailureHaltedRuns < 0 {
+			refuse(fmt.Sprintf("%s.counters_quoted carries a negative count", where))
+		}
+		if sum := counters.ClosedTerminalRuns + counters.FailureHaltedRuns; sum != counters.Schedules {
+			refuse(fmt.Sprintf("%s.counters_quoted is not an exploration reading: closed_terminal_runs %d + failure_halted_runs %d = %d, not schedules %d",
+				where, counters.ClosedTerminalRuns, counters.FailureHaltedRuns, sum, counters.Schedules))
+		}
+		if counters.Schedules == 0 {
+			refuse(fmt.Sprintf("%s.counters_quoted.schedules is 0: every revision of this record described a space that had been explored", where))
+		}
+
+		// The note is stamped with its own identity at both ends. A
+		// paragraph that has been truncated, swapped for a neighbour's, or
+		// had a number shifted inside its stamp stops satisfying this, which
+		// is exactly the class of edit that left the superseded counters
+		// reading as current.
+		opening := "[" + entry.Revision + "] "
+		closing := " (revision " + entry.Revision + ", " + entry.Status + ")"
+		if !strings.HasPrefix(entry.Note, opening) {
+			refuse(fmt.Sprintf("%s.note does not open with its own identity %q, so the paragraph and the entry that labels it are not bound together", where, strings.TrimSpace(opening)))
+		}
+		if !strings.HasSuffix(entry.Note, closing) {
+			refuse(fmt.Sprintf("%s.note does not close with %q, so a paragraph could be cut short - or replaced from halfway - and still read as whole", where, strings.TrimSpace(closing)))
+		}
+		if len(strings.TrimSpace(entry.Note)) <= len(opening)+len(closing) {
+			refuse(fmt.Sprintf("%s.note is its stamps and nothing else", where))
+		}
+	}
+
+	if currents != 1 {
+		refuse(fmt.Sprintf("revision_history carries %d %s paragraphs: exactly one paragraph describes this document as it stands", currents, crRevisionCurrent))
+		return findings
+	}
+
+	// The current paragraph's counters ARE the document's counters. This is
+	// the check the superseded sentence would have failed the moment it was
+	// left unmarked: it quoted 79,920 / 56,777 / 23,143 while the document
+	// recorded 81,180 / 49 / 81,131.
+	current := history[len(history)-1]
+	for _, pair := range []struct {
+		field    string
+		quoted   int
+		recorded int
+	}{
+		{"schedules", current.CountersQuoted.Schedules, results.Execution.ExploredSchedules},
+		{"closed_terminal_runs", current.CountersQuoted.ClosedTerminalRuns, results.Execution.ClosedTerminalRuns},
+		{"failure_halted_runs", current.CountersQuoted.FailureHaltedRuns, results.Execution.FailureHaltedRuns},
+	} {
+		if pair.quoted != pair.recorded {
+			refuse(fmt.Sprintf("the CURRENT paragraph %q quotes %s %d but this document records %d: a current paragraph that disagrees with the record it sits in is the finding that produced this field",
+				current.Revision, pair.field, pair.quoted, pair.recorded))
+		}
+	}
+
+	// And a superseded paragraph must actually be superseded. A block that
+	// agrees with today's reading in every field is not history; it is
+	// today's numbers wearing a history label, which is the masquerade in the
+	// other direction.
+	for index, entry := range history[:len(history)-1] {
+		if entry.CountersQuoted == current.CountersQuoted {
+			refuse(fmt.Sprintf("revision_history[%d] (%q) is marked %s but quotes exactly the counters the CURRENT paragraph quotes, so nothing about it is superseded",
+				index, entry.Revision, crRevisionSuperseded))
+		}
+	}
+	return findings
+}
+
+// crCleanRouteLimitationTag opens the limitation that states the clean-route
+// coverage ceiling. The entry is located by its opening rather than by index,
+// so reordering the limitations cannot silently unbind it.
+const crCleanRouteLimitationTag = "CLEAN-ROUTE COVERAGE CEILING:"
+
+// crCleanRouteLimitation returns the clean-route ceiling limitation, or a
+// sentence that quotes no counters at all when the record does not carry one —
+// which fails the arity check in crValidateQuotedCounters, so a record that
+// simply drops this limitation is refused rather than passing quietly.
+//
+// The post-failure landing review's finding 1 was that all twelve limitations
+// were checked and none mentioned the collapse. The record must carry this
+// one, and it must carry it with the measured numbers.
+func crCleanRouteLimitation(results crResults) string {
+	for _, limitation := range results.Limitations {
+		if strings.HasPrefix(strings.TrimSpace(limitation), crCleanRouteLimitationTag) {
+			return limitation
+		}
+	}
+	return ""
+}
+
+// ---------------------------------------------------------------------------
+// The clean-route ceiling, held to more than its numbers
+// ---------------------------------------------------------------------------
+
+// crCleanRouteCeilingClauses are the clauses that make the ceiling a CEILING
+// rather than a paragraph of arithmetic.
+//
+// WHY THIS EXISTS, and it is a real reading rather than a precaution. With
+// only the quoted-counter expectation in force, cutting this limitation in
+// half was ACCEPTED at zero findings: the four counters it must quote all
+// occur in its first 863 characters, so a truncation that removes what the
+// ceiling forbids, why it cannot be widened, and where the reading it replaced
+// is recorded still satisfied every check. That is exactly the softening this
+// document's own leaf enumeration lists as a live candidate — half a
+// disclosure still reads as a disclosure — landing on the one limitation whose
+// whole purpose is to stop a coverage claim being strengthened.
+//
+// The counters say how thin the clean route is. These clauses say what follows
+// from that, which is the part a reader acts on.
+var crCleanRouteCeilingClauses = []string{
+	// The prohibition. Without it the entry is an observation, and an
+	// observation forbids nothing.
+	"WHAT THIS CEILING FORBIDS:",
+	// The bound's justification: a ceiling nobody has to justify is a ceiling
+	// that can be raised by asserting a different one.
+	"WHY IT IS NOT WIDER:",
+	// The pointer to the superseded reading, checked for real below.
+	"THE READING THIS REPLACED",
+	// The provenance of the disclosure itself. This drop was named ONCE
+	// before any review found it - as a carried follow-up in an owner
+	// decision, in August - and reached no limitation of this record for the
+	// week that followed. A ceiling that does not say where it came from
+	// invites the same thing to happen again to the next one.
+	"THIS CLOSES A CARRIED FOLLOW-UP",
+}
+
+// crGovernanceDecisionID matches the identity of an owner decision as this
+// repository names them, so a citation in the ceiling can be RESOLVED against
+// the decisions directory rather than read.
+var crGovernanceDecisionID = regexp.MustCompile(`[a-z0-9][a-z0-9-]*-owner-decision-\d{4}-\d{2}-\d{2}`)
+
+// crGovernanceDecisionsDir is where this repository keeps the owner decisions
+// the record is allowed to cite.
+const crGovernanceDecisionsDir = "evidence/governance/decisions"
+
+// crValidateCleanRouteCeiling binds the ceiling's PROSE, where
+// crValidateQuotedCounters binds its numbers.
+//
+// The last clause is not a phrase check. The ceiling declines to restate the
+// pre-landing counters — they describe a space this tree can no longer
+// produce, and restating them in a live limitation is how the record acquired
+// a present-tense superseded reading in the first place — and instead names
+// the revision_history entry that holds them. So this check resolves that
+// name: the identity the ceiling points at must be a paragraph this document
+// actually carries, and it must be marked SUPERSEDED. A dangling pointer, or
+// one aimed at the CURRENT paragraph, is refused.
+func crValidateCleanRouteCeiling(results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
+	var findings []ModelFinding
+	path := inputs.ResultsPath
+	refuse := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_CLEAN_ROUTE_CEILING_UNSOUND", path, detail))
+	}
+	ceiling := crCleanRouteLimitation(results)
+	if ceiling == "" {
+		refuse(fmt.Sprintf(
+			"no limitation opens with %q: the record states no clean-route coverage ceiling, which is the omission the post-failure landing review found across all twelve of them",
+			crCleanRouteLimitationTag))
+		return findings
+	}
+	for _, clause := range crCleanRouteCeilingClauses {
+		if !strings.Contains(ceiling, clause) {
+			refuse(fmt.Sprintf(
+				"the clean-route ceiling carries no %q clause, so it states how thin the clean route is without stating what follows from that",
+				clause))
+		}
+	}
+
+	// Resolve the pointer. Exactly one superseded paragraph may be named, so
+	// the ceiling cannot hedge by naming several and hoping one resolves.
+	var named []string
+	current := ""
+	if len(results.RevisionHistory) > 0 {
+		current = results.RevisionHistory[len(results.RevisionHistory)-1].Revision
+	}
+	for _, entry := range results.RevisionHistory {
+		if entry.Revision != "" && strings.Contains(ceiling, entry.Revision) {
+			named = append(named, entry.Revision)
+			if entry.Revision == current {
+				refuse(fmt.Sprintf(
+					"the clean-route ceiling says the reading it replaced is recorded under %q, which is this document's CURRENT paragraph: a reading cannot have been superseded by itself",
+					entry.Revision))
+			} else if entry.Status != crRevisionSuperseded {
+				refuse(fmt.Sprintf(
+					"the clean-route ceiling names revision_history entry %q as holding the reading it replaced, but that entry is %q rather than %s",
+					entry.Revision, entry.Status, crRevisionSuperseded))
+			}
+		}
+	}
+	if len(named) == 0 {
+		refuse(fmt.Sprintf(
+			"the clean-route ceiling names no revision_history identity, so its account of the reading it replaced points at nothing; revision_history carries %d paragraphs",
+			len(results.RevisionHistory)))
+	}
+
+	// And the follow-up it says it closes must be a decision this repository
+	// actually holds. A citation nobody resolves is how "the owner already
+	// knows" becomes a sentence rather than a fact - which is the shape of the
+	// original omission, in which a real carried follow-up sat in a governance
+	// record while the evidence document it constrained said nothing.
+	cited := crGovernanceDecisionID.FindAllString(ceiling, -1)
+	if len(cited) == 0 {
+		refuse("the clean-route ceiling says it closes a carried follow-up and names no owner decision, so the claim resolves to nothing")
+	}
+	if inputs.Root == "" {
+		findings = append(findings, mpAdvisory("RESULTS_PROVENANCE_UNVERIFIED", path,
+			"no tree root supplied: the clean-route ceiling's owner-decision citation was NOT resolved"))
+		return findings
+	}
+	for _, decision := range cited {
+		at := filepath.Join(inputs.Root, filepath.FromSlash(crGovernanceDecisionsDir), decision+".json")
+		if _, err := os.Stat(at); err != nil {
+			refuse(fmt.Sprintf(
+				"the clean-route ceiling cites owner decision %q, which this tree does not hold at %s/%s.json",
+				decision, crGovernanceDecisionsDir, decision))
+		}
+	}
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// The plan-conformance sentence's scenario arithmetic
+// ---------------------------------------------------------------------------
+
+// crValidatePlanConformanceShape re-derives the SCENARIO clauses of
+// preregistered_plan.conformance from bounds.scenario_shapes.
+//
+// WHY IT EXISTS, and it is a regression this branch caused and then measured.
+// The conformance sentence used to open "across BOTH scenarios"; appending a
+// third scenario reworded it to "across ALL 3 scenarios", and that one edit
+// turned the leaf from CHECKED to INERT. The battery's plausible-wrong value
+// for a sentence carrying a number is the same sentence with its FIRST number
+// moved, and the counter tokenizer that guards this document's prose applies a
+// four-digit floor — so "ALL 4 scenarios" was accepted at zero findings while
+// the record enumerated three. A scenario count is exactly the kind of claim a
+// reader takes at face value, and it had come loose in the sentence whose job
+// is to say the exploration stayed inside its preregistered bounds.
+//
+// The three clauses below are the sub-threshold numbers that sentence carries
+// about the scenarios. Each is rendered from bounds.scenario_shapes and must
+// appear verbatim, so moving any of them contradicts the shapes the run
+// printed. Re-wording the sentence deliberately means updating this rendering
+// deliberately, which is the intended cost: the alternative is what happened
+// here, where a re-wording silently unbound a number.
+func crValidatePlanConformanceShape(results crResults, path string) []ModelFinding {
+	var findings []ModelFinding
+	sentence := results.PreregisteredPlan.Conformance
+	if strings.TrimSpace(sentence) == "" {
+		// crValidateNarrative already refuses an empty conformance sentence;
+		// there is nothing here to re-derive from.
+		return findings
+	}
+	shapes := results.Bounds.ScenarioShapes
+	if len(shapes) == 0 {
+		return append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_UNDERIVED", path,
+			"bounds.scenario_shapes is empty, so the conformance sentence's scenario clauses derive from nothing"))
+	}
+	actions := make([]string, 0, len(shapes))
+	widest := 0
+	for _, shape := range shapes {
+		actions = append(actions, strconv.Itoa(shape.ActionsPerSchedule))
+		if shape.ActionsPerSchedule > widest {
+			widest = shape.ActionsPerSchedule
+		}
+	}
+	list := actions[0]
+	if len(actions) > 1 {
+		list = strings.Join(actions[:len(actions)-1], ", ") + " and " + actions[len(actions)-1]
+	}
+	for _, clause := range []struct {
+		what     string
+		rendered string
+	}{
+		{"how many scenarios the exploration covers", fmt.Sprintf("across ALL %d scenarios", len(shapes))},
+		{"the per-scenario action counts", fmt.Sprintf("%d scenarios of %s actions", len(shapes), list)},
+		{"the widest schedule the bound has to hold", fmt.Sprintf("at most %d actions per schedule", widest)},
+	} {
+		if !strings.Contains(sentence, clause.rendered) {
+			findings = append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_CONTRADICTED", path, fmt.Sprintf(
+				"preregistered_plan.conformance does not state %s as bounds.scenario_shapes gives it: the sentence must carry %q",
+				clause.what, clause.rendered)))
 		}
 	}
 	return findings

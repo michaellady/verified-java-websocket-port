@@ -1,28 +1,20 @@
 # target=fragment-control-sequences run=2
 # dir=rust
-# command=cargo test --locked -p ws-core --test adversarial_fuzz
+# command=cargo test --locked -p ws-core --test fragment_control_fuzz
 # wall_clock_deadline_seconds=900
 # exit=0
 # deadline_hit=false
 
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
-     Running tests/adversarial_fuzz.rs (target/debug/deps/adversarial_fuzz-fce417d712f06802)
+     Running tests/fragment_control_fuzz.rs (target/debug/deps/fragment_control_fuzz-02f1475ff81f6db0)
 
-running 14 tests
-test control_payload_exactly_125_delivers ... ok
-test close_ack_emits_the_close_event_before_the_terminal_transition ... ok
-test family_declared_length_headers ... ok
-test family_config_boundaries ... ok
-test family_queue_pressure_typed_backpressure ... ok
-test family_command_interleave_no_panic_deterministic ... ok
-test family_rechunk_invariance_single_frame ... ok
-test family_seed_corpus_anchors ... ok
-test fragment_accumulation_to_exactly_max_buffered_is_accepted ... ok
-test mask_key_derivation_advances_per_outbound_frame ... ok
-test send_payload_at_exactly_max_buffered_sends ... ok
-test family_byte_soup_no_panic_bounded_deterministic ... ok
-test family_rechunk_invariance_multi_frame ... ok
-test family_frame_soup_no_panic_bounded_deterministic ... ok
+running 6 tests
+test fragment_control_shrinker_normal_forms_are_pinned ... ok
+test fragment_control_shrinker_reaches_1_minimal_witnesses ... ok
+test fragment_control_hostile_soup_no_panic_deterministic ... ok
+test fragment_control_interleave_is_transparent_to_reassembly ... ok
+test fragment_control_modeled_programs ... ok
+test fragment_split_and_rechunk_invariance ... ok
 
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.76s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
 

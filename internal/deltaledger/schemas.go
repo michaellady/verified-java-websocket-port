@@ -50,6 +50,7 @@ func EvidenceSchemaBindings() []SchemaBinding {
 		{Document: SupersessionsRelativePath, Schema: SupersessionsSchemaRelativePath},
 		{Document: ObservationsRelativePath, Schema: ObservationsSchemaRelativePath},
 		{Document: OwnerDecisionManifestRelativePath, Schema: OwnerDecisionManifestSchemaRelativePath},
+		{Document: LegacyAdjudicationsRelativePath, Schema: LegacyAdjudicationsSchemaRelativePath},
 	}
 }
 

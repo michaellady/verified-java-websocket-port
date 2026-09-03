@@ -32,6 +32,19 @@ func blockedEvidenceDocuments(t *testing.T) BaselineEvidenceDocuments {
 	}
 }
 
+// unclassedForTest is the residual a synthetic chain must publish. Synthetic
+// deltas carry no mismatch class, so it is simply their count; it is written as
+// a helper rather than a literal so a fixture that grows a record cannot drift.
+func unclassedForTest(records []BehaviorLedgerRecord) int {
+	count := 0
+	for _, record := range records {
+		if record.Delta.MismatchClass == "" {
+			count++
+		}
+	}
+	return count
+}
+
 func canonicalEvidence(t *testing.T, value any) []byte {
 	t.Helper()
 	raw, err := intake.CanonicalJSON(value)
@@ -462,6 +475,11 @@ func TestReadinessRefusesAWithdrawnRecordAsCoverage(t *testing.T) {
 	ledger.Records = records
 	ledger.Head = verifiedHead
 	ledger.Supersessions = links
+	// The synthetic chain replaces the committed one, so the 1.2.0 residual has
+	// to be recomputed for it. Leaving the committed document's number here
+	// would make the readiness gate refuse on THAT mismatch instead of on the
+	// withdrawn record, and this test would then pass for the wrong reason.
+	ledger.RecordsWithoutMismatchClass = unclassedForTest(records)
 	documents.Autobahn = canonicalEvidence(t, autobahn)
 	documents.Ledger = canonicalEvidence(t, ledger)
 
@@ -494,6 +512,7 @@ func TestReadinessRefusesAWithdrawnRecordAsCoverage(t *testing.T) {
 	ledger.Records = plainRecords
 	ledger.Head = plainVerified
 	ledger.Supersessions = []SupersessionLink{}
+	ledger.RecordsWithoutMismatchClass = unclassedForTest(plainRecords)
 	documents.Ledger = canonicalEvidence(t, ledger)
 	readiness, err = VerifyBaselineEvidence(evidenceTestRoot, documents)
 	if err != nil {
@@ -521,6 +540,39 @@ func TestReadinessRefusesADeclaredSupersessionArrayThatTheRecordsDoNotCarry(t *t
 		t.Fatal("readiness accepted a ledger document declaring no supersessions while its records carry them")
 	} else if !strings.Contains(err.Error(), "BEHAVIOR_LEDGER_SUPERSESSION_MISMATCH") {
 		t.Fatalf("readiness refused, but not on the supersession mismatch; got: %v", err)
+	}
+}
+
+// TestReadinessRefusesAnUnderstatedMismatchClassResidual pins the 1.2.0
+// addition. The residual is deliberately NOT required to be zero — forty-nine
+// records were sealed before the mismatch-class axis existed and their digest
+// preimages cannot be altered to carry one — so the only thing standing between
+// "the residual is published" and "the residual is a number nobody checks" is
+// that the readiness gate RECOMPUTES it. Without this test, deleting that
+// recomputation would leave every suite green.
+func TestReadinessRefusesAnUnderstatedMismatchClassResidual(t *testing.T) {
+	documents := readyEvidenceDocuments(t)
+	var ledger ledgerEvidence
+	mustDecodeEvidence(t, documents.Ledger, &ledger)
+	if ledger.RecordsWithoutMismatchClass == 0 {
+		t.Fatal("the committed ledger publishes a zero residual; this test needs a nonzero one to understate")
+	}
+	ledger.RecordsWithoutMismatchClass = 0
+	documents.Ledger = canonicalEvidence(t, ledger)
+	if _, err := VerifyBaselineEvidence(evidenceTestRoot, documents); err == nil {
+		t.Fatal("readiness accepted a ledger document publishing records_without_mismatch_class=0 over a chain " +
+			"whose records carry no class. A residual the gate does not recompute can be set to anything, which is " +
+			"the fake-gate shape unledgered_disagreements already had once")
+	} else if !strings.Contains(err.Error(), "records_without_mismatch_class") {
+		t.Fatalf("readiness refused, but not on the residual; got: %v", err)
+	}
+
+	// The other direction, so this is a discriminator rather than a blanket
+	// refusal of the field: the honest number is accepted.
+	ledger.RecordsWithoutMismatchClass = unclassedForTest(ledger.Records)
+	documents.Ledger = canonicalEvidence(t, ledger)
+	if _, err := VerifyBaselineEvidence(evidenceTestRoot, documents); err != nil {
+		t.Fatalf("readiness refused the recomputed residual: %v", err)
 	}
 }
 
