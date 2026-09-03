@@ -360,12 +360,30 @@ says RFC 6455 §5.5.1 does not permit.
 
 **Why this is in F010's class.** The Java citation was verified exhaustively and
 at source — the landing record re-read the pinned tree itself and checked the
-call graph was complete rather than inferred. **No record in
-`drafts/self-review/` mentions US-018 at all**
-(`grep -rn "US-018" drafts/self-review/` returns nothing). The behaviour was
-checked against Java, against the RFC, and against a parallel measurement; it
-was never checked against the acceptance criterion of the story that owns the
-surface it landed on.
+call graph was complete rather than inferred. **No self-review record in this
+repository mentions US-018**: before this file existed,
+`grep -rn "US-018" drafts/self-review/` returned nothing, and the only hits now
+are this record's own. The behaviour was checked against Java, against the RFC,
+and against a parallel measurement; it was never checked against the acceptance
+criterion of the story that owns the surface it landed on.
+
+**And the crate contradicts itself, which is sharper than the absence of a
+review.** I first wrote the sentence above as the whole of the evidence, then
+checked the SOURCE rather than trusting the review tree — and US-018 AC1 is
+cited twice inside `ws-testee`. Once for a different clause
+(`io_loop.rs:17`, *"US-018 AC1: bounded I/O buffers"*), and once, at
+`rust/ws-testee/src/server.rs:47-49`, for exactly this one:
+
+> "Echo policy: every delivered text/binary message is re-sent through the
+> bounded command handle. **Control and close behavior is deliberately NOT
+> mirrored here — the core owns it (no adapter-side protocol, US-018 AC1).**"
+
+So the rule is not merely unchecked — it is **stated as a rule in the same crate
+that then departs from it.** One file of `ws-testee` declines to mirror close
+behaviour and cites US-018 AC1 as its reason; another file of `ws-testee` mirrors
+Java's close gate on a branch over `Role` and `ReadyState`. Whichever way the
+placement is ruled, those two comments cannot both stand as written, and that is
+true independently of the ruling.
 
 **Why it is NARROWER than F010, stated plainly rather than inflated.** The
 BEHAVIOUR is licensed: US-016's close clauses are inside the amendment, and the
@@ -554,6 +572,10 @@ re-baselined and `origin/codex/race-catchup` was not touched or read.
 No owner gate was triggered by this sweep. No AWS instance, no benchmark sample,
 no Autobahn run.
 
+0. **The two `ws-testee` comments about US-018 AC1 disagree with each other**
+   (`server.rs:47-49` versus the gate at `io_loop.rs:567`). That needs fixing
+   whichever way item 2 is ruled, and it is the one item here that is not
+   waiting on a decision.
 1. **Rule on US-011 AC2 versus the standing amendment.** The question is
    *"does `us010-016-ac-amendment-owner-decision-2026-08-27.json` already reach
    AC2's `no Java-specific Date or Server banner` clause?"* — YES leaves DIV-06
