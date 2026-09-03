@@ -1,0 +1,570 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/oracle-hierarchy-adjudication-register-1.0.0.schema.json",
+  "title": "Oracle hierarchy adjudication register",
+  "description": "The committed artifact internal/oraclerank computes: US-020 AC2's five-rank adjudication order applied to this repository's committed evidence. Every other evidence document in this tree had a schema and this one did not; the branch that built the register named writing this as the next thing to do. The constraints here are chosen so that the ways the register could go quietly wrong FAIL VALIDATION: a rank outside the closed AC2 set, a probe verdict outside the closed vocabulary, a rank binding weaker than CONTENT_BOUND that does not say what it is not bound to, an override entry whose governing rank is not strictly above rank four, a finding with no basis, or an assurance claim above OBSERVED.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "statement",
+    "assurance_note",
+    "rank_bindings",
+    "families",
+    "independence_probe",
+    "family_resolution",
+    "findings",
+    "accounting",
+    "java_rust_agreements_overridden_by_a_higher_oracle"
+  ],
+  "properties": {
+    "$schema": { "const": "../../schemas/oracle-hierarchy-adjudication-register-1.0.0.schema.json" },
+    "schema_version": { "const": "1.0.0" },
+    "entity_type": { "const": "OracleHierarchyAdjudicationRegister" },
+    "statement": { "type": "string", "minLength": 1, "maxLength": 16384 },
+    "assurance_note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384,
+      "description": "The register's ceiling is OBSERVED. Every verdict is read from committed bytes and nothing here is proved, so the note must open with OBSERVED and must not claim PROVEN or VERIFIED.",
+      "pattern": "^OBSERVED\\."
+    },
+
+    "rank_bindings": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "description": "Exactly the five AC2 ranks, each bound to committed artifacts hashed on the run that emitted this document.",
+      "items": { "$ref": "#/$defs/binding" }
+    },
+
+    "families": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/family" }
+    },
+
+    "independence_probe": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "description": "Every ordered pair of the five ranks: 5 choose 2 = 10. A shorter array means a pair went unmeasured without saying so.",
+      "items": { "$ref": "#/$defs/pairProbe" }
+    },
+
+    "family_resolution": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "description": "How many distinguishable answers each family's propositions actually carry. A probe's co-vote count is a count of propositions, not of questions, and this is where the collapse is stated.",
+      "items": { "$ref": "#/$defs/familyResolution" }
+    },
+
+    "findings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/finding" }
+    },
+
+    "accounting": { "$ref": "#/$defs/accounting" },
+
+    "java_rust_agreements_overridden_by_a_higher_oracle": {
+      "type": "array",
+      "maxItems": 100000,
+      "description": "AC2's final clause, enrolled. The set is exact in both directions: an override the evidence exhibits and this list omits fails cmd/oraclerankctl --check, and an entry this list carries that the evidence does not exhibit fails too.",
+      "items": { "$ref": "#/$defs/overrideEntry" }
+    }
+  },
+
+  "$defs": {
+    "rank": {
+      "type": "integer",
+      "enum": [1, 2, 3, 4, 5],
+      "description": "AC2's own numbering, kept literal. LOWER NUMBER OUTRANKS."
+    },
+    "rankName": {
+      "type": "string",
+      "enum": [
+        "rank1-rfc6455",
+        "rank2-autobahn-in-scope",
+        "rank3-neutral-expectation",
+        "rank4-java-observation",
+        "rank5-rust-observation"
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rank", "rank_name", "strength", "statement", "artifacts"],
+      "properties": {
+        "rank": { "$ref": "#/$defs/rank" },
+        "rank_name": { "$ref": "#/$defs/rankName" },
+        "strength": {
+          "type": "string",
+          "enum": [
+            "CONTENT_BOUND",
+            "CONTENT_BOUND_TO_RECORDED_READING",
+            "DECLARATION_BOUND"
+          ]
+        },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "description": "A rank that names no artifact exists in name only.",
+          "items": { "$ref": "#/$defs/artifact" }
+        },
+        "not_bound_to": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "owner_action_required": { "type": "string", "minLength": 1, "maxLength": 16384 }
+      },
+      "allOf": [
+        {
+          "description": "A binding weaker than CONTENT_BOUND must say precisely what it is NOT attached to. Existence standing in for identity is the defect this register indicts itself for, and an unexplained weak binding is exactly that.",
+          "if": {
+            "properties": { "strength": { "not": { "const": "CONTENT_BOUND" } } },
+            "required": ["strength"]
+          },
+          "then": { "required": ["not_bound_to"] }
+        }
+      ]
+    },
+
+    "rankSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rank", "rank_name", "strength", "note"],
+      "properties": {
+        "rank": { "$ref": "#/$defs/rank" },
+        "rank_name": { "$ref": "#/$defs/rankName" },
+        "strength": {
+          "type": "string",
+          "enum": ["CONTENT", "RECORDED_READING", "AGGREGATE_DERIVED", "ABSENT"]
+        },
+        "paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "artifact_group": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The body of evidence this rank's verdicts vary with inside this family. Two ranks sharing a group are not independently sourced and the probe declines to score them."
+        },
+        "note": { "type": "string", "minLength": 1, "maxLength": 16384 }
+      },
+      "allOf": [
+        {
+          "description": "A rank that speaks in a family must name the bytes it speaks from; only an ABSENT rank may omit the artifact group.",
+          "if": {
+            "properties": { "strength": { "not": { "const": "ABSENT" } } },
+            "required": ["strength"]
+          },
+          "then": { "required": ["artifact_group", "paths"] }
+        }
+      ]
+    },
+
+    "joinDegeneracy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family_id",
+        "higher_rank",
+        "higher_rank_name",
+        "lower_rank",
+        "lower_rank_name",
+        "key_derivation",
+        "disagreement_structurally_impossible",
+        "lower_rank_verdicts_reachable_from_each_higher_verdict",
+        "lookup_keys_considered",
+        "lookup_keys_that_make_the_lower_rank_abstain",
+        "statement"
+      ],
+      "properties": {
+        "family_id": { "type": "string", "minLength": 1 },
+        "higher_rank": { "$ref": "#/$defs/rank" },
+        "higher_rank_name": { "$ref": "#/$defs/rankName" },
+        "lower_rank": { "$ref": "#/$defs/rank" },
+        "lower_rank_name": { "$ref": "#/$defs/rankName" },
+        "key_derivation": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "disagreement_structurally_impossible": { "type": "boolean" },
+        "lower_rank_verdicts_reachable_from_each_higher_verdict": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "lookup_keys_considered": { "type": "integer", "minimum": 1 },
+        "lookup_keys_that_make_the_lower_rank_abstain": { "type": "integer", "minimum": 0 },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 8192 }
+      }
+    },
+
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family_id",
+        "question",
+        "verdict_space",
+        "rank_sources",
+        "cross_checks",
+        "proposition_count",
+        "outcome_counts",
+        "votes_by_rank",
+        "abstains_by_rank"
+      ],
+      "properties": {
+        "family_id": { "type": "string", "minLength": 1 },
+        "question": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "verdict_space": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "rank_sources": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "description": "Every one of the five ranks states its position in every family, including the ranks that abstain throughout it. A rank that is simply absent from a family is invisible; a rank recorded as ABSENT is not.",
+          "items": { "$ref": "#/$defs/rankSource" }
+        },
+        "cross_checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1, "maxLength": 16384 }
+        },
+        "join_degeneracy": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/joinDegeneracy" }
+        },
+        "proposition_count": { "type": "integer", "minimum": 0 },
+        "outcome_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "UNDETERMINED": { "type": "integer", "minimum": 0 },
+            "CONCORDANT": { "type": "integer", "minimum": 0 },
+            "HIGHER_ORACLE_OVERRIDES": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "votes_by_rank": { "$ref": "#/$defs/countsByRank" },
+        "abstains_by_rank": { "$ref": "#/$defs/countsByRank" }
+      }
+    },
+
+    "countsByRank": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rank1-rfc6455",
+        "rank2-autobahn-in-scope",
+        "rank3-neutral-expectation",
+        "rank4-java-observation",
+        "rank5-rust-observation"
+      ],
+      "properties": {
+        "rank1-rfc6455": { "type": "integer", "minimum": 0 },
+        "rank2-autobahn-in-scope": { "type": "integer", "minimum": 0 },
+        "rank3-neutral-expectation": { "type": "integer", "minimum": 0 },
+        "rank4-java-observation": { "type": "integer", "minimum": 0 },
+        "rank5-rust-observation": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "probeVerdict": {
+      "type": "string",
+      "enum": [
+        "DISTINGUISHED",
+        "NOT_DISTINGUISHED",
+        "NO_CO_VOTES",
+        "NOT_PROBEABLE_SHARED_DERIVATION"
+      ]
+    },
+
+    "coVoteResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["distinct_verdict_pairs", "largest_class", "family_verdict_space_size"],
+      "properties": {
+        "distinct_verdict_pairs": { "type": "integer", "minimum": 0 },
+        "verdict_pairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["higher_verdict", "lower_verdict", "propositions"],
+            "properties": {
+              "higher_verdict": { "type": "string", "minLength": 1 },
+              "lower_verdict": { "type": "string", "minLength": 1 },
+              "propositions": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "largest_class": { "type": "integer", "minimum": 0 },
+        "family_verdict_space_size": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "familyProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family_id", "verdict", "co_votes", "disagreements", "co_vote_resolution"],
+      "properties": {
+        "family_id": { "type": "string", "minLength": 1 },
+        "verdict": { "$ref": "#/$defs/probeVerdict" },
+        "higher_artifact_group": { "type": "string", "minLength": 1 },
+        "lower_artifact_group": { "type": "string", "minLength": 1 },
+        "co_votes": { "type": "integer", "minimum": 0 },
+        "disagreements": { "type": "integer", "minimum": 0 },
+        "disagreement_examples": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "co_vote_resolution": { "$ref": "#/$defs/coVoteResolution" }
+      },
+      "allOf": [
+        {
+          "description": "A pair whose verdicts vary with the same bytes cannot disagree, so scoring it would manufacture a finding. Such a probe must report zero disagreements and no examples.",
+          "if": {
+            "properties": { "verdict": { "const": "NOT_PROBEABLE_SHARED_DERIVATION" } },
+            "required": ["verdict"]
+          },
+          "then": {
+            "properties": {
+              "disagreements": { "const": 0 },
+              "disagreement_examples": { "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "description": "NOT_DISTINGUISHED means the pair was scored and never differed.",
+          "if": {
+            "properties": { "verdict": { "const": "NOT_DISTINGUISHED" } },
+            "required": ["verdict"]
+          },
+          "then": { "properties": { "disagreements": { "const": 0 } } }
+        },
+        {
+          "description": "DISTINGUISHED means at least one real disagreement.",
+          "if": {
+            "properties": { "verdict": { "const": "DISTINGUISHED" } },
+            "required": ["verdict"]
+          },
+          "then": { "properties": { "disagreements": { "minimum": 1 } } }
+        }
+      ]
+    },
+
+    "pairProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "higher_rank",
+        "higher_rank_name",
+        "lower_rank",
+        "lower_rank_name",
+        "verdict",
+        "co_votes",
+        "disagreements",
+        "by_family",
+        "note"
+      ],
+      "properties": {
+        "higher_rank": { "$ref": "#/$defs/rank" },
+        "higher_rank_name": { "$ref": "#/$defs/rankName" },
+        "lower_rank": { "$ref": "#/$defs/rank" },
+        "lower_rank_name": { "$ref": "#/$defs/rankName" },
+        "verdict": { "$ref": "#/$defs/probeVerdict" },
+        "co_votes": { "type": "integer", "minimum": 0 },
+        "disagreements": { "type": "integer", "minimum": 0 },
+        "disagreement_examples": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "by_family": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/$defs/familyProbe" }
+        },
+        "note": { "type": "string", "minLength": 1, "maxLength": 8192 }
+      },
+      "allOf": [
+        {
+          "description": "The pair is ordered strongest first: higher_rank must strictly outrank lower_rank.",
+          "properties": {
+            "higher_rank": { "maximum": 4 },
+            "lower_rank": { "minimum": 2 }
+          }
+        },
+        {
+          "description": "NO_CO_VOTES means nothing was measured, so nothing may be counted.",
+          "if": {
+            "properties": { "verdict": { "const": "NO_CO_VOTES" } },
+            "required": ["verdict"]
+          },
+          "then": {
+            "properties": {
+              "co_votes": { "const": 0 },
+              "disagreements": { "const": 0 }
+            }
+          }
+        },
+        {
+          "description": "NOT_DISTINGUISHED is the pair-level indistinguishability the BLOCKING finding is derived from: scored co-votes, none of which differed.",
+          "if": {
+            "properties": { "verdict": { "const": "NOT_DISTINGUISHED" } },
+            "required": ["verdict"]
+          },
+          "then": {
+            "properties": {
+              "co_votes": { "minimum": 1 },
+              "disagreements": { "const": 0 }
+            }
+          }
+        },
+        {
+          "description": "DISTINGUISHED requires at least one disagreement on independently sourced evidence.",
+          "if": {
+            "properties": { "verdict": { "const": "DISTINGUISHED" } },
+            "required": ["verdict"]
+          },
+          "then": {
+            "properties": {
+              "co_votes": { "minimum": 1 },
+              "disagreements": { "minimum": 1 }
+            }
+          }
+        }
+      ]
+    },
+
+    "familyResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family_id",
+        "propositions",
+        "distinct_opinion_tuples",
+        "propositions_sharing_a_tuple_with_another",
+        "largest_equivalence_class",
+        "statement"
+      ],
+      "properties": {
+        "family_id": { "type": "string", "minLength": 1 },
+        "propositions": { "type": "integer", "minimum": 0 },
+        "distinct_opinion_tuples": { "type": "integer", "minimum": 0 },
+        "propositions_sharing_a_tuple_with_another": { "type": "integer", "minimum": 0 },
+        "largest_equivalence_class": { "type": "integer", "minimum": 0 },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 8192 }
+      }
+    },
+
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "statement", "basis"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "^ORACLE-RANK-" },
+        "severity": { "type": "string", "enum": ["BLOCKING", "DISCLOSURE"] },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "basis": {
+          "type": "array",
+          "minItems": 1,
+          "description": "A finding with no basis is an assertion. Every finding here names the computed numbers it rests on.",
+          "items": { "type": "string", "minLength": 1, "maxLength": 8192 }
+        },
+        "owner_action_required": { "type": "string", "minLength": 1, "maxLength": 8192 }
+      }
+    },
+
+    "accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "propositions",
+        "undetermined",
+        "concordant",
+        "higher_oracle_overrides",
+        "java_rust_consensus",
+        "java_rust_consensus_overridden",
+        "governing_rank_counts"
+      ],
+      "properties": {
+        "propositions": { "type": "integer", "minimum": 0 },
+        "undetermined": { "type": "integer", "minimum": 0 },
+        "concordant": { "type": "integer", "minimum": 0 },
+        "higher_oracle_overrides": { "type": "integer", "minimum": 0 },
+        "java_rust_consensus": { "type": "integer", "minimum": 0 },
+        "java_rust_consensus_overridden": { "type": "integer", "minimum": 0 },
+        "governing_rank_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "propertyNames": { "$ref": "#/$defs/rankName" },
+          "properties": {
+            "rank1-rfc6455": { "type": "integer", "minimum": 0 },
+            "rank2-autobahn-in-scope": { "type": "integer", "minimum": 0 },
+            "rank3-neutral-expectation": { "type": "integer", "minimum": 0 },
+            "rank4-java-observation": { "type": "integer", "minimum": 0 },
+            "rank5-rust-observation": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+
+    "overrideEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposition_id",
+        "family",
+        "question",
+        "java_rust_consensus_verdict",
+        "governing_rank",
+        "governing_rank_name",
+        "governing_verdict",
+        "governing_source"
+      ],
+      "properties": {
+        "proposition_id": { "type": "string", "minLength": 1 },
+        "family": { "type": "string", "minLength": 1 },
+        "question": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "java_rust_consensus_verdict": { "type": "string", "minLength": 1 },
+        "governing_rank": {
+          "type": "integer",
+          "enum": [1, 2, 3],
+          "description": "AC2's final clause turns on a rank STRICTLY ABOVE rank four. An entry governed by rank four or five is not an override of a Java/Rust agreement, it is that agreement."
+        },
+        "governing_rank_name": {
+          "type": "string",
+          "enum": [
+            "rank1-rfc6455",
+            "rank2-autobahn-in-scope",
+            "rank3-neutral-expectation"
+          ]
+        },
+        "governing_verdict": { "type": "string", "minLength": 1 },
+        "governing_source": { "type": "string", "minLength": 1, "maxLength": 8192 }
+      }
+    }
+  }
+}

@@ -308,6 +308,7 @@ func bindNeutral(root string) (Binding, error) {
 	arts, err := hashArtifacts(root, []string{
 		PublicCorpusPath,
 		HandshakeCorpusPath,
+		NeutralRuleTablePath,
 	})
 	if err != nil {
 		return Binding{}, err
@@ -316,18 +317,24 @@ func bindNeutral(root string) (Binding, error) {
 	if err != nil {
 		return Binding{}, err
 	}
+	pin, err := ReadRFCPin(root)
+	if err != nil {
+		return Binding{}, err
+	}
 	return Binding{
 		Rank:     RankNeutralExpectation,
 		RankName: RankNeutralExpectation.String(),
 		Strength: BoundToRecordedReading,
 		Statement: fmt.Sprintf(
-			"Rank three is bound to the committed expectations in %s and %s, hashed on every run. The two tiers are NOT equally independent and this binding does not average them. Every one of the %d public scenarios records expectation_status=%q, and internal/corpora.ReferenceBehavior -- the model those expectations are derived from -- documents itself as mirroring the pinned Java-WebSocket 1.6.0 sources. The handshake tier's expectations cite RFC clauses directly and do diverge from the Java observable; the independence probe in this document decides which tier is empirically distinguishable from rank four rather than taking either claim on trust.",
-			PublicCorpusPath, HandshakeCorpusPath, statuses.total, statuses.dominant),
+			"Rank three is bound to two things, hashed on every run, and this binding does not average them. On the HANDSHAKE tier it is the committed expectations in %s, whose basis cites RFC 6455, RFC 9110 and RFC 9112 clauses directly. On the PUBLIC tier it is no longer the corpus expectation at all: all %d of those record expectation_status=%q and are produced by internal/corpora.DeriveExpected under a reference model documenting itself as mirroring pinned Java-WebSocket 1.6.0, and rank four is deduced from that same expectation, so reading rank three out of it made the two ranks one oracle under two names. The public tier's rank-three opinions are now DERIVED ON THIS RUN by internal/rfcneutral from the stated rules of RFC 6455 sections 5 and 7 applied to each scenario's own inbound octets in %s; the rule table at %s is hashed here so the register pins the exact reading that produced them.",
+			HandshakeCorpusPath, statuses.total, statuses.dominant, PublicCorpusPath, NeutralRuleTablePath),
 		Artifacts: arts,
 		NotBoundTo: fmt.Sprintf(
-			"an oracle independent of rank four, on the public tier. All %d public expectations are %s, derived by internal/corpora.DeriveExpected under a reference model whose own doc comment says its defaults mirror pinned Java-WebSocket 1.6.0. A rank-three verdict on that tier is a restatement of a Java-shaped model, so it cannot be counted as an independent check on rank four there.",
-			statuses.total, statuses.dominant),
-		OwnerActionRequired: "confirm the public-tier expectations against an oracle that is not the Java-mirroring reference model, or relabel that tier so rank three is not read as independent on it. The handshake tier needs no such action.",
+			"the RFC 6455 text, on the public tier -- exactly as rank one is not. %s pins %s at %s (%d bytes) and no file in this repository carries those bytes, so every rule in %s is a RECORDED READING written by hand and a misreading of a clause would pass this gate unchanged. This rank claims no more binding than rank one has. What it does claim is narrower and checkable: the rules are stated once and applied uniformly by a decoder to the scenario's own octets, and no Java artifact and no reference-model output is read on the way. On the handshake tier this rank is bound to a committed corpus expectation and NOT to any independent execution of it.",
+			SourcePinsPath, pin.ImmutableURL, pin.SHA256, pin.ByteSize, NeutralRuleTablePath),
+		OwnerActionRequired: fmt.Sprintf(
+			"check the readings in %s clause by clause against %s once those bytes are in the tree; each rule records the sentence it rests on for that purpose. On the handshake tier, supply a per-case observation of the pinned Java process so rank four is not looked up by a key computed from this rank's own verdict -- see the ORACLE-RANK-JOIN-DEGENERATE finding.",
+			NeutralRuleTablePath, pin.ImmutableURL),
 	}, nil
 }
 
