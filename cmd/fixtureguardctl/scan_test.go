@@ -25,8 +25,8 @@ func summary(t *testing.T, path string) []string {
 		regions = cfgTestRegions(maskSource(src))
 	}
 	vs, loops := scanFile(path, src, regions)
-	if loops == 0 {
-		t.Fatalf("%s: no loops examined; the scanner found nothing to look at", path)
+	if loops == 0 && !mentionsAProductionBudget(src) {
+		t.Fatalf("%s: no loops examined and no production budget named; the scanner found nothing to look at", path)
 	}
 	var rows []string
 	for _, v := range vs {

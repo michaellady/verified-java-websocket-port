@@ -304,6 +304,18 @@ func budgetExplain(v Violation) string {
 		v.Counter, v.Bound, pb.LoopText, pb.Anchor, v.Counter, pb.Outcome)
 }
 
+// mentionsAProductionBudget reports whether a source names any declared
+// production budget field, so a shape-C fixture with no loops in it is still
+// recognised as something the scanner looked at.
+func mentionsAProductionBudget(src string) bool {
+	for _, pb := range productionBudgets {
+		if strings.Contains(src, pb.Field) {
+			return true
+		}
+	}
+	return false
+}
+
 func budgetFor(field string) (productionBudget, bool) {
 	for _, pb := range productionBudgets {
 		if pb.Field == field {
