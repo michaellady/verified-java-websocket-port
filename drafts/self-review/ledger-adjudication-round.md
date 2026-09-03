@@ -659,11 +659,49 @@ byte-identical. `assurance/concurrency/results.json`'s
 (`3366b7615ff5ea8416bebe049f5c15277adf7768084e5510d88e597ad8013fce`) with a
 provenance note saying what moved and what was NOT re-measured.
 
+**THE `append_blocker` HAS FOURTEEN CHARACTERS OF HEADROOM, AND THAT IS A
+FINDING.** My first re-binding extended the narrative the way both previous
+re-bindings did. `internal/formalplan` refused it:
+
+```
+FORMAL_SCHEMA_VALIDATION_FAILED at '/behavior_delta_ledger/append_blocker':
+    maxLength: got 9,821, want 8,192
+```
+
+At the branch base the field is **8178 of 8192 characters**. So the documented
+step that every prior ledger append performed — extend the `append_blocker` to
+describe the new records — **is no longer performable**, and the next append
+will hit the same wall. What landed instead is the smallest change that keeps
+the field TRUE: one sentence's count corrected from 56 to 58, alongside
+`observed_head` and `observed_record_count`. No existing narrative was trimmed
+to make room; rewriting another landing's recorded prose to fit my own
+paragraph is not a trade I get to make, and the description of sequences 57 and
+58 lives in this record and in their own hashed rationales instead. The
+`results.json` provenance note records both the one-character change and the
+refusal that produced it.
+
 `internal/linkage` then went stale on `evidence.linkage.schedule-exploration`,
 whose path is `results.json`. Refrozen through the sanctioned path with BOTH
 exits read: `LINKAGE_REGENERATE=1 go test -count=1 ./internal/linkage/` exit
 **1** by design, then `go test -count=1 ./internal/linkage/` exit **0**. The
 diff is one line, a digest, and non-digest changed lines are **0**.
+
+Then `TestUS006FixtureCatalogThroughRealCLI` alone remained, because every
+realized fixture tree copies the repository tree and my `plan.json` change
+moved it. Refrozen through its own sanctioned path with BOTH exits read:
+`US006_REGENERATE=1 go test -count=1 ./internal/formalplan/ -run TestUS006FixtureCatalogThroughRealCLI`
+exit **0**, then the whole package `go test -count=1 ./internal/formalplan/`
+exit **0**. 22 lines changed in `assurance/replay/fixtures/us006-cases.json`
+and non-digest changed lines are **0**.
+
+`pinconsumerctl` afterwards: `plan.json` is pinned by `results.json`, which was
+re-bound; `us006-cases.json` has no consumers; and the dangling census reads
+**1996 artifacts, 0 unparsable, 85 candidates** — the same three numbers
+recorded at `fb72adb`, so this branch added no dangling pin. The census's own
+`plan.json → behavior-delta-ledger.json` row is a false positive by the tool's
+stated ceiling: the declared value there is the ledger's chain HEAD, not the
+file's digest, which is the same blind spot that let this defect through in the
+first place.
 
 ## 8. Exit codes, each read from the process
 
@@ -678,24 +716,50 @@ diff is one line, a digest, and non-digest changed lines are **0**.
 | `go run ./cmd/deltaledgerctl --root . --check` (after the write, before the legacy entry) | **1** |
 | `go run ./cmd/deltaledgerctl --root . --check` (after the legacy entry) | 0 |
 | `go build ./...` | 0 |
-| `make -C rust gates` | 0 |
-| `go test ./internal/deltaledger/ -timeout 40m` (after the append, before the test updates) | **1** |
-| `go test ./internal/deltaledger/ -timeout 40m` (after the test updates) | 0 |
-| `go run ./cmd/recordguardctl precondition drafts/self-review/ledger-adjudication-round.md` | 0 |
-| `go test ./... -timeout 40m` (whole suite) | **1** — 41 ok, four failing packages, section 7c |
+| `go test ./internal/deltaledger/` (after the append, before the test updates) | **1** |
+| `go test -count=1 ./internal/deltaledger/` (after the test updates) | 0 |
+| `go test ./... -timeout 40m` (UNSTAGED tree — the wrong run, section 7c) | **1** |
 | `curl` on the pinned Java source archive | http 403, 378 bytes |
+| `go test -count=1 ./... -timeout 40m` (staged) | **1** — 42 ok, three failing, one of them mine |
+| `go test -count=1 ./internal/formalplan/` (after the first plan re-binding) | **1** — `maxLength: got 9,821, want 8,192` |
+| `LINKAGE_REGENERATE=1 go test -count=1 ./internal/linkage/` | **1** (by design) |
+| `go test -count=1 ./internal/linkage/` | 0 |
+| `go test -count=1 ./internal/formalplan/` (after the in-cap re-binding) | **1** — US-006 fixture only |
+| `US006_REGENERATE=1 go test -count=1 ./internal/formalplan/ -run TestUS006FixtureCatalogThroughRealCLI` | 0 |
+| `go test -count=1 ./internal/formalplan/` (after the refreeze) | 0 |
+| `go run ./cmd/pinconsumerctl dangling` | **1** — 1996 artifacts, 0 unparsable, 85 candidates, unchanged from `fb72adb` |
+| `go run ./cmd/recordguardctl precondition drafts/self-review/ledger-adjudication-round.md` | 0 |
+| `make -C rust gates` (final tree) | 0 |
+| `go test -count=1 ./... -timeout 40m` (final tree) | **1** — 43 ok, the two documented packages only |
 
-Both exits of the regeneration are recorded, and so is the second refusal: the
-gate rejected the append until
-`evidence/java/legacy-record-adjudications.json` entry 34 declared
-`contests_record_basis` and `superseded_by_sequence: 57`, which it re-derives
-from the records' own hashed rationales rather than taking on the entry's word.
-That refusal is the mechanism working, and it is recorded because a round that
-only shows its green runs has hidden half of what it learned.
+**Ten of these are non-zero and every one of them is in the table on purpose.**
+Four are by-design refusals of a sanctioned regeneration or a gate doing its
+job; three are defects of mine caught and fixed here; two are the documented
+environment packages; one is the census whose non-zero exit means "candidates
+exist", not "defects exist". A round that showed only its green runs would have
+hidden the half of this work that was error correction.
+
+The gate refusals worth naming individually, because each one caught something
+a reading would have missed:
+
+- `deltaledgerctl --check` refused the append until
+  `evidence/java/legacy-record-adjudications.json` entry 34 declared
+  `contests_record_basis` and `superseded_by_sequence: 57` — links it
+  re-derives from the records' own hashed rationales rather than taking on the
+  entry's word.
+- The same gate's rule 9c would have refused a superseding record whose
+  mismatch class disagreed with the legacy entry's. It did not fire, because
+  the class was reasoned to `underspecified-behavior` independently — but the
+  gate and the reading agreeing is worth more than the reading alone, and that
+  is why it is recorded.
+- `internal/formalplan` refused my `plan.json` narrative on a schema cap I had
+  not read, and refused the whole tree on the ledger head my append had moved.
 
 `VJWP_PROTECTED_STORE` was exported to `$PWD/evidence/governance/decisions` for
-every `deltaledgerctl` invocation above; without it the governance arm refuses
-by design, and that refusal is the design.
+every `deltaledgerctl` and `go test` invocation above, and
+`PATH=$PWD/.quarantine/jdk-17.0.19+10/bin:$PATH` for every run after the
+staging in section 7c. Without the first, the governance arm refuses by design,
+and that refusal is the design.
 
 ## 9. What this record does not claim
 
