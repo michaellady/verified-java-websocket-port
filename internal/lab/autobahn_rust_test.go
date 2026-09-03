@@ -366,6 +366,26 @@ func TestUS019ReceiptRejectsStaticBinaryReverificationOverclaim(t *testing.T) {
 	}
 }
 
+func TestUS019ReceiptRejectsMalformedPreparationHost(t *testing.T) {
+	root := us019RepositoryRoot(t)
+	evidence, err := os.ReadFile(filepath.Join(root, rustAutobahnEvidenceRelative))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value map[string]any
+	if err := json.Unmarshal(evidence, &value); err != nil {
+		t.Fatal(err)
+	}
+	value["testee"].(map[string]any)["host"] = "../../untrusted"
+	mutated, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyRustAutobahnPreparation(root, mutated); findingCode(err) != "RUST_TESTEE_NOT_EXERCISED" {
+		t.Fatalf("malformed preparation host finding=%v", err)
+	}
+}
+
 func TestUS019ReceiptRejectsPreparationGateOverclaims(t *testing.T) {
 	root := us019RepositoryRoot(t)
 	evidence, err := os.ReadFile(filepath.Join(root, rustAutobahnEvidenceRelative))

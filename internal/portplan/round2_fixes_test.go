@@ -134,6 +134,44 @@ func TestOracleReproductionFailsTypedWhenJavacUnavailable(t *testing.T) {
 	}
 }
 
+func TestPinnedJavacIdentityRequiresOneExactDistribution(t *testing.T) {
+	for _, test := range []struct {
+		output, distribution string
+	}{
+		{"java.vendor = Homebrew\njava.vendor.version = Homebrew\njavac 17.0.19\n", pinnedHomebrewJavac},
+		{"java.vendor = Eclipse Adoptium\njava.vendor.version = Temurin-17.0.19+10\njavac 17.0.19\n", pinnedTemurinJavac},
+	} {
+		if distribution, err := pinnedJavacDistribution([]byte(test.output)); err != nil || distribution != test.distribution {
+			t.Fatalf("distribution=%q want=%q err=%v", distribution, test.distribution, err)
+		}
+	}
+	for _, mutation := range [][]byte{
+		[]byte("java.vendor = Eclipse Adoptium\njava.vendor.version = Homebrew\njavac 17.0.19\n"),
+		[]byte("java.vendor = Eclipse Adoptium\njava.vendor.version = Temurin-17.0.19+10\njavac 17.0.18\n"),
+		[]byte("java.vendor = Eclipse Adoptium\njavac 17.0.19\n"),
+	} {
+		if _, err := pinnedJavacDistribution(mutation); err == nil || !strings.Contains(err.Error(), "JAVAC_UNAVAILABLE") {
+			t.Fatalf("unpinned javac identity accepted: %q err=%v", mutation, err)
+		}
+	}
+}
+
+func TestOracleSemanticParityAllowsOnlyPinnedVendorDifference(t *testing.T) {
+	canonical := []byte(`{"jdk_vendor":"Homebrew","declarations":[{"semantic_key":"A"}]}`)
+	alternate := []byte(`{"declarations":[{"semantic_key":"A"}],"jdk_vendor":"Eclipse Adoptium"}`)
+	if err := verifyOracleSemanticParity(canonical, alternate); err != nil {
+		t.Fatal(err)
+	}
+	for _, mutation := range [][]byte{
+		[]byte(`{"jdk_vendor":"Eclipse Adoptium","declarations":[{"semantic_key":"B"}]}`),
+		[]byte(`{"jdk_vendor":"Homebrew","declarations":[{"semantic_key":"A"}]}`),
+	} {
+		if err := verifyOracleSemanticParity(canonical, mutation); err == nil || !strings.Contains(err.Error(), "ORACLE_REPRODUCTION_MISMATCH") {
+			t.Fatalf("oracle semantic or provenance mutation accepted: %s err=%v", mutation, err)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Round 2, item 4: both WebSocketImpl queues are inventoried; inQueue's NIO
 // ownership is stated explicitly in the manifest AND the dossier.

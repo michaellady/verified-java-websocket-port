@@ -226,6 +226,6 @@
     "no production publication signing release or reproducible build",
     "no independent review formal proof or exhaustive security",
     "no authorization for a later suite run",
-    "testee binary digest and byte count are preparation-only observations and are not reverified by static receipt verification"
+    "testee binary digest, byte count, host, and rustc version are preparation-only observations and are not reverified by static receipt verification"
   ]
 }

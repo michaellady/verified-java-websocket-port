@@ -50,6 +50,10 @@ const (
 // built from. Verify binds the manifest's recorded digest to these exact bytes.
 const OracleEvidenceDocument = "semantic-id-oracle.json"
 
+// TemurinOracleEvidenceDocument is the exact Linux x86-64 replay of the canonical Homebrew
+// oracle. Its compiler provenance differs, but its normalized semantic payload must be identical.
+const TemurinOracleEvidenceDocument = "semantic-id-oracle-temurin-linux-amd64.json"
+
 // SLF4JAPIJarSHA256 is the identity of the only non-JDK compile input the oracle run may use.
 // It is the exact digest already qualified by US-002 (internal/lab/autobahn_endpoint.go,
 // AutobahnSLF4JAPIDigest); the oracle Makefile fails closed when the jar's bytes differ.

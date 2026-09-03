@@ -205,7 +205,26 @@ func (d dockerController) output(ctx context.Context, arguments ...string) ([]by
 	if d.run != nil {
 		return d.run(ctx, arguments...)
 	}
-	return runBounded(ctx, "/private/tmp", []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}, d.path, arguments...)
+	directory, environment, err := dockerCommandEnvironment()
+	if err != nil {
+		return nil, err
+	}
+	return runBounded(ctx, directory, environment, d.path, arguments...)
+}
+
+func dockerCommandEnvironment() (string, []string, error) {
+	directory, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		return "", nil, finding("UNSAFE_DIRECTORY", "$.docker.temporary", "system temporary directory cannot be resolved")
+	}
+	directory, err = cleanAbsoluteDirectory(directory, "$.docker.temporary")
+	if err != nil {
+		return "", nil, err
+	}
+	if err := requireRealDirectory(directory); err != nil {
+		return "", nil, err
+	}
+	return directory, []string{"HOME=" + directory, "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}, nil
 }
 
 func verifyAutobahnImage(ctx context.Context, docker dockerController, cli AutobahnArtifactBinding) (AutobahnImageProof, error) {
@@ -287,8 +306,13 @@ type dockerSaveManifestRecord struct {
 }
 
 func verifyDockerSaveConfig(ctx context.Context, docker dockerController) (string, error) {
+	directory, environment, err := dockerCommandEnvironment()
+	if err != nil {
+		return "", err
+	}
 	command := exec.CommandContext(ctx, docker.path, "image", "save", AutobahnImageReference)
-	command.Env = []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}
+	command.Dir = directory
+	command.Env = environment
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return "", finding("AUTOBAHN_IMAGE_SAVE_FAILED", "$.image", err.Error())
@@ -784,9 +808,13 @@ func runAttachedRelay(ctx context.Context, docker dockerController, container st
 	if err != nil {
 		return nil, nil, err
 	}
+	directory, environment, err := dockerCommandEnvironment()
+	if err != nil {
+		return nil, nil, err
+	}
 	command := exec.CommandContext(ctx, docker.path, "attach", "--sig-proxy=false", container)
-	command.Dir = "/private/tmp"
-	command.Env = []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}
+	command.Dir = directory
+	command.Env = environment
 	stdin, err := command.StdinPipe()
 	if err != nil {
 		return nil, nil, finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", "Docker attach stdin pipe is unavailable")
@@ -957,9 +985,13 @@ func runAttachedRelayTCP(ctx context.Context, docker dockerController, container
 	defer connection.Close()
 	deadline := time.Now().Add(180 * time.Second)
 	_ = connection.SetDeadline(deadline)
+	directory, environment, err := dockerCommandEnvironment()
+	if err != nil {
+		return nil, err
+	}
 	command := exec.CommandContext(ctx, docker.path, "attach", "--sig-proxy=false", container)
-	command.Dir = "/private/tmp"
-	command.Env = []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}
+	command.Dir = directory
+	command.Env = environment
 	stdin, err := command.StdinPipe()
 	if err != nil {
 		return nil, finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", "Docker attach stdin pipe is unavailable")
@@ -2113,13 +2145,17 @@ func releaseAutobahnRunner(docker dockerController, container autobahnRunnerCont
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	directory, environment, err := dockerCommandEnvironment()
+	if err != nil {
+		return err
+	}
 	command := exec.CommandContext(ctx, docker.path, autobahnRunnerReleaseArguments(container)...)
-	command.Dir = "/private/tmp"
-	command.Env = []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}
+	command.Dir = directory
+	command.Env = environment
 	command.Stdin = strings.NewReader(container.token + "\n")
 	output := &boundedBuffer{limit: 64 << 10}
 	command.Stdout, command.Stderr = output, output
-	err := command.Run()
+	err = command.Run()
 	if err != nil || bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_DENIED")) || !bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_RELEASE_AUTHORIZED role="+container.role)) {
 		return finding("AUTOBAHN_RUNNER_RELEASE_FAILED", "$.runner", boundedDetail(output.buffer.Bytes(), err))
 	}
@@ -2150,9 +2186,13 @@ func copyAutobahnReports(docker dockerController, container autobahnRunnerContai
 	}
 	copyContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	directory, environment, err := dockerCommandEnvironment()
+	if err != nil {
+		return "", err
+	}
 	command := exec.CommandContext(copyContext, docker.path, "exec", "--interactive", container.name, "/autobahn-runner", "copy-reports")
-	command.Dir = "/private/tmp"
-	command.Env = []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}
+	command.Dir = directory
+	command.Env = environment
 	command.Stdin = strings.NewReader(container.token + "\n")
 	stdout, err := command.StdoutPipe()
 	if err != nil {

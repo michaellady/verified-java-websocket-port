@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -64,8 +65,10 @@ var rustAutobahnNonclaims = []string{
 	"no production publication signing release or reproducible build",
 	"no independent review formal proof or exhaustive security",
 	"no authorization for a later suite run",
-	"testee binary digest and byte count are preparation-only observations and are not reverified by static receipt verification",
+	"testee binary digest, byte count, host, and rustc version are preparation-only observations and are not reverified by static receipt verification",
 }
+
+var rustAutobahnHostPattern = regexp.MustCompile(`^[a-z0-9_]+/[a-z0-9_]+$`)
 
 type RustAutobahnPreparationConfig struct {
 	RepositoryRoot       string
@@ -1050,7 +1053,7 @@ func validateRustAutobahnReceipt(root string, receipt RustAutobahnPreparationRec
 	if receipt.Testee.BinaryReverifiedByStaticVerifier {
 		return finding("AUTOBAHN_CONFORMANCE_OVERCLAIM", "$.testee.binary_reverified_by_static_verifier", "static receipt verification does not reopen or rebind the preparation testee binary")
 	}
-	if receipt.Testee.ArgumentContract != "harness-contract <64-lowercase-hex-challenge>" || len(receipt.Testee.Challenge) != 64 || strings.Trim(receipt.Testee.Challenge, "0123456789abcdef") != "" || receipt.Testee.TranscriptDigest != intake.DigestBytes([]byte(rustAutobahnContractLine(receipt.Testee.Challenge))) || !isDigest(receipt.Testee.PreparationObservedBinaryDigest) || receipt.Testee.PreparationObservedBinaryBytes <= 0 || receipt.Testee.Host != runtime.GOOS+"/"+runtime.GOARCH {
+	if receipt.Testee.ArgumentContract != "harness-contract <64-lowercase-hex-challenge>" || len(receipt.Testee.Challenge) != 64 || strings.Trim(receipt.Testee.Challenge, "0123456789abcdef") != "" || receipt.Testee.TranscriptDigest != intake.DigestBytes([]byte(rustAutobahnContractLine(receipt.Testee.Challenge))) || !isDigest(receipt.Testee.PreparationObservedBinaryDigest) || receipt.Testee.PreparationObservedBinaryBytes <= 0 || !rustAutobahnHostPattern.MatchString(receipt.Testee.Host) || receipt.Testee.RustcVersion == "" {
 		return finding("RUST_TESTEE_NOT_EXERCISED", "$.testee", "testee binding or transcript is invalid")
 	}
 	if receipt.Testee.SourceTreeDigest != rustAutobahnHistoricalTree {

@@ -34,6 +34,26 @@ func init() {
 	}
 }
 
+func TestDockerCommandEnvironmentUsesRealSystemTemporaryDirectory(t *testing.T) {
+	directory, environment, err := dockerCommandEnvironment()
+	if err != nil {
+		t.Fatal(err)
+	}
+	realTemporary, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if directory != realTemporary {
+		t.Fatalf("directory=%q want=%q", directory, realTemporary)
+	}
+	if err := requireRealDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	if !contains(environment, "HOME="+directory) {
+		t.Fatalf("environment does not bind HOME to the portable temporary directory: %v", environment)
+	}
+}
+
 func TestReadDockerSaveTarBindsExactConfig(t *testing.T) {
 	config := []byte(`{"architecture":"amd64","os":"linux"}`)
 	configName := strings.TrimPrefix(AutobahnImageConfigDigest, "sha256:") + ".json"
