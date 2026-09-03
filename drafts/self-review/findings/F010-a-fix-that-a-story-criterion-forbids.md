@@ -115,3 +115,99 @@ Narrower than three options:
   `java_server_time` doc block — the clockless design and its stated reason.
 - Still not run, and still an owner gate: the Autobahn re-run that would show
   whether either field moves a conformance case.
+
+## Addendum 2, 2026-09-03: what each removal actually costs, measured
+
+The addendum above narrowed WHAT the owner must decide. This one supplies the
+other half they need to decide it: what each option costs. No owner gate was
+triggered — this is the local suite only, and the Autobahn re-run that would
+show whether either field moves a conformance case is still not run.
+
+Method: each field removed from `accept_response` one at a time, `cargo test -p
+ws-core --all-targets` run against each variant, the source restored
+byte-identically after each (`diff -q`, clean).
+
+Baseline, unmodified: exit 0, all suites green (18 + 14 + 9 + 28 + 4 passing).
+
+### Variant A — remove `Server: TooTallNate Java-WebSocket`
+
+`cargo test -p ws-core --all-targets` exit 101, 5 failing:
+
+- `the_server_field_carries_javas_literal_and_upgrade_is_lowercase`
+- `the_101_response_carries_javas_five_field_names_in_javas_order`
+- `the_101_response_is_byte_exact_against_the_pinned_jars_own_output`
+- `response_field_names_are_javas_constants_not_the_requests_casing`
+- `the_connection_field_echoes_the_requests_value_rather_than_a_literal`
+
+### Variant B — remove `Date`
+
+`cargo test -p ws-core --all-targets` exit 101, 4 failing — the same list minus
+the `Server`-specific one:
+
+- `the_101_response_carries_javas_five_field_names_in_javas_order`
+- `the_101_response_is_byte_exact_against_the_pinned_jars_own_output`
+- `response_field_names_are_javas_constants_not_the_requests_casing`
+- `the_connection_field_echoes_the_requests_value_rather_than_a_literal`
+
+### The last entry in both lists is misleading, and it is the one that matters
+
+`the_connection_field_echoes_the_requests_value_rather_than_a_literal` is the
+test for the DIV-06 half that the addendum above establishes AC2 does NOT touch
+and that should stand. Reading these lists naively says: removing the banner
+breaks the part we agreed to keep. **That is not what happens.**
+
+That test's three echo assertions are all about `Connection`. Its FOURTH and
+final assertion is not:
+
+```rust
+assert_eq!(
+    field_names(&head).len(),
+    5,
+    "the field is present-but-empty, so the count stays 5: {head:?}"
+);
+```
+
+A field-COUNT assertion, riding inside a test named for the Connection echo.
+Removing any field drops the count to 4 and fails it, no matter which field went.
+
+Isolated rather than argued: with that one assertion neutralised and the `Server`
+banner still removed, the failing set is the other four and
+`the_connection_field_echoes_…` PASSES. Both files restored byte-identically
+afterwards.
+
+**So the Connection echo is unaffected by either removal.** The addendum above
+reached that conclusion by reading AC2; this reaches it by measurement, and the
+two agree.
+
+### What this means for the decision
+
+- Removing `Server` costs **4** tests, every one of them a DIV-06 fidelity
+  assertion about the banner or the five-field set. Nothing else in `ws-core`
+  moves.
+- Removing `Date` costs **3**, the same set minus the `Server`-specific one.
+- The load-bearing casualty in both cases is
+  `the_101_response_is_byte_exact_against_the_pinned_jars_own_output`. That test
+  is the whole point of DIV-06, and no option preserves it except leaving the
+  response as it is. The owner is choosing between byte-exactness against the
+  pinned jar and AC2 as written; the other failures are consequences of that one
+  choice, not independent costs.
+- The Connection echo survives every option and needs no decision.
+
+### A test-hygiene point worth fixing regardless of the ruling
+
+A count assertion inside a test named for a different property destroys
+localisation: it makes the test fail for a reason its name disclaims, and it put
+a misleading row into the very table an owner would use to weigh this decision.
+Whatever is decided about the banner, that assertion belongs in
+`the_101_response_carries_javas_five_field_names_in_javas_order`, which already
+exists and is already named for exactly it.
+
+### Readings behind this addendum
+
+- `rust/ws-core/src/handshake/server.rs:270-283` — `accept_response`, the two
+  removals applied at source.
+- `rust/ws-core/tests/handshake_server_response.rs:195-236` — the Connection
+  echo test, including the trailing count assertion at :231-235.
+- `rust/ws-core/tests/handshake_server_response.rs:71-78` — `response_head`,
+  checked and cleared: it asserts nothing about the field set, so the coupling
+  is the count assertion alone and not the shared helper.

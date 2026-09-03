@@ -228,10 +228,15 @@ fn the_connection_field_echoes_the_requests_value_rather_than_a_literal() {
          pinned jar answers this request with `Connection: `. \
          The port wrote: {head:?}"
     );
-    assert_eq!(
-        field_names(&head).len(),
-        5,
-        "the field is present-but-empty, so the count stays 5: {head:?}"
+    // The point here is that the field is PRESENT-but-empty rather than
+    // omitted. Asserting that as a total field count coupled this test to every
+    // other field in the response: removing an unrelated field dropped the count
+    // and failed a test named for the Connection echo, which put a misleading row
+    // into the F010 banner decision. Assert what is meant instead.
+    assert!(
+        field_names(&head).contains(&"Connection".to_string()),
+        "an absent request Connection still emits the field with an empty value, \
+         so `Connection` must appear among the response's field names: {head:?}"
     );
 }
 
