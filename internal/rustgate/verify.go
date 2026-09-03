@@ -678,9 +678,77 @@ func (v *verifier) verifySources(workspaceRoot string, crates []crate) {
 		if err != nil {
 			v.add("SOURCE_UNREADABLE", crateRoot, err.Error())
 		}
-		if item.Name == "websocket-testee" {
+		// The architecture gate previously ran only on websocket-testee, so the
+		// driver crate was never architecture-scanned at all. Two of the open
+		// obligations bind websocket_driver::ConnectionOwner::poll, and an
+		// adapter-side protocol parser planted in the driver produced zero
+		// findings. The protocol-duplication rules are crate agnostic and now run
+		// on both; the adapter-specific rules stay on the testee.
+		switch item.Name {
+		case "websocket-testee":
 			v.verifyAdapterArchitecture(crateRoot)
+		case "websocket-driver":
+			v.verifyProtocolDuplication(crateRoot)
 		}
+	}
+}
+
+// verifyProtocolDuplication applies the crate-agnostic rules that detect a second
+// implementation of WebSocket protocol logic outside connection-core: branching on
+// a frame opcode nibble, and opening-handshake wire literals. These are behavioural
+// detectors rather than name-based ones, so they apply unchanged to any crate that
+// is supposed to transport bytes rather than interpret them.
+//
+// The testee's name-based forbidden-symbol list is deliberately NOT applied here:
+// the driver legitimately names ConnectionCore, CoreInput, and CoreOutput, and its
+// own CoreInput::Command enum would collide with the transport list's Command.
+func (v *verifier) verifyProtocolDuplication(crateRoot string) {
+	sourceRoot, ok := v.safePath(filepath.ToSlash(filepath.Join(crateRoot, "src")))
+	if !ok {
+		return
+	}
+	err := filepath.WalkDir(sourceRoot, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".rs" {
+			return nil
+		}
+		relative, relErr := filepath.Rel(v.root, path)
+		if relErr != nil {
+			return relErr
+		}
+		relative = filepath.ToSlash(relative)
+		body, readable := v.readRegular(relative)
+		if !readable {
+			return nil
+		}
+		v.scanProtocolDuplication(relative, body)
+		return nil
+	})
+	if err != nil {
+		v.add("SOURCE_UNREADABLE", filepath.ToSlash(filepath.Join(crateRoot, "src")), err.Error())
+	}
+}
+
+// scanProtocolDuplication reports a single source file that re-implements protocol
+// decisions instead of transporting bytes.
+func (v *verifier) scanProtocolDuplication(relative string, body []byte) {
+	tokens := rustCodeTokens(body)
+	compact := compactRustCode(body)
+	// The incumbent rule matched only the literal spelling `bytes[0]&0x0f` and
+	// required an identifier exactly equal to "opcode". A planted adapter-side
+	// parser evaded both: it masked `slice.first().copied().unwrap_or(0) & 0x0f`
+	// and named the result `opcode_nibble`. Match any low-nibble mask, and any
+	// identifier containing "opcode", so the rule detects the behaviour rather
+	// than one spelling of it.
+	if hasLowNibbleMask(compact) && tokenContains(tokens, "opcode") {
+		v.add("ADAPTER_PROTOCOL_BRANCH", relative, "production source branches on a WebSocket opcode nibble")
+	}
+	if bytes.Contains(body, []byte("HTTP/1.1")) ||
+		bytes.Contains(body, []byte("Upgrade: websocket")) ||
+		bytes.Contains(body, []byte("Sec-WebSocket-")) {
+		v.add("ADAPTER_PROTOCOL_BRANCH", relative, "production source contains a WebSocket opening-handshake wire literal")
 	}
 }
 
@@ -739,17 +807,8 @@ func (v *verifier) verifyAdapterArchitecture(crateRoot string) {
 				v.add("ADAPTER_TRANSPORT_SURFACE", relative, "adapter production source names forbidden transport or process surface "+token)
 			}
 		}
-		compact := compactRustCode(body)
-		hasNibbleRead := strings.Contains(compact, "bytes[0]&0x0f") ||
-			strings.Contains(compact, "bytes[0]&15")
-		if hasNibbleRead && tokenPresent(tokens, "opcode") {
-			v.add("ADAPTER_PROTOCOL_BRANCH", relative, "adapter production source branches on a WebSocket opcode nibble")
-		}
-		if bytes.Contains(body, []byte("HTTP/1.1")) ||
-			bytes.Contains(body, []byte("Upgrade: websocket")) ||
-			bytes.Contains(body, []byte("Sec-WebSocket-")) {
-			v.add("ADAPTER_PROTOCOL_BRANCH", relative, "adapter production source contains a WebSocket opening-handshake wire literal")
-		}
+		// Shared with the driver crate so the two scopes cannot drift apart.
+		v.scanProtocolDuplication(relative, body)
 		return nil
 	})
 	if err != nil {
@@ -823,6 +882,30 @@ func compactRustCode(body []byte) string {
 		}
 	}
 	return string(result)
+}
+
+// hasLowNibbleMask reports a bitwise mask isolating the low four bits, which is
+// how a WebSocket opcode is extracted from a frame's first octet. It matches the
+// operation rather than one spelling of the operand.
+func hasLowNibbleMask(compact string) bool {
+	for _, mask := range []string{"&0x0f", "&0x0F", "&0xf", "&0xF", "&15"} {
+		if strings.Contains(compact, mask) {
+			return true
+		}
+	}
+	return false
+}
+
+// tokenContains reports whether any identifier contains the expected fragment, so
+// a renamed variable such as opcode_nibble cannot slip past an exact-match check.
+func tokenContains(tokens []string, expected string) bool {
+	lowered := strings.ToLower(expected)
+	for _, token := range tokens {
+		if strings.Contains(strings.ToLower(token), lowered) {
+			return true
+		}
+	}
+	return false
 }
 
 func tokenPresent(tokens []string, expected string) bool {
