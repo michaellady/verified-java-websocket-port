@@ -36,6 +36,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -47,6 +48,12 @@ type pin struct {
 	namedPath string
 	declared  string
 	actual    string
+	// explanation is non-empty when the declared digest was PROVEN, by
+	// recomputation from current bytes, to cover something other than
+	// namedPath. Such a pin is a false positive by the ceiling's own
+	// definition; it is reported on its own gate line, never dropped in
+	// silence.
+	explanation string
 }
 
 func main() {
@@ -299,6 +306,7 @@ func mustAbs(path string) string {
 
 type danglingCensus struct {
 	candidates []pin
+	explained  []pin
 	artifacts  int
 	unparsable int
 }
@@ -314,8 +322,13 @@ func runDangling(root string) int {
 			candidate.artifact, candidate.pointer, candidate.namedPath,
 			candidate.declared, candidate.actual)
 	}
-	fmt.Printf("gate=pin-dangling json_artifacts=%d unparsable=%d candidates=%d\n",
-		census.artifacts, census.unparsable, len(census.candidates))
+	for _, explained := range census.explained {
+		fmt.Printf("gate=pin-dangling-explained artifact=%s pointer=%s names=%s declared=sha256:%s why=%s\n",
+			explained.artifact, explained.pointer, explained.namedPath,
+			explained.declared, explained.explanation)
+	}
+	fmt.Printf("gate=pin-dangling json_artifacts=%d unparsable=%d candidates=%d explained=%d\n",
+		census.artifacts, census.unparsable, len(census.candidates), len(census.explained))
 	fmt.Printf("gate=pin-dangling ceiling=%q\n", danglingCeiling)
 	if len(census.candidates) > 0 {
 		return 1
@@ -329,12 +342,18 @@ const danglingCeiling = "candidates are objects where a tracked path and a sha25
 	" candidate must be READ before it is acted on. A pin whose digest covers" +
 	" something other than the file it sits beside is a false positive by" +
 	" construction, and a pin split across two objects is a false negative." +
-	" A digest that pins a FIELD INSIDE the named file rather than the file" +
-	" itself -- assurance/concurrency/plan.json's `observed_head` carries the" +
-	" behaviour-delta ledger's own `head` value, not the ledger file's sha256 --" +
-	" is recognised and NOT reported, so long as that value still appears as a" +
-	" digest-valued field in the named file. If the field pin is itself stale it" +
-	" is reported like any other."
+	" `explained=` counts candidates SUBTRACTED because the digest was recomputed" +
+	" from CURRENT bytes and proven to cover something else: a field the named" +
+	" file carries (assurance/concurrency/plan.json's `observed_head` is the" +
+	" behaviour-delta ledger's own head, not the ledger file's sha256), a" +
+	" one-file tree envelope, a sibling line-array, a field this object names," +
+	" or a mutation operand. Every such rule reads a drifting input, so none can" +
+	" go quiet when a real pin goes stale, and a field pin that has itself" +
+	" drifted is reported like any other. What is NOT proven and so still counts:" +
+	" digests of things this tool cannot recompute -- a realized fixture tree, a" +
+	" ledger record beside an unrelated path, a frozen historical receipt --" +
+	" which remain candidates for a reader even where a human has adjudicated" +
+	" them false. `explained` is a proof, never a key name."
 
 func analyseDangling(root string) (danglingCensus, error) {
 	tracked, err := trackedFiles(root)
@@ -360,7 +379,7 @@ func analyseDangling(root string) (danglingCensus, error) {
 		return digest, true
 	}
 
-	var candidates []pin
+	var candidates, explained []pin
 	artifacts := 0
 	unparsable := 0
 
@@ -396,28 +415,56 @@ func analyseDangling(root string) (danglingCensus, error) {
 				if declared == actual {
 					return // some digest in this object matches; not dangling
 				}
-				if pinsAFieldInside(root, named, declared) {
-					return // pins a value INSIDE the file, not the file's bytes
+			}
+
+			// Every digest in the object must be PROVEN to cover something
+			// else before the object is subtracted. Requiring all of them
+			// stops an unexplained digest riding out on its neighbour's proof.
+			reason := ""
+			for index, declared := range digests {
+				explanation := explainPin(root, object, named, declared)
+				if explanation == "" {
+					reason = ""
+					break
+				}
+				if index == 0 {
+					reason = explanation
 				}
 			}
-			candidates = append(candidates, pin{
-				artifact:  relative,
-				pointer:   pointer,
-				namedPath: named,
-				declared:  digests[0],
-				actual:    actual,
-			})
+
+			candidate := pin{
+				artifact:    relative,
+				pointer:     pointer,
+				namedPath:   named,
+				declared:    digests[0],
+				actual:      actual,
+				explanation: reason,
+			}
+			if reason != "" {
+				explained = append(explained, candidate)
+				return
+			}
+			candidates = append(candidates, candidate)
 		})
 	}
 
-	sort.Slice(candidates, func(i, j int) bool {
-		if candidates[i].artifact != candidates[j].artifact {
-			return candidates[i].artifact < candidates[j].artifact
+	byLocation := func(rows []pin) func(int, int) bool {
+		return func(i, j int) bool {
+			if rows[i].artifact != rows[j].artifact {
+				return rows[i].artifact < rows[j].artifact
+			}
+			return rows[i].pointer < rows[j].pointer
 		}
-		return candidates[i].pointer < candidates[j].pointer
-	})
+	}
+	sort.Slice(candidates, byLocation(candidates))
+	sort.Slice(explained, byLocation(explained))
 
-	return danglingCensus{candidates: candidates, artifacts: artifacts, unparsable: unparsable}, nil
+	return danglingCensus{
+		candidates: candidates,
+		explained:  explained,
+		artifacts:  artifacts,
+		unparsable: unparsable,
+	}, nil
 }
 
 // splitPinFields returns the tracked-file paths and the sha256 digests found
@@ -463,3 +510,186 @@ func walk(node any, pointer string, visit func(map[string]any, string)) {
 }
 
 var _ = fs.SkipDir
+
+// ---------------------------------------------------------------------------
+// Explanations: proving a co-located digest covers something OTHER than the file.
+// ---------------------------------------------------------------------------
+//
+// The ceiling says co-location is evidence, not proof, and that a digest
+// covering something other than the file it sits beside is a false positive BY
+// CONSTRUCTION. Reading all 85 of the first census found that most were exactly
+// that, and -- the part worth encoding -- what each digest really covered could
+// be RECOMPUTED from bytes already in the tree.
+//
+// So an explanation here is never a key name and never a guess. Every rule
+// recomputes a value from CURRENT bytes and requires an exact match. That is
+// what makes it safe to subtract: a rule cannot hide drift, because every rule's
+// own input drifts too. If rust/rust-toolchain.toml changes, its tree envelope
+// changes with it and the pin fires again. A rule that trusted the key name
+// `pin_digest` would have gone quiet instead, which is the failure mode this
+// comment exists to forbid.
+//
+// Explained pins are still PRINTED, with the reason and the subject, on their
+// own gate line. The census never gets smaller without saying why.
+
+// explainPin returns a non-empty reason when `declared` is PROVEN to digest
+// something other than `named`, and "" when it is not.
+func explainPin(root string, object map[string]any, named, declared string) string {
+	// R1 -- single-file tree envelope. internal/fuzzpin.TreeDigest digests a
+	// FILE LIST as "relpath\x00filedigest\n" lines, so a one-element list yields
+	// a digest that is not the file's own. It still tracks the file's content.
+	if actual, ok := fileDigest(root, named); ok {
+		envelope := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\n", named, actual)))
+		if hex.EncodeToString(envelope[:]) == declared {
+			return "tree-envelope: sha256 of the one-line file-list envelope \"" +
+				named + "\\x00<file sha256>\\n\", not of the file's own bytes"
+		}
+	}
+
+	// R2 -- a sibling array of strings in the SAME object whose newline-joined
+	// digest is the declared value. internal/fuzzpin.digestLines does this for
+	// `outcome_lines`, which is why two runs of one campaign share a digest and
+	// neither equals its own log.
+	for key, value := range object {
+		elements, ok := value.([]any)
+		if !ok || len(elements) == 0 {
+			continue
+		}
+		hasher := sha256.New()
+		lines := 0
+		for _, element := range elements {
+			text, ok := element.(string)
+			if !ok {
+				lines = 0
+				break
+			}
+			fmt.Fprintf(hasher, "%s\n", text)
+			lines++
+		}
+		if lines > 0 && hex.EncodeToString(hasher.Sum(nil)) == declared {
+			return fmt.Sprintf("sibling-lines: digest of this object's own %q "+
+				"(%d lines), not of %s", key, lines, named)
+		}
+	}
+
+	// R3 -- self-declared provenance. An object carrying a `field` that names
+	// where its digest was READ FROM is telling us its subject; the claim is
+	// verified by resolving that field in the co-located document. An
+	// unverifiable claim explains nothing.
+	if fieldText, ok := object["field"].(string); ok && fieldText != "" {
+		if document, ok := loadJSON(root, named); ok {
+			if resolved, ok := resolveField(document, fieldText); ok &&
+				normaliseDigest(resolved) == declared {
+				return fmt.Sprintf("field-provenance: the value read from %s#%s, "+
+					"which this object names itself", named, fieldText)
+			}
+		}
+	}
+
+	// R4 -- the digest pins a FIELD INSIDE the named file: a ledger head, a
+	// record digest, an accepted root. The decision is pinsAFieldInside's, so
+	// there is one implementation of it; this only adds the location, because a
+	// reader auditing a subtraction should not have to search for it.
+	if pinsAFieldInside(root, named, declared) {
+		where := "somewhere inside it"
+		if document, ok := loadJSON(root, named); ok {
+			if located, found := locateDigest(document, "$", declared); found {
+				where = located
+			}
+		}
+		return fmt.Sprintf("field-inside-file: this digest appears in %s at %s, "+
+			"so it pins a value the file carries, not the file's bytes", named, where)
+	}
+
+	// R5 -- a mutation operand. A JSON-patch-shaped instruction carries the value
+	// it will WRITE into `target`; a deliberately wrong digest is the payload of
+	// a seeded defect, not a pin that drifted.
+	if kind, ok := object["kind"].(string); ok && kind == "json_set" {
+		if _, hasPointer := object["pointer"]; hasPointer {
+			return "mutation-operand: the value a json_set operation writes into " +
+				named + " at the pointer it names, not a pin of it"
+		}
+	}
+
+	return ""
+}
+
+// loadJSON parses a tracked JSON file, or reports that it is not one.
+func loadJSON(root, relative string) (any, bool) {
+	if !strings.HasSuffix(relative, ".json") {
+		return nil, false
+	}
+	content, err := os.ReadFile(filepath.Join(root, relative))
+	if err != nil {
+		return nil, false
+	}
+	var document any
+	if err := json.Unmarshal(content, &document); err != nil {
+		return nil, false
+	}
+	return document, true
+}
+
+// normaliseDigest strips the optional sha256: prefix so declared and resolved
+// values compare on equal terms.
+func normaliseDigest(text string) string {
+	if match := digestPattern.FindStringSubmatch(text); match != nil {
+		return match[1]
+	}
+	return ""
+}
+
+// resolveField walks a dotted field path ("generator.secret_seed_commitment",
+// "artifacts.0.path") and returns the string it names.
+func resolveField(node any, field string) (string, bool) {
+	current := node
+	for _, segment := range strings.Split(field, ".") {
+		switch typed := current.(type) {
+		case map[string]any:
+			next, ok := typed[segment]
+			if !ok {
+				return "", false
+			}
+			current = next
+		case []any:
+			index, err := strconv.Atoi(segment)
+			if err != nil || index < 0 || index >= len(typed) {
+				return "", false
+			}
+			current = typed[index]
+		default:
+			return "", false
+		}
+	}
+	text, ok := current.(string)
+	return text, ok
+}
+
+// locateDigest reports where a digest occurs as a string value inside a
+// document, so an explanation can name the place rather than assert it.
+func locateDigest(node any, pointer, declared string) (string, bool) {
+	switch typed := node.(type) {
+	case string:
+		if normaliseDigest(typed) == declared {
+			return pointer, true
+		}
+	case map[string]any:
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			if where, found := locateDigest(typed[key], pointer+"."+key, declared); found {
+				return where, true
+			}
+		}
+	case []any:
+		for index, element := range typed {
+			if where, found := locateDigest(element, fmt.Sprintf("%s[%d]", pointer, index), declared); found {
+				return where, true
+			}
+		}
+	}
+	return "", false
+}

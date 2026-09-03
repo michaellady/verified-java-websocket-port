@@ -60,6 +60,7 @@ java-semantic-oracle/build/
 /mutctl
 /normcollidectl
 /oraclerankctl
+/pinconsumerctl
 /portplanctl
 /recordguardctl
 /rustgatectl
