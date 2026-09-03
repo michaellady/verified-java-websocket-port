@@ -237,6 +237,12 @@ func Definitions() []Definition {
 	// earlier record's sequence, previous_digest and record_digest untouched —
 	// the frozen prefix through 35 and the whole 36-49 tail alike.
 	definitions = append(definitions, adjudicatedDefinitions()...)
+	// Appended LAST of all at THIS landing, sequences 57-58: the two
+	// superseding corrections for sequences 34 and 55, whose descriptions of
+	// the port were made false by later landings (DIV-05's inbound feed policy
+	// and DIV-06's response fields). Appending them last is what leaves every
+	// earlier record's sequence, previous_digest and record_digest untouched.
+	definitions = append(definitions, staleOrderingCorrectionDefinitions()...)
 	return definitions
 }
 

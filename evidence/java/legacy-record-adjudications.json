@@ -436,7 +436,7 @@
         "rfc6455#section-5.5.3"
       ],
       "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:processFrame",
-      "rationale_quote": "DIVERGENCE (automatic pong): the RFC requires a pong response to every ping; the pinned runtime's oracle-observable core never auto-pongs \u2014 ping is delivered as an event and any pong policy lives ABOVE the core (rust/ws-core/src/control.rs module doc).",
+      "rationale_quote": "DIVERGENCE (automatic pong): the RFC requires a pong response to every ping; the pinned runtime's oracle-observable core never auto-pongs — ping is delivered as an event and any pong policy lives ABOVE the core (rust/ws-core/src/control.rs module doc).",
       "argument": "Section 5.5.2 is a MUST -- an endpoint receiving a Ping MUST send a Pong with identical application data unless it already sent a Close -- and the rfc_value normalizes it to 'auto-respond'. The pinned runtime's oracle-observable behaviour produces a ping event and NO pong write (quirk Q18; derive.go:671-674), live-executed on corpus families us005.pub.0002 and us005.pub.0071 with no pong write recorded. Java is on the other side of a determinate MUST: java-quirk. STATED LIMIT OF THIS ATTRIBUTION: the observation is scoped to the Draft-level oracle entry point the corpus measures, and the record says so ('no pong write is ever produced by the core'). Nothing in this ledger records whether the shipped full stack pongs; if it does, this is the same entry-point split sequences 44, 48 and 49 carry, and the class would still be java-quirk at the measured point.",
       "blocking_question": "",
       "contests_record_basis": false,
@@ -576,7 +576,7 @@
         "rfc6455#section-7.4.1"
       ],
       "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:close",
-      "rationale_quote": "DIVERGENCE (close-echo wire composition, Autobahn 7.3.2): the ingredients were already ledgered at the core-observable level \u2014 delta-d509ac380f51587105ed2fb3 (a 1-byte close payload is a VALID 1002 close) and delta-954132f2fb781974 (the echo/record carries the constructor payload [0x03,0xE8]) \u2014 but their WIRE-LEVEL COMPOSITION replied 1000 to a malformed close, which wstest scores WRONG CODE.",
+      "rationale_quote": "DIVERGENCE (close-echo wire composition, Autobahn 7.3.2): the ingredients were already ledgered at the core-observable level — delta-d509ac380f51587105ed2fb3 (a 1-byte close payload is a VALID 1002 close) and delta-954132f2fb781974 (the echo/record carries the constructor payload [0x03,0xE8]) — but their WIRE-LEVEL COMPOSITION replied 1000 to a malformed close, which wstest scores WRONG CODE.",
       "argument": "THIS ONE IS A RUST DEFECT, AND THE DISCRIMINATOR IS WHICH SIDE JAVA IS ON. Section 5.5.1's SHOULD-echo and section 7.4.1's 1002 both point at a 1002 reply to a malformed 1-byte close, and the SHIPPED FULL STACK agrees with them: Draft_6455.processFrame routes CLOSING to processFrameClosing, which reads the DECODED cf.getCloseCode() and calls webSocketImpl.close(code, reason, true), so WebSocketImpl builds its own frame carrying the received code. RFC and Java agree; the port's core-level Q19/Q10 composition replied 1000, which wstest scores WRONG CODE. A port short of a target Java and the RFC share is rust-defect by definition. It is REMEDIED, in ws-driver's CloseEchoPolicy, with ws_core byte-identical -- so the class records where the mismatch came from, not whether it is still open.",
       "blocking_question": "",
       "contests_record_basis": false,
@@ -595,10 +595,11 @@
       ],
       "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
       "rationale_quote": "DIVERGENCE (dispatch-phase echo enqueue vs fail-before-delivery, Autobahn 5.15): the fuzzer sends a complete 2-fragment text message, a CONTINUATION frame with FIN=false where there is nothing to continue, and an unfragmented text, all in ONE chop.",
-      "argument": "The record's sealed rfc_value is 'unordered: the RFC permits either the echo-then-fail or the fail-immediately observable', which settles the class before any argument: section 5.4 requires a completed fragmented message to be delivered and section 7.1.7 permits failing immediately on a violation, and the RFC does not fix which wins when one read carries both. Java's two-phase decode enqueues the echo during dispatch and the failure path's flushAndClose flushes it; the port's typed failure lands before delivery. Two conforming choices on an open point, which Autobahn itself scores as OK versus NON-STRICT rather than pass versus fail: underspecified-behavior.",
+      "argument": "The record's sealed rfc_value is 'unordered: the RFC permits either the echo-then-fail or the fail-immediately observable', which settles the class before any argument: section 5.4 requires a completed fragmented message to be delivered and section 7.1.7 permits failing immediately on a violation, and the RFC does not fix which wins when one read carries both. Java's two-phase decode enqueues the echo during dispatch and the failure path's flushAndClose flushes it; the port's typed failure lands before delivery. Two conforming choices on an open point, which Autobahn itself scores as OK versus NON-STRICT rather than pass versus fail: underspecified-behavior. CONTESTED AT SEQUENCE 57, AND WHAT IS CONTESTED IS THE RECORD'S DESCRIPTION OF THE PORT, NOT THIS CLASS. The sealed rationale states that the port's typed failure lands before the completed message is delivered, so the echo is never enqueued at all. That was true of the build the record was written against and is FALSE of the port on disk: the DIV-05 fix ledgered at sequence 54 added ws_driver::InboundFeedPolicy::OneFramePerTurn, the full-stack constructor's setting, and the port now writes the reassembled echo before the 1002 close (rust/ws-testee/tests/close_overtakes_echo.rs, the_autobahn_5_15_chop_now_returns_the_completed_echo_before_the_violation_close, exit 0). Sequence 57 states the measured behaviour, scopes it to the full-stack path because the oracle path deliberately keeps InboundFeedPolicy::WholeChunk, and carries the same class this entry files: the RFC's silence about the ordering is where the mismatch originates whichever ordering the port takes, and the disposition axis is where the adoption is recorded. The obligation is discharged by naming the superseding SEQUENCE rather than a draft, because the correction is already appended.",
       "blocking_question": "",
-      "contests_record_basis": false,
-      "supersession_draft": ""
+      "contests_record_basis": true,
+      "supersession_draft": "",
+      "superseded_by_sequence": 57
     },
     {
       "sequence": 35,
@@ -755,7 +756,7 @@
         "rfc6455#section-5.1"
       ],
       "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:send",
-      "rationale_quote": "DIVERGENCE (pre-open sends, refusal recoverability) \u2014 AND THE DIRECTION IS THE UNUSUAL ONE: the port is STRICTER than shipped Java, so this is a port-versus-Java safe strengthening, not a Java-versus-RFC leniency the port reproduces.",
+      "rationale_quote": "DIVERGENCE (pre-open sends, refusal recoverability) — AND THE DIRECTION IS THE UNUSUAL ONE: the port is STRICTER than shipped Java, so this is a port-versus-Java safe strengthening, not a Java-versus-RFC leniency the port reproduces.",
       "argument": "The record's sealed rfc_value is 'unspecified: the RFC neither requires nor forbids the connection remaining usable after a pre-handshake send is refused', so the determinacy rule forbids java-quirk here and the RFC-silence arm is the one that applies. Shipped Java's refusal is RECOVERABLE -- the WebsocketNotConnectedException throw at WebSocketImpl.java:667 mutates nothing and the instance stays usable -- while the port refuses with FailureCode::StateViolation and POISONS the core under its uniform partial-execution discipline. Java and the port each chose differently on a point outside the protocol entirely: underspecified-behavior. The record notes the arm is corpus-invisible, so no live-oracle observation bears on it either way.",
       "blocking_question": "",
       "contests_record_basis": false,
@@ -847,7 +848,7 @@
         "rfc6455#section-8.1"
       ],
       "cited_java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
-      "rationale_quote": "DIVERGENCE (inbound protocol-decode rejection, resulting ReadyState \u2014 CLASS record): under an RFC-strict reading every one of these rejections fails the WebSocket connection and therefore does NOT leave the endpoint OPEN; the port stays OPEN because that is what the live pinned Java oracle records, on all eighteen affected public-corpus scenarios.",
+      "rationale_quote": "DIVERGENCE (inbound protocol-decode rejection, resulting ReadyState — CLASS record): under an RFC-strict reading every one of these rejections fails the WebSocket connection and therefore does NOT leave the endpoint OPEN; the port stays OPEN because that is what the live pinned Java oracle records, on all eighteen affected public-corpus scenarios.",
       "argument": "The class record for the same proposition sequence 44 carries on one instance, and it gets the same answer for the same reason. Section 7.1.7's Fail the WebSocket Connection is determinate and the rfc_value normalizes it to 'closed: every inbound protocol-level decode rejection takes the endpoint out of OPEN'. On all eighteen public-corpus scenarios the measured runtime records JAVA_INVALID_DATA raised on a bytes step with final_state nevertheless open. Java at the measured entry point is on the other side of a determinate rule: java-quirk. The record's own framing is the caution to carry forward -- shipped WebSocketImpl.decodeFrames DOES close on these rejections and the adapter path never reaches it, so both readings are faithful to different entry points of one jar, and this attribution is made at the entry point the corpus measures.",
       "blocking_question": "",
       "contests_record_basis": false,

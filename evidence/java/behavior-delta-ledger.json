@@ -5,7 +5,7 @@
   "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
   "status": "BLOCKED_PENDING_BASELINE",
   "normative_authority": "rfc6455",
-  "head": "sha256:a44191d3c2db7850557e594e281e6a51badf2e913d9d3f0aa959fb973d84a56c",
+  "head": "sha256:1f47cd6260491a87c2eac8427724a9071f13ede758c84e3f3483faff18b8a585",
   "records": [
     {
       "schema_version": "1.0.0",
@@ -1626,6 +1626,65 @@
         "mismatch_class": "underspecified-behavior"
       },
       "record_digest": "sha256:a44191d3c2db7850557e594e281e6a51badf2e913d9d3f0aa959fb973d84a56c"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 57,
+      "previous_digest": "sha256:a44191d3c2db7850557e594e281e6a51badf2e913d9d3f0aa959fb973d84a56c",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-f76d6c03135fa028c4a596e12c94e11540bfa942ab51003209d3fc1513f24c7e",
+        "subject_ref": "semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering.corrected:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.4",
+          "rfc6455#section-7.1.7"
+        ],
+        "rfc_expectation_digest": "sha256:1b8e6e808898fd60763f41bcbd8a5c3ed099b4fc856fd7560ba2547386c79efd",
+        "rfc_value_digest": "sha256:7730469fefe2e5f3b7944925d780af225d45464991dde99cdd36e90491bc4af0",
+        "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
+        "java_observation_digest": "sha256:21eba4d0e51fbcbdebe174697224ddaa48a4f6dc41266f4ffe75082d0f0244c0",
+        "java_value_digest": "sha256:2c284695aa997982fbedc439e5d159766783581b24822ac1c8334ba7e13b9e50",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:5.15"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:f76d6c03135fa028c4a596e12c94e11540bfa942ab51003209d3fc1513f24c7e",
+        "normative_authority": "rfc6455",
+        "disposition": "adopt-java",
+        "rationale": "SUPERSEDES ledger-sequence=34 delta=delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8 subject=semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering:provisional-v1 reason=the-port-behaviour-it-describes-is-pre-div05-the-full-stack-now-dispatches-one-frame-per-turn; SUPERSEDING CORRECTION for ledger sequence 34 (Autobahn 5.15 dispatch-phase echo). WHAT THE SUPERSEDED RECORD SAYS ABOUT THE PORT IS NOW FALSE: it states that the port's typed failure lands before the completed message's Text event is delivered, so the echo is never enqueued at all. MEASURED TODAY, same wire in one chop: `cargo test -p ws-testee --test close_overtakes_echo the_autobahn_5_15_chop` EXIT 0, and the pinned assertion is the frame shape [(0x1,18),(0x8,2)] — the reassembled echo `fragment1fragment2` FIRST and the 1002 close AFTER. The port writes shipped Java's order. WHAT MOVED IT: the DIV-05 fix ledgered at sequence 54 added ws_driver::InboundFeedPolicy::OneFramePerTurn, which is the full-stack constructor's setting (rust/ws-driver/src/lib.rs connection_driver) and is Java's decodeFrames per-frame dispatch loop; the side effect on this subject was pinned at rust/ws-testee/tests/close_overtakes_echo.rs::the_autobahn_5_15_chop_now_returns_the_completed_echo_before_the_violation_close rather than left silent. TWO OBSERVABLES, NOT ONE: the ORACLE path keeps InboundFeedPolicy::WholeChunk, the default, because the public corpus scores its input_chunk records, so the pre-fix ordering is still the oracle observable and that layer split is the subject of the record at sequence 49. This record's claim is scoped to the FULL-STACK path, which is the path Autobahn 5.15 exercises. MISMATCH CLASS underspecified-behavior, WITH ITS SCOPE STATED: it means RFC 6455 does not determine this observable — 5.4 and 7.1.7 admit both orderings and the suite classes both as passing. It does NOT mean nothing determines it: the recorded JAVA_FAITHFUL_PLUS_SAFE fidelity authority makes shipped Java the equivalence target wherever the RFC is silent and no named safety bound is at stake, and a dispatch ordering is none of unsafe code, bounded allocation, backpressure, a checked config limit or a hard safety ceiling. DISPOSITION adopt-java: the port reproduces shipped Java, measured above, and that authority is what licenses it. WHAT THIS RECORD DOES NOT SETTLE, named because it is the reason a reader might expect `unresolved`: sequence 54 wrote a precondition — if the port CANNOT enqueue the echo without breaking the ordering ledgered at sequence 34, that finding supersedes its disposition and the record becomes one for a preserved ordering. The DIV-05 landing never tested that antecedent; it took the general mechanism and did not show a narrower fix impossible. If the owner rules the side effect should be reverted, THIS disposition is the thing that changes, and it is recorded here so that ruling has something to overturn. NO AUTOBAHN CLAIM IS MADE: the executed E5/E5b legs carried by sequence 34 measured the pre-fix subject, re-running the suite is an owner gate, and this record's Autobahn preimages are therefore the honest non-execution markers. OWNER DECISION: protected/ledger-frozen-prefix-owner-decision-2026-08-28.json (workspace orchestrator protected store, sha256 bb3cd0da7f4aed014290dab3dc35b2ec87f41d3d7e7a8c7449816159e9d837c7, recomputed by VerifyCitedOwnerDecisions when the store is reachable; decided 2026-08-28T12:54:30Z) rules SUPERSEDE, DO NOT REWRITE: the superseded record stays byte-identical in the chain and this one is appended beside it, so the error stays visible next to its correction.",
+        "mismatch_class": "underspecified-behavior"
+      },
+      "record_digest": "sha256:0fdd2f01229b77c922c9228c822f2602bfb13213c19215108e7d2f2547219539"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 58,
+      "previous_digest": "sha256:0fdd2f01229b77c922c9228c822f2602bfb13213c19215108e7d2f2547219539",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.corrected:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.2"
+        ],
+        "rfc_expectation_digest": "sha256:90a96630ea4cda9b423470a8a0d281a7b95292a5e8a54ebd4128ceb6e1dbd8d5",
+        "rfc_value_digest": "sha256:82ca9b417dfad18cc1dff178d405bbf6b5ae6246190d3bc7eb468d608b10b6b8",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:postProcessHandshakeResponseAsServer",
+        "java_observation_digest": "sha256:8dd64355a48c74d2ebec111278ea9e63e9c07a64ba3b9679d609ff6bc6f3496b",
+        "java_value_digest": "sha256:c76e9f16b819117e80a0f87d1a74391c9424ed4f199c449f77c843d4c152ee3b",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "SUPERSEDES ledger-sequence=55 delta=delta-34db0ad7c9378f88a8b9ddd66d76f9d7323c46a13e89ca04bfac51ea6f273830 subject=semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields:provisional-v1 reason=the-port-behaviour-it-describes-is-pre-div06-the-response-now-carries-all-five-fields-in-javas-order; SUPERSEDING CORRECTION for ledger sequence 55 (server 101 response fields). WHAT THE SUPERSEDED RECORD SAYS ABOUT THE PORT IS NOW FALSE: it opens by stating that the port's response omits the Server and Date fields shipped Java adds and does not sort its field names. MEASURED TODAY: `cargo test -p ws-core --test handshake_server_response` EXIT 0, 8 of 8 tests, pinning that the 101 response carries Connection, Date, Sec-WebSocket-Accept, Server, Upgrade in String.CASE_INSENSITIVE_ORDER and that it is byte-exact against the pinned JAR's own output. The emission sites are rust/ws-core/src/handshake/server.rs accept_response, which writes the Date field and the literal Server banner unconditionally. SO THE JAVA-VERSUS-PORT DIVERGENCE THIS RECORD BINDS IS CLOSED, and the superseded record's reason for standing open is gone. WHY THE DISPOSITION IS STILL unresolved, FOR A DIFFERENT REASON: US-011 AC2 requires the 101 response to carry the required headers and NO Java-specific Date or Server banner, so the port now emits precisely what a criterion of its own story forbids, and a test pins that it does. That conflict is between the PORT and a PROJECT SPECIFICATION, and this ledger's authority model has one normative pole (RFC 6455) plus three observation sources with no field for a project criterion, so the conflict can only be stated here. THE RULING OWED, IN ONE LINE: either US-011 AC2 stands and the Server banner and Date are removed while the Connection-echo half of the same landing is kept, or AC2 is AMENDED to permit a vendor banner — an amendment, not a reading, because no parse of the clause permits a field whose value names the Java library. MISMATCH CLASS underspecified-behavior, WITH ITS SCOPE STATED SO IT IS NOT READ AS THE SUPERSEDED RECORD'S WAS: it means RFC 6455 4.2.2 does not determine this observable. It does NOT mean nothing determines it — US-011 AC2 does, and recording the RFC's silence as silence full stop is what let the superseded record conclude the question was open. NOT AN INDEPENDENT COUNT AGAINST THE DATE FIELD: accept_response takes the instant as a PARAMETER and reads no clock, so the response is a deterministic function of its inputs and AC2's determinism clause is satisfied; the clock lives in the caller. NO AUTOBAHN CLAIM IS MADE: re-running the suite is an owner gate and this record's Autobahn preimages are the honest non-execution markers. OWNER DECISION: protected/ledger-frozen-prefix-owner-decision-2026-08-28.json (workspace orchestrator protected store, sha256 bb3cd0da7f4aed014290dab3dc35b2ec87f41d3d7e7a8c7449816159e9d837c7, recomputed by VerifyCitedOwnerDecisions when the store is reachable; decided 2026-08-28T12:54:30Z) rules SUPERSEDE, DO NOT REWRITE: the superseded record stays byte-identical in the chain and this one is appended beside it, so the error stays visible next to its correction.",
+        "mismatch_class": "underspecified-behavior"
+      },
+      "record_digest": "sha256:1f47cd6260491a87c2eac8427724a9071f13ede758c84e3f3483faff18b8a585"
     }
   ],
   "append_implementation": "hash-chained-cas",
@@ -1653,6 +1712,22 @@
       "superseding_sequence": 47,
       "superseding_delta_id": "delta-7270836da2cecf6acc2a8e0d2a4fd8f15873f8f8d588494c2789358d369c5f0d",
       "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 34,
+      "superseded_delta_id": "delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8",
+      "superseded_subject_ref": "semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering:provisional-v1",
+      "superseding_sequence": 57,
+      "superseding_delta_id": "delta-f76d6c03135fa028c4a596e12c94e11540bfa942ab51003209d3fc1513f24c7e",
+      "superseding_subject_ref": "semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 55,
+      "superseded_delta_id": "delta-34db0ad7c9378f88a8b9ddd66d76f9d7323c46a13e89ca04bfac51ea6f273830",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields:provisional-v1",
+      "superseding_sequence": 58,
+      "superseding_delta_id": "delta-b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.corrected:provisional-v1"
     }
   ],
   "unledgered_disagreements": 0,

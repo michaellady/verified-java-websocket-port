@@ -17,7 +17,9 @@
       "cited_by_sequences": [
         45,
         46,
-        47
+        47,
+        57,
+        58
       ],
       "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
     },

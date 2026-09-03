@@ -1,0 +1,802 @@
+# Ledger adjudication round — two records superseded, one decidable record left unwritten, three things still owed by a person
+
+Status: COMPLETE for what it claims, with one deliberate refusal recorded in
+section 5, the owner's remaining questions in sections 4, 5 and 6, and a
+fourth failing Go package reported rather than absorbed in section 7c.
+
+Branch `claude/ledger-adjudication-2`, worktree `/home/user/vjwp-ledger`, based
+on `origin/claude/feature/verified-java-websocket-port` at `c738b81`. Every exit
+code below was read from the process that produced it, never inferred from the
+text it printed. No AWS run, no benchmark run and no Autobahn run was made, and
+no live Java process was started.
+
+---
+
+## 1. What this round did, in one screen
+
+| open item | verdict | what was done |
+| --- | --- | --- |
+| ledger sequence 34 | **decidable** | superseded by sequence **57** (`adopt-java` / `underspecified-behavior`) |
+| ledger sequence 55 | **facts decidable, disposition owed** | superseded by sequence **58** (`unresolved` / `underspecified-behavior`), for a different reason than the one it gave |
+| legacy record 19 | **decidable, and NOT WRITTEN** | writing it moves `records_without_ac3_class` from 1 to 0 — hard stop, section 5 |
+| ledger sequence 53 | **genuinely the owner's** | no ledger change; the question is stated in one reading in section 6 |
+
+Counted honestly, because the tidy version of this count is wrong. Of the
+four, **one** is fully decided here (sequence 34). **One** had its facts decided
+and its disposition still belongs to a person (sequence 55, and the person's
+question is F010's, restated inside sequence 58's own bytes). **One** is
+decidable and deliberately unwritten because filing it moves a published count
+(legacy record 19) — so what the owner owes there is an authorisation, not an
+adjudication. **One** is a real adjudication only a person can make
+(sequence 53).
+
+So three of the four still need something from the owner, and the three things
+are different in kind: a ruling, an authorisation, and a ruling again. What
+changed is that none of the three now needs a live Java execution, an Autobahn
+re-run, or any measurement that does not already exist in the tree.
+
+## 2. The rule this round applied, and where it came from
+
+`drafts/self-review/findings/F013-underspecified-by-the-rfc-recorded-as-underspecified.md`
+was read first, as instructed, and it changed how the two classifications below
+are WRITTEN rather than being cited beside them. It did not change either class
+value; it made each of them say what it means inside its own hashed bytes.
+
+Its finding: `underspecified-behavior` reads as "nothing determines this" and
+means "RFC 6455 does not determine this", and the two differ exactly when a
+project specification governs an observable the RFC leaves open. The ledger's
+authority model has one normative pole (`normative_authority` is enforced to be
+`rfc6455` at `internal/lab/ledger.go:137-138`) and three observation sources,
+and no field can name this project's own acceptance criteria.
+
+So both superseding records below carry `underspecified-behavior` **with the
+scope written into their own hashed bytes**: each says which authority is
+silent and, where one is not silent, which one is not. Sequence 58 names
+US-011 AC2. Sequence 57 names the recorded `JAVA_FAITHFUL_PLUS_SAFE` fidelity
+authority. Neither leaves the class to read itself.
+
+The second rule, from F007: a record saying it needs a ruling is a claim to be
+checked, not a fact to be relayed. Each of the four was re-derived from the
+tree before its own words were believed.
+
+## 3. Sequence 34 — decided, and superseded at sequence 57
+
+**Subject** `semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering:provisional-v1`,
+`delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8`,
+record digest `sha256:a8bf37b4b9e40dd803b6d36386f5bd50e3035e1d8e51c26e6f3d04b1b4e08f11`.
+Inside the frozen prefix, so the correction is a supersession, never an edit.
+
+### What the record says about the port, and why it is false
+
+Its sealed rationale states that "the Rust adapter's typed failure lands before
+the completed message's Text event is delivered, so the echo is never enqueued
+at all", and that the case is "NOT RESOLVED IN CODE".
+
+Measured on the same wire in one chop:
+
+```
+cargo test -p ws-testee --test close_overtakes_echo the_autobahn_5_15_chop
+    1 passed; 0 failed          EXIT 0
+```
+
+The test that passed is
+`rust/ws-testee/tests/close_overtakes_echo.rs::the_autobahn_5_15_chop_now_returns_the_completed_echo_before_the_violation_close`,
+and its assertion is the frame shape `[(0x1, 18), (0x8, 2)]` with payload
+`fragment1fragment2` and close code 1002 — **the echo first and the violation
+close after**, which is shipped Java's order and was not the port's.
+
+What moved it is the DIV-05 fix ledgered at sequence 54:
+`ws_driver::InboundFeedPolicy::OneFramePerTurn` (`rust/ws-driver/src/lib.rs`),
+which is Java's `decodeFrames` per-frame dispatch loop and is what the
+full-stack constructor `connection_driver` selects.
+
+### The Java citations, checked at source after the fact
+
+Sequence 57's Java observation preimage says it is a PINNED SOURCE citation and
+that no Java process ran for it, which was true when it was written: the
+citations were re-read at the `ws-driver` doc site that transcribes them, not
+in the Java tree. Once the quarantined tree was staged (section 7c) they were
+checked against the pinned file itself, and all four hold:
+
+| citation | at source |
+| --- | --- |
+| `WebSocketImpl.java:394` translate the whole buffer | `frames = draft.translateFrame(socketBuffer);` |
+| `:395-398` walk the list one frame at a time | `for (Framedata f : frames) { … draft.processFrame(this, f); }` |
+| `:592-595` the failure path's write demand | `flushandclosestate = true;` then `wsl.onWriteDemand(this); // ensures that all outgoing frames are flushed before closing the connection` |
+| `SocketChannelIOHelper.java:110-113` hang up only when drained | `if (ws.outQueue.isEmpty() && ws.isFlushAndClose() && … == Role.SERVER) { ws.closeConnection(); }` |
+
+The record is not amended for this — it makes no claim the check refutes, and
+the check makes it stronger rather than different.
+
+Sequence 58's five `postProcessHandshakeResponseAsServer` citations were
+checked the same way and all five are exact: `response.put(UPGRADE, …)` at
+`:434`, `CONNECTION` at `:435-436`, `SEC_WEB_SOCKET_ACCEPT` at `:441`,
+`"Server"` at `:449`, `"Date"` at `:450`, with `Draft.java:275-283` the field
+loop that writes them out.
+
+**One citation is a convention rather than a statement, and I nearly filed it
+as an error.** `HandshakedataImpl1.java:50` is cited across the tree —
+`server.rs:251`, `http.rs:43`, three sites in `handshake_server_response.rs`,
+`handshake_fuzz.rs`, `sweep_test.go`, ledger sequence 55, and now sequence 58 —
+beside a quotation of `new TreeMap<>(String.CASE_INSENSITIVE_ORDER)`. At source,
+line 50 is `public HandshakedataImpl1() {` and line 51 is the `map = new TreeMap<>(…)`
+statement. That is the same convention the neighbouring `iterateHttpFields`
+citation uses (`:55-57`, the method, whose body is at `:56`), so `:50` names the
+declaring construct and is defensible; it is not a defect and is not filed as
+one. It is written down because my first reading of a `sed` block said all five
+`put` citations were off by one, and `grep -n` said every one of them was exact
+— an off-by-one in my instrument reported as an off-by-one in the artifact,
+which is F014's shape aimed at myself.
+
+### The part a supersession has to get right: there are two observables
+
+`InboundFeedPolicy::WholeChunk` is still the default and is what
+`ws-oracle-harness` uses, because `corpora/public/scenarios.jsonl` scores the
+`input_chunk {bytes}` records that policy produces. So the pre-fix ordering
+survives as the **oracle** observable while the **full-stack** observable is
+Java's. Sequence 57 scopes its claim to the full-stack path — the path Autobahn
+5.15 exercises — and names the layer split, which is itself the subject of the
+record at sequence 49.
+
+### Why `adopt-java` rather than `unresolved`
+
+Sequence 34 deferred to "an owner fidelity decision". That decision exists and
+the same rationale cites it: the recorded `JAVA_FAITHFUL_PLUS_SAFE` authority
+makes shipped Java the equivalence target wherever the RFC is silent, holding
+back a named list of safety bounds — unsafe code, bounded allocation and
+backpressure, checked config limits, and the hard safety ceilings of the merged
+design. A dispatch ordering is none of them. RFC 6455 5.4 and 7.1.7 admit both
+orderings and the suite classes both as passing, so nothing in the RFC decides
+it and the fidelity authority does.
+
+`adopt-java` is also the factual statement: the port reproduces shipped Java,
+measured above. It is the same shape as sequence 50, which is an adapter
+transport policy the port adopts to match Java.
+
+### Why the class stayed `underspecified-behavior`
+
+Because the class asks where the mismatch **originates**, and it originates in
+the RFC's silence about the ordering — which is what the record's own sealed
+`rfc_value` preimage says ("unordered: the RFC permits either the
+echo-then-fail or the fail-immediately observable") and what
+`evidence/java/legacy-record-adjudications.json` entry 34 already filed.
+
+I considered `rust-defect` and rejected it. It would have said the port was
+short of its equivalence target, which is arguable; it would also have
+contradicted the legacy entry, and rule 9c of
+`internal/deltaledger/legacy_adjudication.go:531-538` refuses exactly that
+disagreement — "Two adjudications of one subject may not disagree about where
+the mismatch originates". The gate would have caught it. It should be recorded
+that the gate and the reading agreed rather than that only the reading did.
+
+### What sequence 57 does NOT settle, and says so in its own bytes
+
+Sequence 54 wrote a precondition: *if the reproduction shows the port cannot
+enqueue the echo without breaking the ordering ledgered at sequence 34, that
+finding supersedes this disposition and the record becomes one for a preserved
+ordering.* The DIV-05 landing never tested that antecedent. It took the general
+mechanism and did not show a narrower fix impossible. If the owner rules that
+the side effect should be reverted, sequence 57's disposition is the thing that
+changes, and it is written down so that ruling has something to overturn.
+
+### And it makes no Autobahn claim
+
+Sequence 34 carries **executed** E5/E5b preimages. Those runs measured the
+pre-fix subject. Sequence 57's `autobahn_result_digest` and
+`autobahn_value_digest` are therefore the honest non-execution markers, and its
+rationale says so. Re-running the suite is an owner gate and was not run.
+
+## 4. Sequence 55 — facts decided, disposition still owed, superseded at 58
+
+**Subject** `semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields:provisional-v1`,
+`delta-34db0ad7c9378f88a8b9ddd66d76f9d7323c46a13e89ca04bfac51ea6f273830`,
+record digest `sha256:beac13463e612e5557d4efa4ca875f20120ef0d7c1cdafe0927dbe6f926d7f57`.
+
+Its rationale opens by stating that "the port's response omits the Server and
+Date fields shipped Java adds, and does not sort its field names". Measured:
+
+```
+cargo test -p ws-core --test handshake_server_response
+    8 passed; 0 failed          EXIT 0
+```
+
+Among the eight that passed:
+`the_101_response_carries_javas_five_field_names_in_javas_order` (Connection,
+Date, Sec-WebSocket-Accept, Server, Upgrade in `String.CASE_INSENSITIVE_ORDER`)
+and `the_101_response_is_byte_exact_against_the_pinned_jars_own_output`. The
+emission is unconditional at `rust/ws-core/src/handshake/server.rs`
+`accept_response`, which writes `\r\nDate: ` and
+`\r\nServer: TooTallNate Java-WebSocket\r\n`.
+
+**So the Java-versus-port divergence this record binds is CLOSED**, and the
+reason it stood open is gone.
+
+What is open is a different proposition, and it is why sequence 58 keeps
+`unresolved`: US-011 AC2 (`docs/prd-pack/07b-child-prd-us009-us019.md:33`)
+requires the 101 response to carry the required headers and **no Java-specific
+Date or Server banner**. The port now emits precisely those two fields and a
+test pins that it does. That is a conflict between the port and a **project
+specification**, and the ledger has no field for one — which is F013's gap,
+reached from the other side.
+
+Two things this section deliberately does not do:
+
+- It does not claim the `us010-016` AC amendment already settles it. That
+  amendment binds AC clauses which require *rejecting, transforming or
+  augmenting* behaviour the pinned Java exhibits, and the conflict it was
+  resolving is named in its own context field as RFC-strict clauses versus
+  Java fidelity. AC2's banner clause is not RFC-derived — RFC 6455 4.2.2
+  neither requires nor forbids the fields — so whether the amendment reaches it
+  is itself part of the question, not an answer to it. Stretching it to cover
+  a clause it was not about would be the mirror of the error F010 filed.
+- It does not stack the determinism clause onto the Date half. `accept_response`
+  takes the instant as a parameter and reads no clock, so the response is a
+  deterministic function of its inputs. F010's addendum got there first and it
+  holds up at source.
+
+## 5. Legacy record 19 — decidable, and NOT WRITTEN: a count would move
+
+This is the one I am handing back rather than landing, and the reason is the
+standing rule that a count movement is a hard stop.
+
+### The finding: the evidence in the tree answers it
+
+`evidence/java/legacy-record-adjudications.json` entry 19 carries
+`examination: evidence-does-not-settle-it`, an empty `mismatch_class`, and a
+`blocking_question` that reads, in part: *"Execute the high-bit-64 seed against
+the pinned Java-WebSocket 1.6.0 jar ... OWNER ACTION — it needs a live Java
+execution, which no gate on this branch may trigger."*
+
+The class turns on one thing: whether pinned Java answers a 64-bit extended
+length with the high bit set the way RFC 6455 5.2 requires (a 1002-class
+protocol failure) or some other way. The seed is
+`rust/ws-core/fuzz-seeds/us012/high-bit-64.hex` = `827f8000000000000000`: FIN,
+opcode `0x2` **binary** (not a control frame, so the control-escape rejection
+at `Draft_6455.java:617-620` does not apply), marker 127, and eight length
+octets `80 00 00 00 00 00 00 00`.
+
+**IT IS ANSWERED AT FIRST HAND, IN THE PINNED SOURCE.** The quarantined
+Java tree is staged in this worktree (section 7c), and the file was verified by
+DIGEST before being read, not by its name:
+
+```
+sha256sum .quarantine/Java-WebSocket-da3cf2a…/src/main/java/org/java_websocket/drafts/Draft_6455.java
+    39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0
+evidence/java/formal-bindings/receipt.json, chain member
+translateSingleFrameCheckLengthLimit, file_sha256
+    sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0   EQUAL
+```
+
+`Draft_6455.translateSingleFramePayloadLength`, the `127` branch, verbatim:
+
+```java
+byte[] bytes = new byte[8];
+for (int i = 0; i < 8; i++) {
+  bytes[i] = buffer.get(/*1 + i*/);
+}
+long length = new BigInteger(bytes).longValue();
+translateSingleFrameCheckLengthLimit(length);
+payloadlength = (int) length;
+```
+
+`new BigInteger(byte[])` is the SIGNED two's-complement constructor, so the
+seed's `80 00 00 00 00 00 00 00` is `Long.MIN_VALUE`, a NEGATIVE long.
+`translateSingleFrameCheckLengthLimit`, verbatim:
+
+```java
+private void translateSingleFrameCheckLengthLimit(long length) throws LimitExceededException {
+  if (length > Integer.MAX_VALUE) { … throw new LimitExceededException("Payloadsize is to big..."); }
+  if (length > maxFrameSize)      { … throw new LimitExceededException("Payload limit reached.", maxFrameSize); }
+  if (length < 0)                 { … throw new LimitExceededException("Payloadsize is to little..."); }
+}
+```
+
+A negative length falls past both `>` tests and is caught by `length < 0`.
+
+The helper has **two** call sites and the difference is the point.
+`translateSingleFrame:552` calls it on the already-narrowed `int` for every
+frame; `translateSingleFramePayloadLength:636` calls it on the raw `long`
+inside the `127` branch only, BEFORE `payloadlength = (int) length` narrows it.
+That second call exists precisely so a negative 64-bit length is caught before
+the cast, and it is the one this seed reaches first. The two corroborating runs
+below are 16-bit and 7-bit inline lengths, so they reach the same helper
+through `:552` and the `length > maxFrameSize` branch — the same method and the
+same exception, a different branch and a different message.
+
+And `LimitExceededException` is not a protocol error:
+
+```java
+public class LimitExceededException extends InvalidDataException {
+  public LimitExceededException(int limit)            { super(CloseFrame.TOOBIG); … }
+  public LimitExceededException(String s, int limit)  { super(CloseFrame.TOOBIG, s); … }
+  public LimitExceededException(String s)             { this(s, Integer.MAX_VALUE); }
+}
+```
+
+with `CloseFrame.TOOBIG = 1009` and `CloseFrame.PROTOCOL_ERROR = 1002` on lines
+90 and 53 of `CloseFrame.java`. **Every constructor of the exception carries
+1009.** So the pinned runtime's answer to the high-bit-64 seed is close code
+**1009**, and RFC 6455 5.2 requires the 1002 class. `payloadlength = (int) length`
+is never reached.
+
+Two committed artifacts corroborate the close-code projection by EXECUTION
+rather than by reading, which matters because a source reading alone would not
+show that the exception reaches the wire as 1009:
+
+1. `evidence/java/formal-bindings/receipt.json`, run
+   `baseline/s.limits.cap-exceeded-16`, request digest
+   `sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b`,
+   response digest
+   `sha256:1c972073a7c079764b1240296c83690607802838922dc759677afce8582ba58a`,
+   runtime `org.java-websocket:Java-WebSocket:1.6.0`
+   `sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f`.
+   Input `gn4D6A==` = `82 7E 03 E8`, a declared length of 1000 against
+   `max_buffered_bytes: 200`; the answer is
+   `"error": {"close_code": 1009, "code": "JAVA_INVALID_DATA", "detail": "Payload limit reached."}`
+   at `counts.input_bytes: 4` — the length site, before any payload arrives,
+   and the detail string is the `length > maxFrameSize` branch's own message.
+   The clause carries a mutation canary (`m.cap.disable-configured-limit`)
+   whose mutant run accepts the frame instead, so the observation is not true
+   by construction.
+
+2. `evidence/ac5-class-completeness/java-arm-public.jsonl`, public corpus case
+   `us005.pub.0031`, family `buffer-limit-frame`, live Java against the same
+   pinned jar, a 7-bit inline length of 80 against `max_buffered_bytes: 64`,
+   answered with the same close code 1009 and the same detail at
+   `consumed_bytes: 2`. Two different length sites, two different runs, one
+   exception, one close code. (That row is one of the 74 public rows, which
+   carry 73 distinct scored observations between them; nothing here rests on
+   the row being unique.)
+
+The port answers the same seed with 1009 at length site 10
+(`rust/ws-core/tests/frame_codec.rs::high_bit_64_length_is_an_ordinary_oversized_length_at_site_10`),
+so Java and the port agree and the RFC is the odd one out. The class is
+**`java-quirk`**.
+
+**What is still not observed, stated rather than smoothed over.** No run put
+this seed itself through the pinned JAR, so the CLOSE CODE for this input is
+established by reading the branch that fires and the exception it throws, with
+the exception's projection to 1009 executed on two other inputs. The record's
+`blocking_question` asked for exactly that run; what the reading shows is that
+the run would settle which detail STRING appears, not which side of 1002 Java
+is on. It also refutes the record's own premise in passing: the preimage calls
+this a "negative-long parse, untested downstream", and downstream is
+`translateSingleFrameCheckLengthLimit`, three lines of explicit range checks
+with a typed exception — not untested territory but a guard that was read as an
+absence.
+
+### Why it is not written
+
+`records_without_ac3_class` is **1 of 58**, and record 19 is that 1. Filing a
+class moves it to **0**. That is a published count on a committed evidence
+document, so this round stops on the record and reports it rather than making
+the movement.
+
+**THE EXACT CHANGE, so the authorisation is a yes or a no and not a research
+task.** In `evidence/java/legacy-record-adjudications.json`, entry
+`sequence: 19`: set `mismatch_class` to `"java-quirk"`; change `examination`
+from `"evidence-does-not-settle-it"` to `"evidence-settles-it"`; replace the
+`argument` with the chain above; clear the `blocking_question`, since the
+question it asks — execute the seed against the pinned jar — is no longer what
+the class turns on; and set the document's `records_without_ac3_class` from 1
+to 0. `internal/deltaledger.VerifyLegacyAdjudications` recomputes that residual
+rather than trusting the stored integer, so the count cannot be moved without
+the class actually being filed. Nothing in the hash chain changes: record 19's
+own sealed delta is untouched and carries no `mismatch_class` field either way.
+
+**And what a NO commits the project to**, because the refusal has a cost too:
+`records_without_ac3_class` stays at 1 while the tree already contains the
+evidence that answers it, so the residual stops meaning "unanswered" and starts
+meaning "unfiled" — which is the same distinction F013 is about, one level up.
+
+## 6. Sequence 53 — the one that is genuinely a person's, in one reading
+
+**Subject** `semantic:org.java-websocket.closeframe.invalid-utf8-reason-transport-stall:provisional-v1`,
+`delta-7677db91f7b6267d3614468f70abebcb7c119d539297cd58c697e9bc7b7b8dfa`.
+It is `unresolved` / `java-quirk` and both are right. Its facts were checked and
+are current: `violation_close_verdict` in `rust/ws-driver/src/lib.rs` gates on
+`failure.close_code?`, and the invalid-UTF-8 close reason is the Q12
+`JavaRuntimeRejection`, which carries no close code — so `compose_violation_close`
+returns nothing, `send_violation_close` writes nothing, and
+`rust/ws-testee/src/io_loop.rs` shuts the socket both ways. The sequence 51 fix
+did not change this path, exactly as sequence 53 predicted it would not.
+
+### What Java is actually doing here, read at source, because it changes what answer B means
+
+The quarantined tree is staged (section 7c), so the Java side of this record was
+read rather than cited. `CloseFrame.setPayload` decodes the reason and, when it
+is not valid UTF-8, **swallows the exception and sets the fields by hand**:
+
+```java
+try {
+  int mark = payload.position();
+  validateUtf8(payload, mark);
+} catch (InvalidDataException e) {
+  code = CloseFrame.NO_UTF8;
+  reason = null;          // <- null, not ""
+}
+```
+
+`CloseFrame.isValid` then does, on line 228:
+
+```java
+if (code == CloseFrame.NO_UTF8 && reason.isEmpty()) { … }
+```
+
+`reason` is `null`, so `reason.isEmpty()` raises a **NullPointerException**.
+That is quirk Q12 as ledger sequence 32 already records it ("a
+NullPointerException-class rejection with NO close code"), and the consequence
+is visible in `WebSocketImpl.decodeFrames:391-418`, whose handlers are
+`LimitExceededException`, `InvalidDataException`,
+`VirtualMachineError | ThreadDeath | LinkageError` (rethrown) and `Error`.
+**`RuntimeException` is not among them.** So the NPE escapes `decodeFrames`
+uncaught, none of the `close(…)` paths inside it runs, and no close frame is
+ever composed. The measured observable sequence 53 records — nothing on the
+wire, socket left open — is what that escape looks like from the peer.
+
+This does not decide the question. It changes what one of the answers means,
+which is worth having before answering:
+
+**THE QUESTION.** May the port hold a TCP connection open, with nothing on the
+wire, after receiving a Close frame whose reason is not valid UTF-8, in order
+to reproduce shipped Java?
+
+**Candidate answer A — no; the port keeps its prompt close.** Commits the
+project to: recording this as an `intentional-correction` or `rfc-governs`
+divergence from shipped Java on 1 of 247 server-role cases (0 of 247
+client-role), disclosed and kept; and to reading the amendment's
+"safety-critical bounds are NOT relaxed" as covering an unbounded hold of a
+connection resource driven by a peer that has already misused the protocol.
+RFC 6455 8.1 and 7.1.6 are determinate here and the port is the side that
+follows them.
+
+**Candidate answer B — yes; reproduce the stall.** Commits the project to:
+reproducing the observable consequence of an **unhandled null dereference** in
+the reference implementation, which is a different proposition from reproducing
+a designed behaviour and should be decided as one; to adding a hold-open path
+with no bound the port controls (Java has no timer here — the *peer* times
+out), on a failure path whose current property is that the socket is released
+immediately; to a `fix-in-port` disposition on this record;
+and to revisiting the disclosed residual in sequence 51's own rationale, which
+already declined Java's indefinite block once ("the flush is bounded by the
+write-stall limit where Java's `flushAndClose` would block indefinitely").
+Choosing B without revisiting that leaves two failure paths on opposite
+principles.
+
+**Why I did not decide it.** The tilt is towards A, and the tilt is an
+argument, not a measurement. The amendment's carve-out list is specific —
+unsafe code, bounded allocation and backpressure, checked config limits, hard
+safety ceilings — and "holding a socket" is none of those verbatim; calling it
+one is a reading. Sequence 51's residual is precedent by analogy on a
+neighbouring mechanism (bounding a write in progress), not evidence about this
+one. Deciding on the strength of a tilt is how a reasoned guess becomes a
+finding, which is what F007 praises the collision audit for refusing.
+
+**The ceiling on the 1-of-247.** That extent is recomputed by
+`internal/divergencesweep` from committed per-case report bytes of an earlier
+build, the same measurement generation sequence 51 names as `518b77aa`, and
+re-running the suite is an owner gate that was not exercised. What was checked
+here is the MECHANISM, at source, and it is unchanged; the count is carried
+forward from the record rather than re-measured, and the answer to the question
+does not depend on whether it is 1 or 2.
+
+## 7. What moved, what did not, and the ceilings on the numbers used
+
+Counts, read from `deltaledgerctl --check` output:
+
+| count | before | after |
+| --- | --- | --- |
+| `records_without_mismatch_class` | 49 | **49** |
+| `records_without_ac3_class` | 1 | **1** |
+| `unledgered_disagreements` | 0 | **0** |
+| governance decisions verified | 6 | **6** |
+| supersession links | 3 | **5** |
+| ledger records total | 56 | **58** |
+
+The last row is the one to read carefully. Appending is the only correction
+mechanism the frozen-prefix ruling allows, so the total grows whenever a record
+is superseded — sequences 45-47 grew it the same way. All 56 pre-existing
+records are byte-identical after the append (verified record by record against
+`git show HEAD:evidence/java/behavior-delta-ledger.json`; zero differ), and
+sequence 35 is still
+`sha256:3fcd461cfea72e049628a0031bfbb90addecea2f2bb6997e62280cad1962656d`.
+**No corpus and no measurement denominator moved.** If the owner counts the
+record total itself as a protected denominator, the revert is one file
+(`internal/deltaledger/definitions_stale_port_corrections.go`), its one-line
+hook in `Definitions()`, and a regeneration.
+
+Ceilings on every number used above, stated with the number rather than after
+it:
+
+- The **74** public corpus rows carry only **73 distinct scored observations**;
+  two of them are indistinguishable, so 74/74 certifies at most 73
+  distinguishable answers.
+- The **49** handshake cases carry only **29 distinct scored observations**
+  (raised from 26 this session), with **23** cases sharing an observation with
+  at least one other and the largest equivalence class holding **10**.
+- The Autobahn extents quoted from sequences 53 and 55 (1/247 and 247/247
+  server-role) are recomputed from committed per-case report bytes by
+  `internal/divergencesweep`. They are the pre-fix measurement in sequence 55's
+  case, which is why sequence 58 does not restate them as current.
+- Sequence 57 and sequence 58 make **no Autobahn claim at all**.
+
+## 7b. The append broke four tests in one package, and one of the four is a finding
+
+`make -C rust gates` was green while `go test ./internal/deltaledger/` was
+**exit 1**, which is the exact trap the protocol names: gates green is necessary
+and never sufficient. A third failing package is a defect until proven
+otherwise, and this one was mine.
+
+Three of the four were pinned counts, and updating them is routine: two in
+`internal/deltaledger/integrity_test.go` and one in `mapping_census_test.go`
+assert "three supersession links", which is now five. They are updated by
+NAMING the five sequences (14, 15, 16, 34, 55) rather than by comparing a
+number, so the next append fails with a sequence in the message instead of an
+arithmetic complaint. A fourth, `TestAQuotedSupersedesTokenIsNotAWithdrawal`,
+took its "record that supersedes nothing" as `Records[len-1]`; the last record
+now supersedes sequence 55, so the record is chosen by predicate instead and
+the test fails loudly if the premise stops holding.
+
+The fourth failure is worth keeping. `TestUnledgeredCountReportsNonzeroAndTheReadinessGateRefuses`
+builds a TRUNCATED chain by removing one definition, and it named sequence 17.
+A `Supersession` names its target by **sequence** as well as by delta id, so
+removing a definition that sits BEFORE a superseded record renumbers that
+record and the link stops resolving:
+
+```
+build the truncated ledger: record 56 supersedes sequence 34 naming delta
+delta-71c02bf62947…, but sequence 34 is delta-9dd3ab8674…
+```
+
+That refusal is correct and is the fail-closed property working. It is also a
+DIFFERENT failure from the digest-arm failure the test exists to prove, and it
+masked it. The isolated record is now sequence 56, which sits after 55 — the
+last superseded sequence — so removing it renumbers nothing that is named, and
+the new constraint is written into the test's comment rather than left for the
+next person to rediscover. The test's own comment had predicted this shape:
+*"If a future change makes it load-bearing, this test fails loudly and a
+different isolated record should be named here."* It did, and it did.
+
+Nothing was loosened. No assertion was deleted, no expectation widened to a
+range, and the deliberate-failure polarity of each test is unchanged.
+
+## 7c. I published a baseline claim from a tree I had never set up, and the real failure was mine
+
+This section replaces what I first wrote under this heading. The replacement is
+the point, so the wrong version is described rather than deleted.
+
+### What I first wrote, and why it was wrong twice over
+
+`go test ./...` in this worktree failed in four packages. Two were the
+documented ones. One was mine and is fixed in section 7b. The fourth was
+`internal/formalplan`, and every failure in it read
+`JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403`. I
+probed the pinned archive URL, got 403 with a 378-byte body, and wrote that a
+fourth package was failing for an environment reason and that the repository's
+two-package baseline statement was false.
+
+**Both halves of that were wrong, and the second one was a defect of mine
+hiding behind the first.**
+
+`git worktree add` does not carry `.quarantine/` — it is git-ignored — so this
+worktree began with the directory empty, and `.claude/GOAL-LOOP.md` step **0**
+says exactly what to do about that, in its first four lines:
+
+> If `.quarantine/` lacks the four pinned Java inputs, copy them from
+> `~/.cache/verified-java-websocket-port/quarantine/` or materialise them per
+> `CLOUD-ENVIRONMENT.md`, "Pinned Java inputs".
+
+Step 4's own command block then sets
+`export PATH=$PWD/.quarantine/jdk-17.0.19+10/bin:$PATH`, commented
+"internal/portplan refuses any other javac". I ran step 4 without step 0. The
+403 is real for a direct fetch and the recipe never fetches that URL. That is
+the F008 shape — the nearest explanation standing in for the diagnosis — and it
+is the same error the `c738b81` commit had just corrected in itself, two
+paragraphs from the document I did not read.
+
+### The setup, done, with the digests verified rather than assumed
+
+The four pinned inputs were already staged in the main checkout, so they were
+copied in (a file copy out of another worktree's ignored directory; no git
+command was run with that directory as its working directory, per the standing
+rule about shared checkouts). Verified:
+
+```
+sha256sum .quarantine/java-websocket-source-archive.tar.gz
+    f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4
+evidence/intake/source-pins.json  java-websocket-source-archive
+    sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4    EQUAL
+
+.quarantine/jdk-17.0.19+10/bin/javac -version
+    javac 17.0.19
+```
+
+`.quarantine/` stays git-ignored (`.gitignore:30`), so nothing staged is
+committed. Everything in sections 3, 5 and 6 that reads the pinned Java source
+at first hand became possible only after this step, so running the setup late
+paid for itself twice.
+
+### What the suite actually says once it is set up
+
+`go test -count=1 ./... -timeout 40m` — **exit 1, 42 ok, three failing
+packages**:
+
+| package | cause | whose |
+| --- | --- | --- |
+| `internal/lab` | `sandbox_test.go:21: PLATFORM_EXECUTOR_UNSUPPORTED … CONTROLLED_CANARY requires Darwin sandbox-exec` | documented |
+| `internal/portplan` | `ORACLE_REPRODUCTION_MISMATCH … differing_lines=1 of committed_lines=1071; line 6: committed "jdk_vendor": "Homebrew", regenerated "jdk_vendor": "Eclipse Adoptium"` | documented |
+| `internal/formalplan` | `PLAN_LEDGER_BINDING_MISMATCH` twice, plus a US-006 fixture digest | **MINE** |
+
+So the two-package baseline statement is TRUE, `internal/portplan` fails with
+exactly the one-line vendor difference the owner decision under P0 covers, and
+the third package was a defect of mine that the unstaged run had disguised as
+an environment failure.
+
+### The defect, and the repair
+
+```
+plan records ledger head "sha256:a44191d3c2db…" but the ledger says "sha256:1f47cd6260…"
+plan records 56 ledger records but the ledger has 58
+```
+
+`assurance/concurrency/plan.json` pins the ledger's head and record count under
+`behavior_delta_ledger`, and my append moved both. **`pinconsumerctl consumers
+evidence/java/behavior-delta-ledger.json` reports `consumers=0`**, and its
+ceiling is why: it indexes by the digest of a FILE's contents, and the plan
+pins the ledger's `observed_head` FIELD — a value inside the document, not the
+document itself. The tool built for exactly this question could not have found
+this one, and that is worth knowing about the tool rather than about this
+branch.
+
+Repaired the way both previous appends repaired it, and held to their own
+standard: three keys changed under `behavior_delta_ledger` — `observed_head`,
+`observed_record_count` 56 to 58, and the `append_blocker` prose extended to
+describe sequences 57 and 58, including that neither binds an executed Autobahn
+observation. A parsed key-level diff over all **781** leaf keys shows those
+three and no others changed, none added, none removed, and the `bounds` object
+byte-identical. `assurance/concurrency/results.json`'s
+`preregistered_plan.sha256` was then re-bound to the new plan
+(`3366b7615ff5ea8416bebe049f5c15277adf7768084e5510d88e597ad8013fce`) with a
+provenance note saying what moved and what was NOT re-measured.
+
+**THE `append_blocker` HAS FOURTEEN CHARACTERS OF HEADROOM, AND THAT IS A
+FINDING.** My first re-binding extended the narrative the way both previous
+re-bindings did. `internal/formalplan` refused it:
+
+```
+FORMAL_SCHEMA_VALIDATION_FAILED at '/behavior_delta_ledger/append_blocker':
+    maxLength: got 9,821, want 8,192
+```
+
+At the branch base the field is **8178 of 8192 characters**. So the documented
+step that every prior ledger append performed — extend the `append_blocker` to
+describe the new records — **is no longer performable**, and the next append
+will hit the same wall. What landed instead is the smallest change that keeps
+the field TRUE: one sentence's count corrected from 56 to 58, alongside
+`observed_head` and `observed_record_count`. No existing narrative was trimmed
+to make room; rewriting another landing's recorded prose to fit my own
+paragraph is not a trade I get to make, and the description of sequences 57 and
+58 lives in this record and in their own hashed rationales instead. The
+`results.json` provenance note records both the one-character change and the
+refusal that produced it.
+
+`internal/linkage` then went stale on `evidence.linkage.schedule-exploration`,
+whose path is `results.json`. Refrozen through the sanctioned path with BOTH
+exits read: `LINKAGE_REGENERATE=1 go test -count=1 ./internal/linkage/` exit
+**1** by design, then `go test -count=1 ./internal/linkage/` exit **0**. The
+diff is one line, a digest, and non-digest changed lines are **0**.
+
+Then `TestUS006FixtureCatalogThroughRealCLI` alone remained, because every
+realized fixture tree copies the repository tree and my `plan.json` change
+moved it. Refrozen through its own sanctioned path with BOTH exits read:
+`US006_REGENERATE=1 go test -count=1 ./internal/formalplan/ -run TestUS006FixtureCatalogThroughRealCLI`
+exit **0**, then the whole package `go test -count=1 ./internal/formalplan/`
+exit **0**. 22 lines changed in `assurance/replay/fixtures/us006-cases.json`
+and non-digest changed lines are **0**.
+
+`pinconsumerctl` afterwards: `plan.json` is pinned by `results.json`, which was
+re-bound; `us006-cases.json` has no consumers; and the dangling census reads
+**1996 artifacts, 0 unparsable, 85 candidates** — the same three numbers
+recorded at `fb72adb`, so this branch added no dangling pin. The census's own
+`plan.json → behavior-delta-ledger.json` row is a false positive by the tool's
+stated ceiling: the declared value there is the ledger's chain HEAD, not the
+file's digest, which is the same blind spot that let this defect through in the
+first place.
+
+## 8. Exit codes, each read from the process
+
+| command | exit |
+| --- | --- |
+| `git worktree add /home/user/vjwp-ledger -b claude/ledger-adjudication-2 …` | 0 |
+| `go run ./cmd/deltaledgerctl --root . --check` (baseline, before any change) | 0 |
+| `cargo test -p ws-testee --test close_overtakes_echo the_autobahn_5_15_chop` | 0 |
+| `cargo test -p ws-core --test handshake_server_response` | 0 |
+| `go run ./cmd/deltaledgerctl --root . --check` (after the definitions, before the write) | **1** |
+| `go run ./cmd/deltaledgerctl --root .` (the write) | 0 |
+| `go run ./cmd/deltaledgerctl --root . --check` (after the write, before the legacy entry) | **1** |
+| `go run ./cmd/deltaledgerctl --root . --check` (after the legacy entry) | 0 |
+| `go build ./...` | 0 |
+| `go test ./internal/deltaledger/` (after the append, before the test updates) | **1** |
+| `go test -count=1 ./internal/deltaledger/` (after the test updates) | 0 |
+| `go test ./... -timeout 40m` (UNSTAGED tree — the wrong run, section 7c) | **1** |
+| `curl` on the pinned Java source archive | http 403, 378 bytes |
+| `go test -count=1 ./... -timeout 40m` (staged) | **1** — 42 ok, three failing, one of them mine |
+| `go test -count=1 ./internal/formalplan/` (after the first plan re-binding) | **1** — `maxLength: got 9,821, want 8,192` |
+| `LINKAGE_REGENERATE=1 go test -count=1 ./internal/linkage/` | **1** (by design) |
+| `go test -count=1 ./internal/linkage/` | 0 |
+| `go test -count=1 ./internal/formalplan/` (after the in-cap re-binding) | **1** — US-006 fixture only |
+| `US006_REGENERATE=1 go test -count=1 ./internal/formalplan/ -run TestUS006FixtureCatalogThroughRealCLI` | 0 |
+| `go test -count=1 ./internal/formalplan/` (after the refreeze) | 0 |
+| `go run ./cmd/pinconsumerctl dangling` | **1** — 1996 artifacts, 0 unparsable, 85 candidates, unchanged from `fb72adb` |
+| `go run ./cmd/recordguardctl precondition drafts/self-review/ledger-adjudication-round.md` | 0 |
+| `make -C /home/user/vjwp-ledger/rust gates` (final tree, `Entering directory '/home/user/vjwp-ledger/rust'` in the log) | 0 |
+| `go test -count=1 ./... -timeout 40m` (final tree, `PWD=/home/user/vjwp-ledger` in the log) | **1** — 43 ok, `internal/lab` and `internal/portplan` and nothing else |
+
+**Ten of these are non-zero and every one of them is in the table on purpose.**
+Four are by-design refusals of a sanctioned regeneration or a gate doing its
+job; three are defects of mine caught and fixed here; two are the documented
+environment packages; one is the census whose non-zero exit means "candidates
+exist", not "defects exist". A round that showed only its green runs would have
+hidden the half of this work that was error correction.
+
+The gate refusals worth naming individually, because each one caught something
+a reading would have missed:
+
+- `deltaledgerctl --check` refused the append until
+  `evidence/java/legacy-record-adjudications.json` entry 34 declared
+  `contests_record_basis` and `superseded_by_sequence: 57` — links it
+  re-derives from the records' own hashed rationales rather than taking on the
+  entry's word.
+- The same gate's rule 9c would have refused a superseding record whose
+  mismatch class disagreed with the legacy entry's. It did not fire, because
+  the class was reasoned to `underspecified-behavior` independently — but the
+  gate and the reading agreeing is worth more than the reading alone, and that
+  is why it is recorded.
+- `internal/formalplan` refused my `plan.json` narrative on a schema cap I had
+  not read, and refused the whole tree on the ledger head my append had moved.
+
+`VJWP_PROTECTED_STORE` was exported to `$PWD/evidence/governance/decisions` for
+every `deltaledgerctl` and `go test` invocation above, and
+`PATH=$PWD/.quarantine/jdk-17.0.19+10/bin:$PATH` for every run after the
+staging in section 7c. Without the first, the governance arm refuses by design,
+and that refusal is the design.
+
+**One run went to the wrong tree and is disclosed rather than dropped.** A
+detached `make -C rust gates` intended for this worktree printed
+`make: Entering directory '/home/user/verified-java-websocket-port/rust'` — the
+SHARED checkout, not `/home/user/vjwp-ledger/rust` — because the `cd` in a
+nested-quoted `setsid` invocation did not take. Its result was therefore
+discarded as evidence about this branch and the run was repeated from a script
+file that prints its own `pwd` first, so the tree under test is in the log
+rather than in my intention. What that stray run touched: `gates` is
+`fmt --check`, `clippy`, `cargo test`/`test-release`, and four `--check`-mode
+gates, so the only writes are `rust/target/` build artifacts in that checkout;
+no tracked file was modified and **no git command was run with that directory
+as its working directory**, which is the standing rule for the shared tree.
+Recorded because another agent works there, and a build I started in someone
+else's tree is their business whether or not it harmed anything.
+
+## 9. What this record does not claim
+
+- It does not claim any Autobahn result. The suite was not run, and both new
+  records carry the non-execution markers rather than inheriting the E5/E5b
+  preimages that measured the pre-fix subjects.
+- It does not claim a live Java observation. The section 5 argument rests on
+  one previously executed oracle run plus a byte-span-bound source reading, and
+  says which is which.
+- It does not claim that sequence 57's `adopt-java` is the end of the matter.
+  Sequence 54's untested precondition is named inside sequence 57's own hashed
+  rationale precisely so a reverting ruling has a target.
+- It does not claim the `us010-016` amendment settles US-011 AC2. Section 4
+  says why that stretch was declined.
+- It does not re-baseline anything. No corpus, no denominator and no expectation
+  was adjusted. The two refreezes it did make — `evidence/linkage` and the
+  US-006 fixture catalog — went through their own sanctioned environment
+  variables with both exits read, and non-digest changed lines are zero in
+  both.
+- It does not claim the two-package baseline was true when this round started
+  IN THIS WORKTREE. It was not, because the worktree was never set up; it is
+  true now, measured: `go test -count=1 ./...` on the final tree is 43 ok with
+  `internal/lab` and `internal/portplan` failing and nothing else. Section 7c
+  is the account of how a claim about that baseline got published before the
+  setup was done.
