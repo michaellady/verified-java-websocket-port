@@ -90,6 +90,54 @@ impl RejectChannel {
     }
 }
 
+/// WHICH draft-API call decided a rejection.
+///
+/// [`RejectChannel`] records which Java failure vocabulary the rejection took
+/// (`InvalidHandshakeException` versus `HandshakeState.NOT_MATCHED`), and it
+/// conflates two structurally different events: `invalid_handshake` is thrown
+/// both by `Draft.translateHandshake` (the head never became a
+/// `Handshakedata`) and by `Draft_6455.postProcessHandshakeResponseAsServer`
+/// (the head parsed, `acceptHandshakeAsServer` returned MATCHED, the
+/// application listener was invoked — `WebSocketImpl.java:287-301` — and only
+/// then did response construction fail on a missing `Sec-WebSocket-Key`).
+///
+/// This enum is the same KIND of fact as [`RejectChannel`] — which public
+/// draft-API call produced the terminal outcome — at one step finer grain. It
+/// is not an exception message and not an RFC reject code: shipped Java's
+/// `InvalidHandshakeException` messages are implementation strings the
+/// differential already classifies non-semantic, and the corpus's `HS_*`
+/// reject codes are the RFC model's own labels, which the runtime does not
+/// produce (see `evidence/us005-handshake-live-mapping.json`'s
+/// `granularity_statement`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RejectStage {
+    /// `Draft.translateHandshake` refused the bytes: no `Handshakedata` was
+    /// ever built, so the application listener was never reached
+    /// (Draft.java:95-132, :141-155, :164-180).
+    Translate,
+    /// The head parsed and the draft's acceptance predicate declined:
+    /// `acceptHandshakeAsServer` / `acceptHandshakeAsClient` returned
+    /// `NOT_MATCHED` (Draft_6455.java:262-286, :306-343).
+    AcceptPredicate,
+    /// The head parsed AND the predicate MATCHED, so shipped Java called the
+    /// application's `onWebsocketHandshakeReceivedAsServer`; the rejection
+    /// came from building the 101 response
+    /// (`postProcessHandshakeResponseAsServer`, Draft_6455.java:432-441).
+    ResponseBuild,
+}
+
+impl RejectStage {
+    /// The java-oracle handshake protocol wire string.
+    #[must_use]
+    pub fn wire_name(&self) -> &'static str {
+        match self {
+            RejectStage::Translate => "translate",
+            RejectStage::AcceptPredicate => "accept_predicate",
+            RejectStage::ResponseBuild => "response_build",
+        }
+    }
+}
+
 /// The close code every Java handshake rejection carries
 /// (`CloseFrame.PROTOCOL_ERROR`; InvalidHandshakeException.java and
 /// WebSocketImpl.java:313/332/363).

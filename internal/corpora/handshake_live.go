@@ -58,6 +58,25 @@ const (
 	// acceptHandshakeAsClient (Draft_6455.java:262-286, 306-343).
 	JavaRejectNotMatched = "not_matched"
 
+	// Which draft-API call decided a rejection. The channel above records
+	// WHICH failure vocabulary the rejection took; the stage records WHICH
+	// CALL produced it, and it separates the two events the
+	// invalid_handshake channel conflates.
+	//
+	// JavaStageTranslate: Draft.translateHandshake refused the bytes, so no
+	// Handshakedata was ever built and WebSocketImpl never reached the
+	// application listener (Draft.java:95-132, :141-155, :164-180).
+	JavaStageTranslate = "translate"
+	// JavaStageAcceptPredicate: the head parsed and the draft's acceptance
+	// predicate returned NOT_MATCHED (Draft_6455.java:262-286, :306-343).
+	JavaStageAcceptPredicate = "accept_predicate"
+	// JavaStageResponseBuild: the head parsed AND acceptHandshakeAsServer
+	// returned MATCHED, so WebSocketImpl called
+	// onWebsocketHandshakeReceivedAsServer (WebSocketImpl.java:287-301);
+	// the rejection came from postProcessHandshakeResponseAsServer refusing
+	// a missing or empty Sec-WebSocket-Key (Draft_6455.java:437-440).
+	JavaStageResponseBuild = "response_build"
+
 	// InvalidHandshakeException always carries CloseFrame.PROTOCOL_ERROR
 	// (InvalidHandshakeException.java), and the NOT_MATCHED paths close with
 	// CloseFrame.PROTOCOL_ERROR too (WebSocketImpl.java:313, 332, 363).
@@ -101,8 +120,11 @@ func HandshakeOracleRequestLine(c HandshakeCase) ([]byte, error) {
 // JavaHandshakeObservable is the runtime-observable outcome the quarantined
 // Java-WebSocket 1.6.0 source produces for one handshake input.
 type JavaHandshakeObservable struct {
-	Observable         string
-	RejectChannel      string
+	Observable    string
+	RejectChannel string
+	// RejectStage names the draft-API call that decided a rejection; empty
+	// unless Observable is reject.
+	RejectStage        string
 	SecWebSocketAccept string
 }
 
@@ -146,7 +168,7 @@ func javaParseHandshake(raw []byte) (firstLine []string, headers javaHeaderSet,
 	observable *JavaHandshakeObservable) {
 	incomplete := &JavaHandshakeObservable{Observable: JavaObservableIncomplete}
 	rejectParse := &JavaHandshakeObservable{Observable: JavaObservableReject,
-		RejectChannel: JavaRejectInvalidHandshake}
+		RejectChannel: JavaRejectInvalidHandshake, RejectStage: JavaStageTranslate}
 
 	line, at, found := javaReadLine(raw, 0)
 	if !found {
@@ -249,14 +271,14 @@ func javaServerObservable(raw []byte) JavaHandshakeObservable {
 	if !javaEqualsIgnoreCase(firstLine[0], "GET") ||
 		!javaEqualsIgnoreCase(firstLine[2], "HTTP/1.1") {
 		return JavaHandshakeObservable{Observable: JavaObservableReject,
-			RejectChannel: JavaRejectInvalidHandshake}
+			RejectChannel: JavaRejectInvalidHandshake, RejectStage: JavaStageTranslate}
 	}
 	// Draft_6455.java:262-286 (acceptHandshakeAsServer): only the version is
 	// checked; the default extension and empty protocol accept anything
 	// (DefaultExtension.java:52-58, Protocol.java:58-61).
 	if javaReadVersion(headers) != 13 {
 		return JavaHandshakeObservable{Observable: JavaObservableReject,
-			RejectChannel: JavaRejectNotMatched}
+			RejectChannel: JavaRejectNotMatched, RejectStage: JavaStageAcceptPredicate}
 	}
 	// Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer): a
 	// missing or empty Sec-WebSocket-Key throws InvalidHandshakeException;
@@ -264,8 +286,12 @@ func javaServerObservable(raw []byte) JavaHandshakeObservable {
 	// (Draft_6455.java:832-841: SHA-1 over trim(key) + GUID).
 	seckey := headers.get("Sec-WebSocket-Key")
 	if seckey == "" {
+		// acceptHandshakeAsServer already returned MATCHED, so
+		// WebSocketImpl has already called the application's
+		// onWebsocketHandshakeReceivedAsServer (WebSocketImpl.java:287-301);
+		// only response construction failed.
 		return JavaHandshakeObservable{Observable: JavaObservableReject,
-			RejectChannel: JavaRejectInvalidHandshake}
+			RejectChannel: JavaRejectInvalidHandshake, RejectStage: JavaStageResponseBuild}
 	}
 	return JavaHandshakeObservable{Observable: JavaObservableAccept,
 		SecWebSocketAccept: ComputeAccept(javaTrim(seckey))}
@@ -283,7 +309,7 @@ func javaClientObservable(raw []byte, clientKey string) JavaHandshakeObservable 
 	// compared literally against "101" before the HTTP version check.
 	if firstLine[1] != "101" || !javaEqualsIgnoreCase(firstLine[0], "HTTP/1.1") {
 		return JavaHandshakeObservable{Observable: JavaObservableReject,
-			RejectChannel: JavaRejectInvalidHandshake}
+			RejectChannel: JavaRejectInvalidHandshake, RejectStage: JavaStageTranslate}
 	}
 	// Draft_6455.java:306-343 (acceptHandshakeAsClient) with
 	// Draft.basicAccept (Draft.java:188-191): Upgrade equalsIgnoreCase
@@ -291,21 +317,28 @@ func javaClientObservable(raw []byte, clientKey string) JavaHandshakeObservable 
 	if !javaEqualsIgnoreCase(headers.get("Upgrade"), "websocket") ||
 		!strings.Contains(strings.ToLower(headers.get("Connection")), "upgrade") {
 		return JavaHandshakeObservable{Observable: JavaObservableReject,
-			RejectChannel: JavaRejectNotMatched}
+			RejectChannel: JavaRejectNotMatched, RejectStage: JavaStageAcceptPredicate}
 	}
 	// Draft_6455.java:312-316: both the request key and the response accept
 	// must be present.
 	if clientKey == "" || !headers.has("Sec-WebSocket-Accept") {
 		return JavaHandshakeObservable{Observable: JavaObservableReject,
-			RejectChannel: JavaRejectNotMatched}
+			RejectChannel: JavaRejectNotMatched, RejectStage: JavaStageAcceptPredicate}
 	}
 	// Draft_6455.java:318-325: generateFinalKey(challenge) compared literally
 	// against the response value.
-	if ComputeAccept(javaTrim(clientKey)) != headers.get("Sec-WebSocket-Accept") {
+	derived := ComputeAccept(javaTrim(clientKey))
+	if derived != headers.get("Sec-WebSocket-Accept") {
 		return JavaHandshakeObservable{Observable: JavaObservableReject,
-			RejectChannel: JavaRejectNotMatched}
+			RejectChannel: JavaRejectNotMatched, RejectStage: JavaStageAcceptPredicate}
 	}
-	return JavaHandshakeObservable{Observable: JavaObservableAccept}
+	// The client MATCHED on generateFinalKey(trim(key)) — the same SHA-1
+	// derivation the server side reports, run by the client on every
+	// acceptance (Draft_6455.java:318-325). Reporting it puts the
+	// client-side derivation under the exam instead of leaving it inferable
+	// only from the accept/reject pattern.
+	return JavaHandshakeObservable{Observable: JavaObservableAccept,
+		SecWebSocketAccept: derived}
 }
 
 // HandshakeMappingEntry is one row of the machine-checkable verdict mapping:
@@ -643,6 +676,7 @@ type handshakeLiveResponse struct {
 	Runtime            *handshakeLiveRuntime `json:"runtime"`
 	JavaObservable     string                `json:"java_observable"`
 	RejectChannel      string                `json:"reject_channel"`
+	RejectStage        string                `json:"reject_stage"`
 	CloseCode          *int                  `json:"close_code"`
 	SecWebSocketAccept string                `json:"sec_websocket_accept"`
 }
@@ -699,6 +733,16 @@ func evaluateHandshakeLiveResponse(c HandshakeCase, line []byte) (bool, string) 
 			return false, fmt.Sprintf("reject_channel %q, expected %q",
 				response.RejectChannel, expected.RejectChannel)
 		}
+		// The draft-API call that decided. This separates the two events the
+		// invalid_handshake channel conflates: a translateHandshake refusal
+		// (no Handshakedata, listener never reached) from a
+		// postProcessHandshakeResponseAsServer refusal (predicate MATCHED,
+		// listener already called). Absence fails closed, exactly as the
+		// channel does.
+		if response.RejectStage != expected.RejectStage {
+			return false, fmt.Sprintf("reject_stage %q, expected %q",
+				response.RejectStage, expected.RejectStage)
+		}
 		if response.CloseCode == nil || *response.CloseCode != javaHandshakeCloseCode {
 			return false, fmt.Sprintf("close_code %v, expected %d",
 				response.CloseCode, javaHandshakeCloseCode)
@@ -706,6 +750,9 @@ func evaluateHandshakeLiveResponse(c HandshakeCase, line []byte) (bool, string) 
 	} else {
 		if _, present := fields["reject_channel"]; present {
 			return false, "unexpected reject_channel"
+		}
+		if _, present := fields["reject_stage"]; present {
+			return false, "unexpected reject_stage"
 		}
 		if _, present := fields["close_code"]; present {
 			return false, "unexpected close_code"
