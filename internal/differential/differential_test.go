@@ -1678,6 +1678,76 @@ func TestJavaRuntimeImageIsContentAddressedCompleteAndImmutable(t *testing.T) {
 	}
 }
 
+func TestMaterializeConfiguredLaunchResolvesPortableJavaRuntimeIdentity(t *testing.T) {
+	java := fakeJavaRuntime(t, true)
+	javaRoot := filepath.Dir(filepath.Dir(java))
+	repositoryRoot := filepath.Dir(javaRoot)
+	writeInput := func(name string, body []byte, mode os.FileMode) string {
+		t.Helper()
+		path := filepath.Join(repositoryRoot, name)
+		if err := os.WriteFile(path, body, mode); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	adapter := writeInput("adapter.jar", []byte("adapter"), 0o600)
+	runtime := writeInput("runtime.jar", []byte("runtime"), 0o600)
+	support := writeInput("support.jar", []byte("support"), 0o600)
+	rust := writeInput("rust-testee", []byte("rust"), 0o700)
+	cfg := Config{RepositoryRoot: repositoryRoot, JavaExecutable: java, JavaAdapterJar: adapter, JavaRuntimeJar: runtime, JavaSupportJars: []string{support}, RustTestee: rust}
+
+	javaIdentity, err := artifact(java)
+	if err != nil {
+		t.Fatal(err)
+	}
+	javaIdentity.Kind = "java-executable"
+	javaIdentity.Path = filepath.ToSlash(filepath.Join("jdk", "bin", "java"))
+	imageIdentity, err := javaRuntimeImageIdentity(java)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imageIdentity.Path = "jdk"
+	imageIdentity.ReproductionCommand = javaReproductionCommand()
+	inputIdentity := func(kind, path string) ArtifactIdentity {
+		t.Helper()
+		identity, identityErr := artifact(path)
+		if identityErr != nil {
+			t.Fatal(identityErr)
+		}
+		identity.Kind = kind
+		identity.Path = filepath.ToSlash(filepath.Base(path))
+		return identity
+	}
+	inputs := []ArtifactIdentity{
+		javaIdentity,
+		imageIdentity,
+		inputIdentity("java-adapter-jar", adapter),
+		inputIdentity("java-runtime-jar", runtime),
+		inputIdentity("java-support-jar-00", support),
+		inputIdentity("rust-testee", rust),
+	}
+	suite := filepath.Join(repositoryRoot, "suite")
+	if err := os.Mkdir(suite, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	launched, err := materializeConfiguredLaunch(cfg, suite, inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info, statErr := os.Stat(launched.JavaExecutable); statErr != nil || !info.Mode().IsRegular() {
+		t.Fatalf("portable Java runtime was not materialized: %v", statErr)
+	}
+
+	inputs[1].Path = "wrong-jdk"
+	badSuite := filepath.Join(repositoryRoot, "bad-suite")
+	if err := os.Mkdir(badSuite, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := materializeConfiguredLaunch(cfg, badSuite, inputs); err == nil || !strings.Contains(err.Error(), "tree path invalid") {
+		t.Fatalf("mismatched portable Java runtime path accepted: %v", err)
+	}
+}
+
 func TestJavaRuntimeImageRejectsIncompleteEscapingAndNonregularTrees(t *testing.T) {
 	if _, err := javaRuntimeImageIdentity(fakeJavaRuntime(t, false)); err == nil {
 		t.Fatal("incomplete runtime image accepted")

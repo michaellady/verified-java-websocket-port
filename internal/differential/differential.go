@@ -1286,7 +1286,21 @@ func materializeConfiguredLaunch(cfg Config, suiteRoot string, inputs []Artifact
 	for _, input := range inputs {
 		inputByKind[input.Kind] = input
 	}
-	javaImage, err := materializeJavaRuntimeImage(filepath.Join(suiteRoot, "java-runtime-images"), cfg.JavaExecutable, inputByKind["java-runtime-image"])
+	javaImageIdentity := inputByKind["java-runtime-image"]
+	javaRoot, err := javaRuntimeRoot(cfg.JavaExecutable)
+	if err != nil {
+		return Config{}, err
+	}
+	if javaImageIdentity.Path != javaRoot {
+		relative, relativeErr := filepath.Rel(cfg.RepositoryRoot, javaRoot)
+		portable := filepath.ToSlash(relative)
+		if relativeErr != nil || !validPortablePath(portable) || javaImageIdentity.Path != portable {
+			return Config{}, errors.New("expected Java runtime tree path invalid")
+		}
+		javaImageIdentity.Path = javaRoot
+	}
+	javaImageIdentity.ReproductionCommand = nil
+	javaImage, err := materializeJavaRuntimeImage(filepath.Join(suiteRoot, "java-runtime-images"), cfg.JavaExecutable, javaImageIdentity)
 	if err != nil {
 		return Config{}, err
 	}
