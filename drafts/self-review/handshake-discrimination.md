@@ -212,6 +212,20 @@ differing rows, including on both new keys. The Java arm independently measures
 
 Nothing became a failure. There is no hard stop to report on this axis.
 
+Both arms' `reject_stage` distributions are identical and were produced
+independently — the port from `ws_core::handshake::RejectStage`, the Java arm
+from which draft-API call actually threw or returned:
+
+    translate 10   accept_predicate 9   response_build 1   absent 29
+
+`response_build` occurs exactly once, on us005.hs.0018, **and the real
+Java-WebSocket 1.6.0 library produced it**. That is the evidence that the stage
+is a fact about the shipped runtime and not an artefact of the Go model.
+
+`make -C rust gates`: **exit 0** (fmt-check, clippy, fixture-guard, test,
+test-release, ac1-gates 8/8, ledger-gates including the handshake mapping
+census, oracle-hierarchy-gates).
+
 ---
 
 ## 6. RED-first readings and deletion attacks
@@ -280,13 +294,48 @@ with it), never relaxed.
 - **Baseline failure not named in the handoff:** `internal/formalcoverage` and
   `cmd/formalcoverctl` fail on
   `websocket_driver::ConnectionOwner::poll/NEAREST_DECLARATION_IS_AT_THE_LINE_IT_CITES`
-  — a citation into `rust/ws-driver/src/lib.rs:756`. That file is **byte-identical
-  to mainline 4a2b9c6** (`git diff 4a2b9c6 HEAD -- rust/ws-driver` is empty) and
-  this branch never touched ws-driver, so the failure is pre-existing. The
-  handoff named `internal/lab`, `internal/portplan` and `internal/formalplan`;
-  this is a fourth.
+  — a citation into `rust/ws-driver/src/lib.rs:756`. Not argued: mainline 4a2b9c6
+  was materialised into a separate tree with `git archive` and the same two
+  packages were run there. **Both FAIL on clean mainline**; `internal/linkage`
+  and `internal/oraclerank` pass there (`-count=1`, no cache). The handoff named
+  `internal/lab`, `internal/portplan` and `internal/formalplan`; this is a
+  fourth and fifth.
+- `internal/formalplan`'s failures in this container are the `.quarantine`
+  regression surfacing directly:
+  `QUARANTINE_UNWRITABLE: mkdir ../../.quarantine: file exists`.
+
+## 7a. Records this change legitimately invalidated, and how each was refrozen
+
+Three digest bindings refused after the change. Each refusal was correct, each
+was regenerated through its own sanctioned path, and none was edited by hand:
+
+| record | what refused | path taken |
+|---|---|---|
+| `evidence/normalization-collisions/audit.json` | `normcollidectl verify` — the harness digest, after the binary was rebuilt | `normcollidectl write --harness …` |
+| `evidence/us005-handshake-live-mapping.json` | `TestHandshakeLiveMappingEvidenceDocument` — byte identity with `HandshakeVerdictMapping()` | `RenderHandshakeLiveMappingDocument`, its own render path |
+| `evidence/oracle-hierarchy/adjudication-register.json` | `oraclerankctl --check` — the register hashes the mapping's bytes | `oraclerankctl --root .`, which never reads the committed register |
+| `evidence/linkage/*.json` | `internal/linkage` — `ConnectionCore` digest stale, `evidence.linkage.live-handshake-mapping` digest stale | `LINKAGE_REGENERATE=1`, which asserts byte-idempotence |
+
+The linkage diff is digests and cited line numbers only (the `RejectStage` enum
+shifted declarations below it in `handshake.rs`); the register diff is one
+digest and one byte count, with 640 propositions / 589 agreements / 39
+overrides unchanged. Worth stating plainly: **four separate records noticed this
+change without being told to.** That is the binding working, not friction.
 
 ---
+
+## 7b. Final suite state
+
+`go test -timeout 40m ./...` with `VJWP_PROTECTED_STORE` set — exit **1**, and
+the failing packages are exactly the five proven-baseline ones:
+
+    internal/lab           internal/portplan      internal/formalplan   (named in the handoff)
+    internal/formalcoverage  cmd/formalcoverctl                          (proven baseline in §7)
+
+`internal/corpora`, `internal/normcollide`, `internal/deltaledger`,
+`internal/diffregress`, `internal/ac5class`, `internal/linkage`,
+`internal/oraclerank`, `cmd/corporactl` all pass. `cargo test` across the Rust
+workspace: 47 test binaries, 0 failures. `make -C rust gates`: exit 0.
 
 ## 8. Recorded by name: what was NOT done
 
@@ -298,8 +347,10 @@ with it), never relaxed.
   agrees with a fresh run.
 - Did **not** route around `normcollidectl`'s `--harness` requirement.
 - Did **not** touch the ledger, `internal/deltaledger`, or
-  `assurance/concurrency/results.json` — the full diff against mainline is 17
-  files and none of them is those.
+  `assurance/concurrency/results.json`. `deltaledgerctl --check` re-verified at
+  exit 0 with the ledger head digest unchanged
+  (`sha256:a44191d3c2db7850557e594e281e6a51badf2e913d9d3f0aa959fb973d84a56c`,
+  56 records).
 - Did **not** run AWS, benchmark, or Autobahn gates.
 - Did **not** add `direction`, the `HS_*` reject codes, Java exception messages,
   the parsed status of a rejected response, `incomplete` byte counts, or the
