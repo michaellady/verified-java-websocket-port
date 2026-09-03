@@ -132,8 +132,53 @@ func Findings(reg Register, families []Family) []Finding {
 		})
 	}
 
+	// F-6: rank pairs the census JOINS on a key derived from the higher
+	// rank's own verdict. The independence probe's group test does not catch
+	// these: the two ranks are read from different documents, so the probe
+	// scores the pair, but the lookup makes disagreement impossible. Every
+	// co-vote such a pair contributes is a property of the join.
+	for _, f := range families {
+		for _, jd := range f.JoinDegeneracy {
+			if !jd.Degenerate {
+				continue
+			}
+			cov, dis := familyCoVotes(reg, jd)
+			out = append(out, Finding{
+				ID:       fmt.Sprintf("ORACLE-RANK-JOIN-DEGENERATE-%d-%d", uint8(jd.Higher), uint8(jd.Lower)),
+				Severity: "DISCLOSURE",
+				Statement: fmt.Sprintf(
+					"%s The independence probe scores this pair in this family because the two ranks are read from different documents, and it reports %d co-votes and %d disagreements there. Those %d co-votes carry no information about whether %s is a separate oracle from %s: %d was the only number the join could produce.",
+					jd.Statement, cov, dis, cov, jd.Higher, jd.Lower, dis),
+				Basis: []string{
+					fmt.Sprintf("families[%s].join_degeneracy[0].disagreement_structurally_impossible = %v", jd.Family, jd.Degenerate),
+					fmt.Sprintf("families[%s].join_degeneracy[0].lower_rank_verdicts_reachable_from_each_higher_verdict = %v", jd.Family, jd.ReachableVerdicts),
+					fmt.Sprintf("independence_probe[%s vs %s].by_family[%s] = co_votes %d, disagreements %d", jd.Higher, jd.Lower, jd.Family, cov, dis),
+				},
+				OwnerActionRequired: fmt.Sprintf(
+					"read %s's rank-four opinions from a per-case observation of the pinned Java process rather than from a table keyed by rank three's own verdict, or state in this family's rank_sources that the pair is not comparable here.",
+					jd.Family),
+			})
+		}
+	}
+
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
+}
+
+// familyCoVotes reads the probe's own numbers for one pair inside one family,
+// so the finding restates the register rather than recounting the evidence.
+func familyCoVotes(reg Register, jd JoinDegeneracy) (coVotes, disagreements int) {
+	for _, p := range reg.IndependenceProbe {
+		if p.Higher != jd.Higher || p.Lower != jd.Lower {
+			continue
+		}
+		for _, fp := range p.ByFamily {
+			if fp.Family == jd.Family {
+				return fp.CoVotes, fp.Disagreements
+			}
+		}
+	}
+	return 0, 0
 }
 
 func familyBasis(p PairProbe) []string {

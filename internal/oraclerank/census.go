@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/divergencesweep"
+	"github.com/michaellady/verified-java-websocket-port/internal/rfcneutral"
 )
 
 // Committed artifacts this census reads. Every one is hashed into the emitted
@@ -103,6 +104,10 @@ type Family struct {
 	RankSources  []RankSource  `json:"rank_sources"`
 	Propositions []Proposition `json:"-"`
 	CrossChecks  []string      `json:"cross_checks"`
+	// JoinDegeneracy records, for the rank pairs whose opinions this family
+	// joins on a key, whether that key makes disagreement impossible. It is
+	// empty for a family that joins nothing. See joindegeneracy.go.
+	JoinDegeneracy []JoinDegeneracy `json:"join_degeneracy,omitempty"`
 }
 
 // Census reads every committed evidence set this package binds and returns the
@@ -492,10 +497,16 @@ func censusHandshake(root string) (Family, error) {
 		}
 	}
 
+	jd, err := handshakeJoinDegeneracy(mapping)
+	if err != nil {
+		return Family{}, err
+	}
+
 	f := Family{
-		ID:           FamilyHandshake,
-		Question:     "On this committed handshake case, does the endpoint accept the head, reject it, or treat it as incomplete?",
-		VerdictSpace: []string{"accept", "reject", "incomplete"},
+		ID:             FamilyHandshake,
+		Question:       "On this committed handshake case, does the endpoint accept the head, reject it, or treat it as incomplete?",
+		VerdictSpace:   []string{"accept", "reject", "incomplete"},
+		JoinDegeneracy: []JoinDegeneracy{jd},
 		RankSources: []RankSource{
 			{
 				Rank: RankRFC6455, RankName: RankRFC6455.String(), Strength: SourceRecordedReading,
@@ -507,7 +518,7 @@ func censusHandshake(root string) (Family, error) {
 				Rank: RankNeutralExpectation, RankName: RankNeutralExpectation.String(), Strength: SourceContent,
 				Paths:         []string{HandshakeCorpusPath},
 				ArtifactGroup: "handshake-corpus",
-				Note:          "The committed handshake corpus's own `expected.verdict`, whose `basis` cites RFC 6455, RFC 9110 and RFC 9112 clauses directly. This tier's expectations are NOT the Java-mirroring reference model that produces the public tier's; they disagree with the Java observable on a large fraction of cases, which the independence probe measures rather than assumes.",
+				Note:          "The committed handshake corpus's own `expected.verdict`, whose `basis` cites RFC 6455, RFC 9110 and RFC 9112 clauses directly. This tier's expectations are NOT the Java-mirroring reference model that produces the public tier's. An earlier version of this note claimed they disagree with the Java observable on a large fraction of cases; THAT CLAIM WAS FALSE and is corrected here rather than deleted. The probe measured zero disagreements, and join_degeneracy below shows why zero was the only number the census's own join could produce: rank four's opinion is looked up by a key computed from this rank's verdict.",
 			},
 			{
 				Rank: RankJavaObservation, RankName: RankJavaObservation.String(), Strength: SourceRecordedReading,
@@ -528,6 +539,7 @@ func censusHandshake(root string) (Family, error) {
 			fmt.Sprintf("every one of the %d handshake cases resolved to an outcome key present in %s; an unmapped key is an error", HandshakeCorpusSize, HandshakeLiveMappingPath),
 			"the mapping's rfc_verdict and java_observable were read as separate opinions and never reconciled by the census",
 			fmt.Sprintf("the %d outcome keys the mapping marks divergent are EXACTLY the %d whose java_observable it records as `conditional`, asserted in both directions; rank four abstains on all of them, so this family cannot exhibit a rank-one-overrides-rank-four adjudication at all", divergent, conditional),
+			jd.Statement,
 		},
 	}
 
@@ -728,6 +740,26 @@ func censusPublicState(root string) (Family, error) {
 		return Family{}, err
 	}
 
+	// Rank three is derived here, on this run, from the stated rules of RFC
+	// 6455 sections 5 and 7 applied to each scenario's own inbound octets.
+	// It is NOT the corpus's expected.final_state: that expectation is
+	// REFERENCE_MODEL_DERIVED under a model whose doc comment says its
+	// defaults mirror pinned Java-WebSocket 1.6.0, and rank four in this
+	// family is deduced from it, so reading rank three out of it made the
+	// two ranks the same oracle under two names. internal/rfcneutral's
+	// scenario struct has no expected field at all.
+	neutral, err := rfcneutral.Derive(root)
+	if err != nil {
+		return Family{}, fmt.Errorf("rank three neutral derivation: %w", err)
+	}
+	if len(neutral) != len(scenarios) {
+		return Family{}, fmt.Errorf("the neutral derivation decided %d scenarios and the corpus holds %d", len(neutral), len(scenarios))
+	}
+	neutralByID := make(map[string]rfcneutral.Decision, len(neutral))
+	for _, d := range neutral {
+		neutralByID[d.ScenarioID] = d
+	}
+
 	f := Family{
 		ID:           FamilyPublicState,
 		Question:     "After this public scenario runs, is the endpoint's ready state open or closed?",
@@ -740,16 +772,16 @@ func censusPublicState(root string) (Family, error) {
 				Note:          "The `rfc_strict_expectation` field of the committed RFC divergence census: a human reading of RFC 6455 sections 5.2, 7.1.7 and 7.4, recorded per scenario. Rank one abstains on scenarios the census does not enrol; the census's own `completeness` field states the class it is complete over.",
 			},
 			{
-				Rank: RankNeutralExpectation, RankName: RankNeutralExpectation.String(), Strength: SourceContent,
-				Paths:         []string{PublicCorpusPath},
-				ArtifactGroup: "public-corpus-expectation",
-				Note:          "The corpus's own `expected.final_state`. Every scenario records expectation_status REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION, and rank four in this family is deduced from that same expectation plus a clean-sweep aggregate, so ranks three and four here are NOT independently sourced and the independence probe declines to score that pair.",
+				Rank: RankNeutralExpectation, RankName: RankNeutralExpectation.String(), Strength: SourceRecordedReading,
+				Paths:         []string{PublicCorpusPath, NeutralRuleTablePath},
+				ArtifactGroup: "rfc6455-mechanical-derivation",
+				Note:          "DERIVED ON THIS RUN by internal/rfcneutral from the stated rules of RFC 6455 sections 5 and 7, applied by a frame decoder to each scenario's own inbound octets. It is NOT the corpus's expected.final_state, which is REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION under a model that mirrors pinned Java-WebSocket 1.6.0 and which rank four in this family is deduced from; reading rank three out of that expectation made ranks three and four one oracle under two names. The rule table is a RECORDED READING of the standard, hashed as an artifact of this rank, and claims no more binding than rank one has: the RFC text is not in this repository. The derivation abstains, naming the rule, wherever RFC 6455 does not decide -- a local application send, a harness limit the RFC does not state, a closing handshake whose CLOSING/CLOSED distinction belongs to the W3C API rather than to this protocol, and a declared non-open initial state.",
 			},
 			{
 				Rank: RankJavaObservation, RankName: RankJavaObservation.String(), Strength: SourceAggregateDerived,
 				Paths:         []string{PublicCorpusManifestPath, CandidatePublicProofPath, PublicCorpusPath},
 				ArtifactGroup: "public-corpus-expectation",
-				Note:          "No per-scenario Java transcript for the public tier is committed. The per-scenario Java observation is DEDUCED: both aggregates record 74 executed, 74 passed, 0 failed against the pristine java-oracle, and under a clean sweep every scenario's observed final_state equals its recorded expectation. The census refuses this deduction when either aggregate is short of a clean sweep.",
+				Note:          "No per-scenario Java transcript for the public tier is committed. The per-scenario Java observation is DEDUCED: both aggregates record 74 executed, 74 passed, 0 failed against the pristine java-oracle, and under a clean sweep every scenario's observed final_state equals its recorded expectation. The census refuses this deduction when either aggregate is short of a clean sweep. That expectation is the reference model's, which is why rank three is no longer read from it.",
 			},
 			{
 				Rank: RankRustObservation, RankName: RankRustObservation.String(), Strength: SourceContent,
@@ -768,6 +800,8 @@ func censusPublicState(root string) (Family, error) {
 			fmt.Sprintf("%s records the Rust arm at %d/%d with exit_code 0", RustPublicBaselinePath, PublicCorpusSize, PublicCorpusSize),
 			fmt.Sprintf("every scenario id in %s resolves to exactly one record in %s", PublicCorpusPath, RustPublicTranscriptPath),
 			fmt.Sprintf("every scenario enrolled by %s carries a recorded_observable equal to the corpus expectation it cites", RFCDivergenceCensusPath),
+			neutralDerivationCrossCheck(neutral),
+			neutralAgainstRank1CrossCheck(neutral, entries),
 		},
 	}
 
@@ -803,17 +837,31 @@ func censusPublicState(root string) (Family, error) {
 			rfcOpinion.AbstainReason = "not enrolled by the committed RFC divergence census; no committed reading states an RFC-strict ready state for this scenario"
 		}
 
+		d, decided := neutralByID[s.ScenarioID]
+		if !decided {
+			return Family{}, fmt.Errorf("scenario %s: the neutral derivation returned no decision", s.ScenarioID)
+		}
+		neutralOpinion := Opinion{
+			Rank:   RankNeutralExpectation,
+			Source: fmt.Sprintf("internal/rfcneutral applied to %s#<%s>/steps under rule %s", PublicCorpusPath, s.ScenarioID, d.RuleID),
+		}
+		switch {
+		case d.Abstains:
+			neutralOpinion.Abstains = true
+			neutralOpinion.AbstainReason = fmt.Sprintf("%s: %s", d.RuleID, d.Detail)
+		case isReadyState(d.Verdict):
+			neutralOpinion.Verdict = d.Verdict
+		default:
+			return Family{}, fmt.Errorf("scenario %s: the neutral derivation returned verdict %q, which is outside the verdict space", s.ScenarioID, d.Verdict)
+		}
+
 		f.Propositions = append(f.Propositions, Proposition{
 			ID:       fmt.Sprintf("%s/%s", FamilyPublicState, s.ScenarioID),
 			Family:   FamilyPublicState,
 			Question: fmt.Sprintf("Public scenario %s (family %s): open or closed after the run?", s.ScenarioID, s.Family),
 			Opinions: []Opinion{
 				rfcOpinion,
-				{
-					Rank:    RankNeutralExpectation,
-					Verdict: s.Expected.FinalState,
-					Source:  fmt.Sprintf("%s#<%s>/expected/final_state", PublicCorpusPath, s.ScenarioID),
-				},
+				neutralOpinion,
 				{
 					Rank:    RankJavaObservation,
 					Verdict: s.Expected.FinalState,
