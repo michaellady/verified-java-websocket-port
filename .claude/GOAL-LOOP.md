@@ -141,6 +141,22 @@ record exactly which owner or independent step remains.
    Gates green is a necessary condition, never a sufficient one. Run BOTH, as
    step 4 already says, and read them separately.
 
+   **A `git worktree` DOES NOT GET `.quarantine/`, AND THAT HAS NOW MIS-LED TWO
+   AGENTS INTO REPORTING A THIRD ENVIRONMENTAL FAILURE.** `.quarantine/` is
+   gitignored, so it exists only in the checkout that populated it. In a fresh
+   worktree `internal/formalplan` and `internal/portplan` fail citing the
+   archive as `HTTP 403` — which reads exactly like the proxy refusal, and is
+   not it. The fix is one command, not a baseline entry:
+
+   ```
+   ln -s /home/user/verified-java-websocket-port/.quarantine <worktree>/.quarantine
+   ```
+
+   With it, `internal/formalplan` passes (measured, 391-409s, so use
+   `-timeout 40m`) and `portplan` fails only for its declared `jdk_vendor`
+   reason. Before adding any package to the environment-failure list, check
+   whether the tree you are in was ever staged.
+
    **BEFORE CHANGING ANY FILE THAT SOMETHING PINS, ASK WHO PINS IT:**
 
    ```

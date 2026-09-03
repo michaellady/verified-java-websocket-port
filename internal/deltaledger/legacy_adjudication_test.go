@@ -241,18 +241,31 @@ func TestVerifyLegacyAdjudicationsRefusesEachWayAnEntryCanFailToBind(t *testing.
 			expect: "the RFC does not determine this observable",
 		},
 		{
+			// This case USED to lean on sequence 19 being the tree's last
+			// unresolved entry. It was settled once its blocking question was
+			// executed, and the mutation silently became a no-op the gate had no
+			// reason to refuse — a rule left untested by a change nowhere near it.
+			// The fixture is now built here rather than borrowed from the tree.
 			name: "an unresolved entry states no blocking question",
 			mutate: func(file *LegacyAdjudicationsFile) {
 				index := indexOfSequence(file, 19)
+				file.Adjudications[index].Examination = ExaminationDoesNotSettle
+				file.Adjudications[index].MismatchClass = ""
 				file.Adjudications[index].BlockingQuestion = "dunno"
+				file.RecordsWithoutAC3Class = 1
 			},
 			expect: "says what WOULD",
 		},
 		{
+			// Same story: 19 now carries a class AND states the evidence settles
+			// it, so setting the class was a no-op. Set the OTHER half of the
+			// contradiction so the entry states both at once, whatever the tree
+			// happens to hold.
 			name: "an entry claims both a class and that the evidence does not settle it",
 			mutate: func(file *LegacyAdjudicationsFile) {
 				index := indexOfSequence(file, 19)
 				file.Adjudications[index].MismatchClass = lab.MismatchJavaQuirk
+				file.Adjudications[index].Examination = ExaminationDoesNotSettle
 			},
 			expect: "Either the evidence settles it or it does not",
 		},
@@ -360,8 +373,17 @@ func TestVerifyLegacyAdjudicationsRefusesEachWayAnEntryCanFailToBind(t *testing.
 			expect: "does not exist",
 		},
 		{
+			// The published residual is now genuinely 0, so publishing 0 states
+			// the truth and the gate rightly accepts it. To attack the rule, the
+			// chain must actually carry an unclassed record while the document
+			// still publishes 0.
 			name: "the published residual understates the chain",
 			mutate: func(file *LegacyAdjudicationsFile) {
+				index := indexOfSequence(file, 19)
+				file.Adjudications[index].Examination = ExaminationDoesNotSettle
+				file.Adjudications[index].MismatchClass = ""
+				file.Adjudications[index].BlockingQuestion =
+					file.Adjudications[indexOfSequence(file, 19)].Argument
 				file.RecordsWithoutAC3Class = 0
 			},
 			expect: "state no AC3 mismatch class in either their own field or a sealed adjudication",
