@@ -66,3 +66,4 @@ java-semantic-oracle/build/
 /securityctl
 /stressrepeatctl
 /tlcdriver
+.sweep/
