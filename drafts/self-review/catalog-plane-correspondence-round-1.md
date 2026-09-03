@@ -42,6 +42,12 @@ plausible cause accepted without reading the process. I read the diff.
 The failures are now fixed by regenerating the retained artifacts, which the
 same commit had to do anyway for the reason-code rename. Both packages pass.
 
+Filed as `findings/F007-a-failing-test-explained-by-the-nearest-story.md`. The
+refutation was inside the same test run: the reconciliation test — the only one
+that reads that pin — passed while the report test failed. A story that names an
+artifact is refuted when the test reading that artifact is not among the
+failures, and nobody looked.
+
 ---
 
 ## 1. The correspondence, crate by crate
@@ -328,7 +334,8 @@ codes — had no semantic guard, so
 `TestTheRustReasonCodesNameThePlaneTheyAreTrueOf` and
 `TestThePlaneBlockAppearsBesideTheSymptomsNotInsteadOfThem` were added.
 
-**Final: 44 of 44 mutations die, 0 survivors.**
+**Final: 44 of 44 mutations die, 0 survivors.** `plane_test.go` carries 50
+tests; 23 of them exist only because a check survived deletion.
 
 ### The counterpart reading
 
