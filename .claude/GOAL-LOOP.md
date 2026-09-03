@@ -131,15 +131,32 @@ record exactly which owner or independent step remains.
    plus a US-006 refreeze). If a third package fails, it is a defect until
    proven otherwise — do not add it here to make the run read clean.
 
-   **`make -C rust gates` DOES NOT COVER THE GO SUITE, AND READING ONE AS THE
-   OTHER PUSHED A RED TREE TODAY.** The `gates` chain runs `ledger-gates`,
-   `oracle-hierarchy-gates`, `record-guard` and `fixture-guard` — it does NOT
-   run `internal/linkage`, `internal/formalplan`, `internal/formalcoverage`,
-   `internal/portplan` or most other Go packages. I landed a commit with
-   `make -C rust gates` exit 0 while `go test ./internal/linkage/` was exit 1
-   ("evidence evidence.linkage.proof-targets digest is stale") and pushed it.
-   Gates green is a necessary condition, never a sufficient one. Run BOTH, as
-   step 4 already says, and read them separately.
+   **`make -C rust gates` NOW COVERS THE GO SUITE, AS OF THE `go-suite` TARGET.**
+   It did not before, and that cost real damage on 2026-09-03: I landed a commit
+   with gates exit 0 while `go test ./internal/linkage/` was exit 1, and
+   separately the chain stayed green all day while `internal/deltaledger` had
+   three subtests failing — TWO OF THEM THE GOVERNANCE GATE ACCEPTING A DOCUMENT
+   IT EXISTS TO REFUSE. Both were found by running the Go suite by hand, which
+   should never have been the only way.
+
+   `cmd/gosuitectl` runs everything `go list ./...` reports EXCEPT a named list
+   carrying a reason per entry (`internal/lab`, Darwin `sandbox-exec`;
+   `internal/portplan`, the `jdk_vendor` decision). The run set is the
+   COMPLEMENT of the exclusions, so a package added tomorrow is covered without
+   anyone remembering; a STALE exclusion — one naming a package that no longer
+   exists — FAILS the gate, so the list cannot outlive the problem it describes;
+   and each reason must clear an 80-byte floor and name the owner action that
+   would lift it, so the list is not somewhere to park a failure.
+
+   It REFUSES with exit 2, not a skip, when `.quarantine/` is unstaged, printing
+   the `ln -s` that fixes it — the same shape as `ledger-gates` refusing without
+   `VJWP_PROTECTED_STORE`, and for the same reason: an unstaged tree cannot tell
+   a blocked package from a broken one.
+
+   The chain is now several minutes longer, because `internal/formalplan` alone
+   runs 390-409s. That is the price of the chain meaning what everyone reads it
+   to mean. Still run `go build ./... && go test -count=1 ./...` as step 4 says —
+   it is the one thing that also exercises the two excluded packages.
 
    **A `git worktree` DOES NOT GET `.quarantine/`, AND THAT HAS NOW MIS-LED TWO
    AGENTS INTO REPORTING A THIRD ENVIRONMENTAL FAILURE.** `.quarantine/` is

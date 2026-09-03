@@ -4,9 +4,9 @@
 # The root Makefile is intentionally untouched; wiring these targets into the
 # root build is a follow-up owned by the pipeline stories.
 
-.PHONY: gates fmt-check clippy fixture-guard record-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
+.PHONY: gates fmt-check clippy fixture-guard record-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
-gates: fmt-check clippy fixture-guard record-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
+gates: fmt-check clippy fixture-guard record-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
 fmt-check:
 	cargo fmt --all -- --check
@@ -81,6 +81,24 @@ fixture-guard:
 #     records extracted verbatim from git — the div05 stub at blob 359940cd
 #     among them — printing what fired and the sentence it was read from, and
 #     refusing to PASS if it read no records at all.
+# The Go suite, as a gate, with its exclusions DECLARED.
+#
+# This chain exited 0 all of 2026-09-03 while internal/deltaledger was failing
+# three subtests -- two of them the governance gate ACCEPTING a document it
+# exists to refuse -- because the chain simply did not run the Go packages, and
+# "gates green" was read as "the tree is good". Repeatedly, by the loop itself.
+#
+# gosuitectl runs everything `go list ./...` reports EXCEPT a named list with a
+# reason per entry, and it FAILS on a stale exclusion, so the list cannot outlive
+# the problem it describes and a package added tomorrow is covered without anyone
+# remembering. It REFUSES (exit 2) when `.quarantine/` is not staged, naming the
+# `ln -s` that fixes it -- the same shape as ledger-gates refusing without
+# VJWP_PROTECTED_STORE, and for the same reason: an unstaged tree cannot tell a
+# blocked package from a broken one.
+go-suite:
+	cd .. && go test -count=1 ./cmd/gosuitectl/
+	cd .. && go run ./cmd/gosuitectl -root . -timeout 40m
+
 record-guard:
 	cd .. && go test ./cmd/recordguardctl/
 	cd .. && go run ./cmd/recordguardctl gate -root .
