@@ -18,6 +18,10 @@ const RegisterPath = "evidence/oracle-hierarchy/adjudication-register.json"
 const (
 	RegisterSchemaVersion = "1.0.0"
 	RegisterEntityType    = "OracleHierarchyAdjudicationRegister"
+	// RegisterSchemaPointer is the $schema value the document carries,
+	// relative to the document itself, matching the convention of every
+	// other evidence document in this tree.
+	RegisterSchemaPointer = "../../schemas/oracle-hierarchy-adjudication-register-1.0.0.schema.json"
 )
 
 // FamilyReport is one family as the register records it.
@@ -47,6 +51,10 @@ type OverrideEntry struct {
 
 // Register is the committed artifact.
 type Register struct {
+	// Schema points at the committed JSON Schema this document is validated
+	// against on every run of cmd/oraclerankctl, in the same repository-
+	// relative form every other evidence document in this tree uses.
+	Schema        string `json:"$schema"`
 	SchemaVersion string `json:"schema_version"`
 	EntityType    string `json:"entity_type"`
 	Statement     string `json:"statement"`
@@ -98,6 +106,7 @@ func Recompute(root string) (Register, []Family, error) {
 	}
 
 	reg := Register{
+		Schema:        RegisterSchemaPointer,
 		SchemaVersion: RegisterSchemaVersion,
 		EntityType:    RegisterEntityType,
 		Statement: "US-020 AC2 says RFC 6455 is rank one, in-scope Autobahn is rank two, independent neutral expectations are rank three, Java observation is rank four and Rust observation is rank five, and that agreement between Java and Rust cannot override a higher oracle. " +

@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "$schema",
     "schema_version",
     "entity_type",
     "statement",
@@ -19,6 +20,7 @@
     "java_rust_agreements_overridden_by_a_higher_oracle"
   ],
   "properties": {
+    "$schema": { "const": "../../schemas/oracle-hierarchy-adjudication-register-1.0.0.schema.json" },
     "schema_version": { "const": "1.0.0" },
     "entity_type": { "const": "OracleHierarchyAdjudicationRegister" },
     "statement": { "type": "string", "minLength": 1, "maxLength": 16384 },

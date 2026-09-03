@@ -1,4 +1,5 @@
 {
+  "$schema": "../../schemas/oracle-hierarchy-adjudication-register-1.0.0.schema.json",
   "schema_version": "1.0.0",
   "entity_type": "OracleHierarchyAdjudicationRegister",
   "statement": "US-020 AC2 says RFC 6455 is rank one, in-scope Autobahn is rank two, independent neutral expectations are rank three, Java observation is rank four and Rust observation is rank five, and that agreement between Java and Rust cannot override a higher oracle. Until this register that sentence had no mechanism anywhere in this tree: one prose string in internal/deltaledger/definitions_gap_closure.go, no type, no field and no check. internal/oraclerank is the mechanism. This document is what it computes from committed evidence, and cmd/oraclerankctl --check recomputes it and refuses any difference, so it is a gate rather than a document. The register is exact in both directions over its override list: an overridden agreement the evidence exhibits and this list omits fails, and an entry this list carries that the evidence does not exhibit fails.",
@@ -65,8 +66,8 @@
         },
         {
           "path": "internal/rfcneutral/rules.go",
-          "sha256": "sha256:342360a853139e9e0d05b979c3a3596d7e3e8ba97c22265cdea4a48a796fcd8f",
-          "bytes": 11498
+          "sha256": "sha256:7b60092996962a454d73d79de5d0829c93e6ad4797cee9c51d4eb2624b77838f",
+          "bytes": 11929
         }
       ],
       "not_bound_to": "the RFC 6455 text, on the public tier -- exactly as rank one is not. evidence/intake/source-pins.json pins https://www.rfc-editor.org/rfc/rfc6455.txt at sha256:765775326aee0ecca9b04bde3fd1f52932d498e33e34e428bd61b8a24da0fa3b (162067 bytes) and no file in this repository carries those bytes, so every rule in internal/rfcneutral/rules.go is a RECORDED READING written by hand and a misreading of a clause would pass this gate unchanged. This rank claims no more binding than rank one has. What it does claim is narrower and checkable: the rules are stated once and applied uniformly by a decoder to the scenario's own octets, and no Java artifact and no reference-model output is read on the way. On the handshake tier this rank is bound to a committed corpus expectation and NOT to any independent execution of it.",

@@ -131,7 +131,7 @@ var rules = []Rule{
 	{
 		ID:      RuleCloseCodeInvalid,
 		Clauses: []string{"rfc6455#section-7.4", "rfc6455#section-7.4.1", "rfc6455#section-7.4.2", "rfc6455#section-7.1.7"},
-		Quote:   "Status codes in the range 0-999 are not used. 1000-2999 are reserved for definition by this protocol, and this protocol defines 1000-1011. 1005, 1006 and 1015 are designated for use in applications and MUST NOT be set as a status code in a Close control frame. 3000-3999 and 4000-4999 are available to libraries and to private use.",
+		Quote:   "Status codes in the range 0-999 are not used. 1000-2999 are reserved for definition by this protocol. Section 7.4.1 defines 1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010 and 1011; it lists 1004 as Reserved, its specific meaning possibly to be defined in the future, and designates 1005, 1006 and 1015 for use in applications, which MUST NOT be set as a status code in a Close control frame. 1012-2999 are reserved for this protocol and this protocol does not define them. 3000-3999 and 4000-4999 are available to libraries and to private use. This rule therefore admits 1000-1003, 1007-1011 and 3000-4999 on the wire and no other code -- 1004 among the refused, because a code the protocol has not defined is not a code the protocol permits an endpoint to send.",
 		Effect:  VerdictClosed,
 	},
 	{
