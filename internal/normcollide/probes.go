@@ -116,6 +116,12 @@ func (s Seed) Line() (string, error) {
 type Probe struct {
 	// ID is the stable probe identifier.
 	ID string `json:"id"`
+	// Expect is the verdict the catalog CLAIMS this probe has. It is
+	// declared here and compared against the run by CheckExpectation, so a
+	// probe that stops behaving as catalogued is a loud failure rather
+	// than a silently reclassified entry. Probes() members declare
+	// CONFIRMED; Refutations() members declare REFUTED.
+	Expect Verdict `json:"expected_verdict"`
 	// Projection names the surface entry the probe exercises.
 	Projection string `json:"projection"`
 	// Erases states, in one sentence, what distinction is destroyed.
@@ -147,6 +153,13 @@ type Probe struct {
 	// decision then requires the two seeds' own request lines to differ,
 	// which proves the inputs are distinct octet sequences.
 	WireWitness string `json:"wire_witness,omitempty"`
+	// RequiredPaths belongs to a REFUTED-expecting probe and names the
+	// comparator paths that MUST have moved for the refutation to count. A
+	// refutation whose pair moved on something unrelated has decided
+	// nothing, and CheckExpectation refuses it. A CONFIRMED-expecting probe
+	// must leave this empty: it cannot both erase a distinction and be
+	// required to move on it.
+	RequiredPaths []string `json:"required_diff_paths,omitempty"`
 }
 
 func textStep(text string) map[string]any {
@@ -219,6 +232,7 @@ func Probes() []Probe {
 	return []Probe{
 		{
 			ID:         "NC-01",
+			Expect:     Confirmed,
 			Projection: "behaviour.failure",
 			Erases: "Any difference in what the connection actually did before it failed: " +
 				"a differing outbound payload, a differing frame, a differing transition, " +
@@ -239,6 +253,7 @@ func Probes() []Probe {
 		},
 		{
 			ID:         "NC-02",
+			Expect:     Confirmed,
 			Projection: "behaviour.output_limit",
 			Erases: "EVERYTHING the request produced, plus the responder's own identity. " +
 				"Two behaviours that differ in final_state, in close, in transitions and in " +
@@ -258,6 +273,7 @@ func Probes() []Probe {
 		},
 		{
 			ID:         "NC-03",
+			Expect:     Confirmed,
 			Projection: "behaviour.ok",
 			Erases:     "The four-octet frame mask key of every inbound frame.",
 			Mechanism: "FrameRecord has no mask-key member at all (observe.rs: \"Client mask keys " +
@@ -276,6 +292,7 @@ func Probes() []Probe {
 		},
 		{
 			ID:         "NC-04",
+			Expect:     Confirmed,
 			Projection: "behaviour.failure",
 			Erases: "The FIN bit of a rejected frame. This probe is NOT synthesized: its two " +
 				"seeds are the shipped steps of us005.pub.0039 and us005.pub.0066, two of the " +
@@ -299,6 +316,7 @@ func Probes() []Probe {
 		},
 		{
 			ID:         "NC-07",
+			Expect:     Confirmed,
 			Projection: "handshake.judged",
 			Erases: "The entire HTTP request head apart from the key: path, Host, and — the " +
 				"part that matters most — Sec-WebSocket-Protocol and Sec-WebSocket-Extensions. " +
@@ -321,6 +339,7 @@ func Probes() []Probe {
 		},
 		{
 			ID:         "NC-08",
+			Expect:     Confirmed,
 			Projection: "handshake.judged",
 			Erases: "Everything about an incomplete handshake: how many octets arrived, which " +
 				"headers had been seen, where the parser stopped.",
@@ -341,6 +360,7 @@ func Probes() []Probe {
 		},
 		{
 			ID:         "NC-09",
+			Expect:     Confirmed,
 			Projection: "handshake.judged",
 			Erases: "Every distinction between two rejected handshakes that take the same " +
 				"draft-API channel — including the Sec-WebSocket-Key, which is never echoed on " +
@@ -383,6 +403,20 @@ type Candidate struct {
 // Candidates is the undecided list. It is part of the deliverable: an
 // enumeration that hid its own loose ends would be worth less than one that
 // names them.
+//
+// It held five entries in the first pass. Three of them — CAND-UTF8,
+// CAND-WIREBYTES and CAND-CHUNKING — have since been DECIDED by running them,
+// and have moved to DecidedCandidates() carrying the reason they were open
+// plus the evidence that closed them. They were not deleted and they were not
+// reasoned shut.
+//
+// The two that remain are structurally undecidable IN THIS PACKAGE, and stay
+// here for that reason rather than for lack of effort: CAND-TRANSPORT needs a
+// real peer socket, which no oracle-protocol step feeds or observes, and
+// CAND-CROSSARRAY needs a MUTATED harness, because the shipped one generates
+// all three arrays from one pass and so cannot be made to emit them in a
+// different relative order. Manufacturing a decision for either would be
+// exactly the move this catalogue exists to refuse.
 func Candidates() []Candidate {
 	return []Candidate{
 		{
@@ -405,34 +439,6 @@ func Candidates() []Candidate {
 				"package can write makes the port emit them in a different relative order — " +
 				"seeding it needs a MUTATED harness, which is cmd/mutctl's instrument, not this " +
 				"one. Reasoned, not run.",
-			Status: "HYPOTHESIS",
-		},
-		{
-			ID: "CAND-UTF8",
-			Distinction: "Two different inbound octet sequences that decode to the same text, " +
-				"since the `text` event records the decoded String and utf8_bytes = len(String), " +
-				"never the received octets.",
-			Why: "Not run. Whether such a pair EXISTS depends on whether ws_core replaces " +
-				"malformed UTF-8 with U+FFFD or rejects the frame; if it rejects, there is no " +
-				"pair and the candidate is empty. Deciding it needs a seed per malformed-input " +
-				"class, which this pass did not build.",
-			Status: "HYPOTHESIS",
-		},
-		{
-			ID: "CAND-WIREBYTES",
-			Distinction: "Non-minimal frame length encoding: a short payload sent under the " +
-				"126 extended-length form.",
-			Why: "Not run. frames[].wire_bytes is a total, so a non-minimal encoding changes it " +
-				"and the distinction MAY be represented — which would make this a REFUTED " +
-				"candidate rather than a collision. Untested either way.",
-			Status: "HYPOTHESIS",
-		},
-		{
-			ID:          "CAND-CHUNKING",
-			Distinction: "How input octets were split across steps.",
-			Why: "Reasoned to be REPRESENTED (input_chunk events carry a per-step bytes count, " +
-				"so a 1+1 split and a 2 split differ in the events array) but not run. Listed " +
-				"because a reasoned negative is still not a measured one.",
 			Status: "HYPOTHESIS",
 		},
 	}
