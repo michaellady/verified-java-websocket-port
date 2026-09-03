@@ -18,38 +18,45 @@ import (
 // Host, missing Upgrade, non-base64 key, duplicated key, bare LF) plus
 // synthetic reject/incomplete/client-direction probes; the committed corpus
 // itself has not been executed against the jar yet.
+//
+// stage is the draft-API call that decides a rejection, derived from the same
+// source reading and held here INDEPENDENTLY of the model under test: the
+// test compares this hand-derived column against what
+// ExpectedJavaHandshakeObservable computes, so agreement is a check rather
+// than a tautology. Empty for families that do not reject.
 var familyJavaResolution = map[string]struct {
 	observable string
 	channel    string
+	stage      string
 	divergent  bool
 }{
-	"valid-client-request":          {JavaObservableAccept, "", false},
-	"valid-client-case-insensitive": {JavaObservableAccept, "", false},
-	"valid-server-response":         {JavaObservableAccept, "", false},
-	"method-not-get":                {JavaObservableReject, JavaRejectInvalidHandshake, false},
-	"http-version":                  {JavaObservableReject, JavaRejectInvalidHandshake, false},
-	"missing-host":                  {JavaObservableAccept, "", true},
-	"missing-upgrade":               {JavaObservableAccept, "", true},
-	"upgrade-value":                 {JavaObservableAccept, "", true},
-	"missing-connection":            {JavaObservableAccept, "", true},
-	"connection-value":              {JavaObservableAccept, "", true},
-	"missing-key":                   {JavaObservableReject, JavaRejectInvalidHandshake, false},
-	"key-not-base64":                {JavaObservableAccept, "", true},
-	"key-wrong-length":              {JavaObservableAccept, "", true},
-	"missing-version":               {JavaObservableReject, JavaRejectNotMatched, false},
-	"version-unsupported":           {JavaObservableReject, JavaRejectNotMatched, false},
-	"header-name-not-token":         {JavaObservableAccept, "", true},
-	"malformed-request-line":        {JavaObservableReject, JavaRejectInvalidHandshake, false},
-	"obs-fold":                      {JavaObservableReject, JavaRejectInvalidHandshake, false},
-	"bare-lf":                       {JavaObservableAccept, "", true},
-	"status-not-101":                {JavaObservableReject, JavaRejectInvalidHandshake, false},
-	"missing-accept":                {JavaObservableReject, JavaRejectNotMatched, false},
-	"accept-mismatch":               {JavaObservableReject, JavaRejectNotMatched, false},
-	"response-missing-upgrade":      {JavaObservableReject, JavaRejectNotMatched, false},
-	"partial-input":                 {JavaObservableIncomplete, "", false},
-	"limit-total-bytes":             {JavaObservableAccept, "", true},
-	"limit-header-count":            {JavaObservableAccept, "", true},
-	"limit-header-line":             {JavaObservableAccept, "", true},
+	"valid-client-request":          {JavaObservableAccept, "", "", false},
+	"valid-client-case-insensitive": {JavaObservableAccept, "", "", false},
+	"valid-server-response":         {JavaObservableAccept, "", "", false},
+	"method-not-get":                {JavaObservableReject, JavaRejectInvalidHandshake, JavaStageTranslate, false},
+	"http-version":                  {JavaObservableReject, JavaRejectInvalidHandshake, JavaStageTranslate, false},
+	"missing-host":                  {JavaObservableAccept, "", "", true},
+	"missing-upgrade":               {JavaObservableAccept, "", "", true},
+	"upgrade-value":                 {JavaObservableAccept, "", "", true},
+	"missing-connection":            {JavaObservableAccept, "", "", true},
+	"connection-value":              {JavaObservableAccept, "", "", true},
+	"missing-key":                   {JavaObservableReject, JavaRejectInvalidHandshake, JavaStageResponseBuild, false},
+	"key-not-base64":                {JavaObservableAccept, "", "", true},
+	"key-wrong-length":              {JavaObservableAccept, "", "", true},
+	"missing-version":               {JavaObservableReject, JavaRejectNotMatched, JavaStageAcceptPredicate, false},
+	"version-unsupported":           {JavaObservableReject, JavaRejectNotMatched, JavaStageAcceptPredicate, false},
+	"header-name-not-token":         {JavaObservableAccept, "", "", true},
+	"malformed-request-line":        {JavaObservableReject, JavaRejectInvalidHandshake, JavaStageTranslate, false},
+	"obs-fold":                      {JavaObservableReject, JavaRejectInvalidHandshake, JavaStageTranslate, false},
+	"bare-lf":                       {JavaObservableAccept, "", "", true},
+	"status-not-101":                {JavaObservableReject, JavaRejectInvalidHandshake, JavaStageTranslate, false},
+	"missing-accept":                {JavaObservableReject, JavaRejectNotMatched, JavaStageAcceptPredicate, false},
+	"accept-mismatch":               {JavaObservableReject, JavaRejectNotMatched, JavaStageAcceptPredicate, false},
+	"response-missing-upgrade":      {JavaObservableReject, JavaRejectNotMatched, JavaStageAcceptPredicate, false},
+	"partial-input":                 {JavaObservableIncomplete, "", "", false},
+	"limit-total-bytes":             {JavaObservableAccept, "", "", true},
+	"limit-header-count":            {JavaObservableAccept, "", "", true},
+	"limit-header-line":             {JavaObservableAccept, "", "", true},
 }
 
 func generatedHandshake(t *testing.T) []HandshakeCase {
@@ -144,9 +151,37 @@ func TestExpectedJavaHandshakeObservableAgainstCorpus(t *testing.T) {
 			got.SecWebSocketAccept == "" {
 			t.Fatalf("%s: client-request accept lacks the Java accept value", c.CaseID)
 		}
-		if c.Direction == "server_response" && got.SecWebSocketAccept != "" {
-			t.Fatalf("%s: server-response observable must not carry an accept value",
-				c.CaseID)
+		// A client-side ACCEPT carries the value the client MATCHED: the
+		// derivation acceptHandshakeAsClient runs over the recorded key
+		// (Draft_6455.java:318-325). A client-side REJECT carries none —
+		// nothing was matched.
+		if c.Direction == "server_response" {
+			if got.Observable == JavaObservableAccept {
+				derived := ComputeAccept(javaTrim(c.Context.ClientKey))
+				if got.SecWebSocketAccept != derived {
+					t.Fatalf("%s: server-response accept value %q, want the client's own "+
+						"derivation %q", c.CaseID, got.SecWebSocketAccept, derived)
+				}
+			} else if got.SecWebSocketAccept != "" {
+				t.Fatalf("%s: a non-accepting server-response observable must carry no "+
+					"accept value, got %q", c.CaseID, got.SecWebSocketAccept)
+			}
+		}
+		// Every rejection names the draft-API call that decided it.
+		if got.Observable == JavaObservableReject {
+			switch got.RejectStage {
+			case JavaStageTranslate, JavaStageAcceptPredicate, JavaStageResponseBuild:
+			default:
+				t.Fatalf("%s (%s): rejection carries no draft-API stage (got %q)",
+					c.CaseID, family, got.RejectStage)
+			}
+			if want.stage != "" && got.RejectStage != want.stage {
+				t.Fatalf("%s (%s): reject_stage %q, want %q",
+					c.CaseID, family, got.RejectStage, want.stage)
+			}
+		} else if got.RejectStage != "" {
+			t.Fatalf("%s (%s): non-rejection carries reject_stage %q",
+				c.CaseID, family, got.RejectStage)
 		}
 	}
 	// duplicate-header splits on which header is duplicated: a duplicated
@@ -388,6 +423,76 @@ func TestEvaluateHandshakeLiveTranscriptFailsClosed(t *testing.T) {
 		t.Fatalf("drifted accept value must fail: %+v", report.TranscriptReport)
 	}
 
+	// A drifted reject stage fails. The seed slice above is all accepts, so
+	// this one runs over the reject families.
+	rejects := generatedHandshake(t)[9:13] // method-not-get, http-version
+	rejectTranscript := string(liveTranscript(t, rejects))
+	if !strings.Contains(rejectTranscript, `"reject_stage":"translate"`) {
+		t.Fatalf("fixture must carry a translate-stage rejection: %s", rejectTranscript)
+	}
+	for _, drift := range []string{"accept_predicate", "response_build", ""} {
+		drifted := strings.Replace(rejectTranscript, `"reject_stage":"translate"`,
+			`"reject_stage":"`+drift+`"`, 1)
+		report, err := EvaluateHandshakeLiveTranscript(rejects, []byte(drifted))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if report.Failed == 0 {
+			t.Fatalf("reject_stage drifted to %q must fail: %+v",
+				drift, report.TranscriptReport)
+		}
+	}
+	// An ABSENT reject stage fails too: the check is fail-closed, not
+	// "compare it when it happens to be there".
+	stripped := strings.Replace(rejectTranscript, `"reject_stage":"translate",`, "", 1)
+	report, err = EvaluateHandshakeLiveTranscript(rejects, []byte(stripped))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Failed == 0 {
+		t.Fatalf("absent reject_stage must fail: %+v", report.TranscriptReport)
+	}
+
+	// A client-side accept that reports NO accept value fails: the client
+	// derives one on every acceptance and matching it is the whole predicate.
+	clientAccepts := generatedHandshake(t)[6:9] // valid-server-response
+	clientTranscript := string(liveTranscript(t, clientAccepts))
+	if !strings.Contains(clientTranscript, `"sec_websocket_accept"`) {
+		t.Fatalf("client-side accept fixture must carry an accept value: %s",
+			clientTranscript)
+	}
+	first := strings.SplitN(clientTranscript, "\n", 2)
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(first[0]), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	delete(decoded, "sec_websocket_accept")
+	reencoded, err := CanonicalJSON(decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err = EvaluateHandshakeLiveTranscript(clientAccepts,
+		append(append([]byte{}, reencoded...), append([]byte("\n"), first[1]...)...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Failed == 0 {
+		t.Fatalf("client-side accept without an accept value must fail: %+v",
+			report.TranscriptReport)
+	}
+	// And a client-side accept whose value is not the client's own derivation
+	// fails: a port that echoed some other string would be caught.
+	forged := strings.Replace(clientTranscript, `"sec_websocket_accept":"`,
+		`"sec_websocket_accept":"x`, 1)
+	report, err = EvaluateHandshakeLiveTranscript(clientAccepts, []byte(forged))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Failed == 0 {
+		t.Fatalf("forged client-side accept value must fail: %+v",
+			report.TranscriptReport)
+	}
+
 	// A drifted request digest fails.
 	lines := strings.Split(strings.TrimRight(transcript, "\n"), "\n")
 	unbound := strings.Replace(lines[0], `"request_digest":"sha256:`,
@@ -527,5 +632,26 @@ func TestEvaluateHandshakeLivePresenceParity(t *testing.T) {
 		[]HandshakeCase{*rejectCase}, []byte(noChannel+"\n"))
 	if err == nil && report.Failed == 0 {
 		t.Fatal("reject without its channel must not pass")
+	}
+
+	// Presence parity runs the other way too: a NON-rejection that carries a
+	// reject_stage must not pass. Without this, a responder could attach a
+	// stage to an accept and nothing would notice.
+	acceptWithStage := strings.Replace(string(acceptLine), `"sec_websocket_accept"`,
+		`"reject_stage":"translate","sec_websocket_accept"`, 1)
+	report, err = EvaluateHandshakeLiveTranscript(
+		[]HandshakeCase{*acceptCase}, []byte(acceptWithStage+"\n"))
+	if err == nil && report.Failed == 0 {
+		t.Fatal("accept carrying a reject_stage must not pass")
+	}
+
+	// And a rejection stripped of its stage must not pass, mirroring the
+	// channel check directly above it.
+	noStage := strings.Replace(string(rejectLine), `"reject_stage"`,
+		`"stage_removed"`, 1)
+	report, err = EvaluateHandshakeLiveTranscript(
+		[]HandshakeCase{*rejectCase}, []byte(noStage+"\n"))
+	if err == nil && report.Failed == 0 {
+		t.Fatal("reject without its stage must not pass")
 	}
 }

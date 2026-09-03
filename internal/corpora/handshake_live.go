@@ -644,6 +644,7 @@ func synthesizeHandshakeLiveResponse(c HandshakeCase) ([]byte, error) {
 	}
 	if expected.Observable == JavaObservableReject {
 		response["reject_channel"] = expected.RejectChannel
+		response["reject_stage"] = expected.RejectStage
 		response["close_code"] = javaHandshakeCloseCode
 	}
 	if expected.SecWebSocketAccept != "" {

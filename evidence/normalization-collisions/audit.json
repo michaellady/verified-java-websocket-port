@@ -3,7 +3,7 @@
   "entity_type": "NormalizationCollisionAudit",
   "note": "Normalization-collision census. A collision is two genuinely different wire behaviours mapping onto one normalized observation. Every probe below was DECIDED BY RUNNING the real harness on two seed requests and applying the real differential comparator to the two answers; no verdict is predicted. Confirmed collisions are separated from undecided candidates, and a candidate is never counted as a finding. A candidate later DECIDED does not become a collision by default: refutations[] holds the probes that found the observation DOES carry the distinction, and they are counted apart from probes[] so a reader cannot mistake nine decided probes for nine collisions.",
   "recomputed_from": {
-    "harness": "ws-oracle-harness sha256:9ab5701892135aa9a6163138515e508fc2fd5781ff99a8b1397f1ee11669776d",
+    "harness": "ws-oracle-harness sha256:bd7ad3d24663e8a2eee26a24c1ca8caae4d0cbea659199b3436cba8ed3c62a1b",
     "comparator": "internal/diffregress.CompareResponses (the comparator the headline number uses)",
     "identity_fields_stripped": [
       "case_id",
@@ -111,7 +111,8 @@
         "extension negotiation (Sec-WebSocket-Extensions)",
         "request path and Host",
         "how many bytes an `incomplete` consumed, and in what state it stopped",
-        "the Sec-WebSocket-Key on any rejected case"
+        "the Sec-WebSocket-Key on any rejected case",
+        "every distinction WITHIN one draft-API stage: shipped Java's own InvalidHandshakeException messages separate a non-GET method from a bad HTTP version from a header line with no colon, but those are implementation strings the differential classifies non-semantic (diffregress DetailField), and reproducing them would be Java-quirk emulation, which by construction produces no Java-versus-Rust signal"
       ],
       "scorer": "internal/corpora.evaluateHandshakeLiveResponse",
       "scores": [
@@ -122,6 +123,7 @@
         "runtime",
         "java_observable",
         "reject_channel",
+        "reject_stage",
         "close_code",
         "sec_websocket_accept"
       ]
@@ -497,7 +499,7 @@
       "expected_verdict": "CONFIRMED",
       "projection": "handshake.judged",
       "erases": "The entire HTTP request head apart from the key: path, Host, and — the part that matters most — Sec-WebSocket-Protocol and Sec-WebSocket-Extensions. Subprotocol and extension negotiation is unobservable to the 49-case exam.",
-      "mechanism": "handshake_adapter.rs::judge discards the response head by its own admission (\"never the response head, which it discards below\") and respond() emits only java_observable plus sec_websocket_accept on a server-side accept.",
+      "mechanism": "handshake_adapter.rs::judge discards the response head by its own admission (\"never the response head, which it discards below\") and respond() emits only java_observable plus the Sec-WebSocket-Accept value on an accept — the derived one on the server side, the matched one on the client side. Not one other field of the head survives, on either side.",
       "disclosure": "The head-discard is disclosed in the adapter's own comment, scoped to the RESPONSE head. That the REQUEST's negotiation headers are equally unscored is not stated, and permessage-deflate is precisely the kind of behaviour a port could get wrong.",
       "active_in_scored_corpora": true,
       "collision_a": {
@@ -594,8 +596,8 @@
       "id": "NC-09",
       "expected_verdict": "CONFIRMED",
       "projection": "handshake.judged",
-      "erases": "Every distinction between two rejected handshakes that take the same draft-API channel — including the Sec-WebSocket-Key, which is never echoed on a reject. close_code is a CONSTANT (HANDSHAKE_REJECT_CLOSE_CODE) and carries no information at all.",
-      "mechanism": "respond() emits reject_channel plus a hardcoded 1002. evaluateHandshakeLiveResponse compares exactly those two.",
+      "erases": "Every distinction between two rejected handshakes that take the same draft-API channel AND the same draft-API stage — including the Sec-WebSocket-Key, which is never echoed on a reject. close_code is a CONSTANT (HANDSHAKE_REJECT_CLOSE_CODE) and carries no information at all. This probe's two seeds both miss Sec-WebSocket-Version, so both are decided by acceptHandshakeAsServer returning NOT_MATCHED: same channel, same stage, and the stage refinement does not separate them. It never could — HandshakeState is one enum value returned by one method, so there is no finer draft-API fact underneath it to report.",
+      "mechanism": "respond() emits reject_channel and reject_stage plus a hardcoded 1002. evaluateHandshakeLiveResponse compares exactly those three, and the residual class is every rejection sharing a (channel, stage) pair.",
       "disclosure": "DISCLOSED, and unusually well: evidence/us005-handshake-live-mapping.json's granularity_statement says the Java runtime cannot observably distinguish most HS_* reject codes and that the draft-API channel is \"the finest honest granularity\". This probe measures the size of the resulting classes.",
       "active_in_scored_corpora": true,
       "collision_a": {
@@ -622,6 +624,7 @@
           "java_observable",
           "protocol",
           "reject_channel",
+          "reject_stage",
           "request_digest",
           "runtime",
           "version"
@@ -632,6 +635,7 @@
           "java_observable",
           "protocol",
           "reject_channel",
+          "reject_stage",
           "request_digest",
           "runtime",
           "version"
@@ -947,9 +951,9 @@
     {
       "source": "corpora/handshake/cases.jsonl (driven through the harness)",
       "rows": 49,
-      "distinct_scored_rows": 26,
-      "rows_sharing_an_observation_with_another_row": 27,
-      "largest_equivalence_class": 11,
+      "distinct_scored_rows": 29,
+      "rows_sharing_an_observation_with_another_row": 23,
+      "largest_equivalence_class": 10,
       "key_sets": [
         {
           "keys": [
@@ -958,6 +962,7 @@
             "java_observable",
             "protocol",
             "reject_channel",
+            "reject_stage",
             "request_digest",
             "runtime",
             "version"
@@ -975,7 +980,7 @@
             "sec_websocket_accept",
             "version"
           ],
-          "rows": 22,
+          "rows": 25,
           "projection": "handshake.judged"
         },
         {
@@ -987,7 +992,7 @@
             "runtime",
             "version"
           ],
-          "rows": 7,
+          "rows": 4,
           "projection": "handshake.judged"
         }
       ]
@@ -1000,11 +1005,11 @@
     "public_rows_sharing_an_observation": 2,
     "public_statement": "26 of the 74 public rows are error rows. NC-01 and NC-04 are CONFIRMED on that projection, so for those 26 rows the differential compares error.code, error.close_code, final_state and the seven counters — and NOTHING about what the connection did. events[], frames[], transitions[] and close are absent from the row entirely, and error.detail is classified non-semantic. So 74/74 means: 74 requests were answered, 48 of them scored on the full observation surface and 26 scored on ten scalars. It does not mean 74 behaviours were compared. MEASURED, not inferred: the 74 rows carry only 73 DISTINCT scored observations, because 2 of them (us005.pub.0039 and us005.pub.0066, probe NC-04) are byte-identical once identity is removed — two different frames, differing in the FIN bit and in every payload octet, that the corpus cannot tell apart. The headline's ceiling is therefore 73 distinguishable answers, not 74.",
     "handshake_corpus_cases": 49,
-    "handshake_distinct_scored_observations": 26,
-    "handshake_cases_sharing_an_observation": 27,
-    "handshake_largest_equivalence_class": 11,
-    "handshake_statement": "The 49 handshake cases produce only 26 DISTINCT scored observations. 27 of the 49 cases share their observation with at least one other case, and the largest equivalence class holds 11 cases. 49/49 therefore certifies at most 26 distinguishable answers, not 49. NC-07, NC-08 and NC-09 are the confirmed mechanisms: the HTTP head is discarded, `incomplete` carries no content, and a rejection reports only a two-valued channel plus a constant close code.",
-    "refutation_statement": "Three of the first pass's 5 open candidates are now DECIDED, and all three came back NEGATIVE — the observation carries the distinction. CAND-WIREBYTES (probe NC-10): a two-octet payload under the 7-bit length form and under the 126 extended form are BOTH accepted — ws-core strips the RFC's non-minimal-length rejection for Java fidelity — and the two ok rows differ on counts.consumed_bytes, counts.input_bytes, events[0].bytes, frames[0].wire_bytes. CAND-CHUNKING (probe NC-11): the same eight octets as one step and as two four-octet steps differ on events.length, frames[0].step. CAND-UTF8 (check NC-UTF8-PREMISE): status EMPTY — the decode is strict at every site in both crates, so the octets a lossy decoder would fold onto U+FFFD produce NO text event at all; the accepted seed yields one text event and the rejected seed yields none, which they could not do under a lossy decode. WHAT THIS DOES TO THE CEILINGS: neither number moves. 73-of-74 and 26-of-49 are unchanged, because both shortfalls were already attributed to CONFIRMED probes — NC-04 on behaviour.failure for the public corpus, NC-07/08/09 on handshake.judged for the exam. What changes is what the shortfalls may be BLAMED on: all three decided candidates are behaviour.ok distinctions and all three are represented or empty there, so none of them is an admissible explanation for either ceiling, and no future corpus loses rows to them on an ok row. The refutations do NOT extend to behaviour.failure or behaviour.output_limit, where frames[] and events[] are absent from the envelope entirely: a rejected frame's length encoding and a failed request's chunking are erased by NC-01's and NC-02's mechanisms, which already own those classes. 2 candidate(s) remain HYPOTHESIS and are still admissible explanations, along with anything the surface enumeration missed.",
+    "handshake_distinct_scored_observations": 29,
+    "handshake_cases_sharing_an_observation": 23,
+    "handshake_largest_equivalence_class": 10,
+    "handshake_statement": "The 49 handshake cases produce only 29 DISTINCT scored observations. 23 of the 49 cases share their observation with at least one other case, and the largest equivalence class holds 10 cases. 49/49 therefore certifies at most 29 distinguishable answers, not 49. NC-07, NC-08 and NC-09 are the confirmed mechanisms: the HTTP head is discarded, `incomplete` carries no content, and a rejection reports a draft-API channel and stage plus a constant close code — never WHY within a stage. HISTORY, so the number is read as a measurement and not a target: the first measurement of this corpus was 26 distinct observations with a largest class of 11. Two distinctions the exchange does carry were then added to the projection and to both scorers — `reject_stage` (WHICH draft-API call decided: translateHandshake, the acceptance predicate, or response construction, which is the difference between never reaching the application listener and reaching it) and the `Sec-WebSocket-Accept` value a CLIENT-side accept matched (the client derives one on every acceptance; it simply never sends one). Nothing was removed and no rule was adjusted to dissolve a collision. What did NOT move, and why: shipped Java's own InvalidHandshakeException messages separate a non-GET method from a bad HTTP version from a header line with no colon, but those are implementation strings the differential classifies non-semantic, and the corpus's HS_* reject codes are the RFC model's labels, which the runtime does not produce.",
+    "refutation_statement": "Three of the first pass's 5 open candidates are now DECIDED, and all three came back NEGATIVE — the observation carries the distinction. CAND-WIREBYTES (probe NC-10): a two-octet payload under the 7-bit length form and under the 126 extended form are BOTH accepted — ws-core strips the RFC's non-minimal-length rejection for Java fidelity — and the two ok rows differ on counts.consumed_bytes, counts.input_bytes, events[0].bytes, frames[0].wire_bytes. CAND-CHUNKING (probe NC-11): the same eight octets as one step and as two four-octet steps differ on events.length, frames[0].step. CAND-UTF8 (check NC-UTF8-PREMISE): status EMPTY — the decode is strict at every site in both crates, so the octets a lossy decoder would fold onto U+FFFD produce NO text event at all; the accepted seed yields one text event and the rejected seed yields none, which they could not do under a lossy decode. WHAT THIS DOES TO THE CEILINGS: neither number moves. 73-of-74 and 29-of-49 are unchanged, because both shortfalls were already attributed to CONFIRMED probes — NC-04 on behaviour.failure for the public corpus, NC-07/08/09 on handshake.judged for the exam. What changes is what the shortfalls may be BLAMED on: all three decided candidates are behaviour.ok distinctions and all three are represented or empty there, so none of them is an admissible explanation for either ceiling, and no future corpus loses rows to them on an ok row. The refutations do NOT extend to behaviour.failure or behaviour.output_limit, where frames[] and events[] are absent from the envelope entirely: a rejected frame's length encoding and a failed request's chunking are erased by NC-01's and NC-02's mechanisms, which already own those classes. 2 candidate(s) remain HYPOTHESIS and are still admissible explanations, along with anything the surface enumeration missed.",
     "claim_vocabulary": "BOUNDED. Each confirmed collision is an OBSERVED fact about the shipped projection, established by running it. The ENUMERATION of the surface is not proved complete: it reads five named sites, and a distinction none of them mentions cannot be found by reading them. DIV-02 is exactly that case and is in this document only because a person had already found it out of band."
   },
   "scope_limits": [
