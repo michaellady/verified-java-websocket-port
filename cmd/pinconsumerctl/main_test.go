@@ -379,3 +379,58 @@ func TestConsumersSeparatesCurrentPinsFromStaleOnes(t *testing.T) {
 		t.Errorf("a correct pin is not stale: %+v", report[0].stale)
 	}
 }
+
+// A digest can pin a FIELD INSIDE the named file rather than the file itself.
+// `assurance/concurrency/plan.json` carries `ledger_path` beside `observed_head`,
+// and `observed_head` is the behaviour-delta ledger's own `head` value, not the
+// ledger file's sha256. Read as a file-digest pin it looks permanently stale
+// while being permanently correct -- a systematic false positive, and one this
+// tool reported on real data before this test existed.
+func TestAFieldPinThatIsCurrentIsNotReportedAsStale(t *testing.T) {
+	// subject.json's own `head` field is what the consumer pins.
+	subject := `{"head":"sha256:1111111111111111111111111111111111111111111111111111111111111111",` +
+		`"records":[]}`
+	root := scratchRepo(t, map[string]string{
+		"subject.json": subject,
+		"consumer.json": `{"binding":{"ledger_path":"subject.json",` +
+			`"observed_head":"sha256:1111111111111111111111111111111111111111111111111111111111111111"}}`,
+	})
+
+	report, err := analyseConsumers(root, []string{"subject.json"})
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(report[0].stale) != 0 {
+		t.Errorf("a CURRENT field pin must not be reported as stale: %+v", report[0].stale)
+	}
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("dangling: %v", err)
+	}
+	for _, candidate := range census.candidates {
+		if candidate.namedPath == "subject.json" {
+			t.Errorf("dangling must not report a current field pin: %+v", candidate)
+		}
+	}
+}
+
+// The other direction: a field pin that has genuinely gone stale MUST still be
+// reported, or the exemption above becomes a hole.
+func TestAFieldPinThatHasDriftedIsStillReported(t *testing.T) {
+	subject := `{"head":"sha256:2222222222222222222222222222222222222222222222222222222222222222",` +
+		`"records":[]}`
+	root := scratchRepo(t, map[string]string{
+		"subject.json": subject,
+		"consumer.json": `{"binding":{"ledger_path":"subject.json",` +
+			`"observed_head":"sha256:1111111111111111111111111111111111111111111111111111111111111111"}}`,
+	})
+
+	report, err := analyseConsumers(root, []string{"subject.json"})
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(report[0].stale) != 1 {
+		t.Fatalf("a DRIFTED field pin must still be reported: %+v", report[0].stale)
+	}
+}

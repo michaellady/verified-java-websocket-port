@@ -172,7 +172,7 @@ func analyseConsumers(root string, targets []string) ([]consumerTarget, error) {
 				entry.current = append(entry.current, artifact)
 			}
 			entry.stale = append(entry.stale,
-				stalePinsNaming(content, artifact, relative, digest, trackedSet)...)
+				stalePinsNaming(root, content, artifact, relative, digest, trackedSet)...)
 		}
 		sort.Strings(entry.current)
 		sort.Slice(entry.stale, func(i, j int) bool {
@@ -186,9 +186,49 @@ func analyseConsumers(root string, targets []string) ([]consumerTarget, error) {
 	return report, nil
 }
 
+// pinsAFieldInside reports whether `declared` appears as a digest-valued field
+// INSIDE the named file. Such a pin names a value the file carries -- a ledger
+// head, a payload digest -- rather than the file's own bytes, so comparing it to
+// the file's sha256 would call a correct pin stale forever. Whole-file digest
+// pins are unaffected: a stale one does not appear inside the file either.
+func pinsAFieldInside(root, named, declared string) bool {
+	content, err := os.ReadFile(filepath.Join(root, named))
+	if err != nil {
+		return false
+	}
+	var document any
+	if err := json.Unmarshal(content, &document); err != nil {
+		return false
+	}
+	found := false
+	var scan func(node any)
+	scan = func(node any) {
+		if found {
+			return
+		}
+		switch typed := node.(type) {
+		case map[string]any:
+			for _, value := range typed {
+				scan(value)
+			}
+		case []any:
+			for _, element := range typed {
+				scan(element)
+			}
+		case string:
+			if match := digestPattern.FindStringSubmatch(typed); match != nil &&
+				match[1] == declared {
+				found = true
+			}
+		}
+	}
+	scan(document)
+	return found
+}
+
 // stalePinsNaming finds objects in one artifact that name `relative` alongside a
 // digest that is not the file's current one.
-func stalePinsNaming(content []byte, artifact, relative, actual string,
+func stalePinsNaming(root string, content []byte, artifact, relative, actual string,
 	trackedSet map[string]bool) []pin {
 	var document any
 	if err := json.Unmarshal(content, &document); err != nil {
@@ -202,6 +242,9 @@ func stalePinsNaming(content []byte, artifact, relative, actual string,
 		}
 		for _, declared := range digests {
 			if declared == actual {
+				return
+			}
+			if pinsAFieldInside(root, relative, declared) {
 				return
 			}
 		}
@@ -285,7 +328,13 @@ const danglingCeiling = "candidates are objects where a tracked path and a sha25
 	" co-location is evidence that the digest is OF that path, NOT proof, so every" +
 	" candidate must be READ before it is acted on. A pin whose digest covers" +
 	" something other than the file it sits beside is a false positive by" +
-	" construction, and a pin split across two objects is a false negative."
+	" construction, and a pin split across two objects is a false negative." +
+	" A digest that pins a FIELD INSIDE the named file rather than the file" +
+	" itself -- assurance/concurrency/plan.json's `observed_head` carries the" +
+	" behaviour-delta ledger's own `head` value, not the ledger file's sha256 --" +
+	" is recognised and NOT reported, so long as that value still appears as a" +
+	" digest-valued field in the named file. If the field pin is itself stale it" +
+	" is reported like any other."
 
 func analyseDangling(root string) (danglingCensus, error) {
 	tracked, err := trackedFiles(root)
@@ -346,6 +395,9 @@ func analyseDangling(root string) (danglingCensus, error) {
 			for _, declared := range digests {
 				if declared == actual {
 					return // some digest in this object matches; not dangling
+				}
+				if pinsAFieldInside(root, named, declared) {
+					return // pins a value INSIDE the file, not the file's bytes
 				}
 			}
 			candidates = append(candidates, pin{
