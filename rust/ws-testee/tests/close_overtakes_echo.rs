@@ -121,7 +121,10 @@ fn split_frames(raw: &[u8]) -> Vec<(u8, Vec<u8>)> {
     while at + 2 <= raw.len() {
         let opcode = raw[at] & 0x0F;
         let masked_bit = raw[at + 1] & 0x80 != 0;
-        assert!(!masked_bit, "the subject masked a frame these tests decode raw");
+        assert!(
+            !masked_bit,
+            "the subject masked a frame these tests decode raw"
+        );
         let marker = usize::from(raw[at + 1] & 0x7F);
         let (len, head) = if marker < 126 {
             (marker, 2usize)
@@ -186,6 +189,29 @@ fn drain(peer: &mut TcpStream, budget: Duration) -> Vec<u8> {
     received
 }
 
+/// Drain `peer` until a CLOSE frame has arrived whole, the peer hangs up, or
+/// the wall-clock budget expires.
+fn drain_until_close(peer: &mut TcpStream, budget: Duration) -> Vec<u8> {
+    let deadline = Instant::now() + budget;
+    let mut received = Vec::new();
+    let mut buffer = [0u8; 8192];
+    while Instant::now() < deadline {
+        match peer.read(&mut buffer) {
+            Ok(0) => return received,
+            Ok(n) => received.extend_from_slice(&buffer[..n]),
+            Err(error) if matches!(error.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+            Err(_) => return received,
+        }
+        if split_frames_masked(&received)
+            .iter()
+            .any(|(opcode, _)| *opcode == 0x8)
+        {
+            return received;
+        }
+    }
+    received
+}
+
 /// The Autobahn fixture's ceiling-tier limits (`ws-testee/src/main.rs`
 /// `autobahn_serve_config`), so the 256 KiB case runs the configuration the
 /// recorded run used.
@@ -243,7 +269,10 @@ fn server_answer_to(burst: &[u8], config: ConnectionConfig) -> Vec<u8> {
     peer.flush().expect("flush the burst");
 
     let received = drain(&mut peer, DEADLINE);
-    let _ = subject.join().expect("subject thread").expect("subject setup");
+    let _ = subject
+        .join()
+        .expect("subject thread")
+        .expect("subject setup");
     received
 }
 
@@ -290,7 +319,10 @@ fn a_close_sharing_one_read_with_a_completed_text_frame_does_not_cancel_the_echo
          (WebSocketImpl.java:494, :594-595). Expected the text echo then the \
          close echo; the subject wrote {shape:?} (raw {received:02X?})."
     );
-    assert_eq!(frames[0].1, b"hello", "the echo must carry the message back");
+    assert_eq!(
+        frames[0].1, b"hello",
+        "the echo must carry the message back"
+    );
 }
 
 /// The recorded Autobahn 7.1.6 wire shape, verbatim: a 256 KiB text message,
@@ -331,10 +363,25 @@ fn the_autobahn_7_1_6_burst_returns_both_echoes_before_the_close() {
 /// case and one server case). Autobahn's fuzzingserver leg drives the subject
 /// as an ECHOING CLIENT, so the same burst is delivered to a client-role
 /// endpoint running the same echo policy.
+///
+/// The burst is written only after the subject reports its handshake
+/// consumed, over an `mpsc` rendezvous rather than a sleep. That is not
+/// timing convenience: it keeps THIS fixture on THIS divergence. A burst that
+/// coalesces with the 101 into the subject's handshake-phase read exposes a
+/// DIFFERENT and unfixed defect — `drive_until_open` hands the whole read to
+/// the core, whose `finish_handshake_open` parks the trailing frame bytes in
+/// `pending` (ws-core/src/connection.rs:1017-1034), and nothing ever decodes
+/// them because the core only decodes on a bytes input. The message is then
+/// lost outright (observed: `texts=0 close=1006:transport`), which is a
+/// stronger failure than the ordering this fixture is about. Shipped Java
+/// handles that case at WebSocketImpl.java:232-240 — after `decodeHandshake`
+/// it runs `decodeFrames` on whichever buffer still has remaining bytes. See
+/// `drafts/self-review/div05-close-overtakes-echo.md`.
 #[test]
 fn a_client_role_endpoint_echoes_before_answering_a_close_in_the_same_read() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
     let address = listener.local_addr().expect("bound address");
+    let (handshake_done, wait_for_handshake) = std::sync::mpsc::channel::<()>();
 
     // The raw server peer completes a real handshake through ws_core and then
     // hands the subject the burst in ONE write.
@@ -360,6 +407,9 @@ fn a_client_role_endpoint_echoes_before_answering_a_close_in_the_same_read() {
                 _ => {}
             }
         }
+        wait_for_handshake
+            .recv_timeout(DEADLINE)
+            .expect("the subject must report its handshake consumed within the budget");
         let mut burst = unmasked(0x1, b"hello");
         burst.extend_from_slice(&unmasked(0x8, &[0x03, 0xE8, b'd', b'o', b'n', b'e']));
         stream.write_all(&burst).expect("write the burst");
@@ -367,7 +417,10 @@ fn a_client_role_endpoint_echoes_before_answering_a_close_in_the_same_read() {
         stream
             .set_read_timeout(Some(Duration::from_millis(25)))
             .expect("peer read timeout");
-        drain(&mut stream, DEADLINE)
+        // A CLIENT subject never hangs up (shipped Java's client has no
+        // counterpart to SocketChannelIOHelper.batch's server-only close), so
+        // stop at its close frame rather than at an EOF that will not come.
+        drain_until_close(&mut stream, DEADLINE)
     });
 
     let mut stream = TcpStream::connect(address).expect("connect");
@@ -382,6 +435,7 @@ fn a_client_role_endpoint_echoes_before_answering_a_close_in_the_same_read() {
         drive_until_open(&mut driver, &mut stream, &bounds, &mut report),
         "the subject client handshake must complete"
     );
+    handshake_done.send(()).expect("the peer is still waiting");
     let mut policy = Echo;
     drive_connection(
         &mut driver,
@@ -408,7 +462,10 @@ fn a_client_role_endpoint_echoes_before_answering_a_close_in_the_same_read() {
          both roles — so a client that echoes must also return the message \
          before answering the close. The subject wrote {shape:?}."
     );
-    assert_eq!(frames[0].1, b"hello", "the client echo must carry the message");
+    assert_eq!(
+        frames[0].1, b"hello",
+        "the client echo must carry the message"
+    );
 }
 
 /// Client->server frames are masked; unmask before comparing.
