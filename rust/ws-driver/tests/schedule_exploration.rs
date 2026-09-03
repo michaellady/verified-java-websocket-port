@@ -779,6 +779,12 @@ struct Outcome {
     deferred_output_pending: u32,
     deferred_command_turn: u32,
     deferred_backpressure: u32,
+    /// DIV-05: turns the driver refused because the previously applied frame
+    /// had not finished dispatching (`InboundFeedPolicy::OneFramePerTurn`).
+    /// This exploration builds its drivers under the default
+    /// `InboundFeedPolicy::WholeChunk`, so the arm exists to keep the match
+    /// exhaustive and is expected to stay zero here.
+    deferred_frame_dispatch: u32,
     rejected_inputs: u32,
     drain_polls: u32,
     closed: bool,
@@ -1047,6 +1053,9 @@ impl Run {
             }
             InputDisposition::Deferred(DeferredReason::Backpressure) => {
                 self.outcome.deferred_backpressure += 1;
+            }
+            InputDisposition::Deferred(DeferredReason::FrameDispatchPending) => {
+                self.outcome.deferred_frame_dispatch += 1;
             }
             InputDisposition::Rejected(_) => {
                 self.outcome.rejected_inputs += 1;
@@ -1789,6 +1798,7 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.deferred_output_pending += outcome.deferred_output_pending;
         totals.deferred_command_turn += outcome.deferred_command_turn;
         totals.deferred_backpressure += outcome.deferred_backpressure;
+        totals.deferred_frame_dispatch += outcome.deferred_frame_dispatch;
         totals.rejected_inputs += outcome.rejected_inputs;
         totals.write_drop_reports += outcome.write_drop_reports;
         totals.dropped_frames += outcome.dropped_frames;
