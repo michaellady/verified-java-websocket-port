@@ -195,3 +195,72 @@ its own and it is named here so it is not lost.
 
 Until then, this is the honest statement: the pin census is INFORMATIONAL, `make
 -C rust gates` does not read it, and a drifted pin does not fail anything.
+
+## Follow-up: the census is now a gate
+
+The gap named in the section above is closed. `pin-guard` is in the `gates` chain,
+between `record-guard` and `go-suite`.
+
+Wiring `dangling` in unchanged was never an option: all eleven rows are blocked on
+something outside the loop's reach, and halting the loop on them would not fix
+them. So each of the eleven is DECLARED — pinned to its own declared digest, and
+named with the owner action that would let the entry be deleted:
+
+| rows | what they are | owner action |
+| ---: | --- | --- |
+| 3 | `denominator_basis`, anchor `1ff89fa` not an ancestor of HEAD | DENOMINATOR, hard stop — the catalog plane decision. Never re-baselined here. |
+| 2 | drift-detection fixtures (`1111…`, `aaaa…`) | none; a fixture asserting drift must carry a digest that does not match |
+| 2 | `java-formal-binding-corroborations`, bytes in no branch | supply the bytes or withdraw the draft; no diff is possible meanwhile |
+| 2 | `e3-formal-receipt`, a dated attestation | none, and it must NOT be updated — rewriting falsifies what was attested |
+| 2 | F014's `execution_code_binding` | owner decision: re-run against current code, or stop calling it a binding |
+
+`gate=pin-dangling json_artifacts=1996 unparsable=0 candidates=0 explained=51
+covered=23 allowed=11`, `result=PASS`, exit 0.
+
+### Three polarity readings, all from the process
+
+**A new drift fails.** Corrupting a digest in `assurance/formal/proof-targets.json`
+gives `candidates=5` and `result=FAIL reason="a pin has drifted and is not among
+the declared allowances…"`, exit 1. Five rather than one, because the edit also
+moves digests that other artifacts pin — the cascade is correct.
+
+**A FIXED pin fails too, which is the half that is easy to forget.** Setting
+`test-manifest.json`'s `sources[0]` pin to the file's real digest removes the row
+from the census, and:
+
+```
+finding=STALE_ALLOWANCE detail="…sources[0] (declared sha256:863bc6d7…) is
+  allowed but is no longer a candidate; the acknowledgement outlived the finding
+  and must be deleted"
+allowed=10
+result=FAIL "an allowance outlived the finding it acknowledged; delete it, or it
+  will exempt whatever next lands at that artifact and pointer"
+```
+
+exit 1. An allowance cannot become a permanent exemption for an address.
+
+**Editing an allowed pin loses the acknowledgement rather than inheriting it.**
+Changing that same pin to `beefbeef…` fails TWICE over — the edited row is an
+unallowed candidate (`candidates=1`) AND the old allowance is stale — because the
+allowance matches on the declared digest, not just artifact and pointer.
+
+`test-manifest.json` restored byte-identically after each probe, `diff -q` clean.
+
+### Three tests
+
+- every allowance names an owner action clearing a 40-byte floor, appears once,
+  and pins a bare 64-hex digest — an allowance that did not pin the value would
+  survive the pin being edited. **The floor caught a real entry at 38 bytes
+  ("Owner: same draft, same missing bytes."); the entry was written properly
+  rather than the floor lowered.**
+- an allowance does not match a digest it does not declare, nor another artifact,
+  nor another pointer;
+- every declared allowance corresponds to a row the detector actually reports in
+  this tree, so the table cannot drift away from the census between runs.
+
+### What this does not do
+
+It does not fix any of the eleven. Every one still waits on its owner action, and
+three of them are denominators that must never be re-baselined from here. What it
+buys is that the twelfth — whenever it appears — fails on the run it appears,
+instead of joining a list nobody reads.

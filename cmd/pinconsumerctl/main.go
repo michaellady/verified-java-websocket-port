@@ -304,6 +304,96 @@ func coveredBy(artifact, pointer string) *coverageClaim {
 	return nil
 }
 
+// allowance is a DECLARED, per-row acknowledgement of a TRUE finding that cannot
+// be fixed from inside the loop. It is not an explanation and not a coverage
+// claim: these pins really have drifted. The point is that a NEW drift must fail
+// on the run it appears, which it cannot do if the census exits 1 forever on
+// eleven rows nobody can act on.
+//
+// Each entry pins the DECLARED digest, so it cannot survive the pin being
+// edited: change the pin and the row stops matching its allowance, which makes it
+// either an unallowed candidate or a stale allowance -- both of which FAIL. And
+// an allowance whose row is no longer a candidate at all fails as
+// STALE_ALLOWANCE, so a fixed pin cannot leave a permanent exemption behind.
+type allowedPin struct {
+	artifact string
+	pointer  string
+	declared string // pinned, so editing the pin invalidates the allowance
+	owner    string // the action that would let this entry be deleted
+}
+
+var allowance = []allowedPin{
+	// A DENOMINATOR. The pin equals the recorded git.blob, but the anchor 1ff89fa
+	// is not an ancestor of HEAD -- it exists only on read-only
+	// origin/codex/race-catchup. reconcile.go already declares it drifted.
+	{"assurance/formal/obligation-catalog.json", "$.denominator_basis[1]",
+		"fa75348c37f607ac27edf41f13f075a6731b925628d9e9dcda7de39f0ea236e6",
+		"DENOMINATOR, HARD STOP: decide the catalog's plane correspondence. Never re-baselined here."},
+	{"assurance/formal/obligation-catalog.json", "$.denominator_basis[3]",
+		"0117560795fbfbe92e1c11a999bcec937c4ab27950ba6e5a1d0f0c73a286602c",
+		"DENOMINATOR, HARD STOP: same anchor, same decision."},
+	{"assurance/formal/obligation-catalog.json", "$.denominator_basis[4]",
+		"e884fd06a785b0273a0e23b3dc6841ebcc33c2a81d1fc81fb0b1945d46421e7b",
+		"DENOMINATOR, HARD STOP: same anchor, same decision."},
+
+	// Fixtures whose mismatch IS their assertion. A rule exempting these by
+	// value was tried and REFUSED by the suite: repeated-character digests are
+	// how this project writes "a real drifted pin" in a fixture, so a rule
+	// keyed on that shape blinded the tests that prove drift is caught.
+	{"assurance/fuzz/fixtures/toolchain-pin-drift.json", "$.engines[0].toolchain",
+		"1111111111111111111111111111111111111111111111111111111111111111",
+		"NONE. A drift-detection fixture must carry a digest that does not match; " +
+			"delete this entry only if the fixture stops asserting drift."},
+	{"assurance/replay/fixtures/us006-placeholder-receipt/mutation.json", "$.operations[1].value",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"NONE. A placeholder receipt's seeded value; the same reasoning as above."},
+
+	// Pins of bytes that exist in NO branch, so there is nothing to diff and the
+	// zero-changed-line test cannot be performed at all.
+	{"drafts/ledger-proposals/java-formal-binding-corroborations.json", "$.evidence_basis.projection",
+		"6275808310a724f3cfb03579103751b54c67874927f870f448f2ebbbdea2bd47",
+		"Owner: supply the bytes this draft was written against, or withdraw the draft. " +
+			"Until then no diff is possible."},
+	{"drafts/ledger-proposals/java-formal-binding-corroborations.json", "$.evidence_basis.receipt",
+		"1729001791383e7c50d7083ee8eb069db016420e3632cb059d2ea5c3a2e58b04",
+		"Owner: same draft as the row above, same missing bytes; both must arrive or the " +
+			"draft must be withdrawn together."},
+
+	// A DATED ATTESTATION, not a live pin: the current digests are already
+	// recorded at $.review_round_5 in the same document. Rewriting these would
+	// falsify what was attested at the time.
+	{"evidence/governance/decisions/e3-formal-receipt.json", "$.artifacts.results_documents[0]",
+		"b404378cb2527ce86246179adc9f4db4e129806c7710fc2b7604b50f86789a3d",
+		"NONE, and it must NOT be updated: a dated attestation records what was true then."},
+	{"evidence/governance/decisions/e3-formal-receipt.json", "$.artifacts.results_documents[1]",
+		"c8ba80e07fbe309ca8a7a4c9985fc176fa764462a1f0a66338b1abc616f660c7",
+		"NONE, and it must NOT be updated: same receipt."},
+
+	// F014. The execution_code_binding claims to bind the code that produced the
+	// authoritative run, and both digests have moved.
+	{"evidence/java/test-manifest.json", "$.authoritative_run.execution_code_binding.sources[0]",
+		"863bc6d7c2b3e6d4b13332f2b883539676c206d3df283158b8a9c254713cfa42",
+		"OWNER DECISION (F014): re-run the authoritative run against current code, or " +
+			"record that the binding describes a historical run and stop calling it a binding."},
+	{"evidence/java/test-manifest.json", "$.authoritative_run.execution_code_binding.sources[2]",
+		"acb7ecd0b2cf917673342506ad25a43cbce83ab87b2ea4832cdfefd23f7374cf",
+		"OWNER DECISION (F014): same manifest, same choice."},
+}
+
+// allowanceFor returns the entry acknowledging this exact candidate, matching on
+// artifact, pointer AND the declared digest -- so an edited pin loses its
+// allowance rather than inheriting it.
+func allowanceFor(artifact, pointer, declared string) *allowedPin {
+	for index := range allowance {
+		entry := &allowance[index]
+		if entry.artifact == artifact && entry.pointer == pointer &&
+			entry.declared == declared {
+			return entry
+		}
+	}
+	return nil
+}
+
 // stalePinsNaming finds objects in one artifact that name `relative` alongside a
 // digest that is not the file's current one.
 func stalePinsNaming(root string, content []byte, artifact, relative, actual string,
@@ -394,6 +484,7 @@ func runDangling(root string) int {
 	}
 
 	remaining := 0
+	acknowledged := map[*allowedPin]bool{}
 	for _, candidate := range census.candidates {
 		if claim := coveredBy(candidate.artifact, candidate.pointer); claim != nil && len(stale) == 0 {
 			fmt.Printf("gate=pin-dangling-covered artifact=%s pointer=%s names=%s "+
@@ -402,19 +493,46 @@ func runDangling(root string) int {
 				candidate.declared, claim.checkFile, claim.assertion, claim.why)
 			continue
 		}
+		if entry := allowanceFor(candidate.artifact, candidate.pointer,
+			candidate.declared); entry != nil {
+			acknowledged[entry] = true
+			fmt.Printf("gate=pin-dangling-allowed artifact=%s pointer=%s names=%s "+
+				"declared=sha256:%s actual=sha256:%s owner=%q\n",
+				candidate.artifact, candidate.pointer, candidate.namedPath,
+				candidate.declared, candidate.actual, entry.owner)
+			continue
+		}
 		remaining++
 		fmt.Printf("gate=pin-dangling artifact=%s pointer=%s names=%s declared=sha256:%s actual=sha256:%s\n",
 			candidate.artifact, candidate.pointer, candidate.namedPath,
 			candidate.declared, candidate.actual)
+	}
+
+	// An allowance whose row is no longer a candidate has outlived the finding it
+	// acknowledged. Left in place it would silently exempt whatever next lands at
+	// that artifact and pointer, so it fails.
+	var orphaned []string
+	for index := range allowance {
+		entry := &allowance[index]
+		if !acknowledged[entry] {
+			orphaned = append(orphaned, fmt.Sprintf("%s %s (declared sha256:%s)",
+				entry.artifact, entry.pointer, entry.declared))
+		}
+	}
+	for _, entry := range orphaned {
+		fmt.Printf("gate=pin-dangling finding=STALE_ALLOWANCE detail=%q\n",
+			entry+" is allowed but is no longer a candidate; the acknowledgement "+
+				"outlived the finding and must be deleted")
 	}
 	for _, explained := range census.explained {
 		fmt.Printf("gate=pin-dangling-explained artifact=%s pointer=%s names=%s declared=sha256:%s why=%s\n",
 			explained.artifact, explained.pointer, explained.namedPath,
 			explained.declared, explained.explanation)
 	}
-	fmt.Printf("gate=pin-dangling json_artifacts=%d unparsable=%d candidates=%d explained=%d covered=%d\n",
+	fmt.Printf("gate=pin-dangling json_artifacts=%d unparsable=%d candidates=%d explained=%d "+
+		"covered=%d allowed=%d\n",
 		census.artifacts, census.unparsable, remaining, len(census.explained),
-		len(census.candidates)-remaining)
+		len(census.candidates)-remaining-len(acknowledged), len(acknowledged))
 	fmt.Printf("gate=pin-dangling ceiling=%q\n", danglingCeiling)
 	if len(stale) > 0 {
 		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
@@ -422,9 +540,21 @@ func runDangling(root string) int {
 				"outlived the check and every row it covered is unverified")
 		return 1
 	}
-	if remaining > 0 {
+	if len(orphaned) > 0 {
+		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
+			"an allowance outlived the finding it acknowledged; delete it, or it will "+
+				"exempt whatever next lands at that artifact and pointer")
 		return 1
 	}
+	if remaining > 0 {
+		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
+			"a pin has drifted and is not among the declared allowances; read it, then "+
+				"either fix the pin or acknowledge it with the owner action it waits on")
+		return 1
+	}
+	fmt.Printf("gate=pin-dangling result=PASS detail=%q\n",
+		fmt.Sprintf("no undeclared drift; %d acknowledged finding(s) each naming an owner action",
+			len(acknowledged)))
 	return 0
 }
 

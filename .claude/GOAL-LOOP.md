@@ -174,6 +174,24 @@ record exactly which owner or independent step remains.
    reason. Before adding any package to the environment-failure list, check
    whether the tree you are in was ever staged.
 
+   **`pin-guard` IS NOW IN THE `gates` CHAIN, SO A NEW DRIFTED PIN FAILS ON THE
+   RUN IT APPEARS.** It did not before: `dangling` exited 1 with eleven rows while
+   `make -C rust gates` exited 0, both true at once, which meant F014's real
+   drifted pin failed nothing. All eleven are blocked outside the loop's reach, so
+   each is DECLARED — pinned to its own declared digest and named with the owner
+   action that would let the entry be deleted (3 denominators that must NEVER be
+   re-baselined here; 2 drift-detection fixtures; 2 drafts pinning bytes in no
+   branch; 2 dated attestations that must NOT be updated; F014's 2).
+
+   Three things fail, and the middle one is the half that is easy to forget: an
+   UNDECLARED drift (`result=FAIL`, "not among the declared allowances"); a pin
+   that gets FIXED, because its allowance then acknowledges nothing
+   (`STALE_ALLOWANCE`); and an allowed pin that is EDITED, which loses the
+   acknowledgement rather than inheriting it, since the allowance matches the
+   declared digest and not just the address. **If you fix one of the eleven, you
+   MUST delete its allowance in the same commit or the gate fails — that is
+   deliberate.**
+
    **BEFORE CHANGING ANY FILE THAT SOMETHING PINS, ASK WHO PINS IT:**
 
    ```

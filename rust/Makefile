@@ -4,9 +4,9 @@
 # The root Makefile is intentionally untouched; wiring these targets into the
 # root build is a follow-up owned by the pipeline stories.
 
-.PHONY: gates fmt-check clippy fixture-guard record-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
+.PHONY: gates fmt-check clippy fixture-guard record-guard pin-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
-gates: fmt-check clippy fixture-guard record-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
+gates: fmt-check clippy fixture-guard record-guard pin-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
 fmt-check:
 	cargo fmt --all -- --check
@@ -81,6 +81,23 @@ fixture-guard:
 #     records extracted verbatim from git — the div05 stub at blob 359940cd
 #     among them — printing what fired and the sentence it was read from, and
 #     refusing to PASS if it read no records at all.
+# Digest pins that name a file whose bytes have moved.
+#
+# This census was INFORMATIONAL until now: `dangling` exited 1 with eleven rows
+# while `make -C rust gates` exited 0, both true at once, which meant F014's real
+# drifted pin failed nothing and a pin drifting tomorrow would be equally
+# invisible. Wiring it in as-is was not possible either: all eleven are blocked on
+# something outside the loop's reach, and halting on those would not fix them.
+#
+# So each of the eleven is DECLARED, pinned to its own declared digest and named
+# with the owner action that would let the entry be deleted. A NEW drift fails on
+# the run it appears; a pin that gets FIXED orphans its allowance and fails as
+# STALE_ALLOWANCE; and editing an allowed pin loses the acknowledgement rather
+# than inheriting it, so an allowance covers a finding and not an address.
+pin-guard:
+	cd .. && go test -count=1 ./cmd/pinconsumerctl/
+	cd .. && go run ./cmd/pinconsumerctl dangling -root .
+
 # The Go suite, as a gate, with its exclusions DECLARED.
 #
 # This chain exited 0 all of 2026-09-03 while internal/deltaledger was failing

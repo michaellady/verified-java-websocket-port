@@ -700,3 +700,75 @@ func TestCoverageDoesNotReachBeyondItsDeclaredPrefix(t *testing.T) {
 		t.Error("coverage reached a different artifact")
 	}
 }
+
+// An allowance acknowledges a TRUE finding that cannot be fixed from inside the
+// loop. It must name the owner action that would let it be deleted, or it is just
+// a row someone decided to stop looking at.
+func TestEveryAllowanceNamesWhatWouldLetItBeDeleted(t *testing.T) {
+	const floor = 40
+	if len(allowance) == 0 {
+		t.Skip("no allowances declared")
+	}
+	seen := map[string]bool{}
+	for _, entry := range allowance {
+		key := entry.artifact + " " + entry.pointer
+		if seen[key] {
+			t.Errorf("%s is allowed twice", key)
+		}
+		seen[key] = true
+		if len(entry.owner) < floor {
+			t.Errorf("%s states %d bytes of owner action, floor is %d",
+				key, len(entry.owner), floor)
+		}
+		if len(entry.declared) != 64 {
+			t.Errorf("%s pins %q, which is not a bare 64-hex digest; an allowance that "+
+				"does not pin the declared value would survive the pin being edited",
+				key, entry.declared)
+		}
+	}
+}
+
+// The allowance must match on the DECLARED digest, so editing a pin loses its
+// acknowledgement instead of inheriting it. Without this an allowance is a
+// permanent exemption for an (artifact, pointer) rather than for a finding.
+func TestAnAllowanceDoesNotSurviveThePinBeingEdited(t *testing.T) {
+	if len(allowance) == 0 {
+		t.Skip("no allowances declared")
+	}
+	entry := allowance[0]
+	if allowanceFor(entry.artifact, entry.pointer, entry.declared) == nil {
+		t.Fatal("an allowance must match its own declared digest")
+	}
+	if allowanceFor(entry.artifact, entry.pointer, strings.Repeat("be", 32)) != nil {
+		t.Error("an allowance matched a digest it does not declare")
+	}
+	if allowanceFor("some/other/artifact.json", entry.pointer, entry.declared) != nil {
+		t.Error("an allowance reached a different artifact")
+	}
+	if allowanceFor(entry.artifact, "$.somewhere_else", entry.declared) != nil {
+		t.Error("an allowance reached a different pointer")
+	}
+}
+
+// Every allowance must correspond to a row the detector actually reports. One
+// that does not is an acknowledgement of nothing, and the gate reports it as
+// STALE_ALLOWANCE -- this pins that the declared set matches the real tree, so
+// the table cannot drift away from the census between runs.
+func TestEveryAllowanceCorrespondsToARealCandidate(t *testing.T) {
+	root := repoRoot(t)
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyseDangling: %v", err)
+	}
+	present := map[string]bool{}
+	for _, candidate := range census.candidates {
+		present[candidate.artifact+" "+candidate.pointer+" "+candidate.declared] = true
+	}
+	for _, entry := range allowance {
+		key := entry.artifact + " " + entry.pointer + " " + entry.declared
+		if !present[key] {
+			t.Errorf("allowance %s is not a candidate in this tree; it has outlived its "+
+				"finding and must be deleted", key)
+		}
+	}
+}
