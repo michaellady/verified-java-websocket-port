@@ -116,6 +116,11 @@ func IndependenceProbe(families []Family) []PairProbe {
 				if fp.CoVotes == 0 {
 					continue
 				}
+				// Measured for every family probe that has co-votes,
+				// including the ones the probe declines to score: how
+				// many distinguishable answers those co-votes carry is
+				// a fact about the evidence, not about the scoring.
+				fp.Resolution = resolve(f, higher, lower)
 				// Two ranks whose verdicts vary with the same bytes are
 				// not comparable for independence, however many times
 				// they co-vote.
@@ -132,7 +137,6 @@ func IndependenceProbe(families []Family) []PairProbe {
 				} else {
 					fp.Verdict = ProbeNotDistinguished
 				}
-				fp.Resolution = resolve(f, higher, lower)
 				p.CoVotes += fp.CoVotes
 				p.Disagreements += fp.Disagreements
 				for _, id := range fp.Examples {

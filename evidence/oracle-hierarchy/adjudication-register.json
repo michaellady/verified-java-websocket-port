@@ -579,10 +579,26 @@
           "co_votes": 32,
           "disagreements": 0,
           "co_vote_resolution": {
-            "distinct_verdict_pairs": 0,
-            "verdict_pairs": null,
-            "largest_class": 0,
-            "family_verdict_space_size": 0
+            "distinct_verdict_pairs": 3,
+            "verdict_pairs": [
+              {
+                "higher_verdict": "reject",
+                "lower_verdict": "reject",
+                "propositions": 19
+              },
+              {
+                "higher_verdict": "accept",
+                "lower_verdict": "accept",
+                "propositions": 9
+              },
+              {
+                "higher_verdict": "incomplete",
+                "lower_verdict": "incomplete",
+                "propositions": 4
+              }
+            ],
+            "largest_class": 19,
+            "family_verdict_space_size": 3
           }
         },
         {

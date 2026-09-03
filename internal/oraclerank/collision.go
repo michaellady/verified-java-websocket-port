@@ -60,6 +60,9 @@ func resolve(f Family, higher, lower Rank) CoVoteResolution {
 	res := CoVoteResolution{
 		DistinctVerdictPairs: len(counts),
 		VerdictSpace:         len(f.VerdictSpace),
+		// Never nil: an absent measurement and a measurement of zero are
+		// different facts, and the schema refuses a null here.
+		Pairs: []VerdictPairCount{},
 	}
 	for k, n := range counts {
 		res.Pairs = append(res.Pairs, VerdictPairCount{Higher: k[0], Lower: k[1], Count: n})
