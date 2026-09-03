@@ -62,7 +62,7 @@ landing record **as it stood at `4cf3f8f`**, before this branch changed it.
 | I-4b | the handshake scored surface is `java_observable`, `reject_channel`, `close_code` (a constant 1002), `sec_websocket_accept` (server-side accepts only) | 51–55 | §1 table line 28 — which **repeats the same four keys** | **NOT ANSWERED** |
 | I-5 | "Next: constructive probes" — the one explicitly forward-looking item | 57 | §2 (seven CONFIRMED probes, each with its seed), §4 (candidates), and `audit.json` `refutations[]` | ANSWERED |
 | I-6 | NC-01, error rows erase all four observation streams; witness moves `frames[0].payload_base64` | 61–67 | §2 line 57; `audit.json` probe NC-01 `witness_diff_paths = [frames[0].payload_base64]`, verdict CONFIRMED | ANSWERED |
-| I-7 | NC-02, the output-limit projection erases everything including `runtime` | 68–75 | §2 line 58 and §2 lines 83–88; `audit.json` probe NC-02, 8 witness paths, CONFIRMED, plus the DORMANT qualifier the WIP lacks | ANSWERED |
+| I-7 | NC-02, the output-limit projection erases everything including `runtime` | 68–75 | §2 line 58 and §2 lines 80–85; `audit.json` probe NC-02, 8 witness paths, CONFIRMED, plus the DORMANT qualifier the WIP lacks | ANSWERED |
 | I-8 | NC-03, mask keys globally unrepresentable, quirk Q28 | 76–82 | §2 line 59; `audit.json` probe NC-03, CONFIRMED, wire witness | ANSWERED |
 
 **Eight of nine answered. One not.** I-4b is not answered, and the way it fails
@@ -215,6 +215,14 @@ pins it.
   regenerated artifact and a hand-written record that reads it, with no check
   between them — is closed for `normalization-collision-audit.md` only. Filed as
   a general shape rather than claimed as fixed.
+- **`.gitignore` does not ignore the `.quarantine` symlink.** Line 30 reads
+  `.quarantine/`, with a trailing slash, so it matches a DIRECTORY. The isolation
+  step for this task creates `.quarantine` as a symlink, which the rule misses, so
+  `git add -A` stages it — it did here (`59fb547`, reverted in this branch) and at
+  `f1b98a4` before. A committed symlink to an absolute path gives every other
+  checkout a dangling link, and `cmd/gosuitectl`'s precondition would then read a
+  broken link as a staged quarantine and stop refusing. The one-character fix is
+  in a shared file and is not mine to make on this branch; reported, not applied.
 - **`internal/ac5class` still carries two collisions where this audit found
   seven.** Unchanged from the landing record's own §9; it is a US-020 acceptance
   artifact and remains an owner decision.
