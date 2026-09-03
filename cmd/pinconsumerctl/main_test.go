@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -432,5 +434,197 @@ func TestAFieldPinThatHasDriftedIsStillReported(t *testing.T) {
 	}
 	if len(report[0].stale) != 1 {
 		t.Fatalf("a DRIFTED field pin must still be reported: %+v", report[0].stale)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Explanation rules. Each rule SUBTRACTS from the candidate count, so each is
+// tested twice: that it fires on the shape it is for, and that it stays silent
+// -- leaving the pin a candidate -- when the recomputation does not match. A
+// rule that fired on a key NAME would pass the first test and fail the second.
+// ---------------------------------------------------------------------------
+
+// R1: internal/fuzzpin.TreeDigest envelopes a one-file list as
+// "relpath\x00filedigest\n". 25 of the census's 85 rows were this.
+func TestTreeEnvelopeDigestIsExplainedNotReportedAsDangling(t *testing.T) {
+	content := "channel = \"1.95.0\"\n"
+	sum := sha256.Sum256([]byte(content))
+	envelope := sha256.Sum256([]byte("toolchain.toml\x00" + hex.EncodeToString(sum[:]) + "\n"))
+	root := scratchRepo(t, map[string]string{
+		"toolchain.toml": content,
+		"manifest.json": `{"toolchain":{"pin_file":"toolchain.toml","pin_digest":"sha256:` +
+			hex.EncodeToString(envelope[:]) + `"}}`,
+	})
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(census.candidates) != 0 {
+		t.Errorf("a verified tree envelope must not be a candidate: %+v", census.candidates)
+	}
+	if len(census.explained) != 1 ||
+		!strings.HasPrefix(census.explained[0].explanation, "tree-envelope:") {
+		t.Fatalf("expected one tree-envelope explanation, got %+v", census.explained)
+	}
+}
+
+// The property that makes R1 safe to subtract: the envelope is recomputed from
+// the file's CURRENT bytes, so editing the file makes the pin dangle again. A
+// rule keyed on the name `pin_digest` would stay quiet here and hide real drift.
+func TestTreeEnvelopeExplanationStopsApplyingWhenTheFileDrifts(t *testing.T) {
+	original := "channel = \"1.95.0\"\n"
+	sum := sha256.Sum256([]byte(original))
+	envelope := sha256.Sum256([]byte("toolchain.toml\x00" + hex.EncodeToString(sum[:]) + "\n"))
+	root := scratchRepo(t, map[string]string{
+		"toolchain.toml": original,
+		"manifest.json": `{"toolchain":{"pin_file":"toolchain.toml","pin_digest":"sha256:` +
+			hex.EncodeToString(envelope[:]) + `"}}`,
+	})
+
+	if err := os.WriteFile(filepath.Join(root, "toolchain.toml"),
+		[]byte("channel = \"1.96.0\"\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(census.candidates) != 1 {
+		t.Fatalf("a drifted toolchain pin MUST be reported: %d candidates, %d explained",
+			len(census.candidates), len(census.explained))
+	}
+}
+
+// R2: internal/fuzzpin.digestLines over a sibling array -- why two runs of one
+// fuzz campaign share an outcome_digest and neither equals its own log.
+func TestSiblingLineArrayDigestIsExplained(t *testing.T) {
+	hasher := sha256.New()
+	for _, line := range []string{"test a ... ok", "test b ... ok"} {
+		hasher.Write([]byte(line + "\n"))
+	}
+	root := scratchRepo(t, map[string]string{
+		"run1.log": "wall time differs between runs\n",
+		"result.json": `{"runs":[{"log_path":"run1.log","outcome_lines":["test a ... ok",` +
+			`"test b ... ok"],"outcome_digest":"sha256:` + hex.EncodeToString(hasher.Sum(nil)) + `"}]}`,
+	})
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(census.candidates) != 0 {
+		t.Errorf("a digest of the object's own lines is not a pin of the log: %+v", census.candidates)
+	}
+	if len(census.explained) != 1 ||
+		!strings.HasPrefix(census.explained[0].explanation, "sibling-lines:") {
+		t.Errorf("expected one sibling-lines explanation, got %+v", census.explained)
+	}
+}
+
+// R3: `field` names where the digest was read from, and the claim is VERIFIED by
+// resolving it. An object claiming a field it does not match explains nothing --
+// the lying fixture's digest is absent from the source too, so the field-inside
+// rule cannot rescue it either.
+func TestFieldProvenanceIsExplainedOnlyWhenTheFieldActuallyMatches(t *testing.T) {
+	digest := "sha256:" + strings.Repeat("ab", 32)
+	absent := "sha256:" + strings.Repeat("ba", 32)
+	root := scratchRepo(t, map[string]string{
+		"corpus.json": `{"generator":{"secret_seed_commitment":"` + digest + `"}}`,
+		"honest.json": `{"credential":{"declared":"` + digest + `","source":"corpus.json",` +
+			`"field":"generator.secret_seed_commitment"}}`,
+		"lying.json": `{"credential":{"declared":"` + absent + `","source":"corpus.json",` +
+			`"field":"generator.absent_field"}}`,
+	})
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	var explainedFrom, candidateFrom []string
+	for _, row := range census.explained {
+		explainedFrom = append(explainedFrom, row.artifact)
+	}
+	for _, row := range census.candidates {
+		candidateFrom = append(candidateFrom, row.artifact)
+	}
+	if len(explainedFrom) != 1 || explainedFrom[0] != "honest.json" {
+		t.Errorf("only the verifiable field claim may be explained, got %v", explainedFrom)
+	}
+	if len(candidateFrom) != 1 || candidateFrom[0] != "lying.json" {
+		t.Errorf("an unverifiable field claim must stay a candidate, got %v", candidateFrom)
+	}
+}
+
+// R5: a json_set operation carries the value it WRITES. A seeded defect's
+// deliberately wrong digest is a payload, not a pin that drifted.
+func TestMutationOperandIsExplained(t *testing.T) {
+	root := scratchRepo(t, map[string]string{
+		"target.json": `{"nodes":[{"digest":"sha256:` + strings.Repeat("00", 32) + `"}]}`,
+		"mutation.json": `{"operations":[{"kind":"json_set","target":"target.json",` +
+			`"pointer":"/nodes/0/digest","value":"sha256:` + strings.Repeat("cc", 32) + `"}]}`,
+	})
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(census.candidates) != 0 {
+		t.Errorf("a mutation operand is not a pin: %+v", census.candidates)
+	}
+	if len(census.explained) != 1 ||
+		!strings.HasPrefix(census.explained[0].explanation, "mutation-operand:") {
+		t.Errorf("expected a mutation-operand explanation, got %+v", census.explained)
+	}
+}
+
+// The rule that stops an explanation covering for its neighbour: an object with
+// one provable digest AND one unexplained digest stays a candidate.
+func TestAnUnexplainedDigestIsNotCoveredByAnExplainedNeighbour(t *testing.T) {
+	recordDigest := "sha256:" + strings.Repeat("cd", 32)
+	root := scratchRepo(t, map[string]string{
+		"ledger.json": `{"records":[{"record_digest":"` + recordDigest + `"}]}`,
+		"receipt.json": `{"pin":{"ledger_path":"ledger.json","ledger_head":"` + recordDigest +
+			`","file_sha256":"sha256:` + strings.Repeat("ef", 32) + `"}}`,
+	})
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(census.candidates) != 1 {
+		t.Errorf("an object with one unprovable digest must stay a candidate: candidates=%+v explained=%+v",
+			census.candidates, census.explained)
+	}
+}
+
+// The point of the whole exercise: the real tree's adjudicated TRUE dangling
+// pins must still be reported after the precision rules land. If one is ever
+// swallowed, the tool has started hiding drift.
+func TestAdjudicatedTrueDanglingPinsAreStillReported(t *testing.T) {
+	root := repoRoot(t)
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	reported := map[string]bool{}
+	for _, candidate := range census.candidates {
+		reported[candidate.artifact+" "+candidate.pointer] = true
+	}
+	for _, required := range []string{
+		"assurance/formal/obligation-catalog.json $.denominator_basis[1]",
+		"assurance/formal/obligation-catalog.json $.denominator_basis[3]",
+		"assurance/formal/obligation-catalog.json $.denominator_basis[4]",
+		"drafts/ledger-proposals/java-formal-binding-corroborations.json $.evidence_basis.projection",
+		"drafts/ledger-proposals/java-formal-binding-corroborations.json $.evidence_basis.receipt",
+		"evidence/governance/decisions/e3-formal-receipt.json $.artifacts.results_documents[0]",
+		"evidence/governance/decisions/e3-formal-receipt.json $.artifacts.results_documents[1]",
+		"evidence/java/test-manifest.json $.authoritative_run.execution_code_binding.sources[0]",
+		"evidence/java/test-manifest.json $.authoritative_run.execution_code_binding.sources[2]",
+	} {
+		if !reported[required] {
+			t.Errorf("adjudicated TRUE dangling pin no longer reported: %s", required)
+		}
 	}
 }
