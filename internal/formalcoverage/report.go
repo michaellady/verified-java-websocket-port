@@ -33,8 +33,22 @@ const (
 	BlockRefinementMissing   = "REFINEMENT_LINK_DISCONNECTED"
 	BlockLinkageJavaMissing  = "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION"
 	BlockLinkageRustMissing  = "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
-	BlockRustPathAbsent      = "CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE"
-	BlockRustNamespaceAbsent = "CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE"
+	// These two are OBSERVATIONS ABOUT THIS TREE, and their names now say so.
+	// They used to read CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE and
+	// CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE, which were true of this
+	// tree and false as stated: the path exists in the tree the catalog is
+	// about, and the namespace names a crate that tree ships. A reason code
+	// that indicts a document for a lookup performed against the wrong subject
+	// is absence standing in for defect, and it is the more damaging direction
+	// of the error because it blames someone else's correct work.
+	BlockRustPathAbsent      = "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE"
+	BlockRustNamespaceAbsent = "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE"
+	// This is the CAUSE the two above are symptoms of, and it blocks in its own
+	// right. It is derived from the plane-correspondence record, never asserted:
+	// the record must name every catalog namespace, path and symbol, and a row
+	// may only reach ESTABLISHED_BY_OWNER_DECISION by producing a decision in
+	// the protected store.
+	BlockPlaneNotEstablished = "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED"
 	BlockBoundsNotComparable = "DECLARED_BOUNDS_ARE_NOT_COMPARABLE"
 	BlockCounterexampleJava  = "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY"
 	BlockCounterexampleRust  = "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT"
@@ -146,6 +160,8 @@ type DenominatorSummary struct {
 	ObligationIDsWithNoTarget []string         `json:"obligation_ids_with_no_proof_target"`
 	TargetIDsWithNoObligation []string         `json:"target_ids_named_by_no_obligation"`
 	RustBindingRowsPathAbsent int              `json:"catalog_rust_binding_rows_whose_source_path_is_absent"`
+	RustRowsMeasurableHere    int              `json:"catalog_rust_binding_rows_measurable_on_this_plane"`
+	PlaneRecord               ArtifactIdentity `json:"plane_correspondence"`
 	Reconciliation            ArtifactIdentity `json:"reconciliation"`
 }
 
@@ -167,6 +183,7 @@ type Report struct {
 	Invariants      []Invariant        `json:"no_hiding_invariants"`
 	ResolverCeiling ResolverCeiling    `json:"resolver_ceiling"`
 	CatalogDefects  []CatalogDefectRow `json:"catalog_denominator_defects"`
+	PlaneMismatches []PlaneMismatchRow `json:"plane_mismatches"`
 	Freeze          FreezeVerdict      `json:"freeze"`
 	NotClaims       []string           `json:"not_claims"`
 }
@@ -179,6 +196,22 @@ type CatalogDefectRow struct {
 	DefectClass  string `json:"defect_class"`
 	Detail       string `json:"detail"`
 	CorrectionID string `json:"correction_proposal_id,omitempty"`
+}
+
+// PlaneMismatchRow is one catalog Rust row that does not resolve on THIS plane,
+// stated as a mismatch between planes rather than as a defect in the catalog.
+// The distinction is the whole point of the type: a defect is something to
+// repair in the document, a mismatch is a question about which tree the
+// document is being read against, and only the second one is true here.
+type PlaneMismatchRow struct {
+	ObligationCount         int    `json:"obligation_count"`
+	CatalogSourcePath       string `json:"catalog_source_path"`
+	CatalogNamespace        string `json:"catalog_namespace"`
+	PathState               string `json:"path_state_on_this_plane"`
+	NamespaceState          string `json:"namespace_state_on_this_plane"`
+	PathCorrespondence      string `json:"path_correspondence_state"`
+	NamespaceCorrespondence string `json:"namespace_correspondence_state"`
+	Detail                  string `json:"detail"`
 }
 
 // DeriveReport recomputes the whole report from the artifacts on disk. It is
@@ -352,9 +385,11 @@ func DeriveReport(root string) (Report, error) {
 			ExecutionState:    evidence.ExecutionState,
 			ObservedStrength:  evidence.ObservedStrength,
 			MeetsRequired:     rustMeets,
-			LinkageDetail: fmt.Sprintf("catalog connection state %s; declared source path %s (%s); namespace root %s (%s); tool %s %s",
-				rustBinding.ConnectionState, rustBinding.SourcePath, rustCheck.PathState,
-				rustCheck.NamespaceRoot, rustCheck.NamespaceState, evidence.Tool.Name, evidence.Tool.Version),
+			LinkageDetail: fmt.Sprintf(
+				"catalog connection state %s; declared source path %s (%s, correspondence %s); namespace root %s (%s, correspondence %s); tool %s %s",
+				rustBinding.ConnectionState, rustBinding.SourcePath, rustCheck.PathState, rustCheck.PathCorrespondence,
+				rustCheck.NamespaceRoot, rustCheck.NamespaceState, rustCheck.NamespaceCorrespondence,
+				evidence.Tool.Name, evidence.Tool.Version),
 			BoundsDeclared:    evidence.Bounds.MaxFrameBytes != nil || evidence.Bounds.MaxSteps != nil,
 			BoundsDescription: describeCatalogBounds(evidence.Bounds),
 		}
@@ -411,6 +446,9 @@ func DeriveReport(root string) (Report, error) {
 		}
 		if rustCheck.NamespaceState == RustNamespaceDisagrees {
 			row.BlockingReasons = append(row.BlockingReasons, BlockRustNamespaceAbsent)
+		}
+		if !rustCheck.MeasurableHere {
+			row.BlockingReasons = append(row.BlockingReasons, BlockPlaneNotEstablished)
 		}
 		if row.BoundParity != "BOTH_SIDES_DECLARE_BOUNDS" {
 			row.BlockingReasons = append(row.BlockingReasons, BlockBoundsNotComparable)
@@ -510,17 +548,33 @@ func DeriveReport(root string) (Report, error) {
 			})
 		}
 	}
+	// The Rust rows are deliberately NOT added to the defect list. A path that
+	// does not resolve here is a fact about which tree it is being resolved
+	// against; filing it as a defect in the catalog is the mistake this report
+	// used to make, and it indicted another plane's correct work. They get
+	// their own list, with the correspondence evidence attached.
+	var mismatches []PlaneMismatchRow
 	for _, check := range reconciliation.RustBindingCheck {
-		if check.PathState == RustPathAbsent || check.NamespaceState == RustNamespaceDisagrees {
-			defects = append(defects, CatalogDefectRow{
-				ObligationID: fmt.Sprintf("(%d obligations)", check.ObligationCount),
-				Side:         "RUST",
-				DefectClass:  check.PathState + "+" + check.NamespaceState,
-				Detail: fmt.Sprintf("catalog source_path %q and namespace root %q; the workspace ships %s",
-					check.SourcePath, check.NamespaceRoot, strings.Join(check.ShippedCrates, ", ")),
-			})
+		if check.MeasurableHere {
+			continue
 		}
+		mismatches = append(mismatches, PlaneMismatchRow{
+			ObligationCount:         check.ObligationCount,
+			CatalogSourcePath:       check.SourcePath,
+			CatalogNamespace:        check.NamespaceRoot,
+			PathState:               check.PathState,
+			NamespaceState:          check.NamespaceState,
+			PathCorrespondence:      check.PathCorrespondence,
+			NamespaceCorrespondence: check.NamespaceCorrespondence,
+			Detail: fmt.Sprintf(
+				"the catalog names %q in namespace %q; this plane ships the crate namespaces %s and does not hold that path. "+
+					"%s records what is known about the two planes: path correspondence %s, namespace correspondence %s. "+
+					"Neither is ESTABLISHED_BY_OWNER_DECISION, so these %d obligations are not measurable here.",
+				check.SourcePath, check.NamespaceRoot, strings.Join(check.ShippedCrates, ", "),
+				PlaneCorrespondencePath, check.PathCorrespondence, check.NamespaceCorrespondence, check.ObligationCount),
+		})
 	}
+	sort.Slice(mismatches, func(i, j int) bool { return mismatches[i].CatalogSourcePath < mismatches[j].CatalogSourcePath })
 
 	// ---- resolver ceiling ------------------------------------------------
 	resolverVerifiedAt := "null"
@@ -577,7 +631,7 @@ func DeriveReport(root string) (Report, error) {
 		Assurance: DefaultAssurance(),
 		Inputs: []ArtifactIdentity{
 			catalogIdentity, planIdentity, projectionIdentity, specIdentity, linkageIdentity,
-			correctionIdentity, reconciliationIdentity,
+			correctionIdentity, reconciliation.PlaneRecord, reconciliationIdentity,
 		},
 		Denominator: DenominatorSummary{
 			CatalogObligations:        reconciliation.Counts.Obligations,
@@ -587,6 +641,8 @@ func DeriveReport(root string) (Report, error) {
 			ObligationIDsWithNoTarget: unmappedObligationIDs(reconciliation),
 			TargetIDsWithNoObligation: unmappedTargetIDs(reconciliation),
 			RustBindingRowsPathAbsent: reconciliation.Counts.RustBindingPathsAbsent,
+			RustRowsMeasurableHere:    reconciliation.Counts.RustBindingRowsMeasurableHere,
+			PlaneRecord:               reconciliation.PlaneRecord,
 			Reconciliation:            reconciliationIdentity,
 		},
 		Axes:            axes,
@@ -594,6 +650,7 @@ func DeriveReport(root string) (Report, error) {
 		BlockingGaps:    gaps,
 		ResolverCeiling: ceiling,
 		CatalogDefects:  defects,
+		PlaneMismatches: mismatches,
 		NoHidingRule: "No weighted aggregate may hide a blocking obligation. Enforced three ways at once: no axis " +
 			"applies any weight (every axis declares weighting NONE and is derived as a count of rows); every axis " +
 			"publishes its counted and its blocking obligations by name, so a numerator can be checked against a " +
@@ -611,9 +668,19 @@ func DeriveReport(root string) (Report, error) {
 				"evidence/java/formal-bindings/receipt.json. In the default lane those spans are provenance recorded " +
 				"in that receipt, not recomputed from the pinned Java tree; only the javabinde2e lane recomputes " +
 				"them. This report inherits that bound and does not close it.",
-			"The denominator itself is defective on both sides — five obligations declare Java symbols that cannot " +
-				"carry them, and all 24 declare Rust source paths that exist in no tree — so even a perfect score " +
-				"over it would not mean what it appears to mean. The defects are listed rather than corrected here.",
+			"The denominator is defective on its JAVA side: five obligations declare Java symbols that cannot carry " +
+				"them, all 24 java_bindings share one whole-archive source_sha256 so the column distinguishes no " +
+				"two obligations by content, and its 15 distinct source_path values are synthesised paths that " +
+				"treat a METHOD as a file and exist on NEITHER plane. That finding is plane-independent and is " +
+				"listed rather than corrected here.",
+			"The denominator is NOT defective on its Rust side, and an earlier version of this report said it was. " +
+				"All four of its distinct Rust source paths and both of its namespaces resolve on the plane the " +
+				"catalog is vendored from; they resolve here to nothing because they are about another tree. That " +
+				"is a plane mismatch, published in plane_mismatches with the correspondence evidence, and it is a " +
+				"question for the owner rather than a repair to the catalog.",
+			"Because no plane correspondence is established, the Rust column of this report is not a measurement " +
+				"of this plane's crates at all. Its zeroes are honest and they are also not about ws_core and " +
+				"ws_driver; they are about a document whose subject this plane has not been shown to be.",
 			"This report is owner-executed on a single host. assurance is OWNER_ATTESTED_NOT_INDEPENDENT and " +
 				"independent_review_claimed is false.",
 		},
