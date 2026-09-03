@@ -413,3 +413,51 @@ func TestRegisterCarriesTheDerivationsShape(t *testing.T) {
 	}
 	t.Fatalf("no %s family in the committed register", FamilyPublicState)
 }
+
+// TestHollowCoVoteQualifierCountsRatherThanAsserts is the negative control on
+// the sentence appended to the indistinguishability finding. It reports
+// "leaving 0 co-vote(s) that could have come out either way" on the committed
+// tree, and a qualifier that says 0 whatever it is handed would be worthless.
+// Here it is handed a pair with one degenerate family, one single-answer family
+// and one family that is neither, and must count them apart.
+func TestHollowCoVoteQualifierCountsRatherThanAsserts(t *testing.T) {
+	families := []Family{
+		{ID: "joined", VerdictSpace: []string{"a", "b"}, JoinDegeneracy: []JoinDegeneracy{{
+			Family: "joined", Higher: RankRFC6455, Lower: RankNeutralExpectation, Degenerate: true,
+		}}},
+		{ID: "collapsed", VerdictSpace: []string{"a", "b"}},
+		{ID: "informative", VerdictSpace: []string{"a", "b"}},
+	}
+	p := PairProbe{
+		Higher: RankRFC6455, Lower: RankNeutralExpectation, CoVotes: 30,
+		ByFamily: []FamilyProbe{
+			{Family: "joined", Verdict: ProbeNotDistinguished, CoVotes: 10,
+				Resolution: CoVoteResolution{DistinctVerdictPairs: 2}},
+			{Family: "collapsed", Verdict: ProbeNotDistinguished, CoVotes: 15,
+				Resolution: CoVoteResolution{DistinctVerdictPairs: 1}},
+			{Family: "informative", Verdict: ProbeNotDistinguished, CoVotes: 5,
+				Resolution: CoVoteResolution{DistinctVerdictPairs: 2}},
+		},
+	}
+	got := hollowCoVoteQualifier(p, families)
+	for _, want := range []string{
+		"10 in joined where the census's own join makes disagreement structurally impossible",
+		"15 in collapsed that carry one distinct answer between them",
+		"leaving 5 co-vote(s) that could have come out either way",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("qualifier does not carry %q:\n%s", want, got)
+		}
+	}
+
+	// With nothing hollow, the qualifier must say nothing at all rather than
+	// appending an empty caveat to every finding.
+	clean := PairProbe{
+		Higher: RankRFC6455, Lower: RankNeutralExpectation, CoVotes: 5,
+		ByFamily: []FamilyProbe{{Family: "informative", Verdict: ProbeNotDistinguished, CoVotes: 5,
+			Resolution: CoVoteResolution{DistinctVerdictPairs: 2}}},
+	}
+	if q := hollowCoVoteQualifier(clean, families); q != "" {
+		t.Fatalf("a pair with no hollow co-votes got a qualifier: %q", q)
+	}
+}

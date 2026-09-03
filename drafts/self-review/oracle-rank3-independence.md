@@ -316,14 +316,43 @@ does the same for all 5 abstentions.
 - `TestNeutralDerivationCoversEveryPublicScenarioOrSaysWhyNot` — fails if the
   derivation never abstains (overclaiming) or never decides (silent).
 
+Also `TestHollowCoVoteQualifierCountsRatherThanAsserts`: the sentence appended
+to the indistinguishability finding says "leaving 0" on the committed tree, so it
+is handed a synthetic pair with one degenerate family (10), one single-answer
+family (15) and one that is neither (5), and must report **leaving 5**; handed a
+pair with nothing hollow it must append nothing at all.
+
 **Exit codes read from the process, on the committed tree:**
 
 ```
 go run ./cmd/oraclerankctl --root . --check   -> 0
-go run ./cmd/oraclerankctl --root .           -> 0   (writes 92382 bytes)
+go run ./cmd/oraclerankctl --root .           -> 0   (writes 92469 bytes)
 go test ./internal/oraclerank/                -> 0
 go test ./internal/rfcneutral/                -> 0
+go vet ./internal/oraclerank/ ./internal/rfcneutral/ ./cmd/oraclerankctl/  -> 0
 ```
+
+### Full suite, and the baseline
+
+`go test -timeout 40m ./...` on this branch. `internal/oraclerank` **ok** (51.0s),
+`internal/rfcneutral` **ok**. Six packages failed:
+
+| package | failure, quoted from the run |
+| --- | --- |
+| `internal/lab` | `PLATFORM_EXECUTOR_UNSUPPORTED at $.controlled_canary: CONTROLLED_CANARY requires Darwin sandbox-exec` |
+| `internal/portplan` | `lstat ../../.quarantine/Java-WebSocket-da3cf2a.../src/main/java: no such file or directory` |
+| `internal/formalplan` | `JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403` |
+| `cmd/formalcoverctl` | `the retained evidence/formal/us023-coverage-report.json is not what the evidence derives`, with `basis_pin_drift ... corpora/frame/codec.json ... on_disk=READ_FAILED` |
+| `internal/formalcoverage` | same report, same cause |
+| `internal/deltaledger` | **not one of the named baselines.** `VJWP_PROTECTED_STORE is unset` — the run did not export it. With `VJWP_PROTECTED_STORE` pointed at `evidence/governance/decisions`, the package is **ok** (27.8s) |
+
+The first five are exactly the named baseline set, failing for offline-Java and
+platform reasons this environment causes. **None of the six packages imports
+`internal/oraclerank` or `internal/rfcneutral`, and none reads
+`evidence/oracle-hierarchy/adjudication-register.json`** — the only Go files in
+the tree that mention the register are `internal/oraclerank`, `cmd/oraclerankctl`,
+`internal/rfcneutral/doc.go` (prose) and `internal/deltaledger/definitions_gap_closure.go`
+(a prose string about the *other* plane's file). **No new failures.**
 
 ---
 
@@ -394,6 +423,20 @@ as a waivers list · a deleted schema.
   `CONTENT_BOUND_TO_RECORDED_READING` and both say so.
 - **I did not argue the register's claim ceiling upward.** It is OBSERVED, and
   the schema now refuses an `assurance_note` that does not open with it.
+- **I did not run `make -C rust gates` or any `cargo` command.** This branch
+  changes no Rust: the whole diff is `internal/rfcneutral`, `internal/oraclerank`,
+  `cmd/oraclerankctl`, `schemas/`, `evidence/oracle-hierarchy/` and
+  `drafts/self-review/`. The Rust gate is therefore unexercised by me, and that
+  is a gap in this report rather than a result.
+- **I did not run Autobahn, AWS or any benchmark.** No owner gate was triggered.
+- **I did not verify the branch against a pristine mainline checkout of the
+  failing packages.** The baseline argument above rests on the failure messages
+  naming offline-Java and platform causes, plus a grep showing that none of the
+  six packages can see anything this branch changed. That is weaker than an
+  A/B run and is stated as such.
+- **I did not add the register to any CI workflow.** `oraclerankctl --check` is
+  a gate a caller must run; nothing in `.github/workflows` invokes it, before or
+  after this branch.
 
 ---
 
