@@ -240,9 +240,20 @@ Three committed artifacts answer it together:
 3. **The port's own citation of the same site.**
    `rust/ws-core/src/framing.rs` `decode_frame_header` documents its 1009 gate
    as `translateSingleFrameCheckLengthLimit :648-663`, and
-   `assurance/formal/frame-model.tla:236-237` says it in one line: a declared
+   `assurance/formal/frame-model.tla:235-237` says it in one line: a declared
    length above maxFrameSize "throws LimitExceededException, which the port
    projects as close code 1009".
+
+A second, independent executed instance of the same projection sits in
+`evidence/ac5-class-completeness/java-arm-public.jsonl`: public corpus case
+`us005.pub.0031`, family `buffer-limit-frame`, the live Java arm against the
+same pinned jar `sha256:eae29213…`, a 7-bit inline length of 80 against
+`max_buffered_bytes: 64`, answered
+`{"close_code": 1009, "code": "JAVA_INVALID_DATA", "detail": "Payload limit reached."}`
+at `consumed_bytes: 2` — the inline length site rather than the 16-bit one. Two
+different length sites, two different runs, one exception, one close code. (That
+row is one of the 74 public rows, which carry 73 distinct scored observations
+between them; nothing here rests on the row being unique.)
 
 **The step that removes the need for a live run.** A 64-bit value with the high
 bit set lands in at least one of that helper's three branches under either sign
