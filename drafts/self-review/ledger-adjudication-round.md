@@ -446,7 +446,7 @@ packages, not two:
 | package | cause |
 | --- | --- |
 | `internal/deltaledger` | **mine**, fixed in section 7b |
-| `internal/lab` | the documented Darwin `sandbox-exec` reason |
+| `internal/lab` | the documented Darwin `sandbox-exec` reason **plus the same 403 in three more tests** |
 | `internal/portplan` | the documented vendor decision |
 | `internal/formalplan` | **not mine**, and not on the documented list |
 
@@ -474,6 +474,29 @@ That is the pinned source archive named in `evidence/intake/source-pins.json`
 (`java-websocket-source-archive`, pinned `sha256:f44e7647…13cb4`), and the 378
 bytes and their digest are byte-identical to the refusal the DIV-05
 continuation recorded for the same URL. `.quarantine/` is empty and git-ignored.
+
+**AND THE SAME 403 IS ALSO FAILING `internal/lab`, BEHIND AN ACCEPTED LABEL.**
+`internal/lab` is on the documented list for the Darwin `sandbox-exec` reason,
+and one of its failures is exactly that
+(`sandbox_test.go:21: PLATFORM_EXECUTOR_UNSUPPORTED … CONTROLLED_CANARY requires
+Darwin sandbox-exec`). Three others are not:
+
+```
+e2e_test.go:113        source materialization failed (never skipped):
+                       JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403
+review_fixes_test.go:250   cannot materialize the pinned source: … HTTP 403
+round2_fixes_test.go:123   … got ORACLE_TREE_MISMATCH: cannot walk the source tree:
+                       lstat ../../.quarantine/Java-WebSocket-da3cf2a…/src/main/java:
+                       no such file or directory
+```
+
+So one environment fact — no GitHub access to the pinned Java source — is
+failing tests in **two** packages, and in one of them it is invisible because
+the package is already labelled failing for something else. That is a label
+standing in for a diagnosis, which is the same shape as F008. The
+`round2_fixes_test.go:123` line is the sharpest instance: a fail-closed test
+that should report `ORACLE_REPRODUCTION_MISMATCH` reports a missing directory
+instead, so the tamper it exists to detect is not being detected.
 
 **Why this is proven not to be mine.** The diff on this branch touches
 `internal/deltaledger/` (one new definitions file, one hook line, three test
