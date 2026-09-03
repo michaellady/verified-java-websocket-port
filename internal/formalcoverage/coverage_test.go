@@ -42,9 +42,18 @@ var filesTheDerivationReads = []string{
 	LinkagePath,
 	ReceiptPath,
 	CorrectionPath,
+	PlaneCorrespondencePath,
 	"assurance/developer-tools/port-seam-dossier.json",
 	"evidence/intake/compatibility-surface.json",
 	"evidence/intake/semantic-id-migration-map.json",
+	// The plane-correspondence verifier reads back every file:line citation it
+	// makes about THIS plane, so the sandbox needs the cited files themselves.
+	// A citation nobody reads back is a name; these four are what make the
+	// difference.
+	"rust/ws-core/src/connection.rs",
+	"rust/ws-core/src/error.rs",
+	"rust/ws-core/src/framing.rs",
+	"rust/ws-driver/src/lib.rs",
 }
 
 // sandbox materialises a throwaway copy of exactly those inputs, plus the
@@ -83,7 +92,15 @@ func sandbox(t *testing.T) string {
 		if err := os.MkdirAll(target, 0o755); err != nil {
 			t.Fatalf("mkdir %s: %v", target, err)
 		}
-		if err := os.WriteFile(filepath.Join(target, "Cargo.toml"), []byte("# copied for the sandbox\n"), 0o644); err != nil {
+		// The manifest is copied whole rather than stubbed. The namespace a
+		// crate ships is declared INSIDE the manifest ([lib] name), so a stub
+		// would give the sandbox a crate layout with no namespaces at all and
+		// the Rust-side check would pass for the wrong reason.
+		manifestBytes, err := os.ReadFile(manifest)
+		if err != nil {
+			t.Fatalf("read %s: %v", manifest, err)
+		}
+		if err := os.WriteFile(filepath.Join(target, "Cargo.toml"), manifestBytes, 0o644); err != nil {
 			t.Fatalf("write manifest: %v", err)
 		}
 	}
@@ -430,7 +447,7 @@ func TestCatalogBasisPinsAreComparedAgainstTheFilesOnDisk(t *testing.T) {
 	if len(reconciliation.BasisPins) == 0 {
 		t.Fatal("no basis pin was compared")
 	}
-	drifted := 0
+	drifted, absent := 0, 0
 	for _, pin := range reconciliation.BasisPins {
 		switch pin.Agreement {
 		case BasisAgreementExact:
@@ -441,13 +458,27 @@ func TestCatalogBasisPinsAreComparedAgainstTheFilesOnDisk(t *testing.T) {
 			if pin.OnDiskSHA == pin.DeclaredSHA && pin.OnDiskBlob == pin.DeclaredBlob {
 				t.Fatalf("%s is reported as drifted but both identities match", pin.Path)
 			}
+			if _, statErr := os.Stat(filepath.Join(repoRoot(t), filepath.FromSlash(pin.Path))); statErr != nil {
+				t.Fatalf("%s is reported as DRIFTED but it is not on this plane at all; drift and absence are different findings", pin.Path)
+			}
 			drifted++
+		case BasisAgreementPathAbsent:
+			// A pin whose path is absent here has NOT drifted, and the check
+			// must not be satisfied by the label alone: the file really must
+			// be missing.
+			if _, statErr := os.Stat(filepath.Join(repoRoot(t), filepath.FromSlash(pin.Path))); statErr == nil {
+				t.Fatalf("%s is reported as absent from this plane but the file is here", pin.Path)
+			}
+			absent++
 		default:
 			t.Fatalf("%s carries agreement %q, which is not in the vocabulary", pin.Path, pin.Agreement)
 		}
 	}
 	if drifted == 0 {
 		t.Fatal("every declared basis pin matches the file on disk; that is not what this tree contains and the check is therefore not reading the tree")
+	}
+	if absent == 0 {
+		t.Fatal("no basis pin is reported as absent from this plane; corpora/frame/codec.json is not in this tree and reporting it as drift would be absence standing in for defect")
 	}
 }
 

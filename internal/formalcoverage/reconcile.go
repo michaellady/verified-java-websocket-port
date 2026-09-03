@@ -1,7 +1,9 @@
 package formalcoverage
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -18,11 +20,12 @@ const (
 	MappingTargetNoObligation = "UNMAPPED_TARGET_NAMED_BY_NO_OBLIGATION"
 	BasisAgreementExact       = "BASIS_PIN_MATCHES_FILE_ON_DISK"
 	BasisAgreementDrifted     = "BASIS_PIN_DOES_NOT_MATCH_FILE_ON_DISK"
+	BasisAgreementPathAbsent  = "BASIS_PIN_PATH_IS_ABSENT_FROM_THIS_PLANE"
 	BasisAgreementNotDeclared = "NO_BASIS_PIN_DECLARED_FOR_THIS_PATH"
-	RustPathPresent           = "SOURCE_PATH_EXISTS_IN_TREE"
-	RustPathAbsent            = "SOURCE_PATH_EXISTS_IN_NO_TREE"
-	RustNamespaceAgrees       = "NAMESPACE_MATCHES_A_SHIPPED_CRATE"
-	RustNamespaceDisagrees    = "NAMESPACE_MATCHES_NO_SHIPPED_CRATE"
+	RustPathPresent           = "SOURCE_PATH_EXISTS_ON_THIS_PLANE"
+	RustPathAbsent            = "SOURCE_PATH_ABSENT_FROM_THIS_PLANE"
+	RustNamespaceAgrees       = "NAMESPACE_NAMES_A_CRATE_SHIPPED_BY_THIS_PLANE"
+	RustNamespaceDisagrees    = "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE"
 )
 
 // ObligationMapping is one obligation's side of the reconciliation.
@@ -78,6 +81,14 @@ type RustBindingCheck struct {
 	NamespaceRoot     string   `json:"namespace_root"`
 	NamespaceState    string   `json:"namespace_state"`
 	ShippedCrates     []string `json:"shipped_crate_namespaces"`
+	// PathCorrespondence and NamespaceCorrespondence say what the two states
+	// above MEAN. Absent-on-this-plane is an observation about this tree; on
+	// its own it does not say whether the catalog is wrong or whether it is
+	// simply about a different tree. These two fields carry that difference,
+	// read from the plane-correspondence record.
+	PathCorrespondence      string `json:"path_correspondence_state"`
+	NamespaceCorrespondence string `json:"namespace_correspondence_state"`
+	MeasurableHere          bool   `json:"measurable_on_this_plane"`
 }
 
 // ReconciliationCounts are the derived numbers. Every one is a count of rows,
@@ -102,6 +113,7 @@ type ReconciliationCounts struct {
 	MigrationBindingsVerified      int `json:"migration_bindings_rust_identity_verified"`
 	RustBindingPathsAbsent         int `json:"catalog_rust_binding_rows_whose_source_path_is_absent"`
 	RustBindingNamespacesAbsent    int `json:"catalog_rust_binding_rows_whose_namespace_is_absent"`
+	RustBindingRowsMeasurableHere  int `json:"catalog_rust_binding_rows_measurable_on_this_plane"`
 }
 
 // Reconciliation is the derived checked mapping between the two denominators.
@@ -114,6 +126,8 @@ type Reconciliation struct {
 	Assurance        Assurance            `json:"assurance"`
 	Catalog          ArtifactIdentity     `json:"catalog"`
 	ProofTargets     ArtifactIdentity     `json:"proof_targets"`
+	PlaneRecord      ArtifactIdentity     `json:"plane_correspondence"`
+	CatalogPlane     PlaneIdentity        `json:"catalog_is_about_this_plane"`
 	SharedAnchor     SharedAnchor         `json:"shared_java_anchor"`
 	BasisPins        []BasisPin           `json:"catalog_declared_basis_pins"`
 	Counts           ReconciliationCounts `json:"counts"`
@@ -126,8 +140,54 @@ type Reconciliation struct {
 	NotClaims        []string             `json:"not_claims"`
 }
 
+// CrateLibNamespace returns the Rust library namespace a crate manifest
+// actually ships: its [lib] name when it declares one, and otherwise its
+// [package] name with hyphens replaced, which is what `use` resolves against.
+//
+// It is deliberately NOT the directory name. On the plane the vendored catalog
+// came from, the directory rust/connection-core ships the library
+// `websocket_core`; on this plane the directory rust/ws-core ships `ws_core`
+// and says so explicitly in a [lib] name its manifest comments call canonical.
+// A checker that read directory names would report namespaces no crate has and
+// miss namespaces every crate has -- the directory name standing in for the
+// crate identity. Reading the manifest is the difference between a name that
+// looks right and the identity the compiler resolves against.
+func CrateLibNamespace(manifest []byte) string {
+	section, pkg, lib := "", "", ""
+	for _, raw := range strings.Split(string(manifest), "\n") {
+		line := strings.TrimSpace(raw)
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") {
+			section = line
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) != "name" {
+			continue
+		}
+		value := strings.Trim(strings.TrimSpace(parts[1]), "\"")
+		switch section {
+		case "[package]":
+			if pkg == "" {
+				pkg = value
+			}
+		case "[lib]":
+			if lib == "" {
+				lib = value
+			}
+		}
+	}
+	if lib != "" {
+		return lib
+	}
+	return strings.ReplaceAll(pkg, "-", "_")
+}
+
 // shippedCrateNamespaces lists the Rust library namespaces the workspace
-// actually ships. It is derived from the tree, not asserted.
+// actually ships. It is derived from each crate's own manifest, never from the
+// directory the crate happens to sit in, and never asserted.
 func shippedCrateNamespaces(root string) ([]string, error) {
 	entries, err := os.ReadDir(filepath.Join(root, "rust"))
 	if err != nil {
@@ -138,10 +198,15 @@ func shippedCrateNamespaces(root string) ([]string, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(root, "rust", entry.Name(), "Cargo.toml")); err != nil {
+		manifest, err := os.ReadFile(filepath.Join(root, "rust", entry.Name(), "Cargo.toml"))
+		if err != nil {
 			continue
 		}
-		namespaces = append(namespaces, strings.ReplaceAll(entry.Name(), "-", "_"))
+		namespace := CrateLibNamespace(manifest)
+		if namespace == "" {
+			continue
+		}
+		namespaces = append(namespaces, namespace)
 	}
 	sort.Strings(namespaces)
 	return namespaces, nil
@@ -170,6 +235,24 @@ func Reconcile(root string) (Reconciliation, error) {
 	if err != nil {
 		return Reconciliation{}, err
 	}
+	// The plane record is an INPUT to the reconciliation, not a commentary on
+	// it: without it there is no way to say whether an unresolved Rust name is
+	// a defect or a plane mismatch, and a reconciliation that guessed would be
+	// the original error in a new place. A record that does not check out
+	// refuses the whole derivation rather than annotating it.
+	planeFindings, planeDoc, err := VerifyPlaneCorrespondence(root)
+	if err != nil {
+		return Reconciliation{}, err
+	}
+	if len(planeFindings) > 0 {
+		return Reconciliation{}, fmt.Errorf("formalcoverage: the plane-correspondence record does not check out (%d findings, first: %s/%s: %s)",
+			len(planeFindings), planeFindings[0].Subject, planeFindings[0].Check, planeFindings[0].Detail)
+	}
+	_, planeIdentity, err := LoadArtifact(root, PlaneCorrespondencePath)
+	if err != nil {
+		return Reconciliation{}, err
+	}
+	planeStates := planeDoc.States()
 
 	// --- the join, on the one key both documents carry -------------------
 	catalogByKey := map[JavaKey][]string{}
@@ -322,8 +405,15 @@ func Reconcile(root string) (Reconciliation, error) {
 		pin := BasisPin{Path: basis.Path, DeclaredSHA: basis.SHA256, DeclaredBlob: basis.Git.Blob, Agreement: BasisAgreementNotDeclared}
 		data, identity, err := LoadArtifact(root, basis.Path)
 		if err != nil {
-			pin.OnDiskSHA = "READ_FAILED"
+			// A pin whose path is not on this plane has NOT drifted. Drift is a
+			// claim that the pinned file changed; absence is a claim about which
+			// tree the pin is about, and the two must not share a code. Reading
+			// them as one is absence standing in for defect.
+			pin.OnDiskSHA = "PATH_ABSENT"
 			pin.Agreement = BasisAgreementDrifted
+			if errors.Is(err, fs.ErrNotExist) {
+				pin.Agreement = BasisAgreementPathAbsent
+			}
 			basisPins = append(basisPins, pin)
 			continue
 		}
@@ -349,7 +439,7 @@ func Reconcile(root string) (Reconciliation, error) {
 		crateSet[crate] = true
 	}
 	byPath := map[string]*RustBindingCheck{}
-	pathsAbsent, namespacesAbsent := 0, 0
+	pathsAbsent, namespacesAbsent, measurableHere := 0, 0, 0
 	for _, binding := range catalog.RustBindings {
 		check, ok := byPath[binding.SourcePath]
 		if !ok {
@@ -361,6 +451,13 @@ func Reconcile(root string) (Reconciliation, error) {
 			if crateSet[check.NamespaceRoot] {
 				check.NamespaceState = RustNamespaceAgrees
 			}
+			check.PathCorrespondence = planeStates.ByPath[binding.SourcePath]
+			check.NamespaceCorrespondence = planeStates.ByNamespace[check.NamespaceRoot]
+			// Measurable here requires BOTH correspondences to be established.
+			// One established half is not half a subject; it is a subject
+			// nobody has finished naming.
+			check.MeasurableHere = AuthorisesMeasurement(check.PathCorrespondence) &&
+				AuthorisesMeasurement(check.NamespaceCorrespondence)
 			byPath[binding.SourcePath] = check
 		}
 		check.ObligationCount++
@@ -372,6 +469,9 @@ func Reconcile(root string) (Reconciliation, error) {
 		}
 		if check.NamespaceState == RustNamespaceDisagrees {
 			namespacesAbsent++
+		}
+		if check.MeasurableHere {
+			measurableHere++
 		}
 	}
 	var rustChecks []RustBindingCheck
@@ -397,6 +497,7 @@ func Reconcile(root string) (Reconciliation, error) {
 		MigrationBindingsVerified:      migrationVerified,
 		RustBindingPathsAbsent:         pathsAbsent,
 		RustBindingNamespacesAbsent:    namespacesAbsent,
+		RustBindingRowsMeasurableHere:  measurableHere,
 	}
 	for _, row := range obligations {
 		if row.State == MappingMapped {
@@ -427,7 +528,11 @@ func Reconcile(root string) (Reconciliation, error) {
 			"24-obligation catalog (assurance/formal/obligation-catalog.json, vendored from the Codex plane) and the " +
 			"10-target US-006 proof-target plan (assurance/formal/proof-targets.json). Every obligation maps to zero " +
 			"or more targets and every target to zero or more obligations. Obligations with no target and targets " +
-			"with no obligation are published as named lists, never summarised into a percentage.",
+			"with no obligation are published as named lists, never summarised into a percentage. The catalog's " +
+			"Rust column is read against BOTH the tree it is about and the tree it is being read on: " +
+			"catalog_rust_binding_checks reports what this plane holds AND what the plane-correspondence record " +
+			"says that absence means, so an unresolved name is never reported as a defect in the catalog when it " +
+			"is a mismatch between planes.",
 		JoinRule: "Join key: the pinned-Java construct key `DeclaringType#memberName`, derived from the catalog's " +
 			"java_bindings[].production_symbol on one side and the plan's targets[].production_symbols[]." +
 			"java_authority_members[] on the other. The parameter list is deliberately NOT part of the key: the " +
@@ -437,6 +542,8 @@ func Reconcile(root string) (Reconciliation, error) {
 		Assurance:        DefaultAssurance(),
 		Catalog:          catalogIdentity,
 		ProofTargets:     planIdentity,
+		PlaneRecord:      planeIdentity,
+		CatalogPlane:     planeDoc.OriginPlane,
 		SharedAnchor:     anchor,
 		BasisPins:        basisPins,
 		Counts:           counts,
@@ -454,6 +561,11 @@ func Reconcile(root string) (Reconciliation, error) {
 				"covered one. The mapping reports what the two documents say about each other, nothing more.",
 			"The join is on the Java side only. The two documents' Rust columns do not join at all, and this " +
 				"artifact records that as a finding rather than papering over it with a name-normalising rule.",
+			"That the catalog's Rust source paths and namespaces are absent HERE is not a finding about the " +
+				"catalog. The catalog is vendored from another plane and its Rust column resolves cleanly on that " +
+				"plane; " + PlaneCorrespondencePath + " records the crate-by-crate evidence. The finding is that " +
+				"no correspondence between the two planes has been established, so these rows are not measurable " +
+				"here -- which is a question for the owner, not a defect to repair.",
 		},
 	}, nil
 }

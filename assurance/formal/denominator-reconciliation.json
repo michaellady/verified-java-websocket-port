@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "document_id": "us023-denominator-reconciliation",
   "entity_type": "FormalDenominatorReconciliation",
-  "statement": "A checked mapping between the two formal denominators this repository carries: the immutable 24-obligation catalog (assurance/formal/obligation-catalog.json, vendored from the Codex plane) and the 10-target US-006 proof-target plan (assurance/formal/proof-targets.json). Every obligation maps to zero or more targets and every target to zero or more obligations. Obligations with no target and targets with no obligation are published as named lists, never summarised into a percentage.",
+  "statement": "A checked mapping between the two formal denominators this repository carries: the immutable 24-obligation catalog (assurance/formal/obligation-catalog.json, vendored from the Codex plane) and the 10-target US-006 proof-target plan (assurance/formal/proof-targets.json). Every obligation maps to zero or more targets and every target to zero or more obligations. Obligations with no target and targets with no obligation are published as named lists, never summarised into a percentage. The catalog's Rust column is read against BOTH the tree it is about and the tree it is being read on: catalog_rust_binding_checks reports what this plane holds AND what the plane-correspondence record says that absence means, so an unresolved name is never reported as a defect in the catalog when it is a mismatch between planes.",
   "join_rule": "Join key: the pinned-Java construct key `DeclaringType#memberName`, derived from the catalog's java_bindings[].production_symbol on one side and the plan's targets[].production_symbols[].java_authority_members[] on the other. The parameter list is deliberately NOT part of the key: the catalog's JVM descriptors are known to disagree with the pinned source's actual parameter lists (docs/java-formal-binding-design.md section 3.2), so joining on them would silently shrink the mapping. The Rust symbols are NOT a join key and are not used as one — see catalog_rust_binding_checks for why.",
   "assurance": {
     "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
@@ -20,6 +20,18 @@
     "path": "assurance/formal/proof-targets.json",
     "sha256": "sha256:bad1e0697d0f4428a4cc6572549e4528ca4f0328c15163beddd4deb31c59a205",
     "git_blob": "cbbaa730291d2d53be6ac20bc54e31ebe57ba981"
+  },
+  "plane_correspondence": {
+    "path": "assurance/formal/plane-correspondence.json",
+    "sha256": "sha256:240347c9c36ea1ab04f21bddf6d589038b008bff7290428ddccf33a68f19a7f2",
+    "git_blob": "3dfe260e97be4e9863ed943aa4c1049cb5b92697"
+  },
+  "catalog_is_about_this_plane": {
+    "name": "verified-java-websocket-port-codex (Codex authority plane)",
+    "ref": "origin/codex/race-catchup",
+    "commit": "4110462f52719d3bba5afc6c182af4df59b6f41b",
+    "writable_from_here": false,
+    "statement": "The plane the catalog came from and the plane its Rust column is about. It is fetch-only from here: this document reads it and never writes to it. Its columns below (directory, library name, declaration lines) are recorded provenance read at the commit named above; they are NOT recomputed by the verifier, because a checkout is not required to have the ref fetched. Everything this document says about THIS plane is recomputed on every run."
   },
   "shared_java_anchor": {
     "catalog_java_binding_archive_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
@@ -50,9 +62,9 @@
       "path": "corpora/frame/codec.json",
       "catalog_declared_sha256": "sha256:984e59e8533d909bd50c9042bfc1a7503cdc098e5be4e32f287be140b1b4d606",
       "catalog_declared_git_blob": "da9a7d0734b9db12a44e123ff1c33df2849fdef6",
-      "on_disk_sha256": "READ_FAILED",
+      "on_disk_sha256": "PATH_ABSENT",
       "on_disk_git_blob": "",
-      "agreement": "BASIS_PIN_DOES_NOT_MATCH_FILE_ON_DISK"
+      "agreement": "BASIS_PIN_PATH_IS_ABSENT_FROM_THIS_PLANE"
     },
     {
       "path": "evidence/intake/compatibility-surface.json",
@@ -90,7 +102,8 @@
     "migration_bindings": 98,
     "migration_bindings_rust_identity_verified": 0,
     "catalog_rust_binding_rows_whose_source_path_is_absent": 24,
-    "catalog_rust_binding_rows_whose_namespace_is_absent": 24
+    "catalog_rust_binding_rows_whose_namespace_is_absent": 24,
+    "catalog_rust_binding_rows_measurable_on_this_plane": 0
   },
   "obligations": [
     {
@@ -639,16 +652,19 @@
         "websocket_core::FailureKind"
       ],
       "obligation_count": 10,
-      "path_state": "SOURCE_PATH_EXISTS_IN_NO_TREE",
+      "path_state": "SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
       "namespace_root": "websocket_core",
-      "namespace_state": "NAMESPACE_MATCHES_NO_SHIPPED_CRATE",
+      "namespace_state": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "shipped_crate_namespaces": [
         "candidate_stub",
         "ws_core",
         "ws_driver",
         "ws_oracle_harness",
         "ws_testee"
-      ]
+      ],
+      "path_correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "namespace_correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "measurable_on_this_plane": false
     },
     {
       "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
@@ -656,16 +672,19 @@
         "websocket_core::frame::decode::FrameHeaderDecoder::decode_header"
       ],
       "obligation_count": 9,
-      "path_state": "SOURCE_PATH_EXISTS_IN_NO_TREE",
+      "path_state": "SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
       "namespace_root": "websocket_core",
-      "namespace_state": "NAMESPACE_MATCHES_NO_SHIPPED_CRATE",
+      "namespace_state": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "shipped_crate_namespaces": [
         "candidate_stub",
         "ws_core",
         "ws_driver",
         "ws_oracle_harness",
         "ws_testee"
-      ]
+      ],
+      "path_correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "namespace_correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "measurable_on_this_plane": false
     },
     {
       "catalog_source_path": "rust/connection-core/src/frame/mask.rs",
@@ -673,16 +692,19 @@
         "websocket_core::frame::mask::apply_mask_in_place"
       ],
       "obligation_count": 3,
-      "path_state": "SOURCE_PATH_EXISTS_IN_NO_TREE",
+      "path_state": "SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
       "namespace_root": "websocket_core",
-      "namespace_state": "NAMESPACE_MATCHES_NO_SHIPPED_CRATE",
+      "namespace_state": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "shipped_crate_namespaces": [
         "candidate_stub",
         "ws_core",
         "ws_driver",
         "ws_oracle_harness",
         "ws_testee"
-      ]
+      ],
+      "path_correspondence_state": "NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE",
+      "namespace_correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "measurable_on_this_plane": false
     },
     {
       "catalog_source_path": "rust/websocket-driver/src/lib.rs",
@@ -690,21 +712,25 @@
         "websocket_driver::ConnectionOwner::poll"
       ],
       "obligation_count": 2,
-      "path_state": "SOURCE_PATH_EXISTS_IN_NO_TREE",
+      "path_state": "SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
       "namespace_root": "websocket_driver",
-      "namespace_state": "NAMESPACE_MATCHES_NO_SHIPPED_CRATE",
+      "namespace_state": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "shipped_crate_namespaces": [
         "candidate_stub",
         "ws_core",
         "ws_driver",
         "ws_oracle_harness",
         "ws_testee"
-      ]
+      ],
+      "path_correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "namespace_correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "measurable_on_this_plane": false
     }
   ],
   "not_claims": [
     "A mapping is not coverage. That an obligation maps onto a proof target says only that both documents name the same pinned-Java construct; it says nothing about whether any proof exists, was executed, or reaches the required strength.",
     "An unmapped obligation is not necessarily an uncovered behaviour, and a mapped one is not necessarily a covered one. The mapping reports what the two documents say about each other, nothing more.",
-    "The join is on the Java side only. The two documents' Rust columns do not join at all, and this artifact records that as a finding rather than papering over it with a name-normalising rule."
+    "The join is on the Java side only. The two documents' Rust columns do not join at all, and this artifact records that as a finding rather than papering over it with a name-normalising rule.",
+    "That the catalog's Rust source paths and namespaces are absent HERE is not a finding about the catalog. The catalog is vendored from another plane and its Rust column resolves cleanly on that plane; assurance/formal/plane-correspondence.json records the crate-by-crate evidence. The finding is that no correspondence between the two planes has been established, so these rows are not measurable here -- which is a question for the owner, not a defect to repair."
   ]
 }

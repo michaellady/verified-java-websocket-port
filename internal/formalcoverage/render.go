@@ -39,7 +39,8 @@ func RenderMarkdown(report Report) []byte {
 	line("| Targets in the US-006 proof-target plan | %d |", report.Denominator.ProofTargets)
 	line("| **Obligations that map onto no planned proof target** | **%d** |", report.Denominator.ObligationsWithNoTarget)
 	line("| **Proof targets named by no obligation** | **%d** |", report.Denominator.TargetsWithNoObligation)
-	line("| Catalog Rust binding rows whose declared source path exists in no tree | %d |", report.Denominator.RustBindingRowsPathAbsent)
+	line("| Catalog Rust binding rows whose declared source path is absent from THIS plane | %d |", report.Denominator.RustBindingRowsPathAbsent)
+	line("| Catalog Rust binding rows measurable on this plane | %d |", report.Denominator.RustRowsMeasurableHere)
 	line("")
 	if len(report.Denominator.ObligationIDsWithNoTarget) > 0 {
 		line("Obligations with no proof target — named, not summarised:")
@@ -138,6 +139,11 @@ func RenderMarkdown(report Report) []byte {
 		"symbol that cannot carry it is not an uncovered obligation; it is an unmeasurable one, and a coverage " +
 		"number over it would be a number about a name.")
 	line("")
+	line("Every row below is on the **Java** side. The catalog's Rust side is NOT listed here, and an earlier " +
+		"version of this report listed it: its Rust source paths and namespaces resolve cleanly on the plane the " +
+		"catalog is vendored from and resolve here to nothing because they are about another tree. That is a plane " +
+		"mismatch, not a defect, and it has its own section below.")
+	line("")
 	line("| obligation | side | defect | correction |")
 	line("| --- | --- | --- | --- |")
 	for _, defect := range report.CatalogDefects {
@@ -146,6 +152,24 @@ func RenderMarkdown(report Report) []byte {
 			correction = "`" + defect.CorrectionID + "`"
 		}
 		line("| `%s` | %s | `%s` | %s |", defect.ObligationID, defect.Side, defect.DefectClass, correction)
+	}
+	line("")
+
+	line("## Plane mismatch: what the catalog's Rust column is about")
+	line("")
+	line("The catalog is vendored byte-identically from another plane and its Rust column names that plane's "+
+		"crates, files and symbols. Read here, none of them resolves. That is a statement about which tree the "+
+		"lookup was performed against, not about the catalog: on its own plane the same names resolve. `%s` "+
+		"records, crate by crate and symbol by symbol, what is known about the relationship between the two "+
+		"planes and what it falls short of. No row in it reaches `ESTABLISHED_BY_OWNER_DECISION`, so **%d of %d** "+
+		"catalog Rust rows are measurable here.", PlaneCorrespondencePath,
+		report.Denominator.RustRowsMeasurableHere, report.Denominator.CatalogObligations)
+	line("")
+	line("| obligations | catalog source path | namespace | on this plane | path correspondence | namespace correspondence |")
+	line("| ---: | --- | --- | --- | --- | --- |")
+	for _, row := range report.PlaneMismatches {
+		line("| %d | `%s` | `%s` | `%s` | `%s` | `%s` |", row.ObligationCount, row.CatalogSourcePath,
+			row.CatalogNamespace, row.PathState, row.PathCorrespondence, row.NamespaceCorrespondence)
 	}
 	line("")
 

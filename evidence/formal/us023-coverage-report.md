@@ -16,7 +16,8 @@ This repository carries **two** formal denominators. They are reconciled in `ass
 | Targets in the US-006 proof-target plan | 10 |
 | **Obligations that map onto no planned proof target** | **13** |
 | **Proof targets named by no obligation** | **4** |
-| Catalog Rust binding rows whose declared source path exists in no tree | 24 |
+| Catalog Rust binding rows whose declared source path is absent from THIS plane | 24 |
+| Catalog Rust binding rows measurable on this plane | 0 |
 
 Obligations with no proof target — named, not summarised:
 
@@ -153,6 +154,8 @@ NO formal obligation in this repository binds to a resolver-verified shipped Rus
 
 These are findings about the catalog, not about the programs it measures. An obligation declared against a symbol that cannot carry it is not an uncovered obligation; it is an unmeasurable one, and a coverage number over it would be a number about a name.
 
+Every row below is on the **Java** side. The catalog's Rust side is NOT listed here, and an earlier version of this report listed it: its Rust source paths and namespaces resolve cleanly on the plane the catalog is vendored from and resolve here to nothing because they are about another tree. That is a plane mismatch, not a defect, and it has its own section below.
+
 | obligation | side | defect | correction |
 | --- | --- | --- | --- |
 | `obligation.mask-equation` | JAVA | `CATALOG_SYMBOL_SCOPE_MISMATCH` | `correction.mask-equation` |
@@ -160,39 +163,46 @@ These are findings about the catalog, not about the programs it measures. An obl
 | `surface.control.ping-pong` | JAVA | `CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH` | `correction.control-ping-pong` |
 | `surface.messages.binary` | JAVA | `INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE` | `correction.messages-binary` |
 | `surface.messages.text-utf8` | JAVA | `INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE` | `correction.messages-text-utf8` |
-| `(10 obligations)` | RUST | `SOURCE_PATH_EXISTS_IN_NO_TREE+NAMESPACE_MATCHES_NO_SHIPPED_CRATE` | — |
-| `(9 obligations)` | RUST | `SOURCE_PATH_EXISTS_IN_NO_TREE+NAMESPACE_MATCHES_NO_SHIPPED_CRATE` | — |
-| `(3 obligations)` | RUST | `SOURCE_PATH_EXISTS_IN_NO_TREE+NAMESPACE_MATCHES_NO_SHIPPED_CRATE` | — |
-| `(2 obligations)` | RUST | `SOURCE_PATH_EXISTS_IN_NO_TREE+NAMESPACE_MATCHES_NO_SHIPPED_CRATE` | — |
+
+## Plane mismatch: what the catalog's Rust column is about
+
+The catalog is vendored byte-identically from another plane and its Rust column names that plane's crates, files and symbols. Read here, none of them resolves. That is a statement about which tree the lookup was performed against, not about the catalog: on its own plane the same names resolve. `assurance/formal/plane-correspondence.json` records, crate by crate and symbol by symbol, what is known about the relationship between the two planes and what it falls short of. No row in it reaches `ESTABLISHED_BY_OWNER_DECISION`, so **0 of 24** catalog Rust rows are measurable here.
+
+| obligations | catalog source path | namespace | on this plane | path correspondence | namespace correspondence |
+| ---: | --- | --- | --- | --- | --- |
+| 10 | `rust/connection-core/src/connection.rs` | `websocket_core` | `SOURCE_PATH_ABSENT_FROM_THIS_PLANE` | `SHARED_ANCESTRY_ONLY` | `SHARED_ANCESTRY_ONLY` |
+| 9 | `rust/connection-core/src/frame/decode.rs` | `websocket_core` | `SOURCE_PATH_ABSENT_FROM_THIS_PLANE` | `BORROW_RECEIPT_RECORDS_AN_ADAPTATION` | `SHARED_ANCESTRY_ONLY` |
+| 3 | `rust/connection-core/src/frame/mask.rs` | `websocket_core` | `SOURCE_PATH_ABSENT_FROM_THIS_PLANE` | `NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE` | `SHARED_ANCESTRY_ONLY` |
+| 2 | `rust/websocket-driver/src/lib.rs` | `websocket_driver` | `SOURCE_PATH_ABSENT_FROM_THIS_PLANE` | `BORROW_RECEIPT_RECORDS_AN_ADAPTATION` | `BORROW_RECEIPT_RECORDS_AN_ADAPTATION` |
 
 ## Every obligation
 
 | obligation | java | rust | refinement | bound parity | targets | blocking |
 | --- | --- | --- | --- | --- | --- | --- |
-| `obligation.checked-header-arithmetic` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | 2 | **9** |
-| `obligation.control-fin-and-length` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | **none** | **10** |
-| `obligation.length-canonical-16` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **11** |
-| `obligation.length-canonical-64-high-bit-zero` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **11** |
-| `obligation.length-canonical-7` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | **none** | **10** |
-| `obligation.mask-equation` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
-| `obligation.mask-involution` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
-| `obligation.preallocation-cap` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | 2 | **9** |
-| `obligation.role-masking` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **11** |
-| `surface.adapter.byte-stream` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 1 | **11** |
-| `surface.close.status-code` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | **none** | **10** |
-| `surface.close.terminal-state` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 1 | **11** |
-| `surface.concurrency.command-order` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **12** |
-| `surface.control.ping-pong` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
-| `surface.errors.protocol-fault` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **12** |
-| `surface.fragmentation.continuation` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | 1 | **9** |
-| `surface.framing.frame-octets` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **11** |
-| `surface.framing.masking` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **12** |
-| `surface.handshake.client-request` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **12** |
-| `surface.handshake.server-response` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 1 | **11** |
-| `surface.limits.allocation` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **11** |
-| `surface.messages.binary` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
-| `surface.messages.text-utf8` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
-| `surface.websocket-open` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **12** |
+| `obligation.checked-header-arithmetic` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | 2 | **10** |
+| `obligation.control-fin-and-length` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | **none** | **11** |
+| `obligation.length-canonical-16` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **12** |
+| `obligation.length-canonical-64-high-bit-zero` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **12** |
+| `obligation.length-canonical-7` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | **none** | **11** |
+| `obligation.mask-equation` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **14** |
+| `obligation.mask-involution` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **14** |
+| `obligation.preallocation-cap` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | 2 | **10** |
+| `obligation.role-masking` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **12** |
+| `surface.adapter.byte-stream` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 1 | **12** |
+| `surface.close.status-code` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | **none** | **11** |
+| `surface.close.terminal-state` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 1 | **12** |
+| `surface.concurrency.command-order` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
+| `surface.control.ping-pong` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **14** |
+| `surface.errors.protocol-fault` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
+| `surface.fragmentation.continuation` | EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY | NONE | DISCONNECTED | ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT | 1 | **10** |
+| `surface.framing.frame-octets` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **12** |
+| `surface.framing.masking` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
+| `surface.handshake.client-request` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
+| `surface.handshake.server-response` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 1 | **12** |
+| `surface.limits.allocation` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | 2 | **12** |
+| `surface.messages.binary` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **14** |
+| `surface.messages.text-utf8` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **14** |
+| `surface.websocket-open` | NONE | NONE | DISCONNECTED | NEITHER_SIDE_DECLARES_A_BOUND | **none** | **13** |
 
 ## Every blocking gap
 
@@ -202,8 +212,9 @@ All 24 of them, each with its reasons. No aggregate in this report can shrink th
 
 Header and payload arithmetic is checked before allocation.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT`
@@ -216,8 +227,9 @@ Header and payload arithmetic is checked before allocation.
 
 Control frames are final and have payload length at most 125.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT`
@@ -231,8 +243,9 @@ Control frames are final and have payload length at most 125.
 
 The 16-bit length form is canonical.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -247,8 +260,9 @@ The 16-bit length form is canonical.
 
 The 64-bit length form is canonical and has a clear high bit.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -263,8 +277,9 @@ The 64-bit length form is canonical and has a clear high bit.
 
 Payload lengths through 125 use the seven-bit form.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT`
@@ -279,8 +294,9 @@ Payload lengths through 125 use the seven-bit form.
 Masking applies RFC 6455 XOR at the correct offset.
 
 - `CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION`
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -297,8 +313,9 @@ Masking applies RFC 6455 XOR at the correct offset.
 Applying the same mask twice restores the input.
 
 - `CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION`
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -314,8 +331,9 @@ Applying the same mask twice restores the input.
 
 Configured caps are enforced before payload allocation.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT`
@@ -328,8 +346,9 @@ Configured caps are enforced before payload allocation.
 
 Inbound masking is enforced by endpoint role.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -344,8 +363,9 @@ Inbound masking is enforced by endpoint role.
 
 The adapter transports bytes without protocol duplication.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -360,8 +380,9 @@ The adapter transports bytes without protocol duplication.
 
 Close status codes and reasons are validated.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT`
@@ -375,8 +396,9 @@ Close status codes and reasons are validated.
 
 Terminal close state is absorbing.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -391,8 +413,9 @@ Terminal close state is absorbing.
 
 Concurrent commands have one serialized owner order.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -409,8 +432,9 @@ Concurrent commands have one serialized owner order.
 Ping and pong control behavior preserves payloads and bounds.
 
 - `CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION`
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -426,8 +450,9 @@ Ping and pong control behavior preserves payloads and bounds.
 
 Protocol faults remain typed and fail closed.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -443,8 +468,9 @@ Protocol faults remain typed and fail closed.
 
 Continuation fragments are admitted and assembled in order.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT`
@@ -457,8 +483,9 @@ Continuation fragments are admitted and assembled in order.
 
 Frame octets are parsed and emitted canonically.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -473,8 +500,9 @@ Frame octets are parsed and emitted canonically.
 
 Masking uses the RFC 6455 transform and role rules.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -490,8 +518,9 @@ Masking uses the RFC 6455 transform and role rules.
 
 Client opening requests follow RFC 6455.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -507,8 +536,9 @@ Client opening requests follow RFC 6455.
 
 Server opening responses follow RFC 6455.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -523,8 +553,9 @@ Server opening responses follow RFC 6455.
 
 Allocation limits are enforced before retaining payload bytes.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -540,8 +571,9 @@ Allocation limits are enforced before retaining payload bytes.
 Binary message payloads are delivered exactly.
 
 - `CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION`
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -558,8 +590,9 @@ Binary message payloads are delivered exactly.
 Text messages accept exactly valid UTF-8.
 
 - `CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION`
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -575,8 +608,9 @@ Text messages accept exactly valid UTF-8.
 
 The declared WebSocket opening seam enters the shipped connection core.
 
-- `CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE`
-- `CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE`
+- `CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED`
+- `CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE`
+- `CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE`
 - `DECLARED_BOUNDS_ARE_NOT_COMPARABLE`
 - `JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH`
 - `JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION`
@@ -593,7 +627,9 @@ The declared WebSocket opening seam enters the shipped connection core.
 - No number in this report is a proof. Nothing here proves anything about Java-WebSocket 1.6.0 or about the shipped Rust; the report measures what evidence exists and at what strength.
 - Non-zero numerators on the production-linkage and counterexample-sensitivity axes are NOT coverage and are labelled so in the artifact. Coverage is java_coverage, rust_coverage, paired_comparable_coverage, refinement_coverage and aggregate, and all five are zero.
 - The six Java production-linkage rows are span digests QUOTED from evidence/java/formal-bindings/receipt.json. In the default lane those spans are provenance recorded in that receipt, not recomputed from the pinned Java tree; only the javabinde2e lane recomputes them. This report inherits that bound and does not close it.
-- The denominator itself is defective on both sides — five obligations declare Java symbols that cannot carry them, and all 24 declare Rust source paths that exist in no tree — so even a perfect score over it would not mean what it appears to mean. The defects are listed rather than corrected here.
+- The denominator is defective on its JAVA side: five obligations declare Java symbols that cannot carry them, all 24 java_bindings share one whole-archive source_sha256 so the column distinguishes no two obligations by content, and its 15 distinct source_path values are synthesised paths that treat a METHOD as a file and exist on NEITHER plane. That finding is plane-independent and is listed rather than corrected here.
+- The denominator is NOT defective on its Rust side, and an earlier version of this report said it was. All four of its distinct Rust source paths and both of its namespaces resolve on the plane the catalog is vendored from; they resolve here to nothing because they are about another tree. That is a plane mismatch, published in plane_mismatches with the correspondence evidence, and it is a question for the owner rather than a repair to the catalog.
+- Because no plane correspondence is established, the Rust column of this report is not a measurement of this plane's crates at all. Its zeroes are honest and they are also not about ws_core and ws_driver; they are about a document whose subject this plane has not been shown to be.
 - This report is owner-executed on a single host. assurance is OWNER_ATTESTED_NOT_INDEPENDENT and independent_review_claimed is false.
 
 ## Inputs
@@ -604,8 +640,9 @@ The declared WebSocket opening seam enters the shipped connection core.
 | `assurance/formal/proof-targets.json` | `sha256:bad1e0697d0f4428a4cc6572549e4528ca4f0328c15163beddd4deb31c59a205` |
 | `evidence/java/formal-bindings/coverage-projection.json` | `sha256:02a9b1302cca2b340253ff1ed1fa1fe024a45da68c01b95a85659105121460ef` |
 | `assurance/formal/java-binding-spec.json` | `sha256:468142c6d01a8c358e636f4f52aefd564c5d9854c824ece3008be67d4da7c15b` |
-| `evidence/linkage/rust-identity-verification.json` | `sha256:5370eb0856a1f0f3d5c6c10999710d6189c06c0dfedd81c64bb0c1cf42563833` |
+| `evidence/linkage/rust-identity-verification.json` | `sha256:83419ff9615fb73ccd9c2b33ed488b040c1acf9796365d978340724d2b10e742` |
 | `assurance/formal/catalog-correction-proposal.json` | `sha256:fceb6bf4fae057a4e287a367ed255a7a616256de785a8ac2c56e2d7d0a709c38` |
-| `assurance/formal/denominator-reconciliation.json` | `sha256:fa54066acdccd7f733f15100a0b05df7ea4a932e30999e3e15615b723ca0f5db` |
+| `assurance/formal/plane-correspondence.json` | `sha256:240347c9c36ea1ab04f21bddf6d589038b008bff7290428ddccf33a68f19a7f2` |
+| `assurance/formal/denominator-reconciliation.json` | `sha256:48448764a4a094de01e00d5d0c222edfda9f04221c39a304f3844ce59b08a7e7` |
 
 Generated by `go run ./cmd/formalcoverctl report -repo .` from the artifacts above. `go run ./cmd/formalcoverctl verify -repo .` recomputes both reports and fails if the retained bytes are not what the evidence derives; `go run ./cmd/formalcoverctl freeze-gate -repo .` exits non-zero while any obligation blocks.

@@ -154,12 +154,20 @@ func runVerify(root string, out io.Writer) (int, error) {
 	if err != nil {
 		return exitFailure, err
 	}
+	planeFindings, _, err := formalcoverage.VerifyPlaneCorrespondence(root)
+	if err != nil {
+		return exitFailure, err
+	}
 
 	reportReconciliation(out, reconciliation)
 	reportCoverage(out, report)
 	fmt.Fprintf(out, "correction_proposal_findings=%d\n", len(findings))
 	for _, finding := range findings {
 		fmt.Fprintf(out, "  FINDING %s %s: %s\n", finding.CorrectionID, finding.Check, finding.Detail)
+	}
+	fmt.Fprintf(out, "plane_correspondence_findings=%d\n", len(planeFindings))
+	for _, finding := range planeFindings {
+		fmt.Fprintf(out, "  FINDING %s %s: %s\n", finding.Subject, finding.Check, finding.Detail)
 	}
 
 	for _, pair := range []struct {
@@ -214,10 +222,28 @@ func reportReconciliation(out io.Writer, reconciliation formalcoverage.Reconcili
 	fmt.Fprintf(out, "java_keys catalog=%d proof_targets=%d both=%d catalog_only=%d target_only=%d\n",
 		counts.CatalogDistinctJavaKeys, counts.TargetDistinctJavaKeys,
 		counts.JavaKeysInBoth, counts.JavaKeysCatalogOnly, counts.JavaKeysTargetOnly)
-	fmt.Fprintf(out, "catalog_rust_binding_rows_with_absent_source_path=%d/%d\n",
+	// The absent-path count is printed BESIDE what that absence means. Printed
+	// alone it reads as "the catalog is broken"; the line under it is the
+	// difference between an observation about this tree and an accusation
+	// about someone else's document.
+	fmt.Fprintf(out, "catalog_rust_binding_rows_with_source_path_absent_from_this_plane=%d/%d\n",
 		counts.RustBindingPathsAbsent, counts.Obligations)
+	fmt.Fprintf(out, "catalog_is_about_plane=%s (%s); catalog_rust_rows_measurable_on_this_plane=%d/%d\n",
+		reconciliation.CatalogPlane.Ref, reconciliation.CatalogPlane.Name,
+		counts.RustBindingRowsMeasurableHere, counts.Obligations)
+	for _, check := range reconciliation.RustBindingCheck {
+		fmt.Fprintf(out, "plane_mismatch %s obligations=%d path=%s namespace=%s path_correspondence=%s namespace_correspondence=%s\n",
+			check.SourcePath, check.ObligationCount, check.PathState, check.NamespaceState,
+			check.PathCorrespondence, check.NamespaceCorrespondence)
+	}
 	for _, pin := range reconciliation.BasisPins {
-		if pin.Agreement != "BASIS_PIN_MATCHES_FILE_ON_DISK" {
+		switch pin.Agreement {
+		case formalcoverage.BasisAgreementExact:
+		case formalcoverage.BasisAgreementPathAbsent:
+			// Not drift. A pin whose path is not on this plane has not moved;
+			// it is about a tree this one is not.
+			fmt.Fprintf(out, "basis_pin_path_absent_from_this_plane %s declared=%s\n", pin.Path, pin.DeclaredSHA)
+		default:
 			fmt.Fprintf(out, "basis_pin_drift %s declared=%s on_disk=%s\n", pin.Path, pin.DeclaredSHA, pin.OnDiskSHA)
 		}
 	}
