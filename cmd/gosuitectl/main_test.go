@@ -1,7 +1,9 @@
 package main
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -77,6 +79,45 @@ func TestEveryExclusionStatesASubstantiveReason(t *testing.T) {
 		if !strings.Contains(reason, "Owner") {
 			t.Errorf("exclusion %q does not name what would lift it: %q", name, reason)
 		}
+	}
+}
+
+// AN EXCLUSION MUST STILL FAIL. Checking that the excluded package still exists
+// is the weaker half of the anti-rot claim: adversarial review B5 excluded
+// `internal/rfcneutral`, which passes cleanly, behind a fabricated 259-byte
+// reason containing "Owner", and every check this gate had accepted it. This test
+// runs each declared exclusion and refuses one that passes. It is the same
+// refusal pinconsumerctl already makes when a FIXED pin leaves a STALE_ALLOWANCE
+// behind, and its absence here was the asymmetry.
+func TestEveryDeclaredExclusionStillFails(t *testing.T) {
+	root := moduleRoot(t)
+	if info, err := os.Stat(filepath.Join(root, ".quarantine", "Java-WebSocket-1.6.0.jar")); err != nil ||
+		info.Size() == 0 {
+		t.Skip(".quarantine/ is not staged: a blocked package cannot be told from a broken one")
+	}
+	for name := range excluded {
+		probe := exec.Command("go", "test", "-count=1", "-timeout", "40m", "./"+name)
+		probe.Dir = root
+		output, err := probe.CombinedOutput()
+		if err == nil {
+			t.Errorf("excluded package %q PASSES on this host: the exclusion outlived the "+
+				"problem it describes and must be removed\n%s", name, output)
+			continue
+		}
+		t.Logf("%s still fails: %s", name, firstFailure(string(output)))
+	}
+}
+
+// firstFailure must find the failing line, or the gate log prints a placeholder
+// beside every exclusion and a reader learns nothing about whether the declared
+// reason still matches the observed one.
+func TestFirstFailureReadsTheFailingLine(t *testing.T) {
+	const output = "some noise\n--- FAIL: TestThing (0.00s)\n    a_test.go:9: because reasons\nFAIL\n"
+	if got := firstFailure(output); got != "--- FAIL: TestThing (0.00s)" {
+		t.Errorf("firstFailure read %q", got)
+	}
+	if got := firstFailure("ok  \tpkg\t0.1s\n"); got != "failed with no recognisable failure line" {
+		t.Errorf("a passing log has no failure line, got %q", got)
 	}
 }
 

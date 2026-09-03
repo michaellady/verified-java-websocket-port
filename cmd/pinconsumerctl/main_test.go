@@ -579,6 +579,38 @@ func TestMutationOperandIsExplained(t *testing.T) {
 	}
 }
 
+// R5 IS FORGEABLE BY KEY NAME AND MUST NOT BE. Adversarial review C5 added two
+// keys -- `kind: "json_set"` and any `pointer` -- to an object carrying a real
+// drifted pin, and the gate subtracted it as explained and exited 0. A fresh
+// random digest was subtracted too, so the rule read no input whatsoever. It now
+// requires the object to BE the operation it claims to be, and this test is what
+// keeps that requirement: the C5 shape must stay a CANDIDATE.
+func TestTheMutationOperandRuleIsNotSatisfiedByKeyNamesAlone(t *testing.T) {
+	drifted := "sha256:" + strings.Repeat("de", 32)
+	for name, object := range map[string]string{
+		"pointer is not an RFC 6901 pointer": `{"target":"target.json","sha256":"` + drifted +
+			`","kind":"json_set","pointer":"$.unused"}`,
+		"no value, so the digest is not this operation's operand": `{"target":"target.json","sha256":"` +
+			drifted + `","kind":"json_set","pointer":"/nodes/0/digest"}`,
+		"the drifted digest is not the operand this operation writes": `{"target":"target.json","sha256":"` +
+			drifted + `","kind":"json_set","pointer":"/nodes/0/digest","value":"sha256:` +
+			strings.Repeat("11", 32) + `"}`,
+	} {
+		root := scratchRepo(t, map[string]string{
+			"target.json": `{"nodes":[{"digest":"sha256:` + strings.Repeat("00", 32) + `"}]}`,
+			"pin.json":    `{"binding":` + object + `}`,
+		})
+		census, err := analyseDangling(root)
+		if err != nil {
+			t.Fatalf("%s: analyse: %v", name, err)
+		}
+		if len(census.candidates) != 1 {
+			t.Errorf("%s: a drifted pin wearing json_set key names must stay a candidate, "+
+				"got candidates=%d explained=%+v", name, len(census.candidates), census.explained)
+		}
+	}
+}
+
 // The rule that stops an explanation covering for its neighbour: an object with
 // one provable digest AND one unexplained digest stays a candidate.
 func TestAnUnexplainedDigestIsNotCoveredByAnExplainedNeighbour(t *testing.T) {

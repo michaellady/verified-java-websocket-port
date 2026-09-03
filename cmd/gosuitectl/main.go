@@ -95,16 +95,54 @@ func main() {
 		}
 	}
 
+	// AN EXCLUSION IS A CLAIM THAT THE PACKAGE CANNOT PASS HERE, SO THE CLAIM IS
+	// RUN. Checking only that the package still EXISTS is the weaker half: the
+	// list can outlive the PROBLEM as easily as it outlives the package, and
+	// adversarial review B5 added an exclusion for `internal/rfcneutral`, which
+	// passes cleanly, with a reason clearing the 80-byte floor and containing
+	// "Owner" -- every check this gate had accepted it, `go test
+	// ./cmd/gosuitectl/` exited 0, and a passing package was removed from
+	// coverage with a fabricated reason. Its sibling gate already refuses this
+	// shape: pinconsumerctl fails a FIXED pin as STALE_ALLOWANCE. This is the
+	// same refusal.
+	//
+	// The observed first failing line is PRINTED beside the declared reason so a
+	// reader can see whether they still describe the same thing. They do not
+	// always: with the pinned JDK absent from PATH `internal/portplan` fails
+	// JAVAC_UNAVAILABLE, not the jdk_vendor mismatch its reason names, and a
+	// second test fails that the reason does not mention at all. This gate does
+	// not judge that -- it makes it readable.
+	var passing []string
 	for _, name := range sortedKeys(excluded) {
-		if present[name] {
-			fmt.Printf("gate=go-suite excluded=%s reason=%q\n", name, excluded[name])
+		if !present[name] {
+			continue
 		}
+		fmt.Printf("gate=go-suite excluded=%s reason=%q\n", name, excluded[name])
+		probe := exec.Command("go", "test", "-count=1", "-timeout", *timeout, "./"+name)
+		probe.Dir = *root
+		output, probeErr := probe.CombinedOutput()
+		if probeErr == nil {
+			passing = append(passing, name)
+			fmt.Printf("gate=go-suite finding=EXCLUSION_NO_LONGER_FAILS package=%s "+
+				"detail=%q\n", name,
+				"the package is excluded as unable to pass on this host and it PASSED: "+
+					"the exclusion outlived the problem it describes. Remove it, or say "+
+					"what it now excludes.")
+			continue
+		}
+		fmt.Printf("gate=go-suite excluded=%s still_fails=yes observed=%q\n",
+			name, firstFailure(string(output)))
 	}
 	fmt.Printf("gate=go-suite packages=%d run=%d excluded=%d\n",
 		len(packages), len(run), len(packages)-len(run))
 
 	if len(stale) > 0 {
 		fmt.Printf("gate=go-suite result=FAIL reason=\"%d stale exclusion(s)\"\n", len(stale))
+		os.Exit(1)
+	}
+	if len(passing) > 0 {
+		fmt.Printf("gate=go-suite result=FAIL reason=\"%d exclusion(s) name a package that "+
+			"now PASSES: %s\"\n", len(passing), strings.Join(passing, " "))
 		os.Exit(1)
 	}
 
@@ -172,4 +210,21 @@ func sortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// firstFailure returns the first line of `go test` output that reports a
+// failure, so the gate log carries the observed reason next to the declared one
+// instead of asking a reader to take the declaration on trust.
+func firstFailure(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "--- FAIL") || strings.HasPrefix(trimmed, "FAIL\t") ||
+			strings.Contains(trimmed, ".go:") {
+			if len(trimmed) > 300 {
+				trimmed = trimmed[:300] + " …"
+			}
+			return trimmed
+		}
+	}
+	return "failed with no recognisable failure line"
 }
