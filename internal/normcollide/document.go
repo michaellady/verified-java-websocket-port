@@ -32,10 +32,25 @@ type Document struct {
 	RecomputedFrom Provenance   `json:"recomputed_from"`
 	Surface        []Projection `json:"normalization_surface"`
 	Probes         []ProbeDoc   `json:"probes"`
-	Candidates     []Candidate  `json:"undecided_candidates"`
-	Census         []Census     `json:"scored_corpus_census"`
-	Bounds         Bounds       `json:"headline_bounds"`
-	ScopeLimits    []string     `json:"scope_limits"`
+	// Refutations are the probes whose EXPECTED verdict is REFUTED: the
+	// distinctions this audit's first pass listed as open candidates and
+	// that a run shows the observation does carry. They are a separate
+	// array because they are a separate claim — "the surface represents
+	// this" is not the same finding as "the surface erases this", and
+	// folding them into probes[] would have meant a reader counting nine
+	// collisions where there are seven.
+	Refutations []ProbeDoc `json:"refutations"`
+	// Utf8Emptiness decides CAND-UTF8, which cannot be decided by
+	// exhibiting a pair because the claim is that no pair exists.
+	Utf8Emptiness Utf8Emptiness `json:"candidate_emptiness"`
+	// DecidedCandidates are the first pass's open candidates that have
+	// since been closed, each carrying the reason it was open, what
+	// decided it, and what the decision does to the headline ceilings.
+	DecidedCandidates []DecidedCandidate `json:"decided_candidates"`
+	Candidates        []Candidate        `json:"undecided_candidates"`
+	Census            []Census           `json:"scored_corpus_census"`
+	Bounds            Bounds             `json:"headline_bounds"`
+	ScopeLimits       []string           `json:"scope_limits"`
 }
 
 // Provenance records what actually ran.
@@ -47,10 +62,22 @@ type Provenance struct {
 	// IdentityFieldsStripped is the exact list removed before comparison.
 	IdentityFieldsStripped []string `json:"identity_fields_stripped"`
 	// ProbeCount, ConfirmedCount and RefutedCount are recounted, not typed.
+	// ProbeCount covers EVERY decided probe, collision and refutation
+	// alike; ConfirmedCount and RefutedCount partition it by the verdict
+	// each run actually produced, never by which list the probe sits in.
 	ProbeCount     int `json:"probe_count"`
 	ConfirmedCount int `json:"confirmed_count"`
 	RefutedCount   int `json:"refuted_count"`
+	// CandidateCount is the number STILL undecided. It is len(Candidates())
+	// rather than a constant, so closing a candidate lowers it by moving
+	// the entry rather than by editing a number.
 	CandidateCount int `json:"undecided_candidate_count"`
+	// DecidedCandidateCount is how many of the first pass's candidates have
+	// since been closed, and CandidateFirstPassCount is what the two must
+	// add up to. A candidate that were quietly DROPPED rather than decided
+	// would break that sum, which is the point of carrying it.
+	DecidedCandidateCount   int `json:"decided_candidate_count"`
+	CandidateFirstPassCount int `json:"candidate_count_at_first_pass"`
 }
 
 // ProbeDoc is one probe and its measured result.
@@ -80,6 +107,11 @@ type Bounds struct {
 	HandshakeShared    int    `json:"handshake_cases_sharing_an_observation"`
 	HandshakeLargest   int    `json:"handshake_largest_equivalence_class"`
 	HandshakeStatement string `json:"handshake_statement"`
+	// RefutationStatement says what the REFUTED and EMPTY candidates do to
+	// the two ceilings. A refutation is a real result and belongs here: it
+	// says the observation DOES carry a distinction, which narrows what
+	// the shortfalls can be blamed on.
+	RefutationStatement string `json:"refutation_statement"`
 	// ClaimVocabulary states what kind of claim this document supports.
 	ClaimVocabulary string `json:"claim_vocabulary"`
 }
@@ -93,7 +125,11 @@ func Build(root string, runner Runner) (*Document, error) {
 			"behaviours mapping onto one normalized observation. Every probe below was DECIDED " +
 			"BY RUNNING the real harness on two seed requests and applying the real differential " +
 			"comparator to the two answers; no verdict is predicted. Confirmed collisions are " +
-			"separated from undecided candidates, and a candidate is never counted as a finding.",
+			"separated from undecided candidates, and a candidate is never counted as a finding. " +
+			"A candidate later DECIDED does not become a collision by default: refutations[] " +
+			"holds the probes that found the observation DOES carry the distinction, and they " +
+			"are counted apart from probes[] so a reader cannot mistake nine decided probes for " +
+			"nine collisions.",
 		Surface:    Projections(),
 		Candidates: Candidates(),
 		RecomputedFrom: Provenance{
@@ -103,33 +139,90 @@ func Build(root string, runner Runner) (*Document, error) {
 		},
 	}
 
-	for _, probe := range Probes() {
-		result, err := Decide(runner, probe)
-		if err != nil {
-			return nil, err
-		}
-		lines := make([]string, 0, 4)
-		seeds := []Seed{probe.CollisionA, probe.CollisionB}
-		if probe.WitnessA != nil && probe.WitnessB != nil {
-			seeds = append(seeds, *probe.WitnessA, *probe.WitnessB)
-		}
-		for _, seed := range seeds {
-			line, err := seed.Line()
+	// The two catalogs are decided by the SAME function against the SAME
+	// comparator. Only the DECLARED expectation differs, and CheckExpectation
+	// holds each list to the one it declares — so a refutation is not a
+	// probe that was let off, and a collision is not a probe that got lucky.
+	if err := CheckEveryProbeDeclaresAnExpectation(Probes(), Refutations()); err != nil {
+		return nil, err
+	}
+	verdictOf := map[string]Verdict{}
+	for _, catalog := range []struct {
+		probes []Probe
+		into   *[]ProbeDoc
+	}{
+		{Probes(), &document.Probes},
+		{Refutations(), &document.Refutations},
+	} {
+		for _, probe := range catalog.probes {
+			result, err := Decide(runner, probe)
 			if err != nil {
 				return nil, err
 			}
-			lines = append(lines, line)
-		}
-		document.Probes = append(document.Probes, ProbeDoc{Probe: probe, RequestLines: lines, Result: result})
-		document.RecomputedFrom.ProbeCount++
-		switch result.Verdict {
-		case Confirmed:
-			document.RecomputedFrom.ConfirmedCount++
-		case Refuted:
-			document.RecomputedFrom.RefutedCount++
+			if err := CheckExpectation(probe, result); err != nil {
+				return nil, err
+			}
+			lines := make([]string, 0, 4)
+			seeds := []Seed{probe.CollisionA, probe.CollisionB}
+			if probe.WitnessA != nil && probe.WitnessB != nil {
+				seeds = append(seeds, *probe.WitnessA, *probe.WitnessB)
+			}
+			for _, seed := range seeds {
+				line, err := seed.Line()
+				if err != nil {
+					return nil, err
+				}
+				lines = append(lines, line)
+			}
+			*catalog.into = append(*catalog.into,
+				ProbeDoc{Probe: probe, RequestLines: lines, Result: result})
+			verdictOf[probe.ID] = result.Verdict
+			document.RecomputedFrom.ProbeCount++
+			switch result.Verdict {
+			case Confirmed:
+				document.RecomputedFrom.ConfirmedCount++
+			case Refuted:
+				document.RecomputedFrom.RefutedCount++
+			}
 		}
 	}
+
+	// CAND-UTF8 is the one candidate whose claim is that NO pair exists, so
+	// it is decided by premise checks plus the run those premises predict,
+	// not by exhibiting two seeds.
+	emptiness, err := DecideUtf8Emptiness(root, runner)
+	if err != nil {
+		return nil, err
+	}
+	document.Utf8Emptiness = emptiness
+
+	// Each decided candidate's STATUS is read off whatever decided it. A
+	// candidate cannot carry a verdict its evidence does not hold, and a
+	// candidate whose decided_by names nothing that ran arrives here with an
+	// empty status and is refused by CheckDecidedCandidates below.
+	document.DecidedCandidates = DecidedCandidates()
+	for i := range document.DecidedCandidates {
+		candidate := &document.DecidedCandidates[i]
+		switch {
+		case candidate.DecidedBy == emptiness.ID:
+			candidate.Status = emptiness.Status
+		default:
+			switch verdictOf[candidate.DecidedBy] {
+			case Refuted:
+				candidate.Status = StatusRefuted
+			case Confirmed:
+				candidate.Status = StatusHypothesis
+			}
+		}
+	}
+	if err := CheckDecidedCandidates(document.DecidedCandidates); err != nil {
+		return nil, err
+	}
+
 	document.RecomputedFrom.CandidateCount = len(document.Candidates)
+	document.RecomputedFrom.DecidedCandidateCount = len(document.DecidedCandidates)
+	document.RecomputedFrom.CandidateFirstPassCount =
+		len(document.Candidates) + len(document.DecidedCandidates)
 
 	public, err := MeasureTranscript(filepath.Join(root, PublicArmPath), ClassifyBehaviourKeys)
 	if err != nil {
@@ -187,6 +280,37 @@ func Build(root string, runner Runner) (*Document, error) {
 				"a rejection reports only a two-valued channel plus a constant close code.",
 			handshake.Rows, handshake.DistinctScoredRows, handshake.RowsSharingAnObservation,
 			handshake.Rows, handshake.LargestClass, handshake.DistinctScoredRows),
+		RefutationStatement: fmt.Sprintf(
+			"Three of the first pass's %d open candidates are now DECIDED, and all three came "+
+				"back NEGATIVE — the observation carries the distinction. CAND-WIREBYTES (probe "+
+				"NC-10): a two-octet payload under the 7-bit length form and under the 126 "+
+				"extended form are BOTH accepted — ws-core strips the RFC's non-minimal-length "+
+				"rejection for Java fidelity — and the two ok rows differ on %s. CAND-CHUNKING "+
+				"(probe NC-11): the same eight octets as one step and as two four-octet steps "+
+				"differ on %s. CAND-UTF8 (check %s): status %s — the decode is strict at every "+
+				"site in both crates, so the octets a lossy decoder would fold onto U+FFFD "+
+				"produce NO text event at all; the accepted seed yields one text event and the "+
+				"rejected seed yields none, which they could not do under a lossy decode. "+
+				"WHAT THIS DOES TO THE CEILINGS: neither number moves. %d-of-%d and %d-of-%d are "+
+				"unchanged, because both shortfalls were already attributed to CONFIRMED probes "+
+				"— NC-04 on behaviour.failure for the public corpus, NC-07/08/09 on "+
+				"handshake.judged for the exam. What changes is what the shortfalls may be "+
+				"BLAMED on: all three decided candidates are behaviour.ok distinctions and all "+
+				"three are represented or empty there, so none of them is an admissible "+
+				"explanation for either ceiling, and no future corpus loses rows to them on an "+
+				"ok row. The refutations do NOT extend to behaviour.failure or "+
+				"behaviour.output_limit, where frames[] and events[] are absent from the "+
+				"envelope entirely: a rejected frame's length encoding and a failed request's "+
+				"chunking are erased by NC-01's and NC-02's mechanisms, which already own those "+
+				"classes. %d candidate(s) remain HYPOTHESIS and are still admissible "+
+				"explanations, along with anything the surface enumeration missed.",
+			document.RecomputedFrom.CandidateFirstPassCount,
+			describePaths(refutationPaths(document, "NC-10")),
+			describePaths(refutationPaths(document, "NC-11")),
+			document.Utf8Emptiness.ID, document.Utf8Emptiness.Status,
+			public.DistinctScoredRows, public.Rows,
+			handshake.DistinctScoredRows, handshake.Rows,
+			document.RecomputedFrom.CandidateCount),
 		ClaimVocabulary: "BOUNDED. Each confirmed collision is an OBSERVED fact about the shipped " +
 			"projection, established by running it. The ENUMERATION of the surface is not proved " +
 			"complete: it reads five named sites, and a distinction none of them mentions cannot " +
@@ -207,8 +331,37 @@ func Build(root string, runner Runner) (*Document, error) {
 			"budget. It bounds what a future corpus could hide, not today's number.",
 		"The handshake census measures OUR arm's answers to the 49 committed cases. It is a " +
 			"measurement of how coarse the observation is, not of who produced it.",
+		"The two REFUTED candidates are refuted on behaviour.ok ONLY. On behaviour.failure and " +
+			"behaviour.output_limit the envelope carries no frames[] and no events[] at all, so " +
+			"the same two distinctions are erased there — by NC-01's and NC-02's mechanisms, " +
+			"which already own those classes. A refutation is a statement about the projection " +
+			"the probe ran on, not about the surface as a whole.",
+		"CAND-UTF8's EMPTY status rests on premise checks that SCAN this repository's own Rust " +
+			"sources for a lossy decode. They read rust/ws-core/src and rust/ws-oracle-harness/" +
+			"src, which are the two crates that can produce a `text` event's String; they do NOT " +
+			"read third-party dependencies, and they are a textual scan rather than a proof of " +
+			"absence. What they buy is that the refutation cannot rot SILENTLY: a swapped-in " +
+			"lossy decode at either site turns the premise red rather than leaving a stale " +
+			"EMPTY standing.",
+		"CAND-TRANSPORT and CAND-CROSSARRAY are STILL undecided and were deliberately not " +
+			"forced. Neither is reachable from a seed in this package — one needs a real peer " +
+			"socket, the other a mutated harness — and manufacturing a verdict for either would " +
+			"have been the exact failure this catalogue exists to refuse.",
 	}
 	return document, nil
+}
+
+// refutationPaths reports the paths a refutation probe's pair ACTUALLY moved
+// on, read back out of the assembled document. The refutation statement reads
+// these rather than repeating them, so the prose cannot drift from the run it
+// describes: if NC-10 stopped moving on wire_bytes, the sentence would say so.
+func refutationPaths(document *Document, id string) []string {
+	for _, probe := range document.Refutations {
+		if probe.ID == id {
+			return probe.Result.CollisionPaths
+		}
+	}
+	return nil
 }
 
 // PartitionCensus requires every observed response shape to belong to a named
