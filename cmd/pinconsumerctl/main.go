@@ -233,6 +233,77 @@ func pinsAFieldInside(root, named, declared string) bool {
 	return found
 }
 
+// coverage is a DECLARED exemption: a candidate whose digest this tool cannot
+// recompute, but which a NAMED check elsewhere verifies by recomputation. It is
+// not "some other layer would probably notice" -- that was rejected earlier in
+// this project's history and rightly. Each entry names the file and the literal
+// assertion that does the verifying, and `verifyCoverage` reads them back on
+// every run: if the covering assertion is gone, the gate FAILS rather than
+// silently keeping the exemption. Same shape as gosuitectl's declared exclusions
+// and their stale-exclusion check.
+type coverageClaim struct {
+	artifact      string // the artifact holding the pins
+	pointerPrefix string // pointers under this prefix are covered
+	checkFile     string // the file containing the covering check
+	assertion     string // a literal from that check, read back every run
+	why           string
+}
+
+var coverage = []coverageClaim{
+	{
+		artifact:      "assurance/replay/fixtures/us006-cases.json",
+		pointerPrefix: "$.cases[",
+		checkFile:     "internal/formalplan/backend_test.go",
+		assertion:     "realized digest %s != frozen %s",
+		why: "realized_tree_sha256 is CANONICAL_PATH_SHA256_V1 over the tree PRODUCED BY " +
+			"applying mutation_manifest_path, not a digest of that manifest. This tool cannot " +
+			"recompute it without realizing the tree, so it does not guess: the covering check " +
+			"realizes every case and compares, and failing it names US006_REGENERATE=1.",
+	},
+	{
+		artifact:      "evidence/java/legacy-record-adjudications.json",
+		pointerPrefix: "$.adjudications[",
+		checkFile:     "internal/deltaledger/legacy_adjudication.go",
+		assertion:     "the entry binds record_digest %s; the record digests to %s",
+		why: "record_digest is the digest of the LEDGER RECORD this entry adjudicates, not of " +
+			"the supersession_draft path that happens to sit in the same object -- the value is " +
+			"in evidence/java/behavior-delta-ledger.json, which is a different file, so the " +
+			"field-inside-file rule cannot see it. The covering check recomputes every record's " +
+			"digest from its own bytes and refuses any entry whose binding has moved.",
+	},
+}
+
+// verifyCoverage reads every coverage claim back against the tree. A claim whose
+// covering assertion has vanished is a stale exemption -- the same lie about
+// coverage a stale test exclusion tells -- so it fails rather than warns.
+func verifyCoverage(root string) []string {
+	var stale []string
+	for _, claim := range coverage {
+		content, err := os.ReadFile(filepath.Join(root, claim.checkFile))
+		if err != nil {
+			stale = append(stale, fmt.Sprintf("%s: covering file %s is unreadable: %v",
+				claim.artifact, claim.checkFile, err))
+			continue
+		}
+		if !strings.Contains(string(content), claim.assertion) {
+			stale = append(stale, fmt.Sprintf("%s: %s no longer contains the covering assertion %q",
+				claim.artifact, claim.checkFile, claim.assertion))
+		}
+	}
+	return stale
+}
+
+// coveredBy returns the claim covering this candidate, if any.
+func coveredBy(artifact, pointer string) *coverageClaim {
+	for index := range coverage {
+		claim := &coverage[index]
+		if claim.artifact == artifact && strings.HasPrefix(pointer, claim.pointerPrefix) {
+			return claim
+		}
+	}
+	return nil
+}
+
 // stalePinsNaming finds objects in one artifact that name `relative` alongside a
 // digest that is not the file's current one.
 func stalePinsNaming(root string, content []byte, artifact, relative, actual string,
@@ -317,7 +388,21 @@ func runDangling(root string) int {
 		fmt.Fprintf(os.Stderr, "pinconsumerctl: %v\n", err)
 		return 2
 	}
+	stale := verifyCoverage(root)
+	for _, problem := range stale {
+		fmt.Printf("gate=pin-dangling finding=STALE_COVERAGE_CLAIM detail=%q\n", problem)
+	}
+
+	remaining := 0
 	for _, candidate := range census.candidates {
+		if claim := coveredBy(candidate.artifact, candidate.pointer); claim != nil && len(stale) == 0 {
+			fmt.Printf("gate=pin-dangling-covered artifact=%s pointer=%s names=%s "+
+				"declared=sha256:%s by=%s assertion=%q why=%s\n",
+				candidate.artifact, candidate.pointer, candidate.namedPath,
+				candidate.declared, claim.checkFile, claim.assertion, claim.why)
+			continue
+		}
+		remaining++
 		fmt.Printf("gate=pin-dangling artifact=%s pointer=%s names=%s declared=sha256:%s actual=sha256:%s\n",
 			candidate.artifact, candidate.pointer, candidate.namedPath,
 			candidate.declared, candidate.actual)
@@ -327,10 +412,17 @@ func runDangling(root string) int {
 			explained.artifact, explained.pointer, explained.namedPath,
 			explained.declared, explained.explanation)
 	}
-	fmt.Printf("gate=pin-dangling json_artifacts=%d unparsable=%d candidates=%d explained=%d\n",
-		census.artifacts, census.unparsable, len(census.candidates), len(census.explained))
+	fmt.Printf("gate=pin-dangling json_artifacts=%d unparsable=%d candidates=%d explained=%d covered=%d\n",
+		census.artifacts, census.unparsable, remaining, len(census.explained),
+		len(census.candidates)-remaining)
 	fmt.Printf("gate=pin-dangling ceiling=%q\n", danglingCeiling)
-	if len(census.candidates) > 0 {
+	if len(stale) > 0 {
+		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
+			"a coverage claim names a check that is no longer there; the exemption "+
+				"outlived the check and every row it covered is unverified")
+		return 1
+	}
+	if remaining > 0 {
 		return 1
 	}
 	return 0
@@ -353,7 +445,15 @@ const danglingCeiling = "candidates are objects where a tracked path and a sha25
 	" digests of things this tool cannot recompute -- a realized fixture tree, a" +
 	" ledger record beside an unrelated path, a frozen historical receipt --" +
 	" which remain candidates for a reader even where a human has adjudicated" +
-	" them false. `explained` is a proof, never a key name."
+	" them false. `explained` is a proof, never a key name." +
+	" `covered=` IS DIFFERENT IN KIND AND MUST NOT BE READ AS `explained=`: those" +
+	" rows are DECLARED exemptions, not recomputations. This tool cannot realize a" +
+	" us006 fixture tree, so it does not pretend to; a NAMED check elsewhere" +
+	" (internal/formalplan/backend_test.go) realizes every case and compares, and" +
+	" this gate reads that assertion back on every run -- if it is gone the claim" +
+	" becomes STALE_COVERAGE_CLAIM, the gate FAILS, and every covered row returns" +
+	" as a candidate. A coverage claim therefore cannot outlive the check it names," +
+	" but it remains a claim about someone else's check, not a measurement here."
 
 func analyseDangling(root string) (danglingCensus, error) {
 	tracked, err := trackedFiles(root)

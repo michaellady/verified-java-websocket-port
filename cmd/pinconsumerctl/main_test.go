@@ -628,3 +628,75 @@ func TestAdjudicatedTrueDanglingPinsAreStillReported(t *testing.T) {
 		}
 	}
 }
+
+// Every coverage claim must name a check that is actually there. A claim whose
+// covering assertion has vanished is the same lie a stale test exclusion tells:
+// it reports rows as verified elsewhere when nothing verifies them.
+func TestEveryCoverageClaimNamesACheckThatExists(t *testing.T) {
+	root := repoRoot(t)
+	if stale := verifyCoverage(root); len(stale) != 0 {
+		for _, problem := range stale {
+			t.Errorf("stale coverage claim: %s", problem)
+		}
+	}
+}
+
+// And the detection must actually fire, or the guard above is decorative.
+func TestAStaleCoverageClaimIsDetected(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "internal", "formalplan"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	// The covering file exists but no longer carries the assertion.
+	if err := os.WriteFile(filepath.Join(root, "internal", "formalplan", "backend_test.go"),
+		[]byte("package formalplan\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	stale := verifyCoverage(root)
+	if len(stale) == 0 {
+		t.Fatal("a covering file with no covering assertion must be reported stale")
+	}
+	if !strings.Contains(stale[0], "no longer contains the covering assertion") {
+		t.Errorf("the finding does not say what is missing: %q", stale[0])
+	}
+}
+
+// A coverage claim must state what it is covering and why this tool cannot
+// recompute it. Without that the table is a list of rows someone decided to stop
+// looking at.
+func TestEveryCoverageClaimStatesWhyItCannotBeRecomputedHere(t *testing.T) {
+	const floor = 120
+	if len(coverage) == 0 {
+		t.Skip("no coverage claims declared")
+	}
+	for _, claim := range coverage {
+		if len(claim.why) < floor {
+			t.Errorf("coverage claim for %s states %d bytes, floor is %d",
+				claim.artifact, len(claim.why), floor)
+		}
+		for field, value := range map[string]string{
+			"artifact": claim.artifact, "pointerPrefix": claim.pointerPrefix,
+			"checkFile": claim.checkFile, "assertion": claim.assertion,
+		} {
+			if value == "" {
+				t.Errorf("coverage claim for %s leaves %s empty", claim.artifact, field)
+			}
+		}
+	}
+}
+
+// Coverage narrows what is REPORTED, never what is CHECKED: a covered row must
+// still match a real candidate, so `coveredBy` may not answer for a pointer
+// outside its declared prefix.
+func TestCoverageDoesNotReachBeyondItsDeclaredPrefix(t *testing.T) {
+	claim := coveredBy("assurance/replay/fixtures/us006-cases.json", "$.cases[0]")
+	if claim == nil {
+		t.Fatal("the declared prefix must match its own pointers")
+	}
+	if coveredBy("assurance/replay/fixtures/us006-cases.json", "$.something_else") != nil {
+		t.Error("coverage reached a pointer outside its declared prefix")
+	}
+	if coveredBy("evidence/java/test-manifest.json", "$.cases[0]") != nil {
+		t.Error("coverage reached a different artifact")
+	}
+}
