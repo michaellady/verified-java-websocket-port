@@ -24,3 +24,94 @@ bin: a NEW class beside the collection. Not existence standing in for identity, 
 (b) **The adoption governs**: amend US-011 AC2, and supersede sequence 55 with `adopt-java` / `java-quirk` plus a rationale for why a vendor banner is worth adopting.
 (c) **Split**: keep `Date` (arguably an HTTP-conventional field) and drop the `Server` banner, with the ledger recording each separately.
 Whichever is chosen, sequence 55's rationale is stale as written and needs superseding — it describes a port that no longer exists, which is the same defect the DIV-05 continuation found in sequence 34 today.
+
+---
+
+## Addendum, 2026-09-03: the two halves are not equally arguable
+
+I re-read AC2 in full context (`docs/prd-pack/07b-child-prd-us009-us019.md:33`,
+the second of five criteria) and read the emission at source rather than from
+this finding's own summary. Two corrections to how the decision was framed, both
+of which make the owner's job smaller.
+
+### 1. The `Server` banner needs no ruling on WHETHER it violates AC2
+
+`rust/ws-core/src/handshake/server.rs:281` writes:
+
+```rust
+response.extend_from_slice(b"\r\nServer: TooTallNate Java-WebSocket\r\n");
+```
+
+AC2's phrase is "no Java-specific Date or Server banner". Parse it any of the
+three available ways — `no [Java-specific Date] or [Server banner]`, `no
+Java-specific [Date or Server banner]`, or `no [Java-specific Date] or
+[Java-specific Server banner]` — and a header whose literal value names the Java
+vendor library is forbidden under all of them. There is no reading of that
+clause under which `Server: TooTallNate Java-WebSocket` is permitted.
+
+So option (b) as originally written — "the adoption governs, amend AC2" — is not
+an interpretive choice about what AC2 means. It is a request to CHANGE AC2. That
+is still a legitimate thing for the owner to decide, but it should be presented
+as an amendment, not as a reading. Framing it as a reading invites agreement to
+something narrower than what is actually being agreed to.
+
+### 2. I nearly stacked a weak argument onto a strong one
+
+AC2 also says the 101 response must be **deterministic**, and a `Date` header is
+the textbook example of a field that is not. I was about to add that as a second,
+independent count against the `Date` half. It does not hold, and the reason is a
+deliberate piece of engineering in the very change this finding is about.
+
+`accept_response` does not read a clock:
+
+```rust
+fn accept_response(accept_key: &str, connection: &str, server_date_epoch_seconds: i64) -> Vec<u8>
+```
+
+The instant is a parameter, injected at `ServerHandshake::new`. The doc comment
+at `server.rs:132-146` says so explicitly, and gives the reason: keeping the core
+clockless is what stops it from emitting "a plausible-looking `Date` that no
+clock produced". `java_server_time` is a pure function of an epoch second, and
+its expectations are pinned from the JDK formatter's own output rather than
+written by hand. The author also checked the one thing that would have made the
+function impure in disguise — that `Locale.US` and the explicit GMT zone make
+the rendering independent of the host timezone, verified against the pinned JDK
+under two different `-Duser.timezone` settings.
+
+So the response IS a deterministic function of its inputs. The wire bytes vary
+with the clock the CALLER passes, which is a different claim and a much weaker
+one. Presenting the determinism clause as an independent violation would have
+been an argument that sounds strong, is easy to check, and is wrong — and it
+would have been aimed at the most careful part of the change.
+
+This matters beyond the drafting. F010's own thesis is that DIV-06 was verified
+against the wrong authority. The mirror-image error is available to me here: to
+condemn it against a clause it satisfies, because condemning is now the expected
+direction. One bad reading is not corrected by another in the opposite
+direction.
+
+### What the owner actually has to decide
+
+Narrower than three options:
+
+- **`Server: TooTallNate Java-WebSocket`** — violates AC2 under every reading.
+  The only question is remove-it (AC2 stands) or amend-AC2-to-permit-a-vendor-
+  banner. No interpretive question remains.
+- **`Date`** — violates the natural reading of "Java-specific ... Date", since
+  RFC 6455 §4.2.2 requires only `Upgrade`, `Connection` and
+  `Sec-WebSocket-Accept`, and Java-WebSocket adds both of these. But it is NOT
+  independently condemned by the determinism clause, and the clockless design is
+  a genuine mitigation the owner should weigh rather than a loophole.
+- **The `Connection` echo half of DIV-06 is untouched by AC2** and should stand.
+  That was true as originally filed and re-reading has not changed it.
+
+### Readings behind this addendum
+
+- `docs/prd-pack/07b-child-prd-us009-us019.md:33` — AC2, quoted verbatim above
+  and at the head of this finding, read in the context of all five criteria.
+- `rust/ws-core/src/handshake/server.rs:277,:281` — the two `extend_from_slice`
+  calls, read at source.
+- `rust/ws-core/src/handshake/server.rs` `accept_response` signature and the
+  `java_server_time` doc block — the clockless design and its stated reason.
+- Still not run, and still an owner gate: the Autobahn re-run that would show
+  whether either field moves a conformance case.
