@@ -307,8 +307,9 @@ of this branch.
 ## 7. Claims, in the fixed vocabulary
 
 - **Observed**: the discriminator fires on all six committed historical records that declare
-  themselves unfinished, and is silent on all seven committed finished records, including the
-  421-, 442- and 552-line ones. Exit codes read from the process.
+  themselves unfinished, and is silent on all eight fixtures declared silent — the six real
+  finished records, including the 421-, 442- and 552-line ones, plus the two synthetic controls.
+  Exit codes read from the process.
 - **Differential**: the div05 stub and the div05 final record are the same repository path at
   two commits; the verdict inverts with the status value while the status *field* is
   unchanged.
