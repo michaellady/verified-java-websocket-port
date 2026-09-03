@@ -194,15 +194,106 @@ func TestExpectationRejectsAProbeThatDeclaresNothing(t *testing.T) {
 }
 
 // TestExpectationRejectsAProbeThatDeclaresAVerdictThisAuditDoesNotIssue is the
-// case the merged guard IS uniquely responsible for: a probe declaring a third
-// verdict, where the verdict-comparison check below could not tell the
-// difference between "declared something invalid" and "the run disagreed".
+// case the declaration guard is UNIQUELY responsible for, and finding it took
+// two failed attacks.
+//
+// The first two attempts fed a bogus expectation against a real REFUTED
+// result, and deleting the guard changed nothing: the verdict-comparison check
+// one line below rejected it anyway, because a bogus expectation cannot equal
+// a real verdict. That is a green reading with the check deleted, and it is
+// not evidence. The case that IS uniquely the guard's is a bogus expectation
+// matched by an equally bogus verdict, where every downstream check sails
+// through: the expectation and the verdict agree, the probe is not CONFIRMED
+// so it takes the refutation path, its required path did move, and neither
+// answer is an error row. Without the guard this returns nil and a probe
+// claiming a verdict this audit does not issue is ACCEPTED.
 func TestExpectationRejectsAProbeThatDeclaresAVerdictThisAuditDoesNotIssue(t *testing.T) {
-	err := CheckExpectation(Probe{ID: "RED-E1b", Expect: Verdict("PROBABLY")},
-		refutedResult([]string{"frames[0].wire_bytes"}, okKeys(), okKeys()))
+	bogus := Verdict("PROBABLY")
+	result := refutedResult([]string{"frames[0].wire_bytes"}, okKeys(), okKeys())
+	result.Verdict = bogus
+	err := CheckExpectation(
+		Probe{ID: "RED-E1b", Expect: bogus, RequiredPaths: []string{"frames[0].wire_bytes"}},
+		result)
 	if err == nil {
-		t.Fatal("a probe declaring verdict PROBABLY was accepted; this audit issues no such " +
-			"verdict and a probe claiming one cannot be decided by a run")
+		t.Fatal("a probe declaring verdict PROBABLY, matched by a run reporting PROBABLY, was " +
+			"ACCEPTED; this audit issues no such verdict and every other check passes such a " +
+			"pair, so nothing else would catch it")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The decided-candidate status assignment.
+//
+// This lived inside Build until a deletion attack came back GREEN: Build needs
+// a harness binary, so nothing in the default suite covered it and replacing
+// the recomputation with a hardcoded EMPTY broke nothing. It is exported now,
+// for the same reason and by the same precedent as PartitionCensus.
+// ---------------------------------------------------------------------------
+
+func TestStatusAssignmentReadsTheVerdictRatherThanAssumingIt(t *testing.T) {
+	decided := []DecidedCandidate{
+		{ID: "C-REFUTED", DecidedBy: "NC-10", WhyItWasOpen: "w", Consequence: "c"},
+		{ID: "C-EMPTY", DecidedBy: Utf8PremiseCheckID, WhyItWasOpen: "w", Consequence: "c"},
+	}
+	emptiness := Utf8Emptiness{ID: Utf8PremiseCheckID, Status: StatusEmpty}
+	got := AssignDecidedCandidateStatuses(decided,
+		map[string]Verdict{"NC-10": Refuted}, emptiness)
+	if got[0].Status != StatusRefuted {
+		t.Fatalf("a candidate decided by a REFUTED probe got status %q", got[0].Status)
+	}
+	if got[1].Status != StatusEmpty {
+		t.Fatalf("a candidate decided by an EMPTY premise check got status %q", got[1].Status)
+	}
+}
+
+func TestStatusAssignmentFallsBackToHypothesisWhenTheEvidenceStopsHolding(t *testing.T) {
+	// The two ways the evidence can stop holding, and both must REOPEN the
+	// candidate rather than leave a stale closed one standing. A hardcoded
+	// status would keep reporting REFUTED and EMPTY here.
+	decided := []DecidedCandidate{
+		{ID: "C-REFUTED", DecidedBy: "NC-10", WhyItWasOpen: "w", Consequence: "c"},
+		{ID: "C-EMPTY", DecidedBy: Utf8PremiseCheckID, WhyItWasOpen: "w", Consequence: "c"},
+	}
+	got := AssignDecidedCandidateStatuses(decided,
+		// The refutation probe came back CONFIRMED — the projection erases
+		// the distinction after all.
+		map[string]Verdict{"NC-10": Confirmed},
+		// A premise failed, so the emptiness argument is undecided again.
+		Utf8Emptiness{ID: Utf8PremiseCheckID, Status: StatusHypothesis})
+	for _, candidate := range got {
+		if candidate.Status != StatusHypothesis {
+			t.Fatalf("%s is %q after its evidence stopped holding; a decided candidate whose "+
+				"evidence fails must REOPEN, not keep its old verdict",
+				candidate.ID, candidate.Status)
+		}
+	}
+}
+
+func TestStatusAssignmentLeavesACandidateNothingDecidedEmpty(t *testing.T) {
+	// The input CheckDecidedCandidates then refuses. Together they are what
+	// stops a candidate carrying a verdict no run produced.
+	got := AssignDecidedCandidateStatuses(
+		[]DecidedCandidate{{ID: "C-ORPHAN", DecidedBy: "NC-NOT-IN-THIS-DOCUMENT",
+			WhyItWasOpen: "w", Consequence: "c"}},
+		map[string]Verdict{"NC-10": Refuted},
+		Utf8Emptiness{ID: Utf8PremiseCheckID, Status: StatusEmpty})
+	if got[0].Status != "" {
+		t.Fatalf("a candidate whose decided_by names nothing that ran got status %q; it must "+
+			"come out empty so CheckDecidedCandidates can refuse it", got[0].Status)
+	}
+	if err := CheckDecidedCandidates(got); err == nil {
+		t.Fatal("CheckDecidedCandidates accepted a candidate nothing decided")
+	}
+}
+
+func TestStatusAssignmentDoesNotMutateItsInput(t *testing.T) {
+	// The catalog function returns fresh values each call, but a caller that
+	// held one across an assignment would otherwise see it change under them.
+	decided := []DecidedCandidate{{ID: "C", DecidedBy: "NC-10", WhyItWasOpen: "w", Consequence: "c"}}
+	AssignDecidedCandidateStatuses(decided, map[string]Verdict{"NC-10": Refuted},
+		Utf8Emptiness{ID: Utf8PremiseCheckID, Status: StatusEmpty})
+	if decided[0].Status != "" {
+		t.Fatalf("the input list was mutated: %q", decided[0].Status)
 	}
 }
 

@@ -204,6 +204,44 @@ func DecidedCandidates() []DecidedCandidate {
 	}
 }
 
+// AssignDecidedCandidateStatuses reads each decided candidate's status off
+// whatever decided it and returns the populated list. It is the one place a
+// candidate acquires a verdict, and it acquires it from a MEASUREMENT: a probe
+// verdict out of `verdicts`, or the emptiness record's own recomputed status.
+// A DecidedBy that names neither leaves the status empty, which
+// CheckDecidedCandidates then refuses.
+//
+// This is exported, and separate from Build, for the reason PartitionCensus is:
+// a check that lives only inside Build has NO coverage in the default suite,
+// because Build needs a harness binary. A deletion attack on the in-Build
+// version came back GREEN — nothing failed when the recomputation was replaced
+// by a hardcoded EMPTY — which is exactly the finding that moved it out here.
+//
+// The mapping from a probe verdict to a candidate status is not the identity.
+// A refutation probe coming back REFUTED closes its candidate as REFUTED; the
+// same probe coming back CONFIRMED means the projection erases the distinction
+// after all, so the candidate is NOT closed as confirmed here — it falls back
+// to HYPOTHESIS, and the eighth-collision finding is raised by
+// CheckExpectation, which is where a new collision belongs.
+func AssignDecidedCandidateStatuses(decided []DecidedCandidate, verdicts map[string]Verdict,
+	emptiness Utf8Emptiness) []DecidedCandidate {
+	out := append([]DecidedCandidate(nil), decided...)
+	for i := range out {
+		candidate := &out[i]
+		if emptiness.ID != "" && candidate.DecidedBy == emptiness.ID {
+			candidate.Status = emptiness.Status
+			continue
+		}
+		switch verdicts[candidate.DecidedBy] {
+		case Refuted:
+			candidate.Status = StatusRefuted
+		case Confirmed:
+			candidate.Status = StatusHypothesis
+		}
+	}
+	return out
+}
+
 // CheckDecidedCandidates requires every decided candidate to carry a status
 // that came from a run. An empty status means DecidedBy named a probe or check
 // that is not in this document, so nothing decided it and the entry is a claim

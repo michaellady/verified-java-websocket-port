@@ -200,21 +200,8 @@ func Build(root string, runner Runner) (*Document, error) {
 	// candidate cannot carry a verdict its evidence does not hold, and a
 	// candidate whose decided_by names nothing that ran arrives here with an
 	// empty status and is refused by CheckDecidedCandidates below.
-	document.DecidedCandidates = DecidedCandidates()
-	for i := range document.DecidedCandidates {
-		candidate := &document.DecidedCandidates[i]
-		switch {
-		case candidate.DecidedBy == emptiness.ID:
-			candidate.Status = emptiness.Status
-		default:
-			switch verdictOf[candidate.DecidedBy] {
-			case Refuted:
-				candidate.Status = StatusRefuted
-			case Confirmed:
-				candidate.Status = StatusHypothesis
-			}
-		}
-	}
+	document.DecidedCandidates = AssignDecidedCandidateStatuses(
+		DecidedCandidates(), verdictOf, emptiness)
 	if err := CheckDecidedCandidates(document.DecidedCandidates); err != nil {
 		return nil, err
 	}
