@@ -240,10 +240,21 @@ pub fn drive_connection_from(
         } else {
             let chunk = std::mem::take(&mut pending_chunk);
             let step = pump(driver, DriverInput::Inbound(&chunk), report);
-            if matches!(step.input, InputDisposition::Deferred(_)) {
+            match step.input {
+                // The driver reports what it actually applied, which under
+                // its shipped-Java inbound feed policy can be LESS than what
+                // was offered (`ws_driver::InboundFeedPolicy`, DIV-05). The
+                // unapplied tail is retained and re-offered; this loop owns
+                // transport, so it never asks WHY the split fell where it did.
+                InputDisposition::Consumed { bytes } if bytes < chunk.len() => {
+                    pending_chunk = chunk[bytes..].to_vec();
+                }
+                InputDisposition::Consumed { .. } => {}
                 // The driver did not consume the bytes; retry the identical
                 // chunk after this output is handled.
-                pending_chunk = chunk;
+                InputDisposition::Deferred(_) | InputDisposition::Rejected(_) => {
+                    pending_chunk = chunk;
+                }
             }
             step
         };

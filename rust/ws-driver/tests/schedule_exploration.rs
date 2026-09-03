@@ -779,6 +779,12 @@ struct Outcome {
     deferred_output_pending: u32,
     deferred_command_turn: u32,
     deferred_backpressure: u32,
+    /// DIV-05: turns the driver refused because the previously applied frame
+    /// had not finished dispatching (`InboundFeedPolicy::OneFramePerTurn`).
+    /// This exploration builds its drivers under the default
+    /// `InboundFeedPolicy::WholeChunk`, so the arm exists to keep the match
+    /// exhaustive and is expected to stay zero here.
+    deferred_frame_dispatch: u32,
     rejected_inputs: u32,
     drain_polls: u32,
     closed: bool,
@@ -1047,6 +1053,9 @@ impl Run {
             }
             InputDisposition::Deferred(DeferredReason::Backpressure) => {
                 self.outcome.deferred_backpressure += 1;
+            }
+            InputDisposition::Deferred(DeferredReason::FrameDispatchPending) => {
+                self.outcome.deferred_frame_dispatch += 1;
             }
             InputDisposition::Rejected(_) => {
                 self.outcome.rejected_inputs += 1;
@@ -1789,6 +1798,7 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.deferred_output_pending += outcome.deferred_output_pending;
         totals.deferred_command_turn += outcome.deferred_command_turn;
         totals.deferred_backpressure += outcome.deferred_backpressure;
+        totals.deferred_frame_dispatch += outcome.deferred_frame_dispatch;
         totals.rejected_inputs += outcome.rejected_inputs;
         totals.write_drop_reports += outcome.write_drop_reports;
         totals.dropped_frames += outcome.dropped_frames;
@@ -1811,6 +1821,21 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         "backpressure was explored"
     );
     assert!(totals.rejected_inputs > 0, "typed input rejection explored");
+    // DIV-05, and the reason this line exists: `deferred_frame_dispatch`'s
+    // field comment claims this exploration "is expected to stay zero here"
+    // because every driver it builds keeps `InboundFeedPolicy::WholeChunk`.
+    // Nothing checked that claim, so the counter was a field that could not
+    // fail. It is checked now — and it is what makes this exploration's
+    // counters, which `assurance/concurrency/results.json` cites verbatim,
+    // an assertion that the DIV-05 feed policy is INERT on this path rather
+    // than an assumption about it.
+    assert_eq!(
+        totals.deferred_frame_dispatch, 0,
+        "this exploration builds every driver under InboundFeedPolicy::WholeChunk, \
+         so no turn may be deferred for frame dispatch; a non-zero count means a \
+         driver here acquired OneFramePerTurn and these counters no longer describe \
+         the policy the corpus differential runs under"
+    );
     assert_eq!(
         totals.terminals as usize,
         closed_terminal_runs + halted_terminals,
