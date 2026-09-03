@@ -229,12 +229,24 @@ compile time, and every exit code below was read from the process.
 | 3 | the client-side accept derivation in the Go model | **RED**, two tests | 1 |
 | 4 | ws-core: 0018's stage forced to `translate` (end-to-end, through the exam) | **RED** `us005.hs.0018: reject_stage "translate", expected "response_build"`, 48/49 | 1 |
 | 5 | ws-core: client accept value emptied (end-to-end) | **RED** 0006/0007/0008 fail, 46/49 | 1 |
+| 6 | `handshake_adapter.rs::respond`'s `reject_stage` insertion, against the Rust suite alone | **GREEN — SURVIVED** (the exam did catch it: 20 failures, exit 1) | 0 |
+| 6′ | same, after adding `rejections_name_the_draft_api_call_that_decided` | **RED** `crafted.oneword: expected stage translate` | 101 |
 
-**Attack 2 is the finding to keep.** The presence-parity check I had just written
-was GREEN when deleted — nothing tested it. Green when deleted is not evidence
-that a check works; it is evidence that it does not. A test was added and the
-attack now goes RED. That is one surviving check found in a first honest sweep of
-two new checks, which is consistent with the 11, 19 and 20 earlier tracks found.
+**Attacks 2 and 6 are the findings to keep — two survivors out of six.** In both
+cases a check I had just written was GREEN when deleted. Green when deleted is
+not evidence that a check works; it is evidence that it does not, and saying so
+is the point of running the attack rather than reasoning about it.
+
+Attack 6 is the more instructive of the two. The exam *did* catch it — 20 cases
+failed, exit 1 — so the property was defended somewhere. But the Rust suite,
+which is what a Rust-side change runs first, was entirely silent, and "some
+other suite two layers away would have caught it" is not a test. The new test
+covers all three stages including the two that share the `invalid_handshake`
+channel, which is the collision the key exists to resolve.
+
+Two survivors in a first honest sweep of two new keys is in line with the 11, 19
+and 20 that earlier tracks found. It is not a reason to think the sweep is now
+complete.
 
 Attacks 0a and 0b are worth separating from the rest: those two REDs were not
 mine to arrange. Two existing tests pinned the OLD absence of the client-side

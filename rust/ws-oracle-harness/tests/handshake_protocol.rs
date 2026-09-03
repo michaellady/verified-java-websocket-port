@@ -157,6 +157,72 @@ fn rejections_carry_the_channel_and_the_1002_close_code() {
     assert!(transcript.contains("\"close_code\":1002"));
 }
 
+/// Every rejection also names WHICH draft-API call decided it, and the three
+/// stages are reachable and distinct. The `invalid_handshake` channel covers
+/// two of them, which is the whole reason the key exists: `translate` means no
+/// `Handshakedata` was ever built and shipped Java never reached the
+/// application listener, while `response_build` means the predicate MATCHED,
+/// `onWebsocketHandshakeReceivedAsServer` was already called
+/// (WebSocketImpl.java:284-301), and only `postProcessHandshakeResponseAsServer`
+/// refused (Draft_6455.java:438-440).
+///
+/// Deleting the `reject_stage` insertion in `handshake_adapter.rs::respond`
+/// leaves every other assertion in this file green; only this one falls.
+#[test]
+fn rejections_name_the_draft_api_call_that_decided() {
+    let cases: [(&str, &str, Option<&str>, &[u8], &str, &str); 4] = [
+        // Head never parsed: one token on the request line.
+        (
+            "crafted.oneword",
+            "client_request",
+            None,
+            b"BAD\r\n\r\n",
+            "invalid_handshake",
+            "translate",
+        ),
+        // Head parsed; acceptHandshakeAsServer said NOT_MATCHED on version.
+        (
+            "crafted.version12",
+            "client_request",
+            None,
+            b"GET / HTTP/1.1\r\nSec-WebSocket-Key: k\r\nSec-WebSocket-Version: 12\r\n\r\n",
+            "not_matched",
+            "accept_predicate",
+        ),
+        // Head parsed AND the predicate MATCHED; the response could not be
+        // built because Sec-WebSocket-Key is absent. Same CHANNEL as the first
+        // row, different STAGE -- the collision this key resolves.
+        (
+            "crafted.nokey",
+            "client_request",
+            None,
+            b"GET / HTTP/1.1\r\nSec-WebSocket-Version: 13\r\n\r\n",
+            "invalid_handshake",
+            "response_build",
+        ),
+        // Client side: a non-101 status throws inside translateHandshakeHttp.
+        (
+            "crafted.notonehundredone",
+            "server_response",
+            Some("hnt8mbkW8KRynbLvJHSoGQ=="),
+            b"HTTP/1.1 404 Not Found\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n",
+            "invalid_handshake",
+            "translate",
+        ),
+    ];
+    for (case_id, direction, key, raw, channel, stage) in cases {
+        let transcript = run(&format!("{}\n", bound_line(case_id, direction, key, raw)));
+        assert!(
+            transcript.contains(&format!("\"reject_channel\":\"{channel}\"")),
+            "{case_id}: wrong channel in {transcript}"
+        );
+        assert!(
+            transcript.contains(&format!("\"reject_stage\":\"{stage}\"")),
+            "{case_id}: expected stage {stage} in {transcript}"
+        );
+    }
+}
+
 #[test]
 fn tampered_raw_fails_the_digest_binding() {
     assert!(HS_0000.contains("xMw0KDQo="), "tamper target must exist");

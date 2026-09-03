@@ -3,7 +3,7 @@
   "entity_type": "NormalizationCollisionAudit",
   "note": "Normalization-collision census. A collision is two genuinely different wire behaviours mapping onto one normalized observation. Every probe below was DECIDED BY RUNNING the real harness on two seed requests and applying the real differential comparator to the two answers; no verdict is predicted. Confirmed collisions are separated from undecided candidates, and a candidate is never counted as a finding. A candidate later DECIDED does not become a collision by default: refutations[] holds the probes that found the observation DOES carry the distinction, and they are counted apart from probes[] so a reader cannot mistake nine decided probes for nine collisions.",
   "recomputed_from": {
-    "harness": "ws-oracle-harness sha256:bd7ad3d24663e8a2eee26a24c1ca8caae4d0cbea659199b3436cba8ed3c62a1b",
+    "harness": "ws-oracle-harness sha256:c718a7d30186d2078bf0435b59ae6cb71793fdaf4c812c2fcbb5937683a1479d",
     "comparator": "internal/diffregress.CompareResponses (the comparator the headline number uses)",
     "identity_fields_stripped": [
       "case_id",
