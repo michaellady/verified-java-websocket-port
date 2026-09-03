@@ -108,6 +108,26 @@ checked against the pinned file itself, and all four hold:
 The record is not amended for this — it makes no claim the check refutes, and
 the check makes it stronger rather than different.
 
+Sequence 58's five `postProcessHandshakeResponseAsServer` citations were
+checked the same way and all five are exact: `response.put(UPGRADE, …)` at
+`:434`, `CONNECTION` at `:435-436`, `SEC_WEB_SOCKET_ACCEPT` at `:441`,
+`"Server"` at `:449`, `"Date"` at `:450`, with `Draft.java:275-283` the field
+loop that writes them out.
+
+**One citation is a convention rather than a statement, and I nearly filed it
+as an error.** `HandshakedataImpl1.java:50` is cited across the tree —
+`server.rs:251`, `http.rs:43`, three sites in `handshake_server_response.rs`,
+`handshake_fuzz.rs`, `sweep_test.go`, ledger sequence 55, and now sequence 58 —
+beside a quotation of `new TreeMap<>(String.CASE_INSENSITIVE_ORDER)`. At source,
+line 50 is `public HandshakedataImpl1() {` and line 51 is the `map = new TreeMap<>(…)`
+statement. That is the same convention the neighbouring `iterateHttpFields`
+citation uses (`:55-57`, the method, whose body is at `:56`), so `:50` names the
+declaring construct and is defensible; it is not a defect and is not filed as
+one. It is written down because my first reading of a `sed` block said all five
+`put` citations were off by one, and `grep -n` said every one of them was exact
+— an off-by-one in my instrument reported as an off-by-one in the artifact,
+which is F014's shape aimed at myself.
+
 ### The part a supersession has to get right: there are two observables
 
 `InboundFeedPolicy::WholeChunk` is still the default and is what
