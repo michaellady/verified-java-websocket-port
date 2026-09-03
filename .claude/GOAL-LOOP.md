@@ -174,6 +174,20 @@ record exactly which owner or independent step remains.
    reason. Before adding any package to the environment-failure list, check
    whether the tree you are in was ever staged.
 
+   **A LABEL ON A PULL REQUEST SPENDS MONEY. NEVER ADD ONE.**
+   `.github/workflows/benchmark.yml` triggers on `pull_request: types:
+   [labeled]` — not on open, not on push. Adding ANY label to ANY PR in this
+   repository provisions an AWS confirmation host and runs the benchmark
+   pipeline; the workflow's own header puts the default-candidate `c5n.metal`
+   at roughly **$4/hour**, bounded to 1-2 instance-hours by its same-job
+   `always()` teardown, with `bench-janitor.yml` sweeping orphans after 3
+   hours. Benchmark runs are an owner gate the loop never triggers, so the
+   rule is simply: do not label. Verified 2026-09-03 on the newly opened PR #5
+   — `get_check_runs` returns `total_count: 0`, so opening and pushing are
+   both safe and labeling is the only path. If a label appears and a run
+   starts, do NOT tear down infrastructure you did not provision: report it
+   with the run URL.
+
    **`pin-guard` IS NOW IN THE `gates` CHAIN, SO A NEW DRIFTED PIN FAILS ON THE
    RUN IT APPEARS.** It did not before: `dangling` exited 1 with eleven rows while
    `make -C rust gates` exited 0, both true at once, which meant F014's real
