@@ -208,6 +208,13 @@ pub fn drive_connection(
 /// through [`drive_connection`] alone, and
 /// `a_server_must_not_hang_up_on_bytes_the_driver_has_not_taken_yet` is its
 /// witness through this one.
+// Eight parameters, one over clippy's default. The alternative is a grouping
+// struct, and it would have to carry `role` — which is exactly the parameter
+// the role-gated transport close made MANDATORY and POSITIONAL so no call site
+// could acquire that behaviour by omission (see `drive_connection`'s doc). A
+// struct with a `Default` would hand that back. The seam is wide because the
+// adapter's seam is wide, and it is stated rather than hidden.
+#[allow(clippy::too_many_arguments)]
 pub fn drive_connection_from(
     driver: &mut ConnectionDriver,
     sender: &CommandSender,

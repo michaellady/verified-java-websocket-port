@@ -1258,7 +1258,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 20,
-      "sha256": "sha256:1926916e73290a84efc794bfbba3a935db1ef86ec3ba6b0e21a458e34d218063"
+      "sha256": "sha256:72c30cf13d350de5d73978df31080ca6a66605c42cef82bc56ecf0c7e38fb847"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome",
@@ -1267,7 +1267,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 64,
-      "sha256": "sha256:1926916e73290a84efc794bfbba3a935db1ef86ec3ba6b0e21a458e34d218063"
+      "sha256": "sha256:72c30cf13d350de5d73978df31080ca6a66605c42cef82bc56ecf0c7e38fb847"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome::SocketError",
@@ -1276,7 +1276,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 71,
-      "sha256": "sha256:1926916e73290a84efc794bfbba3a935db1ef86ec3ba6b0e21a458e34d218063"
+      "sha256": "sha256:72c30cf13d350de5d73978df31080ca6a66605c42cef82bc56ecf0c7e38fb847"
     },
     {
       "id": "ws_testee::io_loop::drive_connection",
@@ -1285,7 +1285,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 171,
-      "sha256": "sha256:1926916e73290a84efc794bfbba3a935db1ef86ec3ba6b0e21a458e34d218063"
+      "sha256": "sha256:72c30cf13d350de5d73978df31080ca6a66605c42cef82bc56ecf0c7e38fb847"
     },
     {
       "id": "ws_testee::server::run_server_once",
