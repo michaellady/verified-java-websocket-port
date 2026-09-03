@@ -20,8 +20,8 @@
     },
     {
       "path": "assurance/formal/proof-targets.json",
-      "sha256": "sha256:bad1e0697d0f4428a4cc6572549e4528ca4f0328c15163beddd4deb31c59a205",
-      "git_blob": "cbbaa730291d2d53be6ac20bc54e31ebe57ba981"
+      "sha256": "sha256:0f514b0c6e01e4149c72f8df8ef2e5593edde2d0ffd01ff2fac14faef1a00a31",
+      "git_blob": "faa0be0adbcfd959a4a408889309b2d697564653"
     },
     {
       "path": "evidence/java/formal-bindings/coverage-projection.json",
@@ -35,8 +35,8 @@
     },
     {
       "path": "evidence/linkage/rust-identity-verification.json",
-      "sha256": "sha256:b8858b3a941c6ace01c5d00e433aa7948a93bdec34729d3c5e8f776aa2c7f9aa",
-      "git_blob": "48282aad122c29feb489a58ffd8e92666699c1e5"
+      "sha256": "sha256:afc0ef4fd6231d66ad9d80d871b110a2b27682f26bcf0d7c146b99a9fbaddb49",
+      "git_blob": "0dc9e438aba7a7fa4be0062afd44268734c38d63"
     },
     {
       "path": "assurance/formal/catalog-correction-proposal.json",
@@ -50,8 +50,8 @@
     },
     {
       "path": "assurance/formal/denominator-reconciliation.json",
-      "sha256": "sha256:22fb98c2992280da846d99e06365b21c36918dc109a50bc31972b34d41696827",
-      "git_blob": "83544d5282deccd83552a62cfd556d374b7a7ed9"
+      "sha256": "sha256:da0e6f39e0b7272655d5665083a7cebba921a49e630328192b3fb582ccd17952",
+      "git_blob": "38ca431a59d76f4df8e94d4040b30526df3d07e2"
     }
   ],
   "denominator": {
@@ -89,8 +89,8 @@
     },
     "reconciliation": {
       "path": "assurance/formal/denominator-reconciliation.json",
-      "sha256": "sha256:22fb98c2992280da846d99e06365b21c36918dc109a50bc31972b34d41696827",
-      "git_blob": "83544d5282deccd83552a62cfd556d374b7a7ed9"
+      "sha256": "sha256:da0e6f39e0b7272655d5665083a7cebba921a49e630328192b3fb582ccd17952",
+      "git_blob": "38ca431a59d76f4df8e94d4040b30526df3d07e2"
     }
   },
   "axes": [

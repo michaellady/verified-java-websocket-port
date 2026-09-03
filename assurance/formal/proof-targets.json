@@ -84,7 +84,7 @@
     "handshake_live_mapping": {
       "map_id": "us005-handshake-live-mapping",
       "path": "evidence/us005-handshake-live-mapping.json",
-      "sha256": "sha256:4cb2969b14b0d54dd178f7734705e8d8578190f2e69213219fcf8fe6d20f207a"
+      "sha256": "sha256:842b2791690c810e3e10e962d438214f3e5dac85be5c64a23b6f01e45e36399a"
     },
     "migration_map": {
       "map_id": "semantic-id-migration-map.us003",
@@ -935,7 +935,7 @@
         ],
         "live_evidence": {
           "path": "evidence/us005-handshake-live-mapping.json",
-          "sha256": "sha256:4cb2969b14b0d54dd178f7734705e8d8578190f2e69213219fcf8fe6d20f207a",
+          "sha256": "sha256:842b2791690c810e3e10e962d438214f3e5dac85be5c64a23b6f01e45e36399a",
           "entries_cited": [
             "client_request/accept",
             "client_request/HS_VERSION_UNSUPPORTED",

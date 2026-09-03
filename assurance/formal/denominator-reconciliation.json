@@ -18,8 +18,8 @@
   },
   "proof_targets": {
     "path": "assurance/formal/proof-targets.json",
-    "sha256": "sha256:bad1e0697d0f4428a4cc6572549e4528ca4f0328c15163beddd4deb31c59a205",
-    "git_blob": "cbbaa730291d2d53be6ac20bc54e31ebe57ba981"
+    "sha256": "sha256:0f514b0c6e01e4149c72f8df8ef2e5593edde2d0ffd01ff2fac14faef1a00a31",
+    "git_blob": "faa0be0adbcfd959a4a408889309b2d697564653"
   },
   "plane_correspondence": {
     "path": "assurance/formal/plane-correspondence.json",
@@ -54,8 +54,8 @@
       "path": "assurance/formal/proof-targets.json",
       "catalog_declared_sha256": "sha256:fa75348c37f607ac27edf41f13f075a6731b925628d9e9dcda7de39f0ea236e6",
       "catalog_declared_git_blob": "cb1baec1c1171dff015d02f64c522bc0b572400e",
-      "on_disk_sha256": "sha256:bad1e0697d0f4428a4cc6572549e4528ca4f0328c15163beddd4deb31c59a205",
-      "on_disk_git_blob": "cbbaa730291d2d53be6ac20bc54e31ebe57ba981",
+      "on_disk_sha256": "sha256:0f514b0c6e01e4149c72f8df8ef2e5593edde2d0ffd01ff2fac14faef1a00a31",
+      "on_disk_git_blob": "faa0be0adbcfd959a4a408889309b2d697564653",
       "agreement": "BASIS_PIN_DOES_NOT_MATCH_FILE_ON_DISK"
     },
     {
