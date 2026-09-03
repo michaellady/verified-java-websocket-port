@@ -145,10 +145,28 @@ func Scan(src string) []Signal {
 			}
 		}
 
-		// The record's own status declaration, read for its VALUE.
+		// The record's own status declaration, read for its VALUE — and read from
+		// the RAW line, not the masked one, because a status declaration at the
+		// start of a line is by construction the record's OWN voice. Adversarial
+		// review A2b passed `precondition` at exit 0 on a record whose only
+		// content was "STATUS: `IN PROGRESS`": the backticks masked the value, and
+		// the same backticks satisfied cites-nothing, so one idiomatic markdown
+		// pair defeated two signals at once. Nothing legitimate is lost: a record
+		// QUOTING someone else's status does not begin its own line with the
+		// declaration, which is what statusRe anchors on — checked against both
+		// quote-control fixtures, F009-quotes-the-stub and wrapped-quotation,
+		// which quote "STATUS: IN PROGRESS" mid-sentence and stay silent. Fenced
+		// and blockquoted lines are still masked whole, so a shown example is
+		// still not a claim.
 		if loc := statusRe.FindStringIndex(m); loc != nil {
-			for _, term := range matchTerms(m[loc[1]:], unfinishedTerms) {
-				sigs = append(sigs, Signal{Line: n, Kind: "declared-status", Term: term, Text: trim(raw)})
+			source := m
+			if strings.TrimSpace(m) != "" {
+				source = raw
+			}
+			if rawLoc := statusRe.FindStringIndex(source); rawLoc != nil {
+				for _, term := range matchTerms(source[rawLoc[1]:], unfinishedTerms) {
+					sigs = append(sigs, Signal{Line: n, Kind: "declared-status", Term: term, Text: trim(raw)})
+				}
 			}
 		}
 
@@ -193,45 +211,75 @@ func Scan(src string) []Signal {
 func maskOtherVoices(lines []string) []string {
 	out := make([]string, len(lines))
 	inFence := false
-	// carry is the closer an unclosed span on a previous line is still waiting
-	// for. A markdown inline span may wrap a single line break but never a blank
-	// line, so carry is dropped at a blank line — which bounds the damage an odd
-	// stray quote can do to one paragraph instead of the rest of the record.
-	var carry rune
+	// Masking is resolved over a PARAGRAPH, not a line, and only over spans that
+	// actually CLOSE. The earlier line-at-a-time version carried an open closer
+	// forward and masked to end of line on the way, so a single unpaired `"`
+	// silenced every following line of its paragraph. That is not a corner case:
+	// the whole useful content of a stub — its status declaration, its void
+	// self-report, its open checklist — fits inside one paragraph, and
+	// adversarial review A5 replayed the div05 stub that motivated this tool
+	// through `precondition` at exit 0, verdict READS-FINISHED, by adding one
+	// stray double quote to its title line. A delimiter that never closes is not
+	// a quotation, so it now masks nothing.
+	var para []int
+	flush := func() {
+		if len(para) == 0 {
+			return
+		}
+		joined := make([]string, 0, len(para))
+		for _, idx := range para {
+			joined = append(joined, lines[idx])
+		}
+		parts := strings.Split(maskPairs(strings.Join(joined, "\n")), "\n")
+		for k, idx := range para {
+			if k < len(parts) {
+				out[idx] = parts[k]
+			} else {
+				out[idx] = lines[idx]
+			}
+		}
+		para = para[:0]
+	}
 	for i, raw := range lines {
 		if fenceRe.MatchString(raw) {
+			flush()
 			inFence = !inFence
-			carry = 0
 			out[i] = blank(raw)
 			continue
 		}
 		if inFence || quoteRe.MatchString(raw) {
-			carry = 0
+			flush()
 			out[i] = blank(raw)
 			continue
 		}
 		if strings.TrimSpace(raw) == "" {
-			carry = 0
+			flush()
 			out[i] = raw
 			continue
 		}
-		out[i], carry = maskPairs(raw, carry)
+		para = append(para, i)
 	}
+	flush()
 	return out
 }
 
 func blank(s string) string { return strings.Repeat(" ", len([]rune(s))) }
 
-// maskPairs blanks the interior of paired quote and code spans on one line. It
-// takes the closer left open by the previous line and returns the one it leaves
-// open, so a quotation that wraps a line break stays masked on both lines. That
-// case is not hypothetical: this tool's own record quotes F009 quoting the div05
-// stub, and the closing backtick lands on the following line.
-func maskPairs(s string, carry rune) (string, rune) {
+// maskPairs blanks the interior of CLOSED quote and code spans in one paragraph.
+// Line breaks inside the paragraph are preserved and may be crossed by a span,
+// so a quotation that wraps a line break stays masked on both lines — that case
+// is not hypothetical: this tool's own record quotes F009 quoting the div05 stub
+// and the closing backtick lands on the following line.
+//
+// An opener with no closer anywhere in the paragraph masks NOTHING. It is not a
+// quotation, and treating it as one was this tool's worst defect: one stray `"`
+// silenced the status declaration, the void self-report and the open checklist of
+// everything after it in the paragraph, leaving only cites-nothing standing —
+// which a single backticked path satisfies.
+func maskPairs(s string) string {
 	r := []rune(s)
 	out := append([]rune(nil), r...)
-	// When a closer was carried in, the span is already open at column 0.
-	openIdx, want := 0, carry
+	openIdx, want := -1, rune(0)
 	for i, ch := range r {
 		if want == 0 {
 			switch ch {
@@ -246,19 +294,14 @@ func maskPairs(s string, carry rune) (string, rune) {
 		}
 		if ch == want {
 			for j := openIdx; j <= i; j++ {
-				out[j] = ' '
+				if out[j] != '\n' {
+					out[j] = ' '
+				}
 			}
 			want = 0
 		}
 	}
-	// Still open: the quotation continues past this line, so mask to the end and
-	// hand the closer to the next line.
-	if want != 0 {
-		for j := openIdx; j < len(out); j++ {
-			out[j] = ' '
-		}
-	}
-	return string(out), want
+	return string(out)
 }
 
 // matchTerms returns the distinct lexicon terms present in s as whole words,
