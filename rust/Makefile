@@ -4,9 +4,9 @@
 # The root Makefile is intentionally untouched; wiring these targets into the
 # root build is a follow-up owned by the pipeline stories.
 
-.PHONY: gates fmt-check clippy fixture-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
+.PHONY: gates fmt-check clippy fixture-guard record-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
-gates: fmt-check clippy fixture-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
+gates: fmt-check clippy fixture-guard record-guard test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
 fmt-check:
 	cargo fmt --all -- --check
@@ -46,6 +46,44 @@ clippy:
 fixture-guard:
 	cd .. && go test ./cmd/fixtureguardctl/
 	cd .. && go run ./cmd/fixtureguardctl -root . -max-waivers 0 -max-budget-waivers 0
+
+# A self-review record read for its CONTENT, never counted for its presence.
+# F009: three wave-4 branches were judged complete by `git log --oneline` plus a
+# COUNT of files matching `drafts/self-review`, and reported to the owner as
+# "each ends with a self-review record". Two of the three did.
+# claude/div05-close-overtakes-echo carried a nine-line stub — "STATUS: IN
+# PROGRESS … Nothing verified yet" — behind seven commits and 983 insertions of
+# finished-looking code. It was caught only because someone opened the file.
+#
+# WHAT THIS TARGET DOES AND, MORE IMPORTANTLY, DOES NOT DO. It does NOT refuse
+# unfinished records in the tree, and it carries no ceiling on them. That is
+# deliberate and it is the one place this target departs from fixture-guard's
+# shape above. This repository's own discipline tells an agent to commit and
+# push a stub within its first few tool calls so a container restart cannot lose
+# the branch; a ceiling here would gate against a practice the loop mandates,
+# and F009's edge is explicit that writing "IN PROGRESS" while genuinely in
+# progress is CORRECT. The failure is LANDING on such a record. So the refusal
+# lives at the landing decision, in GOAL-LOOP.md step 6:
+#
+#     go run ./cmd/recordguardctl precondition <record>...   exit 1 if unfinished
+#
+# and what this target does is keep that refusal ALIVE and honest. It runs BOTH
+# halves for the same reason fixture-guard does:
+#   * `go test` executes the assertions no tree scan can reach — that an ABSENT
+#     record is a refusal and not a pass (F009's defect stated directly), that a
+#     mixed batch of two real records and one stub fails as a batch, that naming
+#     no record at all is a usage refusal, and that the gate does NOT fail on an
+#     honestly-unfinished record while the landing check still refuses the same
+#     file. One of the twelve recorded deletion attacks (A11, an absent record
+#     passing) is caught ONLY here, and a second (A12) was until the fixture
+#     that lets the gate see it was added.
+#   * `go run ... gate` replays the discriminator in production code over
+#     records extracted verbatim from git — the div05 stub at blob 359940cd
+#     among them — printing what fired and the sentence it was read from, and
+#     refusing to PASS if it read no records at all.
+record-guard:
+	cd .. && go test ./cmd/recordguardctl/
+	cd .. && go run ./cmd/recordguardctl gate -root .
 
 test:
 	cargo test --workspace --all-targets --all-features

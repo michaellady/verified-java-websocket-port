@@ -177,6 +177,23 @@ record exactly which owner or independent step remains.
 6. Commit with `date -u` timestamps; push. Story work: PR based on mainline.
    Review-passed branches: forward-merge mainline into the branch, gates green
    on the branch, then a `merge: <branch> — <summary>` commit on mainline.
+   **Before that merge commit, and before reporting any branch as finished,
+   name its record and read it:**
+
+   ```
+   go run ./cmd/recordguardctl precondition drafts/self-review/<record>.md
+   ```
+
+   Exit 0 means the record reads as finished; exit 1 means it does not and the
+   branch is UNREVIEWED whatever its diffstat looks like. Name every branch in
+   one invocation when landing or reporting several — it refuses the batch and
+   says which one failed. **Never substitute a count of files matching
+   `drafts/self-review` for this.** That substitution is F009: three wave-4
+   branches were reported complete on a `grep -c` of the path, and
+   `claude/div05-close-overtakes-echo` was carrying a nine-line stub
+   (`STATUS: IN PROGRESS … Nothing verified yet`) behind 983 insertions. A
+   record that is ABSENT is a refusal here, not a pass. Writing a stub early is
+   correct and the gate does not punish it; landing on one is the defect.
 7. Update the board, append one UTC log line. Report in the session only when
    something changed or an owner action is needed; otherwise stay silent.
 
