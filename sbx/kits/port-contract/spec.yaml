@@ -1,0 +1,30 @@
+schemaVersion: "2"
+kind: mixin
+name: vjwp-port-contract
+version: "0.1.0"
+displayName: Verified Java-to-Rust port contract
+description: Shared repository contract and dependency egress for Muse Code, Codex, and Claude
+
+agentInstructions:
+  content: |
+    Read and follow sbx/PORTING_CONTRACT.md before making changes. Work on one
+    story or one named verification gate. On Ubuntu 24.04 Linux amd64, run the
+    repository-owned cloudsetup command before toolchain-dependent work. On
+    arm64, do not claim the amd64 Java-oracle or formal gates. Never rerun
+    Autobahn, import host skills or host stdio MCP servers, or publish ports.
+
+permissions:
+  network:
+    allow:
+      - github.com
+      - codeload.github.com
+      - objects.githubusercontent.com
+      - raw.githubusercontent.com
+      - repo1.maven.org
+      - archive.apache.org
+      - static.rust-lang.org
+      - index.crates.io
+      - static.crates.io
+      - proxy.golang.org
+      - sum.golang.org
+      - storage.googleapis.com

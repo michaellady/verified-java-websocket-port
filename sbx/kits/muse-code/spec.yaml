@@ -1,0 +1,56 @@
+schemaVersion: "2"
+kind: sandbox
+name: muse-code
+version: "0.1.0"
+displayName: Muse Code for verified Java-to-Rust work
+description: Pinned Meta Muse Code harness with inner approval and sandboxing retained
+
+locked:
+  - sandbox.image
+  - sandbox.entrypoint
+  - security.privileged
+  - environment.variables
+
+security:
+  privileged: false
+
+sandbox:
+  image: docker.io/docker/sandbox-templates:shell-docker@sha256:5fc81bc7a127e59d81b244a06831ae3212a0310b2e5a0349c54e29249e45e919
+  entrypoint:
+    - muse
+    - --no-foreign-personal-context
+  command:
+    default: []
+    interactive: []
+
+agentInstructions:
+  filename: AGENTS.md
+  content: |
+    This sandbox runs the pinned Meta Muse Code harness. Keep Muse's approval
+    and contained-execution sandbox enabled. Never add --yolo,
+    --disable-approval, or --disable-sandbox. Follow the separately composed
+    vjwp-port-contract mixin and the repository's sbx/PORTING_CONTRACT.md.
+
+permissions:
+  network:
+    allow:
+      - lookaside.facebook.com
+
+environment:
+  variables:
+    MUSE_NO_AUTO_UPDATE: "1"
+
+setup:
+  install:
+    - command: 'GOTOOLCHAIN=local go test -C /home/agent/.local/src/muse-fetch ./...'
+      user: "0"
+      description: Test the bundled bounded downloader without network dependencies
+    - command: 'GOTOOLCHAIN=local go build -C /home/agent/.local/src/muse-fetch -trimpath -buildvcs=false -ldflags="-s -w" -o /usr/local/bin/muse-fetch ./cmd/muse-fetch'
+      user: "0"
+      description: Build the bounded downloader from reviewed source inside the pinned image
+    - command: 'test "$(uname -m)" != "aarch64" || /usr/local/bin/muse-fetch --url "https://lookaside.facebook.com/lookaside/muse/download/?channel=muse&version=1.0.2-R2040.1&file=muse-aarch64-linux" --sha256 "b0daabd60a28db30c530b01dbcf4185600f3bab286192c57ab30f6aa282d20f4" --size "234866792" --destination "/usr/local/bin/muse"'
+      user: "0"
+      description: Install pinned Muse Code 1.0.2-R2040.1 on Linux arm64
+    - command: 'test "$(uname -m)" != "x86_64" || /usr/local/bin/muse-fetch --url "https://lookaside.facebook.com/lookaside/muse/download/?channel=muse&version=1.0.2-R2040.1&file=muse-x86-linux" --sha256 "6f24623d6d1a193a8ab8d610c3df11c38cc8bb54aa39b6532fb2a7a29d85d27b" --size "263415992" --destination "/usr/local/bin/muse"'
+      user: "0"
+      description: Install pinned Muse Code 1.0.2-R2040.1 on Linux amd64

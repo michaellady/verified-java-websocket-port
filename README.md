@@ -70,3 +70,11 @@ The seven retained nonclaims are:
 
 See [docs/us024-refinement-contract.md](docs/us024-refinement-contract.md) for
 the exact refinement and evidence boundary.
+
+## Docker SBX agent lanes
+
+The repository now carries a blocked, reviewable Docker SBX design for running
+the same one-story Java-to-Rust workflow with Muse Code, Codex, or Claude.
+Nothing is launched on the installed SBX 0.39 baseline. See
+[sbx/README.md](sbx/README.md) for the exact image pins, agent profiles, shared
+porting contract, static validation commands, and remaining launch gates.
