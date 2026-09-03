@@ -729,8 +729,8 @@ first place.
 | `go test -count=1 ./internal/formalplan/` (after the refreeze) | 0 |
 | `go run ./cmd/pinconsumerctl dangling` | **1** — 1996 artifacts, 0 unparsable, 85 candidates, unchanged from `fb72adb` |
 | `go run ./cmd/recordguardctl precondition drafts/self-review/ledger-adjudication-round.md` | 0 |
-| `make -C rust gates` (final tree) | 0 |
-| `go test -count=1 ./... -timeout 40m` (final tree) | **1** — 43 ok, the two documented packages only |
+| `make -C /home/user/vjwp-ledger/rust gates` (final tree, `Entering directory '/home/user/vjwp-ledger/rust'` in the log) | 0 |
+| `go test -count=1 ./... -timeout 40m` (final tree, `PWD=/home/user/vjwp-ledger` in the log) | **1** — 43 ok, `internal/lab` and `internal/portplan` and nothing else |
 
 **Ten of these are non-zero and every one of them is in the table on purpose.**
 Four are by-design refusals of a sanctioned regeneration or a gate doing its
@@ -790,4 +790,13 @@ else's tree is their business whether or not it harmed anything.
 - It does not claim the `us010-016` amendment settles US-011 AC2. Section 4
   says why that stretch was declined.
 - It does not re-baseline anything. No corpus, no denominator and no expectation
-  was adjusted.
+  was adjusted. The two refreezes it did make — `evidence/linkage` and the
+  US-006 fixture catalog — went through their own sanctioned environment
+  variables with both exits read, and non-digest changed lines are zero in
+  both.
+- It does not claim the two-package baseline was true when this round started
+  IN THIS WORKTREE. It was not, because the worktree was never set up; it is
+  true now, measured: `go test -count=1 ./...` on the final tree is 43 ok with
+  `internal/lab` and `internal/portplan` failing and nothing else. Section 7c
+  is the account of how a claim about that baseline got published before the
+  setup was done.
