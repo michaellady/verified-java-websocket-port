@@ -313,3 +313,69 @@ func TestAnalyseDanglingCountsUnparsableArtifacts(t *testing.T) {
 		t.Errorf("an unparsable file must not count as an analysed artifact: %+v", census)
 	}
 }
+
+// The blind spot a survivor-closure agent found in this tool, pinned so it
+// cannot come back: `consumers` matched only the file's CURRENT digest, so an
+// artifact holding a STALE pin of that file matched nothing and the command
+// printed "nothing in the tree pins this file's current content". True on the
+// axis it measured, and the opposite of the truth on the axis the caller is
+// asking about -- "who must I update if I change this?" -- in precisely the case
+// where the answer matters most.
+func TestConsumersFindsAPinThatHasALREADYDrifted(t *testing.T) {
+	root := scratchRepo(t, map[string]string{
+		"subject.txt": "the CURRENT content\n",
+		"consumer.json": `{"pins":[{"path":"subject.txt",` +
+			`"digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}]}`,
+	})
+
+	report, err := analyseConsumers(root, []string{"subject.txt"})
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(report) != 1 {
+		t.Fatalf("expected one target, got %d", len(report))
+	}
+	target := report[0]
+
+	if len(target.current) != 0 {
+		t.Errorf("no artifact holds the current digest: %+v", target.current)
+	}
+	if len(target.stale) != 1 {
+		t.Fatalf("the stale pin must be reported, got %+v", target.stale)
+	}
+	if target.stale[0].artifact != "consumer.json" || target.stale[0].pointer != "$.pins[0]" {
+		t.Errorf("stale pin not located: %+v", target.stale[0])
+	}
+}
+
+// A correct pin belongs in `current`, never in `stale` -- otherwise every pin in
+// the tree gets reported and the distinction is worthless.
+func TestConsumersSeparatesCurrentPinsFromStaleOnes(t *testing.T) {
+	root := scratchRepo(t, map[string]string{"subject.txt": "content\n"})
+	digest, ok := fileDigest(root, "subject.txt")
+	if !ok {
+		t.Fatal("digest")
+	}
+	consumer := `{"pins":[{"path":"subject.txt","digest":"sha256:` + digest + `"}]}`
+	if err := os.WriteFile(filepath.Join(root, "consumer.json"), []byte(consumer), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	for _, argv := range [][]string{{"add", "-A"},
+		{"-c", "commit.gpgsign=false", "commit", "-q", "-m", "c"}} {
+		if output, err := exec.Command("git", append([]string{"-C", root}, argv...)...).
+			CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v: %s", argv, err, output)
+		}
+	}
+
+	report, err := analyseConsumers(root, []string{"subject.txt"})
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(report[0].current) != 1 {
+		t.Errorf("the matching pin must be reported as current: %+v", report[0].current)
+	}
+	if len(report[0].stale) != 0 {
+		t.Errorf("a correct pin is not stale: %+v", report[0].stale)
+	}
+}

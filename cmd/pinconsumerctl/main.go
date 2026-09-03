@@ -112,14 +112,29 @@ func fileDigest(root, relative string) (string, bool) {
 	return hex.EncodeToString(sum[:]), true
 }
 
-func runConsumers(root string, targets []string) int {
+type consumerTarget struct {
+	path    string
+	digest  string
+	current []string
+	stale   []pin
+}
+
+// analyseConsumers answers "who must I update if I change this file?" -- which is
+// TWO questions, and the first version of this tool answered only one. An
+// artifact holding the file's CURRENT digest is a consumer. So is an artifact
+// that NAMES the file while carrying some other digest: that one is a pin which
+// has ALREADY drifted, and reporting "nothing pins this" for it was the opposite
+// of the truth in exactly the case where the answer matters most.
+func analyseConsumers(root string, targets []string) ([]consumerTarget, error) {
 	tracked, err := trackedFiles(root)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "pinconsumerctl: %v\n", err)
-		return 2
+		return nil, err
+	}
+	trackedSet := make(map[string]bool, len(tracked))
+	for _, relative := range tracked {
+		trackedSet[relative] = true
 	}
 
-	// Only JSON artifacts can pin; reading every tracked file would be waste.
 	var artifacts []string
 	for _, relative := range tracked {
 		if strings.HasSuffix(relative, ".json") {
@@ -127,19 +142,24 @@ func runConsumers(root string, targets []string) int {
 		}
 	}
 
-	status := 0
+	var report []consumerTarget
 	for _, target := range targets {
-		relative, err := filepath.Rel(root, mustAbs(target))
-		if err != nil {
-			relative = target
+		relative := target
+		if filepath.IsAbs(target) {
+			if rel, err := filepath.Rel(root, target); err == nil {
+				relative = rel
+			}
 		}
+		relative = strings.TrimPrefix(relative, "./")
+
+		entry := consumerTarget{path: relative}
 		digest, ok := fileDigest(root, relative)
 		if !ok {
-			fmt.Printf("gate=pin-consumers target=%s result=UNREADABLE\n", relative)
-			status = 2
+			report = append(report, entry)
 			continue
 		}
-		var consumers []string
+		entry.digest = digest
+
 		for _, artifact := range artifacts {
 			if artifact == relative {
 				continue
@@ -149,17 +169,78 @@ func runConsumers(root string, targets []string) int {
 				continue
 			}
 			if strings.Contains(string(content), digest) {
-				consumers = append(consumers, artifact)
+				entry.current = append(entry.current, artifact)
+			}
+			entry.stale = append(entry.stale,
+				stalePinsNaming(content, artifact, relative, digest, trackedSet)...)
+		}
+		sort.Strings(entry.current)
+		sort.Slice(entry.stale, func(i, j int) bool {
+			if entry.stale[i].artifact != entry.stale[j].artifact {
+				return entry.stale[i].artifact < entry.stale[j].artifact
+			}
+			return entry.stale[i].pointer < entry.stale[j].pointer
+		})
+		report = append(report, entry)
+	}
+	return report, nil
+}
+
+// stalePinsNaming finds objects in one artifact that name `relative` alongside a
+// digest that is not the file's current one.
+func stalePinsNaming(content []byte, artifact, relative, actual string,
+	trackedSet map[string]bool) []pin {
+	var document any
+	if err := json.Unmarshal(content, &document); err != nil {
+		return nil
+	}
+	var found []pin
+	walk(document, "$", func(object map[string]any, pointer string) {
+		paths, digests := splitPinFields(object, trackedSet)
+		if len(paths) != 1 || paths[0] != relative || len(digests) == 0 {
+			return
+		}
+		for _, declared := range digests {
+			if declared == actual {
+				return
 			}
 		}
-		sort.Strings(consumers)
-		fmt.Printf("gate=pin-consumers target=%s sha256=%s consumers=%d\n",
-			relative, digest, len(consumers))
-		for _, consumer := range consumers {
-			fmt.Printf("    pinned_by %s\n", consumer)
+		found = append(found, pin{
+			artifact: artifact, pointer: pointer, namedPath: relative,
+			declared: digests[0], actual: actual,
+		})
+	})
+	return found
+}
+
+func runConsumers(root string, targets []string) int {
+	report, err := analyseConsumers(root, targets)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "pinconsumerctl: %v\n", err)
+		return 2
+	}
+	status := 0
+	for _, target := range report {
+		if target.digest == "" {
+			fmt.Printf("gate=pin-consumers target=%s result=UNREADABLE\n", target.path)
+			status = 2
+			continue
 		}
-		if len(consumers) == 0 {
-			fmt.Printf("    nothing in the tree pins this file's current content\n")
+		fmt.Printf("gate=pin-consumers target=%s sha256=%s current=%d stale=%d\n",
+			target.path, target.digest, len(target.current), len(target.stale))
+		for _, artifact := range target.current {
+			fmt.Printf("    pinned_by %s\n", artifact)
+		}
+		for _, stale := range target.stale {
+			fmt.Printf("    ALREADY_STALE %s pointer=%s declared=sha256:%s\n",
+				stale.artifact, stale.pointer, stale.declared)
+		}
+		if len(target.current) == 0 && len(target.stale) == 0 {
+			fmt.Printf("    no artifact holds this file's digest and none names it beside a" +
+				" different one\n")
+		}
+		if len(target.stale) > 0 {
+			status = 1
 		}
 	}
 	return status
