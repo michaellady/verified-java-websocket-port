@@ -761,6 +761,21 @@ every `deltaledgerctl` and `go test` invocation above, and
 staging in section 7c. Without the first, the governance arm refuses by design,
 and that refusal is the design.
 
+**One run went to the wrong tree and is disclosed rather than dropped.** A
+detached `make -C rust gates` intended for this worktree printed
+`make: Entering directory '/home/user/verified-java-websocket-port/rust'` — the
+SHARED checkout, not `/home/user/vjwp-ledger/rust` — because the `cd` in a
+nested-quoted `setsid` invocation did not take. Its result was therefore
+discarded as evidence about this branch and the run was repeated from a script
+file that prints its own `pwd` first, so the tree under test is in the log
+rather than in my intention. What that stray run touched: `gates` is
+`fmt --check`, `clippy`, `cargo test`/`test-release`, and four `--check`-mode
+gates, so the only writes are `rust/target/` build artifacts in that checkout;
+no tracked file was modified and **no git command was run with that directory
+as its working directory**, which is the standing rule for the shared tree.
+Recorded because another agent works there, and a build I started in someone
+else's tree is their business whether or not it harmed anything.
+
 ## 9. What this record does not claim
 
 - It does not claim any Autobahn result. The suite was not run, and both new
