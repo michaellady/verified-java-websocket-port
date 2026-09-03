@@ -253,8 +253,19 @@ private void translateSingleFrameCheckLengthLimit(long length) throws LimitExcee
 }
 ```
 
-A negative length falls past both `>` tests and is caught by `length < 0`. And
-`LimitExceededException` is not a protocol error:
+A negative length falls past both `>` tests and is caught by `length < 0`.
+
+The helper has **two** call sites and the difference is the point.
+`translateSingleFrame:552` calls it on the already-narrowed `int` for every
+frame; `translateSingleFramePayloadLength:636` calls it on the raw `long`
+inside the `127` branch only, BEFORE `payloadlength = (int) length` narrows it.
+That second call exists precisely so a negative 64-bit length is caught before
+the cast, and it is the one this seed reaches first. The two corroborating runs
+below are 16-bit and 7-bit inline lengths, so they reach the same helper
+through `:552` and the `length > maxFrameSize` branch — the same method and the
+same exception, a different branch and a different message.
+
+And `LimitExceededException` is not a protocol error:
 
 ```java
 public class LimitExceededException extends InvalidDataException {
