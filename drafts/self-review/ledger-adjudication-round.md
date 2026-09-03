@@ -1,7 +1,8 @@
 # Ledger adjudication round — two records superseded, one decidable record left unwritten, three things still owed by a person
 
 Status: COMPLETE for what it claims, with one deliberate refusal recorded in
-section 5 and the owner's remaining questions stated in sections 4, 5 and 6.
+section 5, the owner's remaining questions in sections 4, 5 and 6, and a
+fourth failing Go package reported rather than absorbed in section 7c.
 
 Branch `claude/ledger-adjudication-2`, worktree `/home/user/vjwp-ledger`, based
 on `origin/claude/feature/verified-java-websocket-port` at `c738b81`. Every exit
