@@ -57,6 +57,18 @@
       }
     },
     {
+      "id": "toolchain-probe-unrunnable",
+      "manifest_path": "assurance/mutation/fixtures/manifests/toolchain-probe-unrunnable.json",
+      "rationale": "The toolchain probe itself cannot run, so the pinned runtime could not be OBSERVED at all. Not being able to decide the runtime is not the same as deciding it is right, and it blocks the same way. Added after the deletion attack found this branch had no witness.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_TOOLCHAIN_VERSION_MISMATCH"
+        ]
+      }
+    },
+    {
       "id": "dependency-graph-not-promoted",
       "manifest_path": "assurance/mutation/fixtures/manifests/dependency-graph-not-promoted.json",
       "rationale": "AC1 says the engines run FROM PROMOTED tool/dependency graphs. An unpromoted graph is not one they may run from.",
@@ -706,6 +718,21 @@
       }
     },
     {
+      "id": "score-honestly-not-computable",
+      "manifest_path": "assurance/mutation/fixtures/manifests/score-honestly-not-computable.json",
+      "rationale": "THE SHIPPED ARTIFACT'S OWN SHAPE. The engine is absent, the population is honestly parked as unenumerated, the arms are honestly parked, and the score is honestly declared zero and NOT computable. Every one of those admissions is accurate -- and the verdict is still BLOCKED. Zero MISSED out of zero eligible is not a 100% eligible mutation score, and the honest way of saying so does not earn a pass. Added after the deletion attack found this branch had no witness.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_NOT_RUN",
+          "MUT_ENGINE_UNAVAILABLE",
+          "MUT_POPULATION_NOT_ENUMERATED",
+          "MUT_SCORE_NOT_COMPUTABLE"
+        ]
+      }
+    },
+    {
       "id": "reconciliation-leg-absent",
       "manifest_path": "assurance/mutation/fixtures/manifests/reconciliation-leg-absent.json",
       "rationale": "One of AC3's four required runs is not recorded at all.",
@@ -945,6 +972,19 @@
         "state": "BLOCKED",
         "findings": [
           "MUT_SIGNATURE_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "signature-key-unusable",
+      "manifest_path": "assurance/mutation/fixtures/manifests/signature-key-unusable.json",
+      "rationale": "A signature accompanied by a key that is not a usable Ed25519 key. Its own finding code, not the absent-key one: the deletion attack found that sharing a code let a deletion of either branch hide behind the other.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_PAYLOAD_DIGEST_DRIFT",
+          "MUT_SIGNATURE_KEY_UNUSABLE"
         ]
       }
     },

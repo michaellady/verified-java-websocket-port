@@ -1,6 +1,7 @@
 package mutdenom
 
 import (
+	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -817,16 +818,21 @@ func checkSignature(manifest *Manifest, add func(code, disposition, target, deta
 			"signature scheme is %q; this repository signs with ed25519 "+
 				"(internal/intake/sign.go)", manifest.Signature.Scheme))
 	}
-	digest, err := PayloadDigest(manifest)
-	if err != nil {
-		add(FindingPayloadDigestDrift, Block, "signature", fmt.Sprintf(
-			"payload digest not computable: %v", err))
-	} else if digest != manifest.Signature.PayloadDigest {
+	// PayloadDigest marshals a struct with no unmarshalable field, so it cannot
+	// fail. There is deliberately NO separate error branch: the deletion attack
+	// found that one, and a branch no fixture can ever reach is not a check --
+	// it is unfalsifiable code that makes the suite look bigger than it is. An
+	// error would leave digest empty, which never equals a declared digest, so
+	// the single comparison below still fires.
+	digest, _ := PayloadDigest(manifest)
+	if digest != manifest.Signature.PayloadDigest {
 		add(FindingPayloadDigestDrift, Block, "signature", fmt.Sprintf(
 			"payload digest is %s, manifest declares %s -- the document changed after the "+
 				"digest was taken", digest, manifest.Signature.PayloadDigest))
 	}
-	if strings.TrimSpace(manifest.Signature.PublicKeyHex) == "" {
+
+	keyHex := strings.TrimSpace(manifest.Signature.PublicKeyHex)
+	if keyHex == "" {
 		add(FindingSigningKeyAbsent, Block, "signature", fmt.Sprintf(
 			"no signing key is available (key_id %q); the protected operator holds the "+
 				"Ed25519 key material and this session has none", manifest.Signature.KeyID))
@@ -837,12 +843,20 @@ func checkSignature(manifest *Manifest, add func(code, disposition, target, deta
 				"unsigned denominator is a draft")
 		return
 	}
-	// A signature is present: it must verify. Anything else is worse than none.
-	key, err := hex.DecodeString(strings.TrimSpace(manifest.Signature.PublicKeyHex))
-	if err != nil || len(key) == 0 {
-		add(FindingSigningKeyAbsent, Block, "signature",
-			"a signature is present but no usable public key accompanies it, so it "+
-				"cannot be verified; an unverifiable signature is not a signature")
+	if keyHex == "" {
+		// Already reported above; there is nothing left to verify against.
+		return
+	}
+	// A signature is present and a key came with it. The key must be USABLE --
+	// its own finding, not the absent-key one, because a deletion of either
+	// would otherwise hide behind the other's code. That masking is exactly what
+	// the first deletion attack over this package found here.
+	key, err := hex.DecodeString(keyHex)
+	if err != nil || len(key) != ed25519.PublicKeySize {
+		add(FindingSignatureKeyUnusable, Block, "signature", fmt.Sprintf(
+			"a signature is present and its public key is not a usable Ed25519 key "+
+				"(%d bytes decoded, err=%v); an unverifiable signature is not a signature, "+
+				"and it is worse than an absent one because it looks signed", len(key), err))
 		return
 	}
 	if !verifySignature(key, digest, manifest.Signature.Signature) {

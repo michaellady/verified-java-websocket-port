@@ -295,6 +295,7 @@ const (
 	FindingSignatureSchemeInvalid = "MUT_SIGNATURE_SCHEME_INVALID"
 	FindingPayloadDigestDrift     = "MUT_PAYLOAD_DIGEST_DRIFT"
 	FindingSigningKeyAbsent       = "MUT_SIGNING_KEY_ABSENT"
+	FindingSignatureKeyUnusable   = "MUT_SIGNATURE_KEY_UNUSABLE"
 
 	// The manifest's own claim.
 	FindingClaimGradeInvalid = "MUT_CLAIM_GRADE_INVALID"
