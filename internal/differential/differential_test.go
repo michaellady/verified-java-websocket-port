@@ -2216,7 +2216,7 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 		pid++
 		var raw []byte
 		if len(bytes.TrimSpace(request.Input)) > 0 && bytes.TrimSpace(request.Input)[0] == '{' {
-			if len(request.Args) != 4 || request.Args[0] != "-Dslf4j.internal.verbosity=ERROR" || request.Args[1] != "-cp" || request.Args[3] != "OracleMain" {
+			if len(request.Args) != 5 || request.Args[0] != "-Dfile.encoding=UTF-8" || request.Args[1] != "-Dslf4j.internal.verbosity=ERROR" || request.Args[2] != "-cp" || request.Args[4] != "OracleMain" {
 				return childResult{}, fmt.Errorf("fake Java launch argv drift: %q", request.Args)
 			}
 			scenario, parseErr := testScenarioFromJavaRequest(originals, request.Input)

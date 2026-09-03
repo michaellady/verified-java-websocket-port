@@ -4311,7 +4311,7 @@ func runAttempt(ctx context.Context, cfg Config, suiteHome string, sc corpora.Sc
 		request.Input = append(line, '\n')
 		classpath := append([]string{cfg.JavaAdapterJar, cfg.JavaRuntimeJar}, cfg.JavaSupportJars...)
 		request.Executable = cfg.JavaExecutable
-		request.Args = []string{"-Dslf4j.internal.verbosity=ERROR", "-cp", strings.Join(classpath, string(os.PathListSeparator)), "OracleMain"}
+		request.Args = []string{"-Dfile.encoding=UTF-8", "-Dslf4j.internal.verbosity=ERROR", "-cp", strings.Join(classpath, string(os.PathListSeparator)), "OracleMain"}
 	} else {
 		input, err := encodeNeutralRequest(sc)
 		if err != nil {
