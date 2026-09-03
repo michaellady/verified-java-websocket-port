@@ -42,7 +42,9 @@ established that on mainline **the operand cannot be reached through
 4. `InputDisposition::Deferred` is the only disposition that keeps the chunk,
    and of the four deferral reasons only `Backpressure` can coincide with an
    `Idle` output: `OutputPending` implies a `Write`/`Failure`/`WritesDropped`
-   output, `pending_eofs > 0` implies `eof_seen` is already true in the
+   output (checked rather than assumed — `dropped_writes` is set only by
+   `abort_pending_writes`, whose two callers both run under
+   `shutdown_latched`, so `next_output`'s shutdown branch always surfaces it), `pending_eofs > 0` implies `eof_seen` is already true in the
    adapter, and `CommandTurn` applies a command, and every command either emits
    a write, emits an event, or is lifted into `pending_failure` by
    `finish_poll`.
