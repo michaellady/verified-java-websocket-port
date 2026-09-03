@@ -90,6 +90,24 @@ What moved it is the DIV-05 fix ledgered at sequence 54:
 which is Java's `decodeFrames` per-frame dispatch loop and is what the
 full-stack constructor `connection_driver` selects.
 
+### The Java citations, checked at source after the fact
+
+Sequence 57's Java observation preimage says it is a PINNED SOURCE citation and
+that no Java process ran for it, which was true when it was written: the
+citations were re-read at the `ws-driver` doc site that transcribes them, not
+in the Java tree. Once the quarantined tree was staged (section 7c) they were
+checked against the pinned file itself, and all four hold:
+
+| citation | at source |
+| --- | --- |
+| `WebSocketImpl.java:394` translate the whole buffer | `frames = draft.translateFrame(socketBuffer);` |
+| `:395-398` walk the list one frame at a time | `for (Framedata f : frames) { … draft.processFrame(this, f); }` |
+| `:592-595` the failure path's write demand | `flushandclosestate = true;` then `wsl.onWriteDemand(this); // ensures that all outgoing frames are flushed before closing the connection` |
+| `SocketChannelIOHelper.java:110-113` hang up only when drained | `if (ws.outQueue.isEmpty() && ws.isFlushAndClose() && … == Role.SERVER) { ws.closeConnection(); }` |
+
+The record is not amended for this — it makes no claim the check refutes, and
+the check makes it stronger rather than different.
+
 ### The part a supersession has to get right: there are two observables
 
 `InboundFeedPolicy::WholeChunk` is still the default and is what
