@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -132,9 +133,72 @@ func VerifyOracleReproduction(root, oraclePath string) error {
 		return fmt.Errorf("ORACLE_REPRODUCTION_MISMATCH: cannot read %s: %w", oraclePath, err)
 	}
 	if !bytes.Equal(regenerated, committed) {
-		return fmt.Errorf("ORACLE_REPRODUCTION_MISMATCH: the pinned javac regenerates a report"+
-			" that differs from %s; the committed declarations are not what the compiler"+
-			" derives from the pinned tree", oraclePath)
+		return errors.New(describeOracleMismatch(regenerated, committed, oraclePath))
 	}
 	return nil
+}
+
+// describeOracleMismatch reports WHAT differs between the regenerated report and
+// the committed one. The check above is a whole-file byte compare, so it fires on
+// any difference at all -- including a single host-provenance line that leaves
+// every declaration byte-identical. Naming "the declarations" unconditionally
+// made the message assert a cause it had not measured, which is how a documented
+// one-line vendor difference reads as declaration drift to whoever runs it next.
+func describeOracleMismatch(regenerated, committed []byte, oraclePath string) string {
+	const maxNamed = 6
+
+	// strings.Split leaves a trailing "" for a file that ends in a newline, which
+	// would otherwise be compared against the other file's absent line and counted
+	// as a difference that renders as committed "" regenerated "". Drop it, so a
+	// trailing newline is not reported as drift and a genuinely missing final line
+	// still is.
+	splitLines := func(content []byte) []string {
+		lines := strings.Split(string(content), "\n")
+		if len(lines) > 0 && lines[len(lines)-1] == "" {
+			lines = lines[:len(lines)-1]
+		}
+		return lines
+	}
+
+	regeneratedLines := splitLines(regenerated)
+	committedLines := splitLines(committed)
+
+	longest := len(regeneratedLines)
+	if len(committedLines) > longest {
+		longest = len(committedLines)
+	}
+
+	lineAt := func(lines []string, index int) (string, bool) {
+		if index < len(lines) {
+			return lines[index], true
+		}
+		return "", false
+	}
+
+	var named []string
+	differing := 0
+	for index := 0; index < longest; index++ {
+		committedLine, committedPresent := lineAt(committedLines, index)
+		regeneratedLine, regeneratedPresent := lineAt(regeneratedLines, index)
+		if committedPresent == regeneratedPresent && committedLine == regeneratedLine {
+			continue
+		}
+		differing++
+		if len(named) < maxNamed {
+			named = append(named, fmt.Sprintf("line %d: committed %q, regenerated %q",
+				index+1, committedLine, regeneratedLine))
+		}
+	}
+
+	message := fmt.Sprintf("ORACLE_REPRODUCTION_MISMATCH: the pinned javac regenerates a report"+
+		" that differs from %s; differing_lines=%d of committed_lines=%d",
+		oraclePath, differing, len(committedLines))
+	if len(named) > 0 {
+		message += "; " + strings.Join(named, "; ")
+	}
+	if differing > len(named) {
+		message += fmt.Sprintf("; and %d further differing line(s) not shown",
+			differing-len(named))
+	}
+	return message
 }

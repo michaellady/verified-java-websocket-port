@@ -132,18 +132,31 @@ record exactly which owner or independent step remains.
    Expect the port at 74/74 and 49/49 (runtime field neutralised), live Java at
    74/74 and 49/49 with 16 documented divergences, and no non-runtime field
    difference between the two transcripts beyond the free-text error detail.
-   **THE JDK IS A SECOND, SEPARATE CAVEAT ON BOTH NUMBERS.** The pinned JDK is
-   17.0.19; this container has OpenJDK 21 only and 17 is unobtainable
-   (adoptium CONNECT-403'd; the pin is a platform-specific Homebrew bottle and
-   this is Linux x86_64). `internal/portplan` REFUSES to derive on the wrong
-   JDK by name and version — the pin enforced, failing closed — while the
-   differential and the handshake exam both run to completion on 21. Two paths
-   consume a live Java oracle and only one checks the JDK, and the silent one
-   is where these numbers come from. So a live-Java leg taken here is NOT a
-   pinned-baseline reading, and nothing but this note enforces saying so.
-   The pinned SOURCE is now present and digest-verified (5/5 artifacts,
-   `drafts/self-review/quarantine-baseline-recovery.md`), so the JDK is the one
-   remaining substitution — name it every time.
+   **THE JDK IS A SECOND CAVEAT ON BOTH NUMBERS, AND IT IS FIXABLE IN ONE
+   COMMAND — DO IT BEFORE TAKING ANY LIVE-JAVA READING.** Cloud containers ship
+   OpenJDK 21 and the pin is Temurin 17.0.19+10. It is OBTAINABLE: the recipe
+   is in `.claude/CLOUD-ENVIRONMENT.md` and it works, verified 2026-09-03 —
+   the GitHub release asset `adoptium/temurin17-binaries`
+   `jdk-17.0.19+10/OpenJDK17U-jdk_x64_linux_hotspot_17.0.19_10.tar.gz`,
+   http 200, exactly 193335385 bytes, sha256
+   `d8afc263758141a66e0e3aafc321e783f7016696f4eaea067d340a269037d331` = the
+   pin, extracted to `.quarantine/jdk-17.0.19+10` and put FIRST on `PATH`.
+   (An earlier note of mine here said 17 was "unobtainable". That was WRONG: I
+   probed `api.adoptium.net` and a ghcr.io Homebrew bottle and never read the
+   document this file's own P0 entry names. Corrected rather than deleted,
+   because the wrong claim was pushed and a firing may have read it.)
+   With it first on `PATH`, `internal/portplan` stops failing at
+   `JAVAC_UNAVAILABLE` and reaches the documented owner decision on the
+   `jdk_vendor` line; WITHOUT it, `portplan`'s declaration-level oracle-tamper
+   test is UNREACHABLE, so a green neighbourhood says nothing about it.
+   The remaining asymmetry is still worth knowing: `portplan` enforces the pin
+   and fails closed, while the differential and the handshake exam run to
+   completion on whatever JDK is present. Two paths consume a live Java oracle
+   and only one checks the JDK — the silent one is where these numbers come
+   from. **So stage the pinned JDK first; a leg taken on 21 is not a
+   pinned-baseline reading, and only this note enforces saying so.**
+   The pinned SOURCE is likewise present and digest-verified (5/5 artifacts,
+   and 11 of 23 intake pins overall, `drafts/self-review/quarantine-baseline-recovery.md`).
    **NEVER STATE EITHER NUMBER WITHOUT ITS CEILING.** These count CASES, not
    behaviours: `evidence/normalization-collisions/audit.json` measured that the
    74 public rows carry only **73 distinct scored observations** (26 of them
