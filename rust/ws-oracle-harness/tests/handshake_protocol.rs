@@ -170,55 +170,67 @@ fn rejections_carry_the_channel_and_the_1002_close_code() {
 /// leaves every other assertion in this file green; only this one falls.
 #[test]
 fn rejections_name_the_draft_api_call_that_decided() {
-    let cases: [(&str, &str, Option<&str>, &[u8], &str, &str); 4] = [
+    struct Expect {
+        case_id: &'static str,
+        direction: &'static str,
+        client_key: Option<&'static str>,
+        raw: &'static [u8],
+        channel: &'static str,
+        stage: &'static str,
+    }
+    let cases = [
         // Head never parsed: one token on the request line.
-        (
-            "crafted.oneword",
-            "client_request",
-            None,
-            b"BAD\r\n\r\n",
-            "invalid_handshake",
-            "translate",
-        ),
+        Expect {
+            case_id: "crafted.oneword",
+            direction: "client_request",
+            client_key: None,
+            raw: b"BAD\r\n\r\n",
+            channel: "invalid_handshake",
+            stage: "translate",
+        },
         // Head parsed; acceptHandshakeAsServer said NOT_MATCHED on version.
-        (
-            "crafted.version12",
-            "client_request",
-            None,
-            b"GET / HTTP/1.1\r\nSec-WebSocket-Key: k\r\nSec-WebSocket-Version: 12\r\n\r\n",
-            "not_matched",
-            "accept_predicate",
-        ),
+        Expect {
+            case_id: "crafted.version12",
+            direction: "client_request",
+            client_key: None,
+            raw: b"GET / HTTP/1.1\r\nSec-WebSocket-Key: k\r\nSec-WebSocket-Version: 12\r\n\r\n",
+            channel: "not_matched",
+            stage: "accept_predicate",
+        },
         // Head parsed AND the predicate MATCHED; the response could not be
         // built because Sec-WebSocket-Key is absent. Same CHANNEL as the first
-        // row, different STAGE -- the collision this key resolves.
-        (
-            "crafted.nokey",
-            "client_request",
-            None,
-            b"GET / HTTP/1.1\r\nSec-WebSocket-Version: 13\r\n\r\n",
-            "invalid_handshake",
-            "response_build",
-        ),
+        // row, different STAGE — the collision this key resolves.
+        Expect {
+            case_id: "crafted.nokey",
+            direction: "client_request",
+            client_key: None,
+            raw: b"GET / HTTP/1.1\r\nSec-WebSocket-Version: 13\r\n\r\n",
+            channel: "invalid_handshake",
+            stage: "response_build",
+        },
         // Client side: a non-101 status throws inside translateHandshakeHttp.
-        (
-            "crafted.notonehundredone",
-            "server_response",
-            Some("hnt8mbkW8KRynbLvJHSoGQ=="),
-            b"HTTP/1.1 404 Not Found\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n",
-            "invalid_handshake",
-            "translate",
-        ),
+        Expect {
+            case_id: "crafted.notonehundredone",
+            direction: "server_response",
+            client_key: Some("hnt8mbkW8KRynbLvJHSoGQ=="),
+            raw: b"HTTP/1.1 404 Not Found\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n",
+            channel: "invalid_handshake",
+            stage: "translate",
+        },
     ];
-    for (case_id, direction, key, raw, channel, stage) in cases {
-        let transcript = run(&format!("{}\n", bound_line(case_id, direction, key, raw)));
+    for case in cases {
+        let line = bound_line(case.case_id, case.direction, case.client_key, case.raw);
+        let transcript = run(&format!("{line}\n"));
         assert!(
-            transcript.contains(&format!("\"reject_channel\":\"{channel}\"")),
-            "{case_id}: wrong channel in {transcript}"
+            transcript.contains(&format!("\"reject_channel\":\"{}\"", case.channel)),
+            "{}: wrong channel in {transcript}",
+            case.case_id
         );
         assert!(
-            transcript.contains(&format!("\"reject_stage\":\"{stage}\"")),
-            "{case_id}: expected stage {stage} in {transcript}"
+            transcript.contains(&format!("\"reject_stage\":\"{}\"", case.stage)),
+            "{}: expected stage {} in {transcript}",
+            case.case_id,
+            case.stage
         );
     }
 }
