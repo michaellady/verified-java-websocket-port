@@ -30,6 +30,8 @@ make fmt-check      # cargo fmt --all -- --check
 make clippy         # cargo clippy --workspace --all-targets --all-features -- -D warnings
 make fixture-guard  # go run ../cmd/fixtureguardctl: refuse a count-shaped liveness
                     # guard in a Rust test fixture (the F002/F004/F005 class)
+make record-guard   # go run ../cmd/recordguardctl: keep alive the landing check that
+                    # READS a drafts/self-review record instead of counting it (F009)
 make test           # cargo test --workspace --all-targets --all-features
 make test-release   # cargo test --workspace --release
 make ac1-gates      # go run ../cmd/rustgatectl: forbid-unsafe scan, dependency-unsafe
@@ -43,7 +45,14 @@ gates"). `fixture-guard` is documented in
 [`../drafts/self-review/fixture-liveness-guard-detector.md`](../drafts/self-review/fixture-liveness-guard-detector.md),
 including the errors the rule knowingly makes in both directions and the
 escape hatch (`// FIXTURE-COUNT-GUARD-ALLOWED: <justification>`, ceiling
-declared as `-max-waivers` in this Makefile, currently 0). Executing the gates through the accepted US-007 Docker sbx workload
+declared as `-max-waivers` in this Makefile, currently 0). `record-guard` is
+documented in
+[`../drafts/self-review/record-content-precondition.md`](../drafts/self-review/record-content-precondition.md);
+note that it carries **no** ceiling on unfinished records, deliberately — the
+refusal lives at the landing decision (`go run ./cmd/recordguardctl
+precondition <record>...`, wired into `.claude/GOAL-LOOP.md` step 6), because
+writing a stub early is the mandated discipline and landing on one is the
+defect. Executing the gates through the accepted US-007 Docker sbx workload
 profile before artifact promotion is a separate parent-run step, not claimed
 here.
 

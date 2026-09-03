@@ -159,7 +159,13 @@ func Scan(src string) []Signal {
 
 		// An unchecked task box: the record's own markdown saying "not done".
 		if cm := checkboxRe.FindStringSubmatch(m); cm != nil {
-			item := trim(checkboxRe.FindStringSubmatch(raw)[1])
+			// Report the item text from the ORIGINAL line so the term keeps its
+			// case, but fall back to the masked text if masking changed the
+			// line's shape: a gate that panics is worse than one that is coarse.
+			item := trim(cm[1])
+			if rawMatch := checkboxRe.FindStringSubmatch(raw); rawMatch != nil {
+				item = trim(rawMatch[1])
+			}
 			if item != "" {
 				sigs = append(sigs, Signal{Line: n, Kind: "open-checklist", Term: item, Text: trim(raw)})
 			}
@@ -222,10 +228,8 @@ func blank(s string) string { return strings.Repeat(" ", len([]rune(s))) }
 func maskPairs(s string, carry rune) (string, rune) {
 	r := []rune(s)
 	out := append([]rune(nil), r...)
+	// When a closer was carried in, the span is already open at column 0.
 	openIdx, want := 0, carry
-	if want != 0 {
-		openIdx = 0
-	}
 	for i, ch := range r {
 		if want == 0 {
 			switch ch {

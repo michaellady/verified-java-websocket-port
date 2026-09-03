@@ -311,6 +311,13 @@ Others, none of which has an instance in the corpus:
 - A record whose only self-declaration sits inside a fenced block or a quotation is masked by
   design and therefore missed.
 - A record that reads finished at the top and admits mid-prose that a section was abandoned.
+- A record with **no ATX heading at all** never gets the title signal read, and one whose only
+  status declaration sits below a heading it does not have is carried by the other four signals
+  or not at all.
+- `cites-nothing` counts citation tokens over the **unmasked** source on purpose — a citation
+  inside backticks is still a citation — so a stub containing a single backticked path escapes
+  that signal on one token. This branch's own opening stub did exactly that: it carried one
+  code span and was caught by `declared-status` and `void-self-report`, not by `cites-nothing`.
 - Anything not in English, and any status vocabulary outside the eleven terms.
 - Six of the eleven unfinished terms (`todo`, `draft`, `incomplete`, `unfinished`,
   `not started`, `pending`) have **no instance in this corpus**. They are a deliberate widening
