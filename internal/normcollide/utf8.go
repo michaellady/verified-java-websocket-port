@@ -45,9 +45,19 @@ const Utf8PremiseCheckID = "NC-UTF8-PREMISE"
 
 // lossyPattern matches every way this tree could acquire a replacement-
 // character decode. It is deliberately broader than `from_utf8_lossy`: the
-// point is to catch a hand-rolled substitution too.
+// point is to catch a hand-rolled substitution too, so it also matches the
+// code point written as a Rust escape, as a hex literal, as a decimal, as the
+// std constant, and as the literal character itself.
+//
+// It is NOT a bare `fffd`: a SHA-256 digest in a source comment can contain
+// those four characters, and a premise that goes red on a digest would train
+// its reader to ignore it. Each alternative therefore carries its own
+// prefix. TestTheNoLossyScanFindsAPlantedLossyDecode plants one of each, and
+// it caught this pattern missing `0xFFFD` on its first run — which is why the
+// alternatives are spelled out rather than approximated with a word boundary.
 var lossyPattern = regexp.MustCompile(
-	`from_utf8_lossy|to_string_lossy|to_str_lossy|REPLACEMENT_CHARACTER|(?i:\bfffd\b)|\\u\{fffd\}|65533`)
+	`from_utf8_lossy|to_string_lossy|to_str_lossy|REPLACEMENT_CHARACTER|` +
+		`(?i:u\+fffd)|(?i:0xfffd)|(?i:\\u\{fffd\})|\x{FFFD}|65533`)
 
 // Utf8Premise is one premise of the emptiness argument, with the measurement
 // that decided whether it holds. Holds and Evidence are never authored.

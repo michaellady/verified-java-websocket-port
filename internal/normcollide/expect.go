@@ -26,12 +26,17 @@ import (
 // declare no required paths, because a probe that both erases a distinction
 // and moves on it is incoherent.
 func CheckExpectation(probe Probe, result Result) error {
-	if probe.Expect == "" {
-		return fmt.Errorf("probe %s declares no expected verdict; a catalog entry that does "+
-			"not say what it claims cannot be falsified by running it", probe.ID)
-	}
+	// DEFENCE IN DEPTH, not a unique guard, and recorded as such because a
+	// deletion attack said so: with this removed, a probe declaring nothing
+	// is still rejected one line below, since a blank expectation cannot
+	// equal a run's verdict. Its unique coverage lives at catalog level in
+	// CheckEveryProbeDeclaresAnExpectation, which Build calls first and which
+	// attack A7 does make go red. What this buys is the message, not the
+	// rejection — so it is kept and labelled rather than presented as a check
+	// whose deletion is caught here.
 	if probe.Expect != Confirmed && probe.Expect != Refuted {
-		return fmt.Errorf("probe %s declares expected verdict %q, which is neither %s nor %s",
+		return fmt.Errorf("probe %s declares expected verdict %q, which is neither %s nor %s; "+
+			"a catalog entry that does not say what it claims cannot be falsified by running it",
 			probe.ID, probe.Expect, Confirmed, Refuted)
 	}
 	if result.Verdict != probe.Expect {

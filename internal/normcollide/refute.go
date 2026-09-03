@@ -210,12 +210,19 @@ func DecidedCandidates() []DecidedCandidate {
 // rather than a result.
 func CheckDecidedCandidates(decided []DecidedCandidate) error {
 	for _, candidate := range decided {
+		// One membership test, two messages. It was two switch CASES until a
+		// deletion attack could not neuter the empty-status one without
+		// introducing a duplicate case and breaking the build — and a
+		// mutation that breaks compilation proves nothing. Folded into a
+		// single case list, the guard can be attacked by widening that list,
+		// which is what A9 and A10 now do.
 		switch candidate.Status {
 		case StatusRefuted, StatusEmpty, StatusHypothesis:
-		case "":
-			return &decidedCandidateError{candidate.ID, candidate.DecidedBy,
-				"carries no status: its decided_by names nothing that ran in this document"}
 		default:
+			if candidate.Status == "" {
+				return &decidedCandidateError{candidate.ID, candidate.DecidedBy,
+					"carries no status: its decided_by names nothing that ran in this document"}
+			}
 			return &decidedCandidateError{candidate.ID, candidate.DecidedBy,
 				"carries status " + candidate.Status + ", which is not a decision this audit issues"}
 		}

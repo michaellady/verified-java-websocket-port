@@ -346,7 +346,12 @@ func loadCommitted(t *testing.T) *Document {
 func TestCommittedDocumentCountsMatchItsOwnProbeList(t *testing.T) {
 	document := loadCommitted(t)
 	confirmed, refuted := 0, 0
-	for _, probe := range document.Probes {
+	// Both catalogs. probes[] is the confirmed-collision list and
+	// refutations[] the deliberately-refuted one; the counts partition ALL
+	// decided probes by the verdict each run produced, so counting only one
+	// list would let the other drift.
+	decided := append(append([]ProbeDoc{}, document.Probes...), document.Refutations...)
+	for _, probe := range decided {
 		switch probe.Result.Verdict {
 		case Confirmed:
 			confirmed++
@@ -356,10 +361,32 @@ func TestCommittedDocumentCountsMatchItsOwnProbeList(t *testing.T) {
 			t.Fatalf("%s carries verdict %q, which is neither CONFIRMED nor REFUTED",
 				probe.ID, probe.Result.Verdict)
 		}
+		if probe.Result.Verdict != probe.Expect {
+			t.Fatalf("%s declares %q and the recorded run says %q; the document may not carry "+
+				"a probe whose result disagrees with its own declaration",
+				probe.ID, probe.Expect, probe.Result.Verdict)
+		}
 	}
-	if document.RecomputedFrom.ProbeCount != len(document.Probes) {
-		t.Fatalf("probe_count %d, probes %d",
-			document.RecomputedFrom.ProbeCount, len(document.Probes))
+	if document.RecomputedFrom.ProbeCount != len(decided) {
+		t.Fatalf("probe_count %d, probes+refutations %d",
+			document.RecomputedFrom.ProbeCount, len(decided))
+	}
+	// The candidate arithmetic must close: whatever is decided plus whatever
+	// is still open has to be what the first pass named. A candidate dropped
+	// rather than decided would shrink one side and leave the sum wrong.
+	if got, want := document.RecomputedFrom.CandidateCount, len(document.Candidates); got != want {
+		t.Fatalf("undecided_candidate_count %d, undecided_candidates %d", got, want)
+	}
+	if got, want := document.RecomputedFrom.DecidedCandidateCount,
+		len(document.DecidedCandidates); got != want {
+		t.Fatalf("decided_candidate_count %d, decided_candidates %d", got, want)
+	}
+	if sum := document.RecomputedFrom.CandidateCount +
+		document.RecomputedFrom.DecidedCandidateCount; sum != document.RecomputedFrom.CandidateFirstPassCount {
+		t.Fatalf("%d decided + %d undecided = %d, but the first pass named %d; a candidate has "+
+			"gone missing rather than been decided",
+			document.RecomputedFrom.DecidedCandidateCount, document.RecomputedFrom.CandidateCount,
+			sum, document.RecomputedFrom.CandidateFirstPassCount)
 	}
 	if document.RecomputedFrom.ConfirmedCount != confirmed ||
 		document.RecomputedFrom.RefutedCount != refuted {
@@ -371,8 +398,11 @@ func TestCommittedDocumentCountsMatchItsOwnProbeList(t *testing.T) {
 
 func TestCommittedDocumentConfirmsNothingWithAMovingComparator(t *testing.T) {
 	// The document's own consistency: a probe cannot be CONFIRMED while
-	// recording behavioural paths that moved.
-	for _, probe := range loadCommitted(t).Probes {
+	// recording behavioural paths that moved. Both catalogs are checked —
+	// the refutation list is held to the same rule from the other side, a
+	// REFUTED entry that moved nothing being just as incoherent.
+	document := loadCommitted(t)
+	for _, probe := range append(append([]ProbeDoc{}, document.Probes...), document.Refutations...) {
 		if probe.Result.Verdict == Confirmed && len(probe.Result.CollisionPaths) != 0 {
 			t.Fatalf("%s is CONFIRMED but its collision pair moved %v",
 				probe.ID, probe.Result.CollisionPaths)
