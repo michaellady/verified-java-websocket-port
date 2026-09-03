@@ -1,0 +1,2 @@
+mutant=us019-mutant-opcode-swap deviation=text is echoed as binary and binary as text
+setup=bind-failed kind=AddrInUse
