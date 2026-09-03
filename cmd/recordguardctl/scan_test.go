@@ -247,3 +247,158 @@ func TestTheStatusPrefixCanNeverCarryATerm(t *testing.T) {
 	}
 	t.Logf("status prefixes examined: %d, none can carry a lexicon term", checked)
 }
+
+// TestSupersessionIsReadFromTheRecordAndVerifiedAgainstItsTarget: a record that
+// declares itself superseded is a DIFFERENT state from one that is merely
+// unfinished, and the difference matters because reading the first as the second
+// invites exactly the mistake F009 filed — treating a deliberately retained
+// document as work still to do. I made that mistake myself on
+// normalization-collision-audit-WIP.md, whose own last lines say "**SUPERSEDED**
+// by ...", and very nearly instructed an agent to rename or delete it.
+//
+// The declaration alone must NOT be enough. If saying "superseded by X" were
+// sufficient, it would be a self-declared escape from the unfinished state, and
+// this tool's whole measured ceiling is that self-declarations bind honest
+// authors and nothing else. So the target must exist AND must itself read
+// finished: you cannot escape by pointing at another stub.
+func TestSupersessionIsReadFromTheRecordAndVerifiedAgainstItsTarget(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	finished := write("landing.md", `# Landing record
+
+Ran `+"`make -C rust gates`"+` exit 0 at commit abc1234, digest
+sha256:0000000000000000000000000000000000000000000000000000000000000000,
+observed at rust/ws-core/src/lib.rs::thing. Nothing outstanding.
+`)
+	stub := write("other-stub.md", "# Other — WORK IN PROGRESS\n\nStatus: WIP\n")
+
+	cases := []struct {
+		name       string
+		body       string
+		wantTarget string
+		wantOK     bool
+	}{
+		{
+			name:       "declared and the target reads finished",
+			body:       "# A — WORK IN PROGRESS\n\nStatus: WIP\n\n**SUPERSEDED** by `landing.md`.\n",
+			wantTarget: "landing.md",
+			wantOK:     true,
+		},
+		{
+			name:   "declared but the target does not exist",
+			body:   "# A — WORK IN PROGRESS\n\nStatus: WIP\n\n**SUPERSEDED** by `no-such-file.md`.\n",
+			wantOK: false,
+		},
+		{
+			name:   "declared but the target is itself a stub",
+			body:   "# A — WORK IN PROGRESS\n\nStatus: WIP\n\n**SUPERSEDED** by `other-stub.md`.\n",
+			wantOK: false,
+		},
+		{
+			name:   "no declaration at all",
+			body:   "# A — WORK IN PROGRESS\n\nStatus: WIP\n",
+			wantOK: false,
+		},
+		{
+			// NOTE: this case passes on the regex anchor alone — a leading `>`
+			// is not in the allowed leading-marker class — so it does NOT prove
+			// the quoted-voice exclusion. Deletion attack A2 established that by
+			// surviving. Kept because it is still the behaviour we want; the
+			// fenced case below is the one that binds the exclusion.
+			name:   "the word appears only inside a block quotation",
+			body:   "# A — WORK IN PROGRESS\n\nStatus: WIP\n\n> **SUPERSEDED** by `landing.md`.\n",
+			wantOK: false,
+		},
+		{
+			// THIS is what the voice exclusion is for. A record that SHOWS a
+			// supersession line as an example — documentation of the convention,
+			// or a quotation of another record's ending — is not making the
+			// claim. Nothing in the regex anchor rejects it: inside a fence the
+			// line is identical to a real declaration.
+			name:   "the declaration appears only inside a fenced example",
+			body:   "# A — WORK IN PROGRESS\n\nStatus: WIP\n\nThe convention looks like this:\n\n```\n**SUPERSEDED** by `landing.md`.\n```\n",
+			wantOK: false,
+		},
+	}
+
+	_ = finished
+	_ = stub
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := write("subject.md", tc.body)
+			target, ok, why := Supersession(p)
+			if ok != tc.wantOK {
+				t.Fatalf("Supersession ok = %v, want %v (target %q, why %q)", ok, tc.wantOK, target, why)
+			}
+			if ok && filepath.Base(target) != tc.wantTarget {
+				t.Fatalf("target = %q, want base %q", target, tc.wantTarget)
+			}
+		})
+	}
+}
+
+// TestSupersessionOnTheRealRetainedRecord: the file that prompted this check.
+// Its own closing lines declare it superseded, and the record it names is the
+// 359-line landing record that reads finished. If this ever stops holding, the
+// tree has changed under the check and the check must be re-read, not adjusted.
+func TestSupersessionOnTheRealRetainedRecord(t *testing.T) {
+	const subject = "../../drafts/self-review/normalization-collision-audit-WIP.md"
+	if _, err := os.Stat(subject); err != nil {
+		t.Skipf("the retained record is not in this tree: %v", err)
+	}
+	target, ok, why := Supersession(subject)
+	if !ok {
+		t.Fatalf("the retained record's own SUPERSEDED declaration did not check out (target %q, why %q)", target, why)
+	}
+	if filepath.Base(target) != "normalization-collision-audit.md" {
+		t.Fatalf("target = %q, want normalization-collision-audit.md", target)
+	}
+	body, err := os.ReadFile(subject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(Scan(string(body))) == 0 {
+		t.Fatal("the retained record no longer reads as unfinished; supersession would then be describing nothing")
+	}
+}
+
+// TestTheTwoWaysASupersessionClaimFailsAreDistinguished: added because deletion
+// attack A3 SURVIVED. Dropping the `err != nil` guard on the target read left
+// every test green, since a missing file reads as an empty document and an empty
+// document trips `cites-nothing` — so the claim failed anyway, by accident and
+// with the wrong explanation. An author who typo'd the path was being told to go
+// and finish a file that does not exist.
+//
+// Pinning the two reasons apart is what makes that branch load-bearing.
+func TestTheTwoWaysASupersessionClaimFailsAreDistinguished(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	write("a-stub.md", "# Stub — WORK IN PROGRESS\n\nStatus: WIP\n")
+
+	missing := write("m.md", "# A — WORK IN PROGRESS\n\nStatus: WIP\n\n**SUPERSEDED** by `absent.md`.\n")
+	if _, ok, why := Supersession(missing); ok || why != SupersessionTargetMissing {
+		t.Fatalf("a path that does not exist: ok=%v why=%q, want ok=false why=%q", ok, why, SupersessionTargetMissing)
+	}
+
+	stubbed := write("s.md", "# A — WORK IN PROGRESS\n\nStatus: WIP\n\n**SUPERSEDED** by `a-stub.md`.\n")
+	if _, ok, why := Supersession(stubbed); ok || why != SupersessionTargetUnfinished {
+		t.Fatalf("a target that is itself a stub: ok=%v why=%q, want ok=false why=%q", ok, why, SupersessionTargetUnfinished)
+	}
+
+	if SupersessionTargetMissing == SupersessionTargetUnfinished {
+		t.Fatal("the two reasons must not be the same string, or the distinction is unobservable")
+	}
+}

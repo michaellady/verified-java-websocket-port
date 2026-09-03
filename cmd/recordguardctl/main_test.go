@@ -141,8 +141,8 @@ func TestGateDoesNotFailOnAnHonestlyUnfinishedRecord(t *testing.T) {
 	if !strings.Contains(out, "census UNFINISHED record=drafts/self-review/in-flight.md") {
 		t.Errorf("the gate did not make the unfinished record visible\n%s", out)
 	}
-	if !strings.Contains(out, "unfinished=1 finished=1") {
-		t.Errorf("census did not count 1 unfinished of 2\n%s", out)
+	if !strings.Contains(out, "unfinished=1 superseded=0 finished=1") {
+		t.Errorf("census did not count 1 unfinished, 0 superseded, of 2\n%s", out)
 	}
 	// ...and the SAME record, named at a landing decision, is refused.
 	code, _, _ = runCLI(t, "precondition", "-root", root, "drafts/self-review/in-flight.md")

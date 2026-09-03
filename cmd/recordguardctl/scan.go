@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -320,3 +322,94 @@ func countEvidence(src string) int {
 }
 
 func trim(s string) string { return strings.TrimSpace(s) }
+
+// supersededRe matches a record's own declaration that another record has
+// replaced it. Read off drafts/self-review/normalization-collision-audit-WIP.md,
+// whose closing lines are:
+//
+//	**SUPERSEDED** by `drafts/self-review/normalization-collision-audit.md`.
+//
+// The path is required and must be in backticks, because a bare prose sentence
+// naming no file cannot be verified, and an unverifiable supersession claim is
+// the escape hatch this whole check exists to deny.
+var supersededRe = regexp.MustCompile(
+	"(?i)^[\\s]*[#*_+\\-]*[\\s]*superseded[\\s]*[#*_+]*[\\s]+(?:by|in)[\\s]+`([^`]+)`")
+
+// Supersession reports whether the record at path declares itself superseded by
+// another record, and whether that claim CHECKS OUT.
+//
+// A declaration alone is deliberately not enough. This tool's measured ceiling
+// is that self-declarations bind honest authors and nothing else — strip the
+// self-declarations from the six historical stubs and only one is still caught.
+// A state reachable by writing one sentence about yourself would therefore be a
+// state reachable by any record that wanted it. So two further conditions are
+// checked against the filesystem, not the prose:
+//
+//  1. the named record EXISTS, resolved relative to the declaring record's own
+//     directory and then to the repository root; and
+//  2. the named record ITSELF READS FINISHED, by this same Scan.
+//
+// Condition 2 is the load-bearing one: without it a stub could be excused by
+// pointing at another stub, and a chain of mutual supersessions would launder
+// every record in it.
+//
+// Declarations inside a block quote or a fenced block do not count, for the same
+// reason the other signals ignore them: a record QUOTING a supersession, or
+// showing one as an example, is not making the claim.
+func Supersession(path string) (string, bool, string) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", false, ""
+	}
+	lines := strings.Split(string(raw), "\n")
+	// maskOtherVoices blanks quoted and fenced lines wholly, and blanks inline
+	// code SPANS within ordinary lines. The path we need lives inside such a
+	// span, so the masked text cannot be matched directly. Instead the mask is
+	// used only to decide WHOSE VOICE a line is in: a line the mask empties
+	// entirely was a quotation or a fence, and the claim is not the record's own.
+	masked := maskOtherVoices(lines)
+	for i, line := range lines {
+		if i < len(masked) && strings.TrimSpace(masked[i]) == "" && strings.TrimSpace(line) != "" {
+			continue
+		}
+		m := supersededRe.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		named := strings.TrimSpace(m[1])
+		for _, cand := range []string{
+			filepath.Join(filepath.Dir(path), filepath.Base(named)),
+			filepath.Join(filepath.Dir(path), named),
+			named,
+		} {
+			body, err := os.ReadFile(cand)
+			if err != nil {
+				continue
+			}
+			if len(Scan(string(body))) != 0 {
+				return cand, false, SupersessionTargetUnfinished
+			}
+			return cand, true, ""
+		}
+		return named, false, SupersessionTargetMissing
+	}
+	return "", false, ""
+}
+
+// The two ways a supersession claim fails. They are kept apart because a
+// deletion attack found them indistinguishable and that was a real defect, not a
+// stylistic one.
+//
+// Dropping the `err != nil` guard on the target read SURVIVED an attack: a
+// missing file reads as an empty document, an empty document trips
+// `cites-nothing`, and so the claim failed anyway — by accident, and with the
+// wrong explanation. A record pointing at a path that DOES NOT EXIST was being
+// reported as pointing at an unfinished record. The author of a typo'd path
+// would have been told to go and finish a file that is not there.
+//
+// So the reason is now returned and printed, and the existence branch is
+// load-bearing: remove it and the reason string is wrong, which a test reads.
+const (
+	SupersessionTargetMissing    = "the named record does not exist"
+	SupersessionTargetUnfinished = "the named record exists but itself reads unfinished"
+)

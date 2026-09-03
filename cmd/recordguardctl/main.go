@@ -124,6 +124,29 @@ func runPrecondition(args []string, stdout, stderr io.Writer) int {
 			continue
 		}
 		refused++
+		// A superseded record is STILL refused as a landing precondition — a
+		// landing decision must never name a withdrawn document as its review.
+		// But the reason differs, and saying so is the point: the fix is to name
+		// the superseding record, not to go and finish this one.
+		if target, ok, why := Supersession(p); ok {
+			fmt.Fprintf(stdout, "gate=%s mode=precondition record=%s lines=%d signals=%d verdict=REFUSED-SUPERSEDED superseded_by=%s\n",
+				gateName, rel, lines, len(sigs), filepath.ToSlash(target))
+			fmt.Fprintf(stdout, "      this record declares itself superseded and the claim CHECKS OUT: %s exists and itself reads finished. It is deliberately retained, not unfinished work. Name the superseding record instead of finishing this one.\n",
+				filepath.ToSlash(target))
+			continue
+		} else if why != "" {
+			// The record claims supersession and the claim does NOT hold. This
+			// is louder than a plain unfinished verdict, not quieter: an
+			// unverifiable withdrawal is how a stub would escape if the claim
+			// were taken on trust.
+			fmt.Fprintf(stdout, "gate=%s mode=precondition record=%s lines=%d signals=%d verdict=REFUSED superseded_by_claim=%s claim_fails=%q\n",
+				gateName, rel, lines, len(sigs), filepath.ToSlash(target), why)
+			fmt.Fprintf(stdout, "      the record declares itself superseded, and the claim DOES NOT CHECK OUT: %s. A supersession that cannot be resolved is not a supersession; fix the path or finish the record.\n", why)
+			for _, sg := range sigs {
+				fmt.Fprintf(stdout, "    line=%d signal=%s term=%q | %s\n", sg.Line, sg.Kind, sg.Term, sg.Text)
+			}
+			continue
+		}
 		fmt.Fprintf(stdout, "gate=%s mode=precondition record=%s lines=%d signals=%d verdict=REFUSED\n",
 			gateName, rel, lines, len(sigs))
 		for _, s := range sigs {
@@ -168,14 +191,22 @@ func runGate(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "gate=%s step=census result=FAIL error=%v\n", gateName, err)
 		return 1
 	}
+	superseded := 0
 	for _, u := range unfinished {
+		if target, ok, _ := Supersession(filepath.Join(*root, filepath.FromSlash(u.rel))); ok {
+			superseded++
+			fmt.Fprintf(stdout, "gate=%s census SUPERSEDED record=%s signals=%d superseded_by=%s\n",
+				gateName, u.rel, len(u.sigs), filepath.ToSlash(target))
+			fmt.Fprintf(stdout, "    not unfinished work: the record says it was replaced, and the named record exists and reads finished. Retained on purpose.\n")
+			continue
+		}
 		fmt.Fprintf(stdout, "gate=%s census UNFINISHED record=%s signals=%d first=%s@%d\n",
 			gateName, u.rel, len(u.sigs), u.sigs[0].Kind, u.sigs[0].Line)
 		fmt.Fprintf(stdout, "    %s\n", u.sigs[0].Text)
 		fmt.Fprintf(stdout, "    not a gate failure: an honestly-unfinished record is CORRECT. It is refused only when a landing decision names it.\n")
 	}
-	fmt.Fprintf(stdout, "gate=%s step=census records=%d unfinished=%d finished=%d\n",
-		gateName, records, len(unfinished), records-len(unfinished))
+	fmt.Fprintf(stdout, "gate=%s step=census records=%d unfinished=%d superseded=%d finished=%d\n",
+		gateName, records, len(unfinished)-superseded, superseded, records-len(unfinished))
 
 	if records == 0 {
 		fmt.Fprintf(stderr, "gate=%s step=census result=FAIL reason=%q\n", gateName,
