@@ -273,7 +273,8 @@ appends it to the `gates` list.
 **Validation, read from the process.** `make -C rust gates` with `VJWP_PROTECTED_STORE`
 exported: `gate=record-content-precondition result=PASS` in the chain,
 `gate=fixture-liveness-guard result=PASS`, `ac1-gates verdict=PASS gates_passed=8/8`,
-**GATES_EXIT=0**. `go test ./cmd/recordguardctl/` exit 0, 16 tests. `gofmt -l` empty,
+**GATES_EXIT=0**. `go test ./cmd/recordguardctl/` exit 0, 15 tests (counted from
+`go test -v | grep -c '^--- PASS'`, not from the sentence). `gofmt -l` empty,
 `go vet` exit 0. Self-check on the finished tree: `cases=14 firing=6 silent=8 result=PASS`;
 census `records=41 unfinished=1 finished=40`.
 
