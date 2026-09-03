@@ -413,6 +413,65 @@ different isolated record should be named here."* It did, and it did.
 Nothing was loosened. No assertion was deleted, no expectation widened to a
 range, and the deliberate-failure polarity of each test is unchanged.
 
+## 7c. A FOURTH package fails, it is not mine, and the two-package baseline is not true today
+
+`go test ./... -timeout 40m` exit **1**, with **41 ok** and **four** failing
+packages, not two:
+
+| package | cause |
+| --- | --- |
+| `internal/deltaledger` | **mine**, fixed in section 7b |
+| `internal/lab` | the documented Darwin `sandbox-exec` reason |
+| `internal/portplan` | the documented vendor decision |
+| `internal/formalplan` | **not mine**, and not on the documented list |
+
+Every `formalplan` failure carries the same finding — `JAVA_QUARANTINE_UNAVAILABLE`
+at `assurance/formal/proof-targets.json#$.sources.quarantined_java_tree`,
+message `JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403`
+— across `TestProofTargetsRealDocumentVerifies`,
+`TestFormalPreflightRealDocumentDeepRulesClean`, the four `Deep` preflight
+tests, the five `CloseDeliveryConsistency` subtests, the three
+`SeededDefectsBlockWithTypedFindings` subtests (each reporting
+`finding … absent; got [JAVA_QUARANTINE_UNAVAILABLE]`, so the quarantine
+refusal is masking the seeded defect the subtest exists to detect) and the
+three `TargetsRound1` claims.
+
+Probed directly rather than inferred:
+
+```
+curl https://github.com/TooTallNate/Java-WebSocket/archive/da3cf2a777aed862f2f5b5cf060cae7969958667.tar.gz
+    http=403  bytes=378
+    {"message":"GitHub access to this repository is not enabled for this session. …"}
+    sha256 b3e03aaaff81d68730d67392a135ac3fdfdf022880c66632ab188d2fe084cda3
+```
+
+That is the pinned source archive named in `evidence/intake/source-pins.json`
+(`java-websocket-source-archive`, pinned `sha256:f44e7647…13cb4`), and the 378
+bytes and their digest are byte-identical to the refusal the DIV-05
+continuation recorded for the same URL. `.quarantine/` is empty and git-ignored.
+
+**Why this is proven not to be mine.** The diff on this branch touches
+`internal/deltaledger/` (one new definitions file, one hook line, three test
+files), `evidence/java/behavior-delta-ledger.json`,
+`evidence/java/ledger-supersessions.json`,
+`evidence/java/legacy-record-adjudications.json`,
+`evidence/governance/owner-decision-digests.json` and two records under
+`drafts/self-review/`. None of those is read by the quarantine acquisition
+path, and the failure is a network refusal from the session proxy rather than
+a content mismatch.
+
+**EXACT ACTION NEEDED, and it is not mine to take.** The session has no GitHub
+access to `TooTallNate/Java-WebSocket`, so `internal/portplan.EnsureQuarantinedSource`
+cannot acquire the pinned tree and every Java-source-anchored formal check
+fails closed. Attaching that repository to the session would turn the package
+green by *acquiring quarantined third-party source mid-round*, which changes
+what the evidence plane can see and is governed by the acquisition lifecycle in
+`evidence/intake/source-pins.json` (expiry 2026-09-23, "fail closed on
+artifact, tool, license, policy, repository, role, identity, or
+vulnerability-state revocation"). I did not do it. The two-package baseline
+statement is therefore FALSE on this branch today, and it is reported rather
+than amended — which is the rule the protocol states for exactly this case.
+
 ## 8. Exit codes, each read from the process
 
 | command | exit |
@@ -430,6 +489,8 @@ range, and the deliberate-failure polarity of each test is unchanged.
 | `go test ./internal/deltaledger/ -timeout 40m` (after the append, before the test updates) | **1** |
 | `go test ./internal/deltaledger/ -timeout 40m` (after the test updates) | 0 |
 | `go run ./cmd/recordguardctl precondition drafts/self-review/ledger-adjudication-round.md` | 0 |
+| `go test ./... -timeout 40m` (whole suite) | **1** — 41 ok, four failing packages, section 7c |
+| `curl` on the pinned Java source archive | http 403, 378 bytes |
 
 Both exits of the regeneration are recorded, and so is the second refusal: the
 gate rejected the append until
