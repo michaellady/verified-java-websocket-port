@@ -485,3 +485,286 @@ func TestThePlaneRecordDoesNotWeakenTheJavaFinding(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// The nineteen checks that survived the first deletion sweep. Each one below
+// exists because deleting the check left every test green, which is not
+// evidence that the check holds -- it is evidence that nothing was reading it.
+// ---------------------------------------------------------------------------
+
+func TestATamperedCatalogIsRefusedByThePlaneVerifier(t *testing.T) {
+	root := sandbox(t)
+	path := filepath.Join(root, filepath.FromSlash(CatalogPath))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	// One trailing byte. The JSON still decodes; the identity does not.
+	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	findings, _, err := VerifyPlaneCorrespondence(root)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if !hasPlaneCheck(findings, "CATALOG_STILL_VENDORED_BYTES") {
+		t.Fatalf("a one-byte change to the vendored catalog was accepted; findings were %+v", findings)
+	}
+}
+
+func TestAWritableOriginPlaneIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		tree["origin_plane"].(map[string]any)["writable_from_here"] = true
+	}, "ORIGIN_PLANE_IS_NOT_WRITABLE_FROM_HERE")
+}
+
+func TestABlankOwnerQuestionIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		tree["owner_question"] = "  "
+	}, "THE_RECORD_STATES_THE_OWNER_QUESTION")
+}
+
+func TestAnOwnerQuestionWithNoEvidenceRequirementIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		tree["evidence_required_to_answer_it"] = []any{}
+	}, "THE_OWNER_QUESTION_STATES_ITS_EVIDENCE_REQUIREMENT")
+}
+
+func TestADuplicateNamespaceRowIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		list := rows(tree, "crates")
+		tree["crates"] = append(list, list[0])
+	}, "ONE_ROW_PER_CATALOG_NAMESPACE")
+}
+
+func TestADuplicateSourcePathRowIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		list := rows(tree, "source_paths")
+		tree["source_paths"] = append(list, list[0])
+	}, "ONE_ROW_PER_CATALOG_SOURCE_PATH")
+}
+
+func TestADuplicateSymbolRowIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		list := rows(tree, "production_symbols")
+		tree["production_symbols"] = append(list, list[0])
+	}, "ONE_ROW_PER_CATALOG_SYMBOL")
+}
+
+func TestARowForANamespaceTheCatalogNeverUsesIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		tree["crates"] = append(rows(tree, "crates"), map[string]any{
+			"catalog_namespace":    "namespace_the_catalog_never_names",
+			"obligation_count":     1.0,
+			"correspondence_state": CorrespondenceNone,
+			"evidence":             []any{"invented"},
+		})
+	}, "ROW_NAMES_A_NAMESPACE_THE_CATALOG_USES")
+}
+
+func TestARowForAPathTheCatalogNeverNamesIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		tree["source_paths"] = append(rows(tree, "source_paths"), map[string]any{
+			"catalog_source_path":  "rust/invented/src/lib.rs",
+			"obligation_count":     1.0,
+			"correspondence_state": CorrespondenceNone,
+			"evidence":             []any{"invented"},
+		})
+	}, "ROW_NAMES_A_PATH_THE_CATALOG_USES")
+}
+
+func TestARowForASymbolTheCatalogNeverDeclaresIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		tree["production_symbols"] = append(rows(tree, "production_symbols"), map[string]any{
+			"catalog_production_symbol": "invented::Symbol::method",
+			"obligation_count":          1.0,
+			"correspondence_state":      CorrespondenceNone,
+		})
+	}, "ROW_NAMES_A_SYMBOL_THE_CATALOG_USES")
+}
+
+func TestARowWithNoEvidenceIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		rows(tree, "crates")[0].(map[string]any)["evidence"] = []any{}
+	}, "EVERY_ROW_CITES_ITS_EVIDENCE")
+}
+
+func TestASymbolRowThatDoesNotSayWhatDefeatsSubstitutionIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		rows(tree, "production_symbols")[0].(map[string]any)["difference_that_defeats_substitution"] = " "
+	}, "EVERY_UNESTABLISHED_SYMBOL_SAYS_WHAT_DEFEATS_SUBSTITUTION")
+}
+
+func TestACandidateCrateDirectoryThatIsNotHereIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		rows(tree, "crates")[0].(map[string]any)["candidate_directory_on_this_plane"] = "rust/no-such-crate"
+	}, "CANDIDATE_CRATE_EXISTS_ON_THIS_PLANE")
+}
+
+func TestACandidatePathThatIsHonestlyAbsentStillDefeatsCorrespondence(t *testing.T) {
+	// Declaring the candidate absent AND still claiming an adaptation is the
+	// subtle version: the existence column is truthful, the correspondence
+	// claim on top of it is not.
+	planeFinding(t, func(tree map[string]any) {
+		row := rows(tree, "source_paths")[0].(map[string]any)
+		row["candidate_path_on_this_plane"] = "rust/ws-core/src/no-such-file.rs"
+		row["candidate_path_exists_on_this_plane"] = false
+	}, "A_CANDIDATE_THAT_DOES_NOT_EXIST_IS_NO_CORRESPONDENCE")
+}
+
+func TestASymbolRowWithNoCitationStillClaimingCorrespondenceIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		row := rows(tree, "production_symbols")[0].(map[string]any)
+		row["nearest_declaration_file_on_this_plane"] = ""
+		row["correspondence_state"] = CorrespondenceBorrowAdapted
+	}, "A_ROW_WITH_NO_NEAREST_DECLARATION_IS_NO_CORRESPONDENCE")
+}
+
+func TestACitationInAFileThatIsNotHereIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		rows(tree, "production_symbols")[0].(map[string]any)["nearest_declaration_file_on_this_plane"] = "rust/ws-core/src/no-such-file.rs"
+	}, "NEAREST_DECLARATION_FILE_EXISTS")
+}
+
+func TestACitationPastTheEndOfItsFileIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		rows(tree, "production_symbols")[0].(map[string]any)["nearest_declaration_line"] = 999999.0
+	}, "NEAREST_DECLARATION_LINE_IS_IN_THE_FILE")
+}
+
+func TestAnEstablishedDecisionOutsideTheProtectedStoreIsRefused(t *testing.T) {
+	planeFinding(t, func(tree map[string]any) {
+		row := rows(tree, "crates")[0].(map[string]any)
+		row["correspondence_state"] = CorrespondenceEstablished
+		row["owner_decision_record"] = "drafts/self-review/i-decided-this-myself.md"
+		row["owner_decision_key"] = "plane_correspondence"
+	}, "OWNER_DECISION_LIVES_IN_THE_PROTECTED_STORE")
+}
+
+func TestAPlaneThatActuallyShipsTheCatalogsNamespaceMayNotBeCalledUnestablished(t *testing.T) {
+	// The mirror of every other check here. All of them hunt a record that
+	// claims MORE than the tree supports. This one hunts a record that claims
+	// LESS: if this plane really did ship websocket_core, labelling the row
+	// SHARED_ANCESTRY_ONLY would understate a correspondence that exists, and
+	// a label that can only be too weak is as bad as one that can only be too
+	// strong.
+	root := sandbox(t)
+	manifest := filepath.Join(root, "rust", "ws-core", "Cargo.toml")
+	if err := os.WriteFile(manifest, []byte("[package]\nname = \"ws-core\"\n\n[lib]\nname = \"websocket_core\"\n"), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	rewriteJSON(t, root, PlaneCorrespondencePath, func(tree map[string]any) {
+		for _, raw := range rows(tree, "crates") {
+			row := raw.(map[string]any)
+			if row["catalog_namespace"] == "websocket_core" {
+				row["candidate_lib_name_on_this_plane"] = "websocket_core"
+			}
+		}
+	})
+	findings, _, err := VerifyPlaneCorrespondence(root)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if !hasPlaneCheck(findings, "AN_EQUAL_NAMESPACE_IS_NOT_SILENTLY_WEAKENED") {
+		t.Fatalf("a plane that ships the catalog's own namespace was still reported as having no established correspondence; findings were %+v", findings)
+	}
+}
+
+func hasPlaneCheck(findings []PlaneFinding, check string) bool {
+	for _, finding := range findings {
+		if finding.Check == check {
+			return true
+		}
+	}
+	return false
+}
+
+// TestALibNameThatDisagreesWithThePackageNameWins closes the one mutation that
+// survived the second deletion sweep. Everywhere in either plane the package
+// name with hyphens replaced happens to EQUAL the [lib] name, so a mutation
+// that ignored [lib] name entirely left every test green -- which is not
+// evidence that the [lib] branch works, only that nothing distinguished it.
+// Cargo does not require the two to agree, and the namespace `use` resolves
+// against is the [lib] one.
+func TestALibNameThatDisagreesWithThePackageNameWins(t *testing.T) {
+	root := t.TempDir()
+	writeCrate(t, root, "some-dir", "[package]\nname = \"package-name\"\n\n[lib]\nname = \"a_quite_different_namespace\"\n")
+	namespaces, err := shippedCrateNamespaces(root)
+	if err != nil {
+		t.Fatalf("shippedCrateNamespaces: %v", err)
+	}
+	if len(namespaces) != 1 || namespaces[0] != "a_quite_different_namespace" {
+		t.Fatalf("the workspace ships %v; the [lib] name is the namespace, not the package name", namespaces)
+	}
+}
+
+// TestBinTargetNamesAreNotCrateNamespaces: a manifest's [[bin]] name is a
+// binary, not a library namespace, and this repository ships a crate whose
+// [[bin]] names differ from its package name. Reading the first `name =` in
+// the file would take the wrong one.
+func TestBinTargetNamesAreNotCrateNamespaces(t *testing.T) {
+	root := t.TempDir()
+	writeCrate(t, root, "candidate-stub",
+		"[package]\nname = \"candidate-stub\"\n\n[[bin]]\nname = \"us005-candidate-stub\"\n\n[[bin]]\nname = \"us005-mutant\"\n")
+	namespaces, err := shippedCrateNamespaces(root)
+	if err != nil {
+		t.Fatalf("shippedCrateNamespaces: %v", err)
+	}
+	if len(namespaces) != 1 || namespaces[0] != "candidate_stub" {
+		t.Fatalf("the workspace ships %v; a [[bin]] name is not a crate namespace", namespaces)
+	}
+}
+
+// TestTheRustReasonCodesNameThePlaneTheyAreTrueOf is the semantic reading for
+// the rename. Without it the only thing that noticed a revert was the retained
+// artifact byte comparison, which detects that the output CHANGED and says
+// nothing about whether it is right.
+func TestTheRustReasonCodesNameThePlaneTheyAreTrueOf(t *testing.T) {
+	for _, code := range []string{BlockRustPathAbsent, BlockRustNamespaceAbsent, RustPathAbsent, RustNamespaceDisagrees} {
+		if !strings.Contains(code, "THIS_PLANE") {
+			t.Fatalf("%q does not say which tree it is true of; the catalog's paths and namespaces resolve on the plane it came from, and a code that omits the plane reads as an accusation against the document", code)
+		}
+	}
+	// And the two that DO resolve here must not have acquired the same
+	// hedge: a state that is true everywhere needs no plane qualifier beyond
+	// naming the one it was read on.
+	if !strings.Contains(RustPathPresent, "THIS_PLANE") || !strings.Contains(RustNamespaceAgrees, "THIS_PLANE") {
+		t.Fatalf("the positive states %q/%q should also name the plane they were read on", RustPathPresent, RustNamespaceAgrees)
+	}
+	if BlockPlaneNotEstablished == "" || !strings.Contains(BlockPlaneNotEstablished, "ANOTHER_PLANE") {
+		t.Fatalf("the cause code %q does not name the cause", BlockPlaneNotEstablished)
+	}
+	// The old codes must be gone, not merely unused: a grep for them is how a
+	// reader would find the corrected diagnosis.
+	for _, retired := range []string{"CATALOG_RUST_SOURCE_PATH_EXISTS_IN_NO_TREE", "CATALOG_RUST_NAMESPACE_MATCHES_NO_SHIPPED_CRATE"} {
+		if BlockRustPathAbsent == retired || BlockRustNamespaceAbsent == retired {
+			t.Fatalf("%q is back", retired)
+		}
+	}
+}
+
+// TestThePlaneBlockAppearsBesideTheSymptomsNotInsteadOfThem: the two
+// observations about this tree stay, because they are true; the cause is added
+// beside them. Dropping the symptoms would lose real information and dropping
+// the cause is what made the old diagnosis wrong.
+func TestThePlaneBlockAppearsBesideTheSymptomsNotInsteadOfThem(t *testing.T) {
+	report, err := DeriveReport(repoRoot(t))
+	if err != nil {
+		t.Fatalf("derive: %v", err)
+	}
+	for _, row := range report.Obligations {
+		reasons := map[string]bool{}
+		for _, reason := range row.BlockingReasons {
+			reasons[reason] = true
+		}
+		for _, want := range []string{BlockRustPathAbsent, BlockRustNamespaceAbsent, BlockPlaneNotEstablished} {
+			if !reasons[want] {
+				t.Fatalf("%s does not carry %s", row.ObligationID, want)
+			}
+		}
+	}
+	if report.Freeze.BlockingObligations != CatalogDenominator {
+		t.Fatalf("freeze blocks %d of %d; the corrected diagnosis must not reduce the blocked count",
+			report.Freeze.BlockingObligations, CatalogDenominator)
+	}
+}
