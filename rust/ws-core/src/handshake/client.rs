@@ -33,7 +33,7 @@
 //! so any deterministic source scores identically against the oracle).
 
 use super::http::{HeadAccumulator, JavaHeadParse, java_trim, parse_java_head};
-use super::{HandshakeLimitExceeded, HandshakeLimits, RejectChannel, crypto};
+use super::{HandshakeLimitExceeded, HandshakeLimits, RejectChannel, RejectStage, crypto};
 use crate::framing::Draft6455;
 
 /// Hard ceiling on the caller-selected descriptor fields (borrowed Codex
@@ -143,11 +143,22 @@ pub enum ClientHandshakeOutcome {
     Accept {
         /// Post-head remainder bytes from the final chunk.
         remainder: Vec<u8>,
+        /// The `Sec-WebSocket-Accept` value this client MATCHED. It is the
+        /// value the client's own challenge derivation produced
+        /// (`generateFinalKey(trim(key))`, Draft_6455.java:318-325): the
+        /// acceptance predicate below succeeds only when the derived value
+        /// equals the field the server sent, so on this arm the two are the
+        /// same string. Shipped Java computes it on every client-side
+        /// acceptance; nothing in the handshake protocol used to report it,
+        /// which left the client-side accept derivation unscored.
+        sec_websocket_accept: String,
     },
     /// The response was rejected (Java closes 1002).
     Reject {
         /// The draft-API channel.
         channel: RejectChannel,
+        /// WHICH draft-API call decided (see [`RejectStage`]).
+        stage: RejectStage,
     },
     /// A PLUS_SAFE budget refused further buffering (port strengthening).
     LimitExceeded(HandshakeLimitExceeded),
@@ -208,14 +219,16 @@ impl ClientHandshake {
         }
         match parse_java_head(self.accumulator.bytes()) {
             JavaHeadParse::Incomplete => ClientHandshakeOutcome::Incomplete,
-            JavaHeadParse::Reject => self.reject(RejectChannel::InvalidHandshake),
+            JavaHeadParse::Reject => {
+                self.reject(RejectChannel::InvalidHandshake, RejectStage::Translate)
+            }
             JavaHeadParse::Complete(head) => {
                 // Draft.java:164-180: the status code is compared literally
                 // against "101" BEFORE the HTTP version check.
                 if head.first_line[1] != "101"
                     || !head.first_line[0].eq_ignore_ascii_case("HTTP/1.1")
                 {
-                    return self.reject(RejectChannel::InvalidHandshake);
+                    return self.reject(RejectChannel::InvalidHandshake, RejectStage::Translate);
                 }
                 // Draft.java:188-191 (basicAccept, quirk Q9).
                 let upgrade_ok = head
@@ -228,27 +241,30 @@ impl ClientHandshake {
                     .to_ascii_lowercase()
                     .contains("upgrade");
                 if !upgrade_ok || !connection_ok {
-                    return self.reject(RejectChannel::NotMatched);
+                    return self.reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
                 }
                 // Draft_6455.java:312-325: key and accept must both exist and
                 // the derived value must literally equal the response value.
                 if self.client_key.is_empty() || !head.headers.has("Sec-WebSocket-Accept") {
-                    return self.reject(RejectChannel::NotMatched);
+                    return self.reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
                 }
                 let expected = Draft6455::generate_accept_key(java_trim(&self.client_key));
                 if expected != head.headers.get("Sec-WebSocket-Accept") {
-                    return self.reject(RejectChannel::NotMatched);
+                    return self.reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
                 }
                 let remainder = self.accumulator.bytes()[head.head_len..].to_vec();
                 self.done = true;
-                ClientHandshakeOutcome::Accept { remainder }
+                ClientHandshakeOutcome::Accept {
+                    remainder,
+                    sec_websocket_accept: expected,
+                }
             }
         }
     }
 
-    fn reject(&mut self, channel: RejectChannel) -> ClientHandshakeOutcome {
+    fn reject(&mut self, channel: RejectChannel, stage: RejectStage) -> ClientHandshakeOutcome {
         self.done = true;
-        ClientHandshakeOutcome::Reject { channel }
+        ClientHandshakeOutcome::Reject { channel, stage }
     }
 }
 

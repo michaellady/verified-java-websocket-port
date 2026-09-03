@@ -118,6 +118,7 @@ final class HandshakeEngine {
     if (outcome.rejectChannel != null) {
       response.put("close_code", outcome.closeCode);
       response.put("reject_channel", outcome.rejectChannel);
+      response.put("reject_stage", outcome.rejectStage);
     }
     if (outcome.secWebSocketAccept != null) {
       response.put("sec_websocket_accept", outcome.secWebSocketAccept);
@@ -125,89 +126,139 @@ final class HandshakeEngine {
     return response;
   }
 
+  /**
+   * Which draft-API call decided a rejection. The channel says which failure
+   * vocabulary the rejection took; the stage says which CALL produced it, and
+   * it separates the two events the invalid_handshake channel conflates.
+   */
+  private static final String STAGE_TRANSLATE = "translate";
+  private static final String STAGE_ACCEPT_PREDICATE = "accept_predicate";
+  private static final String STAGE_RESPONSE_BUILD = "response_build";
+
   private record Outcome(
-      String observable, String rejectChannel, Integer closeCode, String secWebSocketAccept) {
+      String observable, String rejectChannel, String rejectStage, Integer closeCode,
+      String secWebSocketAccept) {
     static Outcome accept(String secWebSocketAccept) {
-      return new Outcome("accept", null, null, secWebSocketAccept);
+      return new Outcome("accept", null, null, null, secWebSocketAccept);
     }
 
-    static Outcome reject(String channel, int closeCode) {
-      return new Outcome("reject", channel, closeCode, null);
+    static Outcome reject(String channel, String stage, int closeCode) {
+      return new Outcome("reject", channel, stage, closeCode, null);
     }
 
     static Outcome incomplete() {
-      return new Outcome("incomplete", null, null, null);
+      return new Outcome("incomplete", null, null, null, null);
     }
   }
 
-  /** Mirrors WebSocketImpl.decodeHandshake server branch (WebSocketImpl.java:269-315). */
+  /**
+   * Mirrors WebSocketImpl.decodeHandshake server branch (WebSocketImpl.java:269-315).
+   *
+   * <p>The three draft-API calls sit in SEPARATE try blocks rather than one,
+   * so the reported reject_stage is the call that actually produced the
+   * outcome instead of a guess about which of three sites inside one try
+   * threw. This is a reporting change only: the same Java calls run in the
+   * same order and decide the same observable, channel and close code.
+   */
   private static Outcome serverSide(byte[] raw) throws ProtocolException {
     // The library default draft: DefaultExtension plus the empty Protocol,
     // exactly what new WebSocketServer(...) negotiates with.
     Draft_6455 draft = new Draft_6455();
     draft.setParseMode(Role.SERVER);
+    Handshakedata handshake;
     try {
-      Handshakedata handshake = draft.translateHandshake(ByteBuffer.wrap(raw));
-      if (!(handshake instanceof ClientHandshake)) {
-        // WebSocketImpl.java:277-282 "wrong http function".
-        return Outcome.reject("wrong_http_function", CloseFrame.PROTOCOL_ERROR);
-      }
-      ClientHandshake clientHandshake = (ClientHandshake) handshake;
-      HandshakeState state = draft.acceptHandshakeAsServer(clientHandshake);
-      if (state != HandshakeState.MATCHED) {
-        // WebSocketImpl.java:310-314: no draft matches, PROTOCOL_ERROR.
-        return Outcome.reject("not_matched", CloseFrame.PROTOCOL_ERROR);
-      }
-      // WebSocketAdapter.onWebsocketHandshakeReceivedAsServer default response
-      // (WebSocketAdapter returns a fresh HandshakeImpl1Server), then the real
-      // response bytes (WebSocketImpl.java:287-301).
-      ServerHandshakeBuilder response = new HandshakeImpl1Server();
-      HandshakeBuilder complete =
-          draft.postProcessHandshakeResponseAsServer(clientHandshake, response);
-      List<ByteBuffer> rendered = draft.createHandshake(complete);
-      return Outcome.accept(acceptValueFrom(rendered));
+      handshake = draft.translateHandshake(ByteBuffer.wrap(raw));
     } catch (IncompleteHandshakeException e) {
       // WebSocketImpl.java:370-387: buffered, nothing written.
       return Outcome.incomplete();
     } catch (InvalidHandshakeException e) {
       // Swallowed per draft (WebSocketImpl.java:306-308) and reported as one
-      // PROTOCOL_ERROR rejection (WebSocketImpl.java:310-314, 426-429).
-      return Outcome.reject("invalid_handshake",
-          e.getCloseCode() == 0 ? CloseFrame.PROTOCOL_ERROR : e.getCloseCode());
+      // PROTOCOL_ERROR rejection (WebSocketImpl.java:310-314, 426-429). No
+      // Handshakedata was ever built, so the application listener was never
+      // reached.
+      return Outcome.reject("invalid_handshake", STAGE_TRANSLATE, closeCodeOf(e));
     }
+    if (!(handshake instanceof ClientHandshake)) {
+      // WebSocketImpl.java:277-282 "wrong http function".
+      return Outcome.reject("wrong_http_function", STAGE_TRANSLATE, CloseFrame.PROTOCOL_ERROR);
+    }
+    ClientHandshake clientHandshake = (ClientHandshake) handshake;
+    HandshakeState state;
+    try {
+      state = draft.acceptHandshakeAsServer(clientHandshake);
+    } catch (InvalidHandshakeException e) {
+      return Outcome.reject("invalid_handshake", STAGE_ACCEPT_PREDICATE, closeCodeOf(e));
+    }
+    if (state != HandshakeState.MATCHED) {
+      // WebSocketImpl.java:310-314: no draft matches, PROTOCOL_ERROR.
+      return Outcome.reject("not_matched", STAGE_ACCEPT_PREDICATE, CloseFrame.PROTOCOL_ERROR);
+    }
+    // WebSocketAdapter.onWebsocketHandshakeReceivedAsServer default response
+    // (WebSocketAdapter returns a fresh HandshakeImpl1Server), then the real
+    // response bytes (WebSocketImpl.java:287-301). Reaching this line is
+    // exactly what STAGE_RESPONSE_BUILD records: the predicate MATCHED and
+    // the library has already called the application listener.
+    ServerHandshakeBuilder response = new HandshakeImpl1Server();
+    try {
+      HandshakeBuilder complete =
+          draft.postProcessHandshakeResponseAsServer(clientHandshake, response);
+      List<ByteBuffer> rendered = draft.createHandshake(complete);
+      return Outcome.accept(acceptValueFrom(rendered));
+    } catch (InvalidHandshakeException e) {
+      return Outcome.reject("invalid_handshake", STAGE_RESPONSE_BUILD, closeCodeOf(e));
+    }
+  }
+
+  /** InvalidHandshakeException.getCloseCode with Java's 0 default mapped. */
+  private static int closeCodeOf(InvalidHandshakeException e) {
+    return e.getCloseCode() == 0 ? CloseFrame.PROTOCOL_ERROR : e.getCloseCode();
   }
 
   /** Mirrors WebSocketImpl.decodeHandshake client branch (WebSocketImpl.java:336-364). */
   private static Outcome clientSide(byte[] raw, String clientKey) {
     Draft_6455 draft = new Draft_6455();
     draft.setParseMode(Role.CLIENT);
+    Handshakedata handshake;
     try {
-      Handshakedata handshake = draft.translateHandshake(ByteBuffer.wrap(raw));
-      if (!(handshake instanceof ServerHandshake)) {
-        return Outcome.reject("wrong_http_function", CloseFrame.PROTOCOL_ERROR);
-      }
-      ClientHandshakeBuilder challenge = new HandshakeImpl1Client();
-      if (clientKey != null) {
-        // The recorded key the corpus client sent; without it the challenge
-        // comparison in acceptHandshakeAsClient cannot match
-        // (Draft_6455.java:312-316).
-        challenge.put("Sec-WebSocket-Key", clientKey);
-      }
-      HandshakeState state =
-          draft.acceptHandshakeAsClient(challenge, (ServerHandshake) handshake);
-      if (state != HandshakeState.MATCHED) {
-        // WebSocketImpl.java:361-364: close PROTOCOL_ERROR.
-        return Outcome.reject("not_matched", CloseFrame.PROTOCOL_ERROR);
-      }
-      // No accept value is observable on the client side.
-      return Outcome.accept(null);
+      handshake = draft.translateHandshake(ByteBuffer.wrap(raw));
     } catch (IncompleteHandshakeException e) {
       return Outcome.incomplete();
     } catch (InvalidHandshakeException e) {
       // WebSocketImpl.java:366-368: close(e) with the exception's close code.
-      return Outcome.reject("invalid_handshake",
-          e.getCloseCode() == 0 ? CloseFrame.PROTOCOL_ERROR : e.getCloseCode());
+      // translateHandshakeHttpClient (Draft.java:164-180) throws here when the
+      // status token is not literally "101", before any Handshakedata exists.
+      return Outcome.reject("invalid_handshake", STAGE_TRANSLATE, closeCodeOf(e));
     }
+    if (!(handshake instanceof ServerHandshake)) {
+      return Outcome.reject("wrong_http_function", STAGE_TRANSLATE, CloseFrame.PROTOCOL_ERROR);
+    }
+    ServerHandshake serverHandshake = (ServerHandshake) handshake;
+    ClientHandshakeBuilder challenge = new HandshakeImpl1Client();
+    if (clientKey != null) {
+      // The recorded key the corpus client sent; without it the challenge
+      // comparison in acceptHandshakeAsClient cannot match
+      // (Draft_6455.java:312-316).
+      challenge.put("Sec-WebSocket-Key", clientKey);
+    }
+    HandshakeState state;
+    try {
+      state = draft.acceptHandshakeAsClient(challenge, serverHandshake);
+    } catch (InvalidHandshakeException e) {
+      return Outcome.reject("invalid_handshake", STAGE_ACCEPT_PREDICATE, closeCodeOf(e));
+    }
+    if (state != HandshakeState.MATCHED) {
+      // WebSocketImpl.java:361-364: close PROTOCOL_ERROR.
+      return Outcome.reject("not_matched", STAGE_ACCEPT_PREDICATE, CloseFrame.PROTOCOL_ERROR);
+    }
+    // The client never SENDS an accept value, but it derives one and matching
+    // it is the whole acceptance predicate: acceptHandshakeAsClient returns
+    // MATCHED only when generateFinalKey(trim(challenge key)) equals the
+    // response field literally (Draft_6455.java:318-325). So the field the
+    // library parsed off the wire IS the value this client derived; it is read
+    // back through the library's own Handshakedata rather than recomputed
+    // here, exactly as the server side reads its value back out of the bytes
+    // it rendered.
+    return Outcome.accept(serverHandshake.getFieldValue("Sec-WebSocket-Accept"));
   }
 
   /**

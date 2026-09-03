@@ -180,11 +180,18 @@ func Projections() []Projection {
 				"request path and Host",
 				"how many bytes an `incomplete` consumed, and in what state it stopped",
 				"the Sec-WebSocket-Key on any rejected case",
+				"every distinction WITHIN one draft-API stage: shipped Java's own " +
+					"InvalidHandshakeException messages separate a non-GET method from a bad " +
+					"HTTP version from a header line with no colon, but those are " +
+					"implementation strings the differential classifies non-semantic " +
+					"(diffregress DetailField), and reproducing them would be Java-quirk " +
+					"emulation, which by construction produces no Java-versus-Rust signal",
 			},
 			Scorer: "internal/corpora.evaluateHandshakeLiveResponse",
 			Scores: []string{
 				"case_id", "request_digest", "protocol", "version", "runtime",
-				"java_observable", "reject_channel", "close_code", "sec_websocket_accept",
+				"java_observable", "reject_channel", "reject_stage", "close_code",
+				"sec_websocket_accept",
 			},
 		},
 	}

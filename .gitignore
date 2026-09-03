@@ -39,3 +39,30 @@ java-semantic-oracle/build/
 # for the four in flight on 2026-09-02). The work they produce reaches this
 # repository as a pushed branch, never as files under this path.
 .claude/worktrees/
+
+# Go binaries built into the repository root by `go build ./cmd/<tool>/`, which
+# is what a bare `go build` of a main package does. One of these (a 3.6 MiB
+# `recordguardctl`) was committed by a deletion-attack harness on 2026-09-03 and
+# caught only by reading `git diff --name-only` against the merge base.
+/ac5ctl
+/assurectl
+/corporactl
+/crosspeerctl
+/deltaledgerctl
+/diffregressctl
+/divergencesweepctl
+/fixtureguardctl
+/formalcoverctl
+/fuzzpinctl
+/intakectl
+/javabindctl
+/labctl
+/mutctl
+/normcollidectl
+/oraclerankctl
+/portplanctl
+/recordguardctl
+/rustgatectl
+/securityctl
+/stressrepeatctl
+/tlcdriver

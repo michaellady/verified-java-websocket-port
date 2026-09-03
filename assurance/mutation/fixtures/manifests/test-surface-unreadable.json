@@ -1,0 +1,318 @@
+{
+  "schema_version": "1.0.0",
+  "document_id": "us022-polarity-fixture-test-surface-unreadable",
+  "entity_type": "NormalizedMutationDenominator",
+  "story": "US-022",
+  "digest_scheme": "CANONICAL_PATH_SHA256_V1",
+  "statement": "POLARITY FIXTURE, NOT EVIDENCE. A synthetic denominator that passes every rule, so a checker that blocked unconditionally would fail its own suite. Its two mutants and its campaign never happened; its engine is `cargo --version` standing in for a mutation engine so the availability probe really succeeds. Nothing here may be cited as a US-022 result.",
+  "ac_verbatim": {
+    "ac1": "fixture",
+    "ac2": "fixture",
+    "ac3": "fixture",
+    "ac4": "fixture",
+    "ac5": "fixture"
+  },
+  "note": "fixture",
+  "engines": [
+    {
+      "id": "engine-a",
+      "kind": "rust_mutation",
+      "tool": "fixture-engine",
+      "probe_command": [
+        "cargo",
+        "--version"
+      ],
+      "probe_dir": "rust",
+      "toolchain": {
+        "required": "Rust 1.95.0",
+        "probe_command": [
+          "cargo",
+          "--version"
+        ],
+        "probe_dir": "rust",
+        "version_pattern": "1.95.0"
+      },
+      "dependency_graph": {
+        "status": "PROMOTED",
+        "promotion_record": "rust/rust-toolchain.toml",
+        "note": "fixture"
+      },
+      "note": "fixture"
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "prod",
+      "kind": "production",
+      "language": "java",
+      "paths": [
+        "java-oracle/src/main/java"
+      ],
+      "file_count": 5,
+      "digest": "sha256:29773c46596aafef879b1e536b51e2dd1fc42b08b16e3987f71b33854f3bda17",
+      "note": "fixture"
+    },
+    {
+      "id": "tests",
+      "kind": "test",
+      "language": "java",
+      "paths": [
+        "no/such/tests"
+      ],
+      "file_count": 1,
+      "digest": "sha256:9e47ecae95d63e33040d20fb4ee5e9342e08f4df1df32498f38e4db51a6bef40",
+      "note": "fixture"
+    }
+  ],
+  "populations": [
+    {
+      "id": "pop-a",
+      "surface": "prod",
+      "engine": "engine-a",
+      "enumeration_status": "ENUMERATED",
+      "provenance": "tool_enumerated",
+      "source_manifest": "",
+      "source_manifest_key": "",
+      "declared_total": 2,
+      "classes": {
+        "equivalent": 1,
+        "killed": 1
+      },
+      "records": [
+        {
+          "id": "mx-1",
+          "source_tool": "PIT",
+          "raw_status": "KILLED",
+          "disposition": "killed",
+          "eligible": true,
+          "in_denominator": true,
+          "evidence": "",
+          "review_ids": []
+        },
+        {
+          "id": "mx-2",
+          "source_tool": "PIT",
+          "raw_status": "SURVIVED",
+          "disposition": "equivalent",
+          "eligible": false,
+          "in_denominator": true,
+          "evidence": "fixture equivalence argument",
+          "review_ids": [
+            "rv-1"
+          ]
+        }
+      ],
+      "rationale": "fixture"
+    }
+  ],
+  "reviews": [
+    {
+      "id": "rv-1",
+      "reviewer_id": "fixture-reviewer",
+      "role": "independent-reviewer",
+      "blind": true,
+      "disposition": "APPROVE",
+      "basis": "fixture"
+    }
+  ],
+  "score": {
+    "denominator_total": 2,
+    "eligible_total": 1,
+    "killed_total": 1,
+    "missed_total": 0,
+    "eligible_score_percent": 100,
+    "computable": true,
+    "note": "fixture"
+  },
+  "test_integrity": {
+    "legs": [
+      {
+        "id": "no-stub-before",
+        "status": "RUN",
+        "command": "fixture",
+        "exit": 0,
+        "note": "fixture"
+      },
+      {
+        "id": "no-stub-after",
+        "status": "RUN",
+        "command": "fixture",
+        "exit": 0,
+        "note": "fixture"
+      },
+      {
+        "id": "test-manifest-before",
+        "status": "RUN",
+        "command": "fixture",
+        "exit": 0,
+        "note": "fixture"
+      },
+      {
+        "id": "test-manifest-after",
+        "status": "RUN",
+        "command": "fixture",
+        "exit": 0,
+        "note": "fixture"
+      }
+    ],
+    "test_surface_digest_before": "sha256:9e47ecae95d63e33040d20fb4ee5e9342e08f4df1df32498f38e4db51a6bef40",
+    "test_surface_digest_after": "sha256:9e47ecae95d63e33040d20fb4ee5e9342e08f4df1df32498f38e4db51a6bef40",
+    "note": "fixture"
+  },
+  "arms": [
+    {
+      "id": "hidden",
+      "mutation_run_status": "RUN",
+      "separation": {
+        "cache": {
+          "declared": "hidden-cache",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "credential": {
+          "declared": "hidden-credential",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "filesystem": {
+          "declared": "hidden-filesystem",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "identity": {
+          "declared": "hidden-identity",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "signing_key": {
+          "declared": "hidden-signing_key",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "workspace": {
+          "declared": "hidden-workspace",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        }
+      },
+      "network_denial": "fixture deny-all",
+      "protected_store_denial": "fixture deny-all",
+      "budget_monotonic": true,
+      "budget_basis": "fixture",
+      "anti_evasion": "fixture",
+      "diagnostic_policy": "fixture",
+      "rationale": "fixture"
+    },
+    {
+      "id": "sealed",
+      "mutation_run_status": "RUN",
+      "separation": {
+        "cache": {
+          "declared": "sealed-cache",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "credential": {
+          "declared": "sealed-credential",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "filesystem": {
+          "declared": "sealed-filesystem",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "identity": {
+          "declared": "sealed-identity",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "signing_key": {
+          "declared": "sealed-signing_key",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        },
+        "workspace": {
+          "declared": "sealed-workspace",
+          "source": "",
+          "field": "",
+          "note": "fixture"
+        }
+      },
+      "network_denial": "fixture deny-all",
+      "protected_store_denial": "fixture deny-all",
+      "budget_monotonic": true,
+      "budget_basis": "fixture",
+      "anti_evasion": "fixture",
+      "diagnostic_policy": "fixture",
+      "rationale": "fixture"
+    }
+  ],
+  "ac5_legs": [
+    {
+      "id": "pinned-java-passes-100",
+      "requirement": "fixture",
+      "status": "PASSED",
+      "evidence": "fixture"
+    },
+    {
+      "id": "empty-stub-rust-fails",
+      "requirement": "fixture",
+      "status": "PASSED",
+      "evidence": "fixture"
+    },
+    {
+      "id": "planted-mutants-fail",
+      "requirement": "fixture",
+      "status": "PASSED",
+      "evidence": "fixture"
+    },
+    {
+      "id": "candidate-passes",
+      "requirement": "fixture",
+      "status": "PASSED",
+      "evidence": "fixture"
+    },
+    {
+      "id": "all-cases-reconcile",
+      "requirement": "fixture",
+      "status": "PASSED",
+      "evidence": "fixture"
+    },
+    {
+      "id": "zero-protected-leakage",
+      "requirement": "fixture",
+      "status": "PASSED",
+      "evidence": "fixture"
+    }
+  ],
+  "signature": {
+    "scheme": "ed25519",
+    "payload_scheme": "MUTDENOM_PAYLOAD_SHA256_V1",
+    "key_id": "us022-polarity-fixture-key (published, non-secret)",
+    "public_key_hex": "e98df6eb936e5a6a77a8928dafdec4079b74394accdf1b4aef264dafef022c6d",
+    "payload_digest": "sha256:244011b61ee9acd678fa515b0fc9991bdb7f2bbba1483a1b4724394719dce6aa",
+    "signature": "65284f465a4d3a12bf62d2ad2e52f223eda35eda16fa670ea6501c77c4262d399e7469c9a2aec02ffe1838558f0004d9075042b30d9ca441fbc0dac8c488dd0c",
+    "note": "fixture"
+  },
+  "claim": {
+    "ac1_met": false,
+    "ac2_met": false,
+    "ac3_met": false,
+    "ac4_met": false,
+    "ac5_met": false,
+    "claim_grade": "observed",
+    "honest_state": "POLARITY FIXTURE. Claims nothing."
+  }
+}

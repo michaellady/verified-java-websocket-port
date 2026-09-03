@@ -93,7 +93,7 @@ use ws_core::framing::Draft6455;
 use ws_core::handshake::client::{ClientHandshake, ClientHandshakeOutcome};
 use ws_core::handshake::server::{ServerHandshake, ServerHandshakeOutcome};
 use ws_core::handshake::{
-    HandshakeLimitExceeded, HandshakeLimitKind, HandshakeLimits, RejectChannel,
+    HandshakeLimitExceeded, HandshakeLimitKind, HandshakeLimits, RejectChannel, RejectStage,
 };
 
 // ---------------------------------------------------------------------------
@@ -163,7 +163,10 @@ enum Verdict {
         response: Option<Vec<u8>>,
         head_len: usize,
     },
-    Reject(RejectChannel),
+    /// Rejected: the draft-API channel AND the draft-API stage that
+    /// decided. Both are part of the verdict, so the determinism assertion
+    /// below requires the stage to be stable under re-chunking too.
+    Reject(RejectChannel, RejectStage),
     Limit(HandshakeLimitExceeded),
 }
 
@@ -228,9 +231,13 @@ fn judge_server(chunks: &[Vec<u8>], limits: HandshakeLimits) -> Verdict {
                 };
                 terminal = true;
             }
-            ServerHandshakeOutcome::Reject { channel, response } => {
+            ServerHandshakeOutcome::Reject {
+                channel,
+                stage,
+                response,
+            } => {
                 assert!(!response.is_empty(), "a rejection must carry an error head");
-                verdict = Verdict::Reject(channel);
+                verdict = Verdict::Reject(channel, stage);
                 terminal = true;
             }
             ServerHandshakeOutcome::LimitExceeded(refusal) => {
@@ -271,7 +278,14 @@ fn judge_client(chunks: &[Vec<u8>], key: &str, limits: HandshakeLimits) -> Verdi
         fed += piece.len();
         match outcome {
             ClientHandshakeOutcome::Incomplete => {}
-            ClientHandshakeOutcome::Accept { remainder } => {
+            ClientHandshakeOutcome::Accept {
+                remainder,
+                sec_websocket_accept,
+            } => {
+                assert!(
+                    !sec_websocket_accept.is_empty(),
+                    "a client acceptance must report the accept value it matched"
+                );
                 assert!(
                     remainder.len() <= fed,
                     "remainder cannot exceed the bytes fed"
@@ -283,8 +297,8 @@ fn judge_client(chunks: &[Vec<u8>], key: &str, limits: HandshakeLimits) -> Verdi
                 };
                 terminal = true;
             }
-            ClientHandshakeOutcome::Reject { channel } => {
-                verdict = Verdict::Reject(channel);
+            ClientHandshakeOutcome::Reject { channel, stage } => {
+                verdict = Verdict::Reject(channel, stage);
                 terminal = true;
             }
             ClientHandshakeOutcome::LimitExceeded(refusal) => {
@@ -421,7 +435,10 @@ impl HeadModel {
         }
         let tokens: Vec<&str> = self.first.splitn(3, ' ').collect();
         let [a, b, c] = tokens.as_slice() else {
-            return Err(Verdict::Reject(RejectChannel::InvalidHandshake));
+            return Err(Verdict::Reject(
+                RejectChannel::InvalidHandshake,
+                RejectStage::Translate,
+            ));
         };
         let first_line = [(*a).to_string(), (*b).to_string(), (*c).to_string()];
         for (index, header) in self.headers.iter().enumerate() {
@@ -429,7 +446,10 @@ impl HeadModel {
                 return Err(Verdict::Incomplete);
             }
             if !header.contains(':') {
-                return Err(Verdict::Reject(RejectChannel::InvalidHandshake));
+                return Err(Verdict::Reject(
+                    RejectChannel::InvalidHandshake,
+                    RejectStage::Translate,
+                ));
             }
         }
         if self.terminated_lines < self.line_count() {
@@ -451,7 +471,7 @@ impl HeadModel {
         if !first_line[0].eq_ignore_ascii_case("GET")
             || !first_line[2].eq_ignore_ascii_case("HTTP/1.1")
         {
-            return Verdict::Reject(RejectChannel::InvalidHandshake);
+            return Verdict::Reject(RejectChannel::InvalidHandshake, RejectStage::Translate);
         }
         let map = self.java_map().expect("modeled header lines carry a colon");
         let version = map.get("sec-websocket-version").map_or("", String::as_str);
@@ -461,11 +481,11 @@ impl HeadModel {
             java_trim(version).parse::<i32>().unwrap_or(-1)
         };
         if parsed != 13 {
-            return Verdict::Reject(RejectChannel::NotMatched);
+            return Verdict::Reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
         }
         let key = map.get("sec-websocket-key").map_or("", String::as_str);
         if key.is_empty() {
-            return Verdict::Reject(RejectChannel::InvalidHandshake);
+            return Verdict::Reject(RejectChannel::InvalidHandshake, RejectStage::ResponseBuild);
         }
         Verdict::Accept {
             key: Some(Draft6455::generate_accept_key(key)),
@@ -484,7 +504,7 @@ impl HeadModel {
             Err(verdict) => return verdict,
         };
         if first_line[1] != "101" || !first_line[0].eq_ignore_ascii_case("HTTP/1.1") {
-            return Verdict::Reject(RejectChannel::InvalidHandshake);
+            return Verdict::Reject(RejectChannel::InvalidHandshake, RejectStage::Translate);
         }
         let map = self.java_map().expect("modeled header lines carry a colon");
         let upgrade = map.get("upgrade").map_or("", String::as_str);
@@ -492,14 +512,14 @@ impl HeadModel {
         if !upgrade.eq_ignore_ascii_case("websocket")
             || !connection.to_ascii_lowercase().contains("upgrade")
         {
-            return Verdict::Reject(RejectChannel::NotMatched);
+            return Verdict::Reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
         }
         if client_key.is_empty() || !map.contains_key("sec-websocket-accept") {
-            return Verdict::Reject(RejectChannel::NotMatched);
+            return Verdict::Reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
         }
         let expected = Draft6455::generate_accept_key(java_trim(client_key));
         if expected != map["sec-websocket-accept"] {
-            return Verdict::Reject(RejectChannel::NotMatched);
+            return Verdict::Reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate);
         }
         Verdict::Accept {
             key: None,
@@ -978,7 +998,7 @@ fn assert_budget_rechunk_relation(label: &str, whole: &Verdict, other: &Verdict,
             "{label} strategy {strategy}: two refusals must name the same budget"
         ),
         (Verdict::Limit(_), _) => assert!(
-            matches!(other, Verdict::Accept { .. } | Verdict::Reject(_)),
+            matches!(other, Verdict::Accept { .. } | Verdict::Reject(..)),
             "{label} strategy {strategy}: whole-chunk refused on a budget but the finer \
              chunking answered {other:?}; only a terminal parse verdict may win that race"
         ),
@@ -1469,7 +1489,7 @@ fn handshake_server_shrinker_reaches_1_minimal_witnesses() {
     for case in 0..300u32 {
         let model = draw_request_model(&mut rng);
         let bytes = model.render();
-        if !matches!(judge(&bytes), Verdict::Reject(_)) {
+        if !matches!(judge(&bytes), Verdict::Reject(..)) {
             continue;
         }
         witnessed += 1;
@@ -1502,7 +1522,7 @@ fn handshake_client_shrinker_reaches_1_minimal_witnesses() {
     for case in 0..300u32 {
         let model = draw_response_model(&mut rng);
         let bytes = model.render();
-        if !matches!(judge(&bytes), Verdict::Reject(_)) {
+        if !matches!(judge(&bytes), Verdict::Reject(..)) {
             continue;
         }
         witnessed += 1;
@@ -1540,7 +1560,7 @@ fn handshake_shrinker_normal_forms_are_pinned() {
     let invalid = b"POST /a/b/c HTTP/1.1\r\nHost: x\r\nSec-WebSocket-Version: 13\r\n\r\n";
     assert_eq!(
         server(invalid),
-        Verdict::Reject(RejectChannel::InvalidHandshake)
+        Verdict::Reject(RejectChannel::InvalidHandshake, RejectStage::Translate)
     );
     let shrunk = shrink_to_1_minimal(invalid, &server);
     assert_eq!(
@@ -1556,7 +1576,7 @@ fn handshake_shrinker_normal_forms_are_pinned() {
     let not_matched = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 8\r\n\r\n";
     assert_eq!(
         server(not_matched),
-        Verdict::Reject(RejectChannel::NotMatched)
+        Verdict::Reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate)
     );
     let shrunk = shrink_to_1_minimal(not_matched, &server);
     assert_eq!(
@@ -1571,7 +1591,7 @@ fn handshake_shrinker_normal_forms_are_pinned() {
     let bad_status = b"HTTP/1.1 404 Not Found\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n";
     assert_eq!(
         client(bad_status),
-        Verdict::Reject(RejectChannel::InvalidHandshake)
+        Verdict::Reject(RejectChannel::InvalidHandshake, RejectStage::Translate)
     );
     let shrunk = shrink_to_1_minimal(bad_status, &client);
     assert_eq!(
@@ -1587,7 +1607,7 @@ fn handshake_shrinker_normal_forms_are_pinned() {
         b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: h2c\r\nConnection: Upgrade\r\n\r\n";
     assert_eq!(
         client(bad_upgrade),
-        Verdict::Reject(RejectChannel::NotMatched)
+        Verdict::Reject(RejectChannel::NotMatched, RejectStage::AcceptPredicate)
     );
     let shrunk = shrink_to_1_minimal(bad_upgrade, &client);
     assert_eq!(
@@ -1689,7 +1709,7 @@ fn handshake_budget_refusal_races_the_parse_rejection_under_rechunking() {
     let per_byte: Vec<Vec<u8>> = stream.iter().map(|byte| vec![*byte]).collect();
     assert_eq!(
         judge_server(&per_byte, limits),
-        Verdict::Reject(RejectChannel::InvalidHandshake),
+        Verdict::Reject(RejectChannel::InvalidHandshake, RejectStage::Translate),
         "byte-at-a-time delivery must reach the Java-faithful rejection first"
     );
 
@@ -1703,7 +1723,7 @@ fn handshake_budget_refusal_races_the_parse_rejection_under_rechunking() {
     );
     assert_eq!(
         judge_client(&per_byte, CLIENT_KEYS[0], limits),
-        Verdict::Reject(RejectChannel::InvalidHandshake),
+        Verdict::Reject(RejectChannel::InvalidHandshake, RejectStage::Translate),
     );
 
     // The race is confined to REACHABLE budgets: at the Java-fidelity hard

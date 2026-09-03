@@ -26,7 +26,7 @@ fn judge(client_key: &str, raw: &[u8]) -> ClientHandshakeOutcome {
 
 fn reject_channel_of(client_key: &str, raw: &[u8]) -> RejectChannel {
     match judge(client_key, raw) {
-        ClientHandshakeOutcome::Reject { channel } => channel,
+        ClientHandshakeOutcome::Reject { channel, .. } => channel,
         other => panic!("expected reject, got {other:?}"),
     }
 }

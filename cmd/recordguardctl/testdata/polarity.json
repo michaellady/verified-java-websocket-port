@@ -1,0 +1,116 @@
+{
+  "note": "Polarity control for recordguardctl. Every fixture is a drafts/self-review record extracted VERBATIM from git; `provenance` gives the blob id and the commit:path it came from, so the fixture cannot drift away from the history it claims to represent. `history/` holds records that still said they were unfinished; `real/` holds finished records a landing decision may rest on. `expect` declares the EXACT signal rows each fixture must produce as `line|signal|term`, sorted — not a count and not a boolean, so that deleting any ONE signal from the discriminator shows up here instead of being masked by another signal still firing on the same file. Three of the `real/` fixtures are adversarial controls: `div05-close-overtakes-echo-FINAL.md` is the SAME PATH as `history/div05-close-overtakes-echo-STUB.md` after the branch finished (the differential — same file, opposite verdict); `F009-quotes-the-stub.md` quotes that stub's text verbatim inside a `*\"...\"*` span and must stay silent, which is the only thing forcing quote-awareness; `F001-shortest-real-record.md` is 7 lines long, shorter than every stub in `history/`, which is what forbids a length threshold. This manifest is read by `go run ./cmd/recordguardctl gate` on every gates run, not only by `go test`.",
+  "cases": [
+    {
+      "path": "history/div05-close-overtakes-echo-STUB.md",
+      "provenance": "git blob 359940cd6fa37cf158ac603fe19803724bf9578f = drafts/self-review/div05-close-overtakes-echo.md at 755b8c8",
+      "why": "F009's motivating instance. The `claude/div05-close-overtakes-echo` branch carried this nine-line stub behind seven commits and 983 insertions of finished-looking code; the loop judged the branch reviewed by counting files matching `drafts/self-review` and reported all three wave-4 branches complete. Landing it would have put an unreviewed behaviour-bearing change on mainline. A detector that cannot catch this instance is not a detector, so this fixture is the one that must never go silent.",
+      "expect": [
+        "0|cites-nothing|",
+        "3|declared-status|in progress",
+        "3|declared-status|stub",
+        "9|void-self-report|nothing verified"
+      ]
+    },
+    {
+      "path": "history/oracle-rank3-independence-STUB.md",
+      "provenance": "git blob b9db068a73f587f57d36ca70d56ed2d7504e1e6c = drafts/self-review/oracle-rank3-independence.md at df5642c",
+      "why": "A second real stub with DIFFERENT wording: it says `No findings yet` rather than `Nothing verified yet`, and its status value is `stub pushed to protect against container restart` with no occurrence of `in progress` at all. It is here because a lexicon fitted to div05 alone would miss it. The same path is 459 real lines on mainline today, and its title was rewritten when the work became real.",
+      "expect": [
+        "1|declared-title|work in progress",
+        "9|declared-status|stub",
+        "9|void-self-report|no findings yet"
+      ]
+    },
+    {
+      "path": "history/legacy-record-adjudication-STUB.md",
+      "provenance": "git blob 86f6cead211434c3d5bcb802053a8ebc1618967f = drafts/self-review/legacy-record-adjudication-WIP.md at 714614b",
+      "why": "A third wording again: `Status: started.` — no `in progress`, no `WIP` in the status value, and no void phrase anywhere. Only the title marker and the word `started` carry it. It is the fixture that forces `started` into the lexicon.",
+      "expect": [
+        "1|declared-title|work in progress",
+        "7|declared-status|started",
+        "7|declared-status|stub"
+      ]
+    },
+    {
+      "path": "history/concurrency-coverage-disclosure-STUB.md",
+      "provenance": "git blob 98c60d6efcfc4bae3fdf3520459339f827b27ac2 = drafts/self-review/concurrency-coverage-disclosure.md at 68fbc17",
+      "why": "A stub with sixteen lines of real problem statement, two numbered findings-to-be and eight evidence tokens — more citation than several REAL records carry. It is the fixture that forbids reading evidence density as the primary signal: only the record's own `Status: STUB.` separates it from finished work.",
+      "expect": [
+        "1|declared-title|wip",
+        "6|declared-status|stub",
+        "6|declared-status|work in progress"
+      ]
+    },
+    {
+      "path": "history/handshake-discrimination-STUB.md",
+      "provenance": "git blob 0de4d18087918b907cd5ea3a49dc444bb5a690a4 = drafts/self-review/handshake-discrimination.md at 2421d6f",
+      "why": "A stub whose TITLE is clean — `raising the projection ceiling`, no marker — so the title signal cannot carry it, and whose findings section is the literal placeholder `(to be filled in — nothing claimed yet)`. It is the fixture that forces `to be filled in` and `nothing claimed yet` into the void lexicon.",
+      "expect": [
+        "3|declared-status|in progress",
+        "3|declared-status|stub",
+        "15|void-self-report|nothing claimed yet",
+        "15|void-self-report|to be filled in"
+      ]
+    },
+    {
+      "path": "history/catalog-plane-correspondence-WIP.md",
+      "provenance": "git blob 29a2d052d4d8d9ed6a92c64265c69b4b6e02701e = drafts/self-review/catalog-plane-correspondence-WIP.md at e784eb6",
+      "why": "Working notes carrying 42 lines of real evidence — plane tables, a merge-base, blob-sha borrow receipts — and NO status-declaration line at all. Two things carry it: the title qualifier `(WIP)`, and a `## Status` checklist with three unchecked boxes. It is the fixture that forces the title signal and the open-checklist signal to exist independently of the status line, and the honest-in-progress case in its purest form: this record is CORRECT as written, and the tool refuses it as a landing precondition rather than faulting it.",
+      "expect": [
+        "1|declared-title|wip",
+        "40|open-checklist|diagnosis fix",
+        "41|open-checklist|failing packages",
+        "42|open-checklist|RED readings"
+      ]
+    },
+    {
+      "path": "real/div05-close-overtakes-echo-FINAL.md",
+      "provenance": "git blob 6928ddfb6e61772b8bc036ba39f20726cc4ffce4 = drafts/self-review/div05-close-overtakes-echo.md at HEAD (mainline 4a2b9c6)",
+      "why": "THE DIFFERENTIAL. Same repository path as the first fixture, 552 lines instead of 9, after the branch actually finished; its line 3 now reads `STATUS: COMPLETE for what it claims`. Same file, same signal position, opposite verdict — which is what shows the discriminator is reading the status VALUE and not merely noticing that a status line exists. If this fires, the tool is punishing a finished record.",
+      "expect": []
+    },
+    {
+      "path": "real/F009-quotes-the-stub.md",
+      "provenance": "git blob 2e5238507239a7d16b9b0a626a86e6ba1cb99d58 = drafts/self-review/findings/F009-i-read-a-record-by-its-existence.md at HEAD",
+      "why": "QUOTE CONTROL. This finding quotes the div05 stub verbatim — `*\"STATUS: IN PROGRESS — stub pushed early to survive container restarts. … Nothing verified yet.\"*` — inside a paired double-quote span on line 4. It is a finished record. It is the only fixture that forces the discriminator to distinguish the record's own voice from a quotation, and without that distinction the tool would refuse the very finding that motivated it.",
+      "expect": []
+    },
+    {
+      "path": "real/F001-shortest-real-record.md",
+      "provenance": "git blob 6d13ec0fc11f80cb5c636bf95542adb006baac3a = drafts/self-review/findings/F001-reproduction-check-pinned-to-vendor-string.md at HEAD",
+      "why": "LENGTH CONTROL. Seven lines — shorter than five of the six `history/` stubs and shorter than the nine-line div05 stub — and completely finished: what happened, what it cost, the deciding moment, the evidence, the bin. It is the fixture that forbids any length threshold, and the reason `cites-nothing` is pinned at literally zero rather than at a fitted floor.",
+      "expect": []
+    },
+    {
+      "path": "real/us008-restart-landing.md",
+      "provenance": "git blob 9f39e9857b2ca1fc70b153032a4114b3eb7e17f8 = drafts/self-review/us008-restart-landing.md at HEAD",
+      "why": "The shortest LANDING record in the tree at 39 lines: exit codes read from the process, trees compared, nine files named. A landing decision rests on exactly this shape of record, so it must be accepted.",
+      "expect": []
+    },
+    {
+      "path": "real/adapter-residuals.md",
+      "provenance": "git blob b9cdf813ef09f28d2569bcdfcf7a2e2febebe6a4 = drafts/self-review/adapter-residuals.md at HEAD",
+      "why": "421 lines. Named in F009 as the branch that DID land in the same firing div05 was held back from, because it carried a real record. Silence here is the other half of the historical claim.",
+      "expect": []
+    },
+    {
+      "path": "real/fixture-liveness-guard-detector.md",
+      "provenance": "git blob 7d94c4015001fb549c951438706cae1e9809b58d = drafts/self-review/fixture-liveness-guard-detector.md at HEAD",
+      "why": "442 lines, and the record of the sibling detector this tool is modelled on. It discusses stubs, WIP, RED readings and deletion attacks at length, which makes it the densest available test of whether the discriminator is reading declarations or merely matching vocabulary.",
+      "expect": []
+    },
+    {
+      "path": "synthetic/wrapped-quotation.md",
+      "provenance": "hand-written; added after deletion attack A12 (the cross-line quotation carry dropped) was caught by `go test` and by running the tool on its own record, but NOT by the gate, because no fixture wrapped a quotation across a line break.",
+      "why": "CROSS-LINE QUOTE CONTROL. A finished record that quotes the div05 stub with the closing delimiter on the following line, in backticks, in double quotes and in typographic quotes. This is not a hypothetical: this tool's own record was refused at exit 1 with a void-self-report signal on exactly this shape, found by running the finished tool against the record describing it. Without this fixture the gate half cannot see A12.",
+      "expect": []
+    },
+    {
+      "path": "synthetic/substring-control.md",
+      "provenance": "hand-written; the only fixture here that is not a real record. Added after deletion attack A7 (word-boundary check removed) SURVIVED the twelve real fixtures.",
+      "why": "WORD-BOUNDARY CONTROL. A finished record in which six words each contain a lexicon term as a substring — `drafts` holds `draft`, `restarted` holds `started`, `stubbed` holds `stub`, `wiped` holds `wip`, `appending` holds `pending`, `incompleteness` holds `incomplete` — placed in the title and in the status VALUE, where the title and status signals read. No real record in the corpus happens to do this, so nothing else in the manifest can catch a discriminator that matches the lexicon without word boundaries.",
+      "expect": []
+    }
+  ]
+}

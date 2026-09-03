@@ -14,7 +14,9 @@ use ws_oracle_harness::run_lines;
 const HS_0000: &str = r#"{"case_id":"us005.hs.0000","config":{"max_handshake_bytes":4096,"max_header_count":32,"max_header_line_bytes":512},"context":{},"direction":"client_request","protocol":"java-websocket-handshake-oracle","raw_base64":"R0VUIC9zb2NrZXQvMzVhZTU1YzkgSFRUUC8xLjENCkhvc3Q6IGhvc3QtODdjYjEwLmV4YW1wbGUNClVwZ3JhZGU6IHdlYnNvY2tldA0KQ29ubmVjdGlvbjogVXBncmFkZQ0KU2VjLVdlYlNvY2tldC1LZXk6IDdRZzhKdzNxUUw0RVJyL244M1lON3c9PQ0KU2VjLVdlYlNvY2tldC1WZXJzaW9uOiAxMw0KDQo=","request_digest":"sha256:f3d3b69115bbbd49725e5ea059fb730cd726da8962c484d995c8ede57b1b99db","version":"1.0.0"}"#;
 
 /// `us005.hs.0006`: a valid server response judged by the CLIENT slice
-/// (`context.client_key` seam; no accept value is observable client-side).
+/// (`context.client_key` seam; the reported accept value is the client's own
+/// `generateFinalKey(trim(client_key))` derivation, which the acceptance
+/// predicate had to match for this case to accept at all).
 const HS_0006: &str = r#"{"case_id":"us005.hs.0006","config":{"max_handshake_bytes":4096,"max_header_count":32,"max_header_line_bytes":512},"context":{"client_key":"hnt8mbkW8KRynbLvJHSoGQ=="},"direction":"server_response","protocol":"java-websocket-handshake-oracle","raw_base64":"SFRUUC8xLjEgMTAxIFN3aXRjaGluZyBQcm90b2NvbHMNClVwZ3JhZGU6IHdlYnNvY2tldA0KQ29ubmVjdGlvbjogVXBncmFkZQ0KU2VjLVdlYlNvY2tldC1BY2NlcHQ6IHkzcEsxdGtGd2JyajIzYWlHZCtyRmRRTjRmST0NCg0K","request_digest":"sha256:0f0142ffb3697999e8d24ad2e29b1b09ae35242fd677b127b1ac10dbc372faf9","version":"1.0.0"}"#;
 
 /// `us005.hs.0042`: the zero-byte partial input (recorded observable:
@@ -56,8 +58,15 @@ fn real_client_request_case_reproduces_the_recorded_java_accept() {
     assert_eq!(transcript, expected);
 }
 
+/// A client-side acceptance reports the accept value it MATCHED. The client
+/// does not SEND one, but `acceptHandshakeAsClient` returns MATCHED only when
+/// `generateFinalKey(trim(key))` equals the response field literally
+/// (Draft_6455.java:318-325), so the value below is this slice's OWN
+/// derivation over `context.client_key` — not an echo of the response bytes.
+/// The pin is the whole response line: a value that drifted, vanished, or
+/// picked up any other field fails here.
 #[test]
-fn real_server_response_case_accepts_without_an_accept_value() {
+fn real_server_response_case_reports_the_accept_value_it_matched() {
     let transcript = run(&format!("{HS_0006}\n"));
     let expected = concat!(
         "{\"case_id\":\"us005.hs.0006\",\"java_observable\":\"accept\",",
@@ -67,9 +76,13 @@ fn real_server_response_case_accepts_without_an_accept_value() {
         "\"runtime\":{\"artifact\":\"ws-oracle-harness\",",
         "\"sha256\":\"sha256:2222222222222222222222222222222222222222",
         "222222222222222222222222\"},",
+        "\"sec_websocket_accept\":\"y3pK1tkFwbrj23aiGd+rFdQN4fI=\",",
         "\"version\":\"1.0.0\"}\n"
     );
-    assert_eq!(transcript, expected, "no sec_websocket_accept client-side");
+    assert_eq!(
+        transcript, expected,
+        "the client-side accept value is the derivation over client_key"
+    );
 }
 
 #[test]
@@ -80,6 +93,7 @@ fn zero_byte_partial_input_reports_incomplete() {
         "got {transcript}"
     );
     assert!(!transcript.contains("reject_channel"));
+    assert!(!transcript.contains("reject_stage"));
     assert!(!transcript.contains("close_code"));
 }
 
@@ -141,6 +155,84 @@ fn rejections_carry_the_channel_and_the_1002_close_code() {
     let transcript = run(&format!("{invalid}\n"));
     assert!(transcript.contains("\"reject_channel\":\"invalid_handshake\""));
     assert!(transcript.contains("\"close_code\":1002"));
+}
+
+/// Every rejection also names WHICH draft-API call decided it, and the three
+/// stages are reachable and distinct. The `invalid_handshake` channel covers
+/// two of them, which is the whole reason the key exists: `translate` means no
+/// `Handshakedata` was ever built and shipped Java never reached the
+/// application listener, while `response_build` means the predicate MATCHED,
+/// `onWebsocketHandshakeReceivedAsServer` was already called
+/// (WebSocketImpl.java:284-301), and only `postProcessHandshakeResponseAsServer`
+/// refused (Draft_6455.java:438-440).
+///
+/// Deleting the `reject_stage` insertion in `handshake_adapter.rs::respond`
+/// leaves every other assertion in this file green; only this one falls.
+#[test]
+fn rejections_name_the_draft_api_call_that_decided() {
+    struct Expect {
+        case_id: &'static str,
+        direction: &'static str,
+        client_key: Option<&'static str>,
+        raw: &'static [u8],
+        channel: &'static str,
+        stage: &'static str,
+    }
+    let cases = [
+        // Head never parsed: one token on the request line.
+        Expect {
+            case_id: "crafted.oneword",
+            direction: "client_request",
+            client_key: None,
+            raw: b"BAD\r\n\r\n",
+            channel: "invalid_handshake",
+            stage: "translate",
+        },
+        // Head parsed; acceptHandshakeAsServer said NOT_MATCHED on version.
+        Expect {
+            case_id: "crafted.version12",
+            direction: "client_request",
+            client_key: None,
+            raw: b"GET / HTTP/1.1\r\nSec-WebSocket-Key: k\r\nSec-WebSocket-Version: 12\r\n\r\n",
+            channel: "not_matched",
+            stage: "accept_predicate",
+        },
+        // Head parsed AND the predicate MATCHED; the response could not be
+        // built because Sec-WebSocket-Key is absent. Same CHANNEL as the first
+        // row, different STAGE — the collision this key resolves.
+        Expect {
+            case_id: "crafted.nokey",
+            direction: "client_request",
+            client_key: None,
+            raw: b"GET / HTTP/1.1\r\nSec-WebSocket-Version: 13\r\n\r\n",
+            channel: "invalid_handshake",
+            stage: "response_build",
+        },
+        // Client side: a non-101 status throws inside translateHandshakeHttp.
+        Expect {
+            case_id: "crafted.notonehundredone",
+            direction: "server_response",
+            client_key: Some("hnt8mbkW8KRynbLvJHSoGQ=="),
+            raw: b"HTTP/1.1 404 Not Found\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n",
+            channel: "invalid_handshake",
+            stage: "translate",
+        },
+    ];
+    for case in cases {
+        let line = bound_line(case.case_id, case.direction, case.client_key, case.raw);
+        let transcript = run(&format!("{line}\n"));
+        assert!(
+            transcript.contains(&format!("\"reject_channel\":\"{}\"", case.channel)),
+            "{}: wrong channel in {transcript}",
+            case.case_id
+        );
+        assert!(
+            transcript.contains(&format!("\"reject_stage\":\"{}\"", case.stage)),
+            "{}: expected stage {} in {transcript}",
+            case.case_id,
+            case.stage
+        );
+    }
 }
 
 #[test]

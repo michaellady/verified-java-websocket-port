@@ -323,7 +323,9 @@ func Probes() []Probe {
 				"Subprotocol and extension negotiation is unobservable to the 49-case exam.",
 			Mechanism: "handshake_adapter.rs::judge discards the response head by its own " +
 				"admission (\"never the response head, which it discards below\") and respond() " +
-				"emits only java_observable plus sec_websocket_accept on a server-side accept.",
+				"emits only java_observable plus the Sec-WebSocket-Accept value on an accept — " +
+				"the derived one on the server side, the matched one on the client side. Not " +
+				"one other field of the head survives, on either side.",
 			Disclosure: "The head-discard is disclosed in the adapter's own comment, scoped to " +
 				"the RESPONSE head. That the REQUEST's negotiation headers are equally unscored " +
 				"is not stated, and permessage-deflate is precisely the kind of behaviour a port " +
@@ -363,11 +365,17 @@ func Probes() []Probe {
 			Expect:     Confirmed,
 			Projection: "handshake.judged",
 			Erases: "Every distinction between two rejected handshakes that take the same " +
-				"draft-API channel — including the Sec-WebSocket-Key, which is never echoed on " +
-				"a reject. close_code is a CONSTANT (HANDSHAKE_REJECT_CLOSE_CODE) and carries " +
-				"no information at all.",
-			Mechanism: "respond() emits reject_channel plus a hardcoded 1002. " +
-				"evaluateHandshakeLiveResponse compares exactly those two.",
+				"draft-API channel AND the same draft-API stage — including the " +
+				"Sec-WebSocket-Key, which is never echoed on a reject. close_code is a " +
+				"CONSTANT (HANDSHAKE_REJECT_CLOSE_CODE) and carries no information at all. " +
+				"This probe's two seeds both miss Sec-WebSocket-Version, so both are decided " +
+				"by acceptHandshakeAsServer returning NOT_MATCHED: same channel, same stage, " +
+				"and the stage refinement does not separate them. It never could — " +
+				"HandshakeState is one enum value returned by one method, so there is no finer " +
+				"draft-API fact underneath it to report.",
+			Mechanism: "respond() emits reject_channel and reject_stage plus a hardcoded 1002. " +
+				"evaluateHandshakeLiveResponse compares exactly those three, and the residual " +
+				"class is every rejection sharing a (channel, stage) pair.",
 			Disclosure: "DISCLOSED, and unusually well: evidence/us005-handshake-live-mapping.json's " +
 				"granularity_statement says the Java runtime cannot observably distinguish most " +
 				"HS_* reject codes and that the draft-API channel is \"the finest honest " +

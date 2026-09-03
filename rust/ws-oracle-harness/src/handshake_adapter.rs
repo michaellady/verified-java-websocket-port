@@ -36,7 +36,9 @@ use std::collections::BTreeMap;
 
 use ws_core::handshake::client::{ClientHandshake, ClientHandshakeOutcome};
 use ws_core::handshake::server::{ServerHandshake, ServerHandshakeOutcome};
-use ws_core::handshake::{HANDSHAKE_REJECT_CLOSE_CODE, HandshakeLimits, RejectChannel};
+use ws_core::handshake::{
+    HANDSHAKE_REJECT_CLOSE_CODE, HandshakeLimits, RejectChannel, RejectStage,
+};
 
 use crate::json::{self, Value};
 use crate::request::{self, ProtocolError};
@@ -190,6 +192,7 @@ enum Observable {
     },
     Reject {
         channel: RejectChannel,
+        stage: RejectStage,
     },
     Incomplete,
 }
@@ -217,8 +220,8 @@ fn judge(request: &HandshakeRequest) -> Result<Observable, ProtocolError> {
                 ServerHandshakeOutcome::Accept { accept_key, .. } => Ok(Observable::Accept {
                     sec_websocket_accept: Some(accept_key),
                 }),
-                ServerHandshakeOutcome::Reject { channel, .. } => {
-                    Ok(Observable::Reject { channel })
+                ServerHandshakeOutcome::Reject { channel, stage, .. } => {
+                    Ok(Observable::Reject { channel, stage })
                 }
                 // Unreachable through this protocol: the raw payload is
                 // bounded by the 1 MiB JSONL line ceiling, below the
@@ -235,12 +238,23 @@ fn judge(request: &HandshakeRequest) -> Result<Observable, ProtocolError> {
             let mut machine = ClientHandshake::for_recorded_key(&request.client_key, limits);
             match machine.consume(&request.raw) {
                 ClientHandshakeOutcome::Incomplete => Ok(Observable::Incomplete),
-                // The client side observes no accept value (live mapping:
-                // "no accept value is observable on the client side").
-                ClientHandshakeOutcome::Accept { .. } => Ok(Observable::Accept {
-                    sec_websocket_accept: None,
+                // The client side reports the accept value it MATCHED —
+                // `generateFinalKey(trim(client_key))`, the same SHA-1
+                // derivation the server side reports, computed by the client
+                // on every acceptance (Draft_6455.java:318-325). The earlier
+                // adapter emitted nothing here, on the reading that "no
+                // accept value is observable on the client side"; what is
+                // true is that the client does not SEND one. It derives one,
+                // and matching it is the whole acceptance predicate.
+                ClientHandshakeOutcome::Accept {
+                    sec_websocket_accept,
+                    ..
+                } => Ok(Observable::Accept {
+                    sec_websocket_accept: Some(sec_websocket_accept),
                 }),
-                ClientHandshakeOutcome::Reject { channel } => Ok(Observable::Reject { channel }),
+                ClientHandshakeOutcome::Reject { channel, stage } => {
+                    Ok(Observable::Reject { channel, stage })
+                }
                 ClientHandshakeOutcome::LimitExceeded(_) | ClientHandshakeOutcome::NotAwaiting => {
                     Err(ProtocolError::new(
                         "HANDSHAKE_ADAPTER_UNREACHABLE",
@@ -288,7 +302,7 @@ fn respond(
                 response.insert("sec_websocket_accept".to_string(), Value::Str(accept));
             }
         }
-        Observable::Reject { channel } => {
+        Observable::Reject { channel, stage } => {
             response.insert(
                 "java_observable".to_string(),
                 Value::Str("reject".to_string()),
@@ -296,6 +310,10 @@ fn respond(
             response.insert(
                 "reject_channel".to_string(),
                 Value::Str(channel.wire_name().to_string()),
+            );
+            response.insert(
+                "reject_stage".to_string(),
+                Value::Str(stage.wire_name().to_string()),
             );
             response.insert(
                 "close_code".to_string(),
