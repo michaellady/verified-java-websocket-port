@@ -185,60 +185,74 @@ func Scan(src string) []Signal {
 func maskOtherVoices(lines []string) []string {
 	out := make([]string, len(lines))
 	inFence := false
+	// carry is the closer an unclosed span on a previous line is still waiting
+	// for. A markdown inline span may wrap a single line break but never a blank
+	// line, so carry is dropped at a blank line — which bounds the damage an odd
+	// stray quote can do to one paragraph instead of the rest of the record.
+	var carry rune
 	for i, raw := range lines {
 		if fenceRe.MatchString(raw) {
 			inFence = !inFence
+			carry = 0
 			out[i] = blank(raw)
 			continue
 		}
 		if inFence || quoteRe.MatchString(raw) {
+			carry = 0
 			out[i] = blank(raw)
 			continue
 		}
-		out[i] = maskPairs(raw)
+		if strings.TrimSpace(raw) == "" {
+			carry = 0
+			out[i] = raw
+			continue
+		}
+		out[i], carry = maskPairs(raw, carry)
 	}
 	return out
 }
 
 func blank(s string) string { return strings.Repeat(" ", len([]rune(s))) }
 
-// maskPairs blanks the interior of paired quote and code spans on one line.
-func maskPairs(s string) string {
+// maskPairs blanks the interior of paired quote and code spans on one line. It
+// takes the closer left open by the previous line and returns the one it leaves
+// open, so a quotation that wraps a line break stays masked on both lines. That
+// case is not hypothetical: this tool's own record quotes F009 quoting the div05
+// stub, and the closing backtick lands on the following line.
+func maskPairs(s string, carry rune) (string, rune) {
 	r := []rune(s)
 	out := append([]rune(nil), r...)
-	type opener struct {
-		idx  int
-		ch   rune
-		want rune
+	openIdx, want := 0, carry
+	if want != 0 {
+		openIdx = 0
 	}
-	var open *opener
 	for i, ch := range r {
-		if open == nil {
+		if want == 0 {
 			switch ch {
 			case '"':
-				open = &opener{i, ch, '"'}
+				openIdx, want = i, '"'
 			case '“':
-				open = &opener{i, ch, '”'}
+				openIdx, want = i, '”'
 			case '`':
-				open = &opener{i, ch, '`'}
+				openIdx, want = i, '`'
 			}
 			continue
 		}
-		if ch == open.want {
-			for j := open.idx; j <= i; j++ {
+		if ch == want {
+			for j := openIdx; j <= i; j++ {
 				out[j] = ' '
 			}
-			open = nil
+			want = 0
 		}
 	}
-	// An unclosed opener is a quotation that continues past this line; mask to
-	// the end so a stub quoted across a line break is not read as our voice.
-	if open != nil {
-		for j := open.idx; j < len(out); j++ {
+	// Still open: the quotation continues past this line, so mask to the end and
+	// hand the closer to the next line.
+	if want != 0 {
+		for j := openIdx; j < len(out); j++ {
 			out[j] = ' '
 		}
 	}
-	return string(out)
+	return string(out), want
 }
 
 // matchTerms returns the distinct lexicon terms present in s as whole words,

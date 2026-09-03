@@ -137,6 +137,38 @@ func TestQuotingAStubDoesNotMakeARecordAStub(t *testing.T) {
 	}
 }
 
+// TestAQuotationThatWrapsALineBreakStaysMasked pins a false positive found by
+// running the tool on its OWN record. That record quotes F009 quoting the div05
+// stub, and the closing backtick lands on the following line; with per-line
+// masking the trailing fragment `... Nothing verified yet."*` was read as the
+// record's own voice and a finished record was refused (exit 1, signal
+// void-self-report at line 81). An inline span may wrap one line break but never
+// a blank line, so the open closer is carried across lines and dropped at a
+// blank line.
+func TestAQuotationThatWrapsALineBreakStaysMasked(t *testing.T) {
+	wrapped := "# a finished record — the differential closed\n\n" +
+		"STATUS: COMPLETE.\n\n" +
+		"F009 quotes the stub verbatim: `*\"STATUS: IN PROGRESS — stub pushed early to survive\n" +
+		"container restarts. … Nothing verified yet.\"*`. That is a quotation, not this record.\n\n" +
+		"`make -C rust gates` exit 0 at 4a2b9c6.\n"
+	if sigs := Scan(wrapped); len(sigs) != 0 {
+		t.Errorf("a quotation wrapping a line break was read as the record's own voice: %v", Rows(sigs))
+	}
+	// The carry must be dropped at a blank line, or one stray quote would mask
+	// the remainder of the record and swallow every later signal.
+	strayThenReal := "# a record — notes\n\n" +
+		"An unbalanced \" opens here and is never closed on this line.\n\n" +
+		"STATUS: IN PROGRESS.\n\n" +
+		"`cited` at 4a2b9c6.\n"
+	sigs := Scan(strayThenReal)
+	if len(sigs) == 0 {
+		t.Fatalf("a stray quote masked the rest of the record: the status declaration after the blank line was never read")
+	}
+	if sigs[0].Kind != "declared-status" || sigs[0].Line != 5 {
+		t.Errorf("want declared-status at line 5, got %s at line %d", sigs[0].Kind, sigs[0].Line)
+	}
+}
+
 // TestLengthIsNotTheDiscriminator pins the calibration finding that a length
 // threshold is impossible here: the shortest real record in the tree is SHORTER
 // than five of the six historical stubs.

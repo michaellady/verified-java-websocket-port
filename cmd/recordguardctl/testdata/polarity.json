@@ -101,6 +101,12 @@
       "expect": []
     },
     {
+      "path": "synthetic/wrapped-quotation.md",
+      "provenance": "hand-written; added after deletion attack A12 (the cross-line quotation carry dropped) was caught by `go test` and by running the tool on its own record, but NOT by the gate, because no fixture wrapped a quotation across a line break.",
+      "why": "CROSS-LINE QUOTE CONTROL. A finished record that quotes the div05 stub with the closing delimiter on the following line, in backticks, in double quotes and in typographic quotes. This is not a hypothetical: this tool's own record was refused at exit 1 with a void-self-report signal on exactly this shape, found by running the finished tool against the record describing it. Without this fixture the gate half cannot see A12.",
+      "expect": []
+    },
+    {
       "path": "synthetic/substring-control.md",
       "provenance": "hand-written; the only fixture here that is not a real record. Added after deletion attack A7 (word-boundary check removed) SURVIVED the twelve real fixtures.",
       "why": "WORD-BOUNDARY CONTROL. A finished record in which six words each contain a lexicon term as a substring — `drafts` holds `draft`, `restarted` holds `started`, `stubbed` holds `stub`, `wiped` holds `wip`, `appending` holds `pending`, `incompleteness` holds `incomplete` — placed in the title and in the status VALUE, where the title and status signals read. No real record in the corpus happens to do this, so nothing else in the manifest can catch a discriminator that matches the lexicon without word boundaries.",
