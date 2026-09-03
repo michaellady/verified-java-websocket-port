@@ -2,7 +2,7 @@
 
 branch: `claude/adapter-residuals`, from mainline `claude/feature/verified-java-websocket-port` at `58f3aa4`
 date: 2026-09-03
-scope: `rust/ws-testee/src/io_loop.rs` (+43/-4), `rust/ws-testee/tests/loopback.rs` (+236), `cmd/fixtureguardctl/*` (new `budget.go`, `budget_test.go`, one polarity fixture), `rust/Makefile`, `evidence/linkage/*` (refrozen digests only).
+scope (`git diff --stat 58f3aa4 HEAD`, 18 files, +1514/-42): `rust/ws-testee/src/io_loop.rs` (+50/-4), `rust/ws-testee/tests/loopback.rs` (+236), `cmd/fixtureguardctl/*` (new `budget.go`, `budget_test.go`, one polarity fixture), `rust/Makefile`, `evidence/linkage/*` (10 refrozen digest lines and nothing else), and this record plus dated closure pointers in the three records that named these residuals.
 `ws-core`, `ws-driver` and `ws-oracle-harness` are **byte-identical to `58f3aa4`** — `git diff --stat 58f3aa4 HEAD` over the three is empty.
 
 Both residuals were named by the work that created them rather than hidden, and
