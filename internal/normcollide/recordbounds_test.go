@@ -73,6 +73,14 @@ func TestFlattenRecordJoinsAWrappedSentenceAndStripsEmphasis(t *testing.T) {
 	if lineOf[location[0]] != 1 {
 		t.Fatalf("match reported on line %d, want 1", lineOf[location[0]])
 	}
+	// Underscores must SURVIVE flattening. Stripping them as markdown emphasis
+	// turned sec_websocket_accept into secwebsocketaccept, so the surface-row
+	// check reported a correct row as missing every scored key it named. The
+	// bug was found by that check failing on a row already fixed by hand.
+	kept, _ := flattenRecord("names `sec_websocket_accept` and `reject_stage`")
+	if !strings.Contains(kept, "sec_websocket_accept") || !strings.Contains(kept, "reject_stage") {
+		t.Fatalf("flatten mangled an identifier: %q", kept)
+	}
 }
 
 // TestEveryBoundClaimCapturesExactlyOneNumber refuses a claim whose pattern has
@@ -92,4 +100,26 @@ func TestEveryBoundClaimCapturesExactlyOneNumber(t *testing.T) {
 			t.Errorf("%s: no Want reader", claim.Field)
 		}
 	}
+}
+
+// TestLandingRecordSurfaceRowNamesWhatTheDocumentScores pins the two axes
+// PartitionCensus cannot reach — how many keys each handshake shape has, and
+// which scored keys discriminate — on the one row that demonstrably rotted.
+func TestLandingRecordSurfaceRowNamesWhatTheDocumentScores(t *testing.T) {
+	mismatches, err := CheckRecordSurfaceRow(repoRoot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mismatches) == 0 {
+		return
+	}
+	var report strings.Builder
+	for _, m := range mismatches {
+		report.WriteString("\n  " + m.String())
+	}
+	t.Fatalf("the landing record's handshake.judged row disagrees with the committed "+
+		"document on %d point(s). PartitionCensus cannot catch this: "+
+		"ClassifyHandshakeKeys returns handshake.judged for ANY key set containing "+
+		"java_observable, so the shape stays classified while the row rots.%s",
+		len(mismatches), report.String())
 }

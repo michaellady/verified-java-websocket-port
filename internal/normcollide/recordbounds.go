@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -174,7 +175,13 @@ func flattenRecord(raw string) (string, []int) {
 		case '\n':
 			line++
 			c = ' '
-		case '*', '`', '_':
+		// `*` and a backtick are stripped so a bound stated as `**26**` and one
+		// stated as 26 are the same claim. `_` is deliberately NOT stripped:
+		// underscores are load-bearing in the identifiers this check looks for,
+		// and stripping them turned sec_websocket_accept into
+		// secwebsocketaccept, which matched nothing. Caught by the surface-row
+		// check failing on a row that was already correct.
+		case '*', '`':
 			continue
 		}
 		if c == ' ' || c == '\t' {
@@ -236,6 +243,122 @@ func CheckRecordBounds(root string) ([]BoundMismatch, error) {
 			Line: lineOf[location[0]],
 			Text: strings.TrimSpace(flat[location[0]:location[1]]),
 		})
+	}
+	return mismatches, nil
+}
+
+// SurfaceRowMismatch is one disagreement between the landing record's
+// `handshake.judged` surface row and the committed document.
+//
+// This row gets its own check because it is the row that rotted, and the reason
+// it rotted is structural: PartitionCensus guards which SHAPES the surface table
+// classifies, never how many keys each shape has nor which of them the scorer
+// compares. Both of those live only in the record's prose, so both are pinned
+// here.
+type SurfaceRowMismatch struct {
+	Kind    string
+	Missing string
+	Row     string
+}
+
+func (m SurfaceRowMismatch) String() string {
+	return fmt.Sprintf("handshake.judged row: %s %q is not named in the record's row\n      %s",
+		m.Kind, m.Missing, m.Row)
+}
+
+// handshakeRowRe finds the landing record's `handshake.judged` table row.
+var handshakeRowRe = regexp.MustCompile(`(?m)^\|\s*.?handshake\.judged.?\s*\|.*$`)
+
+// CheckRecordSurfaceRow verifies the landing record's `handshake.judged` row
+// against the committed document, on the two axes PartitionCensus cannot reach.
+//
+//  1. ARITY. Every distinct key-set size the census measured must appear in the
+//     row. The row said `6–8` while the measured sizes were 6, 7 and 9.
+//
+//  2. THE DISCRIMINATING SCORED KEYS. Every scored key that is present in some
+//     handshake key set but NOT in all of them must be named in the row. That
+//     set is derived from the document, never authored here: a key present in
+//     every shape (case_id, protocol, version, runtime, request_digest) cannot
+//     discriminate by its presence, and a key present in only some shapes is
+//     exactly what the "what the scorer compares" column is for. On the
+//     committed document this derives {close_code, reject_channel, reject_stage,
+//     sec_websocket_accept} — and `reject_stage`, added by d90308a, is the key
+//     the row omitted for a day with every gate green.
+//
+// Absent row is a failure, for the same fail-closed reason as a missing bound.
+func CheckRecordSurfaceRow(root string) ([]SurfaceRowMismatch, error) {
+	rawDocument, err := os.ReadFile(filepath.Join(root, DocumentPath))
+	if err != nil {
+		return nil, err
+	}
+	var document Document
+	if err := json.Unmarshal(rawDocument, &document); err != nil {
+		return nil, fmt.Errorf("%s: %w", DocumentPath, err)
+	}
+	rawRecord, err := os.ReadFile(filepath.Join(root, LandingRecordPath))
+	if err != nil {
+		return nil, err
+	}
+	row := handshakeRowRe.FindString(string(rawRecord))
+	if row == "" {
+		return []SurfaceRowMismatch{{Kind: "the row itself",
+			Missing: "handshake.judged", Row: "(no such row in the record)"}}, nil
+	}
+	stripped, _ := flattenRecord(row)
+
+	// The handshake census, and the presence of each key across its shapes.
+	var shapes int
+	presence := map[string]int{}
+	sizes := map[int]bool{}
+	for _, census := range document.Census {
+		if !strings.Contains(census.Source, HandshakeCasesPath) {
+			continue
+		}
+		for _, keySet := range census.KeySets {
+			shapes++
+			sizes[len(keySet.Keys)] = true
+			for _, key := range keySet.Keys {
+				presence[key]++
+			}
+		}
+	}
+	if shapes == 0 {
+		return nil, fmt.Errorf("%s carries no handshake census to check the row against", DocumentPath)
+	}
+	scored := map[string]bool{}
+	for _, projection := range document.Surface {
+		if projection.ID != "handshake.judged" {
+			continue
+		}
+		for _, key := range projection.Scores {
+			scored[key] = true
+		}
+	}
+
+	var mismatches []SurfaceRowMismatch
+	var orderedSizes []int
+	for size := range sizes {
+		orderedSizes = append(orderedSizes, size)
+	}
+	sort.Ints(orderedSizes)
+	for _, size := range orderedSizes {
+		if !regexp.MustCompile(`\b` + strconv.Itoa(size) + `\b`).MatchString(stripped) {
+			mismatches = append(mismatches, SurfaceRowMismatch{
+				Kind: "measured key-set size", Missing: strconv.Itoa(size), Row: strings.TrimSpace(stripped)})
+		}
+	}
+	var discriminating []string
+	for key, count := range presence {
+		if scored[key] && count < shapes {
+			discriminating = append(discriminating, key)
+		}
+	}
+	sort.Strings(discriminating)
+	for _, key := range discriminating {
+		if !strings.Contains(stripped, key) {
+			mismatches = append(mismatches, SurfaceRowMismatch{
+				Kind: "discriminating scored key", Missing: key, Row: strings.TrimSpace(stripped)})
+		}
 	}
 	return mismatches, nil
 }
