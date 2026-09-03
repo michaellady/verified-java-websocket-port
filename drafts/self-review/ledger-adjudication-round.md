@@ -560,87 +560,110 @@ different isolated record should be named here."* It did, and it did.
 Nothing was loosened. No assertion was deleted, no expectation widened to a
 range, and the deliberate-failure polarity of each test is unchanged.
 
-## 7c. A FOURTH package fails, it is not mine, and the two-package baseline is not true today
+## 7c. I published a baseline claim from a tree I had never set up, and the real failure was mine
 
-`go test ./... -timeout 40m` exit **1**, with **41 ok** and **four** failing
-packages, not two:
+This section replaces what I first wrote under this heading. The replacement is
+the point, so the wrong version is described rather than deleted.
 
-| package | cause |
-| --- | --- |
-| `internal/deltaledger` | **mine**, fixed in section 7b |
-| `internal/lab` | the documented Darwin `sandbox-exec` reason **plus the same 403 in three more tests** |
-| `internal/portplan` | the documented vendor decision |
-| `internal/formalplan` | **not mine**, and not on the documented list |
+### What I first wrote, and why it was wrong twice over
 
-Every `formalplan` failure carries the same finding — `JAVA_QUARANTINE_UNAVAILABLE`
-at `assurance/formal/proof-targets.json#$.sources.quarantined_java_tree`,
-message `JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403`
-— across `TestProofTargetsRealDocumentVerifies`,
-`TestFormalPreflightRealDocumentDeepRulesClean`, the four `Deep` preflight
-tests, the five `CloseDeliveryConsistency` subtests, the three
-`SeededDefectsBlockWithTypedFindings` subtests (each reporting
-`finding … absent; got [JAVA_QUARANTINE_UNAVAILABLE]`, so the quarantine
-refusal is masking the seeded defect the subtest exists to detect) and the
-three `TargetsRound1` claims.
+`go test ./...` in this worktree failed in four packages. Two were the
+documented ones. One was mine and is fixed in section 7b. The fourth was
+`internal/formalplan`, and every failure in it read
+`JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403`. I
+probed the pinned archive URL, got 403 with a 378-byte body, and wrote that a
+fourth package was failing for an environment reason and that the repository's
+two-package baseline statement was false.
 
-Probed directly rather than inferred:
+**Both halves of that were wrong, and the second one was a defect of mine
+hiding behind the first.**
 
-```
-curl https://github.com/TooTallNate/Java-WebSocket/archive/da3cf2a777aed862f2f5b5cf060cae7969958667.tar.gz
-    http=403  bytes=378
-    {"message":"GitHub access to this repository is not enabled for this session. …"}
-    sha256 b3e03aaaff81d68730d67392a135ac3fdfdf022880c66632ab188d2fe084cda3
-```
+`git worktree add` does not carry `.quarantine/` — it is git-ignored — so this
+worktree began with the directory empty, and `.claude/GOAL-LOOP.md` step **0**
+says exactly what to do about that, in its first four lines:
 
-That is the pinned source archive named in `evidence/intake/source-pins.json`
-(`java-websocket-source-archive`, pinned `sha256:f44e7647…13cb4`), and the 378
-bytes and their digest are byte-identical to the refusal the DIV-05
-continuation recorded for the same URL. `.quarantine/` is empty and git-ignored.
+> If `.quarantine/` lacks the four pinned Java inputs, copy them from
+> `~/.cache/verified-java-websocket-port/quarantine/` or materialise them per
+> `CLOUD-ENVIRONMENT.md`, "Pinned Java inputs".
 
-**AND THE SAME 403 IS ALSO FAILING `internal/lab`, BEHIND AN ACCEPTED LABEL.**
-`internal/lab` is on the documented list for the Darwin `sandbox-exec` reason,
-and one of its failures is exactly that
-(`sandbox_test.go:21: PLATFORM_EXECUTOR_UNSUPPORTED … CONTROLLED_CANARY requires
-Darwin sandbox-exec`). Three others are not:
+Step 4's own command block then sets
+`export PATH=$PWD/.quarantine/jdk-17.0.19+10/bin:$PATH`, commented
+"internal/portplan refuses any other javac". I ran step 4 without step 0. The
+403 is real for a direct fetch and the recipe never fetches that URL. That is
+the F008 shape — the nearest explanation standing in for the diagnosis — and it
+is the same error the `c738b81` commit had just corrected in itself, two
+paragraphs from the document I did not read.
+
+### The setup, done, with the digests verified rather than assumed
+
+The four pinned inputs were already staged in the main checkout, so they were
+copied in (a file copy out of another worktree's ignored directory; no git
+command was run with that directory as its working directory, per the standing
+rule about shared checkouts). Verified:
 
 ```
-e2e_test.go:113        source materialization failed (never skipped):
-                       JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403
-review_fixes_test.go:250   cannot materialize the pinned source: … HTTP 403
-round2_fixes_test.go:123   … got ORACLE_TREE_MISMATCH: cannot walk the source tree:
-                       lstat ../../.quarantine/Java-WebSocket-da3cf2a…/src/main/java:
-                       no such file or directory
+sha256sum .quarantine/java-websocket-source-archive.tar.gz
+    f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4
+evidence/intake/source-pins.json  java-websocket-source-archive
+    sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4    EQUAL
+
+.quarantine/jdk-17.0.19+10/bin/javac -version
+    javac 17.0.19
 ```
 
-So one environment fact — no GitHub access to the pinned Java source — is
-failing tests in **two** packages, and in one of them it is invisible because
-the package is already labelled failing for something else. That is a label
-standing in for a diagnosis, which is the same shape as F008. The
-`round2_fixes_test.go:123` line is the sharpest instance: a fail-closed test
-that should report `ORACLE_REPRODUCTION_MISMATCH` reports a missing directory
-instead, so the tamper it exists to detect is not being detected.
+`.quarantine/` stays git-ignored (`.gitignore:30`), so nothing staged is
+committed. Everything in sections 3, 5 and 6 that reads the pinned Java source
+at first hand became possible only after this step, so running the setup late
+paid for itself twice.
 
-**Why this is proven not to be mine.** The diff on this branch touches
-`internal/deltaledger/` (one new definitions file, one hook line, three test
-files), `evidence/java/behavior-delta-ledger.json`,
-`evidence/java/ledger-supersessions.json`,
-`evidence/java/legacy-record-adjudications.json`,
-`evidence/governance/owner-decision-digests.json` and two records under
-`drafts/self-review/`. None of those is read by the quarantine acquisition
-path, and the failure is a network refusal from the session proxy rather than
-a content mismatch.
+### What the suite actually says once it is set up
 
-**EXACT ACTION NEEDED, and it is not mine to take.** The session has no GitHub
-access to `TooTallNate/Java-WebSocket`, so `internal/portplan.EnsureQuarantinedSource`
-cannot acquire the pinned tree and every Java-source-anchored formal check
-fails closed. Attaching that repository to the session would turn the package
-green by *acquiring quarantined third-party source mid-round*, which changes
-what the evidence plane can see and is governed by the acquisition lifecycle in
-`evidence/intake/source-pins.json` (expiry 2026-09-23, "fail closed on
-artifact, tool, license, policy, repository, role, identity, or
-vulnerability-state revocation"). I did not do it. The two-package baseline
-statement is therefore FALSE on this branch today, and it is reported rather
-than amended — which is the rule the protocol states for exactly this case.
+`go test -count=1 ./... -timeout 40m` — **exit 1, 42 ok, three failing
+packages**:
+
+| package | cause | whose |
+| --- | --- | --- |
+| `internal/lab` | `sandbox_test.go:21: PLATFORM_EXECUTOR_UNSUPPORTED … CONTROLLED_CANARY requires Darwin sandbox-exec` | documented |
+| `internal/portplan` | `ORACLE_REPRODUCTION_MISMATCH … differing_lines=1 of committed_lines=1071; line 6: committed "jdk_vendor": "Homebrew", regenerated "jdk_vendor": "Eclipse Adoptium"` | documented |
+| `internal/formalplan` | `PLAN_LEDGER_BINDING_MISMATCH` twice, plus a US-006 fixture digest | **MINE** |
+
+So the two-package baseline statement is TRUE, `internal/portplan` fails with
+exactly the one-line vendor difference the owner decision under P0 covers, and
+the third package was a defect of mine that the unstaged run had disguised as
+an environment failure.
+
+### The defect, and the repair
+
+```
+plan records ledger head "sha256:a44191d3c2db…" but the ledger says "sha256:1f47cd6260…"
+plan records 56 ledger records but the ledger has 58
+```
+
+`assurance/concurrency/plan.json` pins the ledger's head and record count under
+`behavior_delta_ledger`, and my append moved both. **`pinconsumerctl consumers
+evidence/java/behavior-delta-ledger.json` reports `consumers=0`**, and its
+ceiling is why: it indexes by the digest of a FILE's contents, and the plan
+pins the ledger's `observed_head` FIELD — a value inside the document, not the
+document itself. The tool built for exactly this question could not have found
+this one, and that is worth knowing about the tool rather than about this
+branch.
+
+Repaired the way both previous appends repaired it, and held to their own
+standard: three keys changed under `behavior_delta_ledger` — `observed_head`,
+`observed_record_count` 56 to 58, and the `append_blocker` prose extended to
+describe sequences 57 and 58, including that neither binds an executed Autobahn
+observation. A parsed key-level diff over all **781** leaf keys shows those
+three and no others changed, none added, none removed, and the `bounds` object
+byte-identical. `assurance/concurrency/results.json`'s
+`preregistered_plan.sha256` was then re-bound to the new plan
+(`3366b7615ff5ea8416bebe049f5c15277adf7768084e5510d88e597ad8013fce`) with a
+provenance note saying what moved and what was NOT re-measured.
+
+`internal/linkage` then went stale on `evidence.linkage.schedule-exploration`,
+whose path is `results.json`. Refrozen through the sanctioned path with BOTH
+exits read: `LINKAGE_REGENERATE=1 go test -count=1 ./internal/linkage/` exit
+**1** by design, then `go test -count=1 ./internal/linkage/` exit **0**. The
+diff is one line, a digest, and non-digest changed lines are **0**.
 
 ## 8. Exit codes, each read from the process
 
