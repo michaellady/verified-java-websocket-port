@@ -231,6 +231,23 @@ rather than of one build.
 `gosuitectl` does not pass `-tags`, so this tag-gated test is not part of
 `make -C rust gates` and does not gate it.
 
+### Baseline health of the default suite
+
+```
+go test -timeout 40m ./...     44 ok, 2 packages FAIL      exit 1
+```
+
+The two are `internal/lab` and `internal/portplan` — **exactly the two
+`cmd/gosuitectl` excludes by name**, each with its reason declared there
+(`CONTROLLED_CANARY` needs Darwin `sandbox-exec`; the committed semantic-id
+oracle records `jdk_vendor "Homebrew"` and a Linux Temurin regeneration differs
+in that one line). Neither is mine and neither is touched by this branch. Every
+package `gosuitectl` actually runs passes, `internal/normcollide` among them, so
+the two new checks are covered by the gate rather than by a tag.
+
+The 600-second default would not have reached the end of this suite; it was run
+with `-timeout 40m`, and a timeout is not a result.
+
 ## 5. What this leaves open
 
 - **The two undecided candidates stay undecided.** `CAND-TRANSPORT` needs a real
