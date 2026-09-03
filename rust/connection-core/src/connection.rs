@@ -2209,3 +2209,246 @@ impl ConnectionCore {
         }
     }
 }
+
+#[cfg(kani)]
+mod proofs {
+    use alloc::vec::Vec;
+
+    use super::{
+        ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput, CoreOutput,
+        FailureKind, HandshakeFailure, LimitKind, Role, SemanticEvent, StepResult, TransportBytes,
+    };
+
+    /// RFC 6455 section 1.3 opening request, split at the `Sec-WebSocket-Version`
+    /// field value so one fully symbolic octet is injected at a fixed offset
+    /// without varying the request length.
+    const VERSION_HEAD: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: ";
+    const VERSION_TAIL: &[u8] = b"3\r\n\r\n";
+
+    /// The exact RFC 6455 section 4.2.2 opening response owed to that request,
+    /// including the section 1.3 `Sec-WebSocket-Accept` vector.
+    const CANONICAL_RESPONSE: &[u8] = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n";
+
+    /// A shorter well-formed request used as the base for the rejection family.
+    const SHORT_REQUEST: &[u8] = b"GET / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+
+    /// Independent transcription of RFC 7230 `field-vchar` / obs-text, used as
+    /// the reference model rather than calling the production predicate.
+    const fn is_field_value_octet(byte: u8) -> bool {
+        byte == b'\t' || (byte >= b' ' && byte <= b'~') || byte >= 0x80
+    }
+
+    fn server_core() -> ConnectionCore {
+        let config = ConnectionConfig::try_from(ConnectionLimits::default())
+            .expect("the default connection limits are valid");
+        ConnectionCore::new(config, Role::Server)
+    }
+
+    fn assert_canonical_opening(result: &StepResult) {
+        assert!(result.failure().is_none());
+        assert_eq!(result.state(), ConnectionState::Open);
+        let outputs: Vec<&CoreOutput> = result.outputs().collect();
+        assert_eq!(outputs.len(), 3);
+        let CoreOutput::TransportWrite(write) = outputs[0] else {
+            panic!("the opening response must be the first output");
+        };
+        assert_eq!(write.as_slice(), CANONICAL_RESPONSE);
+        assert_eq!(outputs[1], &CoreOutput::StateChanged(ConnectionState::Open));
+        let CoreOutput::SemanticEvent(SemanticEvent::ServerHandshakeOpened { descriptor }) =
+            outputs[2]
+        else {
+            panic!("the request descriptor event must be last");
+        };
+        assert_eq!(descriptor.request_target(), "/chat");
+        assert_eq!(descriptor.host(), "server.example.com");
+    }
+
+    /// A rejected opening request must never emit a `101` response.
+    fn assert_no_opening_response(result: &StepResult) {
+        assert_eq!(result.state(), ConnectionState::Closed);
+        for output in result.outputs() {
+            assert!(!matches!(output, CoreOutput::TransportWrite(_)));
+        }
+    }
+
+    fn assert_rejected(result: &StepResult, expected: &HandshakeFailure) {
+        assert_eq!(
+            result.failure().map(|failure| &failure.kind),
+            Some(&FailureKind::Handshake(expected.clone()))
+        );
+        assert_no_opening_response(result);
+    }
+
+    fn reject(request: &[u8], expected: &HandshakeFailure) {
+        let mut core = server_core();
+        let result = core.step(CoreInput::Transport(TransportBytes::new(request)));
+        assert_rejected(&result, expected);
+    }
+
+    /// Proves the server opening response for RFC 6455 section 4.2.2: a
+    /// conforming request yields the exact `101` octets and accept value, and
+    /// every non-conforming version octet yields its exact typed failure with
+    /// no response at all.
+    #[kani::proof]
+    #[kani::unwind(192)]
+    fn prove_server_opening_response() {
+        let injected: u8 = kani::any();
+        let mut request = Vec::with_capacity(VERSION_HEAD.len() + 1 + VERSION_TAIL.len());
+        request.extend_from_slice(VERSION_HEAD);
+        request.push(injected);
+        request.extend_from_slice(VERSION_TAIL);
+        assert_eq!(request.len(), VERSION_HEAD.len() + 1 + VERSION_TAIL.len());
+
+        let mut core = server_core();
+        let result = core.step(CoreInput::Transport(TransportBytes::new(&request)));
+
+        if injected == b'\r' || injected == b'\n' {
+            assert_rejected(&result, &HandshakeFailure::BareLineEnding);
+        } else if !is_field_value_octet(injected) {
+            assert_rejected(&result, &HandshakeFailure::InvalidHeaderValueOctet);
+        } else if injected == b'1' {
+            assert_canonical_opening(&result);
+        } else {
+            assert_rejected(&result, &HandshakeFailure::UnsupportedVersion);
+        }
+    }
+
+    /// Proves that the hostile opening-request family is rejected with its
+    /// exact typed failure and that no `101` response is emitted for any of
+    /// them. Each case is a fixed-length concrete request, so every loop in the
+    /// bound symbol retains an exact trip count.
+    #[kani::proof]
+    #[kani::unwind(192)]
+    fn prove_server_opening_response_withheld_on_malformed_requests() {
+        let case: u8 = kani::any();
+        kani::assume(case < 20);
+        match case {
+            0 => reject(
+                b"POST / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::MethodNotGet,
+            ),
+            1 => reject(
+                b"get / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::MethodNotGet,
+            ),
+            2 => reject(
+                b"GET / HTTP/1.0\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::HttpVersionNot11,
+            ),
+            3 => reject(
+                b"GET /\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::MalformedRequestLine,
+            ),
+            4 => reject(
+                b"GET chat HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::InvalidRequestTarget,
+            ),
+            5 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::DuplicateHeader,
+            ),
+            6 => reject(
+                b"GET / HTTP/1.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::MissingHost,
+            ),
+            7 => reject(
+                b"GET / HTTP/1.1\r\nHost: \r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::InvalidHost,
+            ),
+            8 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nUpgrade: h2c\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::InvalidUpgrade,
+            ),
+            9 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: keep-alive\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::InvalidConnection,
+            ),
+            10 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::MissingKey,
+            ),
+            11 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: !!!!!!!!!!!!!!!!!!!!!!!!\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::InvalidKeyEncoding,
+            ),
+            12 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAA\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::InvalidKeyLength { decoded: 15 },
+            ),
+            13 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Extensions: x\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::UnexpectedExtension,
+            ),
+            14 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Protocol: x\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::UnexpectedSubprotocol,
+            ),
+            15 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nContent-Length: 5\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::UnexpectedContentLength,
+            ),
+            16 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nTransfer-Encoding: chunked\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::UnexpectedTransferEncoding,
+            ),
+            17 => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\n obsolete\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::ObsoleteLineFolding,
+            ),
+            18 => reject(
+                b"GET / HTTP/1.1\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+                &HandshakeFailure::BareLineEnding,
+            ),
+            _ => reject(
+                b"GET / HTTP/1.1\r\nHost: h\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\nSMUGGLED",
+                &HandshakeFailure::TrailingData { bytes: 8 },
+            ),
+        }
+    }
+
+    /// Proves the two non-response opening outcomes owed by RFC 6455 section
+    /// 4.2.2: an incomplete request is buffered without any response, a later
+    /// EOF is a typed failure, and an oversized request is refused on the
+    /// declared limit rather than answered.
+    #[kani::proof]
+    #[kani::unwind(192)]
+    fn prove_no_opening_response_before_a_complete_request() {
+        let truncate: bool = kani::any();
+        let partial = if truncate {
+            &SHORT_REQUEST[..SHORT_REQUEST.len() - 2]
+        } else {
+            &SHORT_REQUEST[..16]
+        };
+
+        let mut core = server_core();
+        let incomplete = core.step(CoreInput::Transport(TransportBytes::new(partial)));
+        assert!(incomplete.failure().is_none());
+        assert_eq!(incomplete.state(), ConnectionState::Connecting);
+        assert_eq!(incomplete.outputs().len(), 0);
+
+        let eof = core.step(CoreInput::TransportEof);
+        assert_eq!(
+            eof.failure().map(|failure| &failure.kind),
+            Some(&FailureKind::Handshake(HandshakeFailure::UnexpectedEof))
+        );
+        assert_no_opening_response(&eof);
+
+        let limits = ConnectionLimits {
+            handshake_bytes: 64,
+            handshake_header_line_bytes: 64,
+            ..ConnectionLimits::default()
+        };
+        let config = ConnectionConfig::try_from(limits).expect("the reduced limits are valid");
+        let mut bounded = ConnectionCore::new(config, Role::Server);
+        let oversized = bounded.step(CoreInput::Transport(TransportBytes::new(SHORT_REQUEST)));
+        assert_eq!(
+            oversized.failure().map(|failure| &failure.kind),
+            Some(&FailureKind::LimitExceeded {
+                limit: LimitKind::HandshakeBytes,
+                attempted: 65,
+                maximum: 64,
+            })
+        );
+        assert_no_opening_response(&oversized);
+    }
+}
