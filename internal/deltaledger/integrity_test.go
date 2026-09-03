@@ -64,11 +64,17 @@ func TestSupersessionIsMachineVisible(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read supersession links: %v", err)
 	}
-	if len(links) != 3 {
-		t.Fatalf("the chain carries %d supersession link(s); this branch supersedes sequences 14, 15 and 16",
+	if len(links) != 5 {
+		t.Fatalf("the chain carries %d supersession link(s); this branch supersedes sequences 14, 15, 16, 34 and 55",
 			len(links))
 	}
-	wanted := map[uint64]bool{14: true, 15: true, 16: true}
+	// 14-16 are the wrong-RFC-basis budget corrections (45-47). 34 and 55 are
+	// the two records whose DESCRIPTION OF THE PORT was made false by later
+	// landings — DIV-05's inbound feed policy and DIV-06's response fields —
+	// corrected at 57 and 58. The count is spelled out per sequence rather
+	// than compared as a number, so adding a supersession fails here with the
+	// sequence named instead of with an arithmetic complaint.
+	wanted := map[uint64]bool{14: true, 15: true, 16: true, 34: true, 55: true}
 	for _, link := range links {
 		if !wanted[link.SupersededSequence] {
 			t.Errorf("unexpected superseded sequence %d", link.SupersededSequence)
@@ -87,12 +93,13 @@ func TestSupersessionIsMachineVisible(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authoritative sequences: %v", err)
 	}
-	if len(authoritative) != len(committed.Records)-3 {
-		t.Fatalf("%d authoritative sequences over %d records; three are superseded",
+	if len(authoritative) != len(committed.Records)-5 {
+		t.Fatalf("%d authoritative sequences over %d records; five are superseded",
 			len(authoritative), len(committed.Records))
 	}
 	for _, sequence := range authoritative {
-		if sequence == 14 || sequence == 15 || sequence == 16 {
+		switch sequence {
+		case 14, 15, 16, 34, 55:
 			t.Errorf("superseded sequence %d is still reported authoritative", sequence)
 		}
 	}
@@ -463,14 +470,27 @@ func TestAQuotedSupersedesTokenIsNotAWithdrawal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the committed chain's own anchored tokens no longer parse: %v", err)
 	}
-	if len(links) != 3 {
-		t.Fatalf("the committed chain carries %d supersession links, expected the three prefix corrections",
-			len(links))
+	if len(links) != 5 {
+		t.Fatalf("the committed chain carries %d supersession links, expected the three prefix corrections plus "+
+			"the two stale-port corrections at 57 and 58", len(links))
 	}
 
 	// Find a record that supersedes nothing, and have it QUOTE a canonical
-	// token that names a real earlier record.
-	target := committed.Records[len(committed.Records)-1]
+	// token that names a real earlier record. It is chosen BY PREDICATE rather
+	// than by position: the last record used to supersede nothing and now
+	// supersedes sequence 55, and a test whose premise quietly stopped being
+	// true is worth less than one that fails when it does.
+	target := lab.BehaviorLedgerRecord{}
+	for index := len(committed.Records) - 1; index >= 0; index-- {
+		if !strings.HasPrefix(committed.Records[index].Delta.Rationale, "SUPERSEDES ledger-sequence=") {
+			target = committed.Records[index]
+			break
+		}
+	}
+	if target.Sequence == 0 {
+		t.Fatal("every record in the chain carries a supersession token; this test needs one that supersedes nothing")
+	}
+	targetIndex := int(target.Sequence) - 1
 	victim := committed.Records[43] // sequence 44, the reserved-bit record.
 	if victim.Sequence != 44 {
 		t.Fatalf("record index 43 is sequence %d, not 44; this test names the record it withdraws", victim.Sequence)
@@ -478,7 +498,7 @@ func TestAQuotedSupersedesTokenIsNotAWithdrawal(t *testing.T) {
 	quoted := "an earlier draft wrongly asserted 'SUPERSEDES ledger-sequence=44 delta=" + victim.Delta.DeltaID +
 		" subject=" + victim.Delta.SubjectRef + " reason=none;'. THAT IS QUOTED, NOT ASSERTED."
 	records := append([]lab.BehaviorLedgerRecord(nil), committed.Records...)
-	records[len(records)-1].Delta.Rationale = target.Delta.Rationale + " " + quoted
+	records[targetIndex].Delta.Rationale = target.Delta.Rationale + " " + quoted
 
 	if _, err := ReadSupersessionLinks(records); err == nil {
 		t.Fatal("a QUOTED, disclaimed canonical token was accepted as a withdrawal. The marker is reserved: it " +

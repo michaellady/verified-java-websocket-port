@@ -475,15 +475,26 @@ func TestUnledgeredCountReportsNonzeroAndTheReadinessGateRefuses(t *testing.T) {
 
 	// Remove ONE record whose removal isolates the digest arm.
 	//
-	// The record chosen is the framing record for the non-canonical extended
-	// length, sequence 17. It is not a superseding correction, no divergent
-	// mapping row is covered by it, and no public-corpus scenario depends on it
-	// being the record that names it — so removing it orphans exactly its own
-	// committed observation and nothing else, which is what makes the expected
-	// count exactly 1 rather than a number this test would have to derive from
-	// the thing it is testing. If a future change makes it load-bearing, this
-	// test fails loudly and a different isolated record should be named here.
-	const isolated = "org.java-websocket.draft6455.framing.noncanonical-extended-length"
+	// The record chosen is the handshake field-emission-order record, sequence
+	// 56. It is not a superseding correction, no divergent mapping row is
+	// covered by it, and no public-corpus scenario depends on it being the
+	// record that names it — so removing it orphans exactly its own committed
+	// observation and nothing else, which is what makes the expected count
+	// exactly 1 rather than a number this test would have to derive from the
+	// thing it is testing.
+	//
+	// IT MUST ALSO SIT AFTER EVERY SUPERSEDED SEQUENCE, and that constraint is
+	// new. This test names sequence 17 until the stale-port corrections at 57
+	// and 58 were appended; a Supersession names its target BY SEQUENCE as well
+	// as by delta id, so removing a definition that sits BEFORE a superseded
+	// record renumbers that record and the link stops resolving — a loud,
+	// correct refusal, but a different one from the digest-arm failure under
+	// test, and it masked it. Sequence 56 is after 55, the last superseded
+	// sequence, so removing it renumbers nothing that is named. If a future
+	// change makes it load-bearing, or appends a supersession of a record after
+	// it, this test fails loudly and a different isolated record should be
+	// named here.
+	const isolated = "org.java-websocket.handshake.field-emission-order"
 	var removed Definition
 	var truncated []Definition
 	for _, definition := range definitions {

@@ -373,6 +373,46 @@ it:
   case, which is why sequence 58 does not restate them as current.
 - Sequence 57 and sequence 58 make **no Autobahn claim at all**.
 
+## 7b. The append broke four tests in one package, and one of the four is a finding
+
+`make -C rust gates` was green while `go test ./internal/deltaledger/` was
+**exit 1**, which is the exact trap the protocol names: gates green is necessary
+and never sufficient. A third failing package is a defect until proven
+otherwise, and this one was mine.
+
+Three of the four were pinned counts, and updating them is routine: two in
+`internal/deltaledger/integrity_test.go` and one in `mapping_census_test.go`
+assert "three supersession links", which is now five. They are updated by
+NAMING the five sequences (14, 15, 16, 34, 55) rather than by comparing a
+number, so the next append fails with a sequence in the message instead of an
+arithmetic complaint. A fourth, `TestAQuotedSupersedesTokenIsNotAWithdrawal`,
+took its "record that supersedes nothing" as `Records[len-1]`; the last record
+now supersedes sequence 55, so the record is chosen by predicate instead and
+the test fails loudly if the premise stops holding.
+
+The fourth failure is worth keeping. `TestUnledgeredCountReportsNonzeroAndTheReadinessGateRefuses`
+builds a TRUNCATED chain by removing one definition, and it named sequence 17.
+A `Supersession` names its target by **sequence** as well as by delta id, so
+removing a definition that sits BEFORE a superseded record renumbers that
+record and the link stops resolving:
+
+```
+build the truncated ledger: record 56 supersedes sequence 34 naming delta
+delta-71c02bf62947…, but sequence 34 is delta-9dd3ab8674…
+```
+
+That refusal is correct and is the fail-closed property working. It is also a
+DIFFERENT failure from the digest-arm failure the test exists to prove, and it
+masked it. The isolated record is now sequence 56, which sits after 55 — the
+last superseded sequence — so removing it renumbers nothing that is named, and
+the new constraint is written into the test's comment rather than left for the
+next person to rediscover. The test's own comment had predicted this shape:
+*"If a future change makes it load-bearing, this test fails loudly and a
+different isolated record should be named here."* It did, and it did.
+
+Nothing was loosened. No assertion was deleted, no expectation widened to a
+range, and the deliberate-failure polarity of each test is unchanged.
+
 ## 8. Exit codes, each read from the process
 
 | command | exit |
@@ -386,6 +426,10 @@ it:
 | `go run ./cmd/deltaledgerctl --root . --check` (after the write, before the legacy entry) | **1** |
 | `go run ./cmd/deltaledgerctl --root . --check` (after the legacy entry) | 0 |
 | `go build ./...` | 0 |
+| `make -C rust gates` | 0 |
+| `go test ./internal/deltaledger/ -timeout 40m` (after the append, before the test updates) | **1** |
+| `go test ./internal/deltaledger/ -timeout 40m` (after the test updates) | 0 |
+| `go run ./cmd/recordguardctl precondition drafts/self-review/ledger-adjudication-round.md` | 0 |
 
 Both exits of the regeneration are recorded, and so is the second refusal: the
 gate rejected the append until
