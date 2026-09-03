@@ -1,7 +1,7 @@
-# Ledger adjudication round — two records superseded, one decidable record left unwritten, one question for the owner
+# Ledger adjudication round — two records superseded, one decidable record left unwritten, three things still owed by a person
 
 Status: COMPLETE for what it claims, with one deliberate refusal recorded in
-section 5 and one owner question stated in section 6.
+section 5 and the owner's remaining questions stated in sections 4, 5 and 6.
 
 Branch `claude/ledger-adjudication-2`, worktree `/home/user/vjwp-ledger`, based
 on `origin/claude/feature/verified-java-websocket-port` at `c738b81`. Every exit
@@ -20,10 +20,19 @@ no live Java process was started.
 | legacy record 19 | **decidable, and NOT WRITTEN** | writing it moves `records_without_ac3_class` from 1 to 0 — hard stop, section 5 |
 | ledger sequence 53 | **genuinely the owner's** | no ledger change; the question is stated in one reading in section 6 |
 
-Two of the four "needs an owner" items were decidable from evidence already in
-the tree, and a third is decidable but is a count movement I refused to make.
-That leaves exactly one of the four actually needing a person, which is the
-F007 ratio again (three of five, there; three of four, here).
+Counted honestly, because the tidy version of this sentence is wrong. Of the
+four, **one** is fully decided here (sequence 34). **One** had its facts decided
+and its disposition still belongs to a person (sequence 55, and the person's
+question is F010's, restated inside sequence 58's own bytes). **One** is
+decidable and deliberately unwritten because filing it moves a published count
+(legacy record 19) — so what the owner owes there is an authorisation, not an
+adjudication. **One** is a real adjudication only a person can make
+(sequence 53).
+
+So three of the four still need something from the owner, and the three things
+are different in kind: a ruling, an authorisation, and a ruling again. What
+changed is that none of the three now needs a live Java execution, an Autobahn
+re-run, or any measurement that does not already exist in the tree.
 
 ## 2. The rule this round applied, and where it came from
 
