@@ -20,7 +20,7 @@ no live Java process was started.
 | legacy record 19 | **decidable, and NOT WRITTEN** | writing it moves `records_without_ac3_class` from 1 to 0 — hard stop, section 5 |
 | ledger sequence 53 | **genuinely the owner's** | no ledger change; the question is stated in one reading in section 6 |
 
-Counted honestly, because the tidy version of this sentence is wrong. Of the
+Counted honestly, because the tidy version of this count is wrong. Of the
 four, **one** is fully decided here (sequence 34). **One** had its facts decided
 and its disposition still belongs to a person (sequence 55, and the person's
 question is F010's, restated inside sequence 58's own bytes). **One** is
@@ -37,8 +37,9 @@ re-run, or any measurement that does not already exist in the tree.
 ## 2. The rule this round applied, and where it came from
 
 `drafts/self-review/findings/F013-underspecified-by-the-rfc-recorded-as-underspecified.md`
-was read first, as instructed, and it changed two classifications below rather
-than being cited beside them.
+was read first, as instructed, and it changed how the two classifications below
+are WRITTEN rather than being cited beside them. It did not change either class
+value; it made each of them say what it means inside its own hashed bytes.
 
 Its finding: `underspecified-behavior` reads as "nothing determines this" and
 means "RFC 6455 does not determine this", and the two differ exactly when a
