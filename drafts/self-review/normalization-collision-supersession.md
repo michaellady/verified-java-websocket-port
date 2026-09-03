@@ -197,6 +197,40 @@ the CONTROL run failed, not because a mutation was aimed at it. Underscores are
 load-bearing in these identifiers and are no longer stripped; a regression test
 pins it.
 
+### The tag-gated live suite, read honestly
+
+```
+cargo +1.95.0 build -p ws-oracle-harness                                exit 0
+WS_ORACLE_HARNESS=rust/target/debug/ws-oracle-harness
+  go test -count=1 -timeout 40m -tags normcollide ./internal/normcollide/   exit 1
+```
+
+**Exit 1, one test, and it is not a result about this branch.** The only failure
+is `TestCommittedAuditMatchesAFreshRun`, and it fails on exactly one field: the
+harness identity. `audit.json` pins
+`sha256:c718a7d30186d2078bf0435b59ae6cb71793fdaf4c812c2fcbb5937683a1479d`; the
+debug binary I built on this host is
+`sha256:b6c00649c55286432b76726035f099b40808042aaece54c61848bfd359456950`. That
+digest field is **byte-identical at `4cf3f8f` and on this branch** — I did not
+touch `audit.json` — so the disagreement is between the committed document and
+*my* binary, which is the digest binding doing its job rather than a defect. The
+correct response is NOT to regenerate the document: that would shift a committed
+artifact to match a local build, which is re-baselining. Recorded and left for the
+owner, who has the binary the pin names.
+
+What that same run DOES establish, and it is the stronger half:
+`TestEveryCatalogProbeStillHoldsAgainstTheRealHarness` **passes**, so all seven
+collisions re-ran CONFIRMED against a freshly compiled harness;
+`TestEveryRefutationProbeStillMovesTheComparator`, `TestNC10…`, `TestNC11…` and
+`TestTheUtf8CandidateIsStillEmpty` pass; and `MeasureHandshake` on that same
+binary returns 49 rows / 29 distinct / 23 sharing / largest 10. Every number in
+§3 above was produced by the binary the gate says is not the pinned one, and the
+bounds came out the same, which is what makes them a property of the projection
+rather than of one build.
+
+`gosuitectl` does not pass `-tags`, so this tag-gated test is not part of
+`make -C rust gates` and does not gate it.
+
 ## 5. What this leaves open
 
 - **The two undecided candidates stay undecided.** `CAND-TRANSPORT` needs a real
