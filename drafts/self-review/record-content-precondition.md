@@ -278,6 +278,32 @@ exported: `gate=record-content-precondition result=PASS` in the chain,
 `go vet` exit 0. Self-check on the finished tree: `cases=14 firing=6 silent=8 result=PASS`;
 census `records=41 unfinished=1 finished=40`.
 
+**The full Go suite, and a baseline correction the brief did not have.**
+`go test -timeout 40m -count=1 ./...` with the store exported: **38 packages ok**, including
+`cmd/recordguardctl`, `internal/deltaledger`, `internal/corpora` and `internal/oraclerank`.
+**Five** packages fail — but the brief for this work named only three as environment baseline
+(`internal/lab`, `internal/portplan`, `internal/formalplan`). The two extra are
+`cmd/formalcoverctl` and `internal/formalcoverage`.
+
+F008's rule is that a failing test's cause is what the process prints, not what the nearest
+recent finding suggests, so I did not attribute them and did not reason about them. I measured
+them. Checked out `4a2b9c6` in this worktree with my changes absent, ran both packages, saved
+the failing test names; checked the branch back out, ran the same two packages, saved the
+names again; stripped the durations and diffed:
+
+```
+$ diff <baseline 4a2b9c6 failures> <branch 461e2c0 failures>
+                                                          exit 0   —   36 names, identical
+```
+
+**36 failing tests, the same 36 names, on both trees.** The two packages are pre-existing
+mainline failures and nothing in this branch touches them. Their diagnosis is not mine to
+assert here — F008 and the correction appended to F006 both establish it as stale retained
+derived evidence after a merge, and neither has been repaired — but the fact that they are
+baseline is measured above rather than borrowed from that story. **The environment note listing
+three baseline packages is short by two**, which is worth the owner's attention independently
+of this branch.
+
 ## 7. Claims, in the fixed vocabulary
 
 - **Observed**: the discriminator fires on all six committed historical records that declare
