@@ -304,6 +304,42 @@ baseline is measured above rather than borrowed from that story. **The environme
 three baseline packages is short by two**, which is worth the owner's attention independently
 of this branch.
 
+**The one test that reads a file I changed.** `internal/formalplan` is a named baseline
+failure, but it is not enough to stop there: it *reads `rust/Makefile`* and cross-checks the
+`gates` target's prerequisites against the profiles the native-stress claim names
+(`crRustMakefilePath`, `crNativeStressGateProfiles`), and the `gates` line is exactly what this
+branch edits. "It was already failing" does not answer whether the edit added a new failure
+inside it. The acceptance-facing test that reaches that cross-check is
+`TestConcurrencyResultsArtifactValidates`, run alone:
+
+```
+=== RUN   TestConcurrencyResultsArtifactValidates
+--- PASS: TestConcurrencyResultsArtifactValidates (0.36s)
+ok   github.com/michaellady/verified-java-websocket-port/internal/formalplan   0.379s   exit 0
+```
+
+Both `test` and `test-release` survive the edit; `record-guard` is appended beside them.
+
+**Two process errors of my own, on the way to that reading, both in this program's own
+classes.**
+
+1. **A check whose subject was not pinned — F006's root.** A background run of that package was
+   started on this branch, and I then checked out `4a2b9c6` and back *during its 577-second
+   run* to measure the baseline. It reported `ok`. That reading is worthless: the
+   `rust/Makefile` it read from disk may have been either version, and nothing recorded which.
+   I discarded it rather than quote it, and re-ran on a stable tree. A result whose input
+   changed mid-run is not an exit code read from the process; it is an exit code read from an
+   unknown process.
+2. **A budget sized to a host — the F002/F004/F005 class, found incidentally and worth the
+   owner's attention.** The re-run then failed at exit 1 — not on an assertion, but on the
+   **600-second default `go test` timeout**, panicking inside a slow regexp in `crTestBody`.
+   `internal/formalplan` has been observed at **577.7 s, 600.0 s (timeout) and 773.6 s** on this
+   host, same tree. Its pass/fail under the default timeout is therefore decided by machine
+   load, not by the code under test. That is why the brief says `go test -timeout 40m`, and it
+   is the same shape as F005's `polls < POLL_BUDGET`. **Not repaired here** — it is not this
+   branch's subject, and sizing someone else's timeout quietly is how the last three of these
+   started. Filed for the owner, with the three measurements attached.
+
 ## 7. Claims, in the fixed vocabulary
 
 - **Observed**: the discriminator fires on all six committed historical records that declare
@@ -423,10 +459,13 @@ and the measurement is why, rather than a shrug.**
    draft of the header stated that exclusion with only `':!rust/Makefile'`, which was false
    once `rust/README.md` was edited. Caught by re-running the command instead of re-reading
    the sentence.
-8. Did not retro-fit records already on mainline. The two the census names are left exactly as
-   their authors wrote them.
+8. Did not retro-fit records already on mainline. The one the census names is left exactly as
+   its author wrote it.
+9. Did not repair `internal/formalplan`'s 600-second-default-timeout sensitivity, and did not
+   repair the two stale-evidence packages. Both are named in section 12 with their
+   measurements; neither is this branch's subject.
 
-## 12. Residual for the owner
+## 12. Residuals for the owner
 
 The census currently reads `records=41 unfinished=1 finished=40`. That one,
 `normalization-collision-audit-WIP.md`, is a landed retained working-notes file whose branch
@@ -434,3 +473,18 @@ also landed a finished record. Whether retained working notes should keep living
 `drafts/self-review/` alongside landing records, or move to a sibling directory the census does
 not read, is a naming decision and an owner call — not something to change quietly under a
 detector that would then have one fewer subject.
+
+**Two found while validating this branch, neither of them this branch's subject, both measured
+rather than guessed:**
+
+- **`internal/formalplan` sits on the edge of the default `go test` timeout.** Observed at
+  577.7 s, 600.0 s (timeout panic) and 773.6 s on this host with the tree unchanged. Under the
+  600-second default its verdict is decided by machine load. Same class as F002, F004 and F005,
+  and the only reason it does not read red constantly is that the brief tells everyone to pass
+  `-timeout 40m`. A host-sized budget covered by a convention is still a host-sized budget.
+- **The environment note's baseline list is short by two.** `cmd/formalcoverctl` and
+  `internal/formalcoverage` fail on mainline `4a2b9c6` with the same 36 test names they fail
+  with here (diff exit 0). They have been failing since the `92556bd` merge, F008 diagnosed
+  them, and nothing has regenerated the retained report since — so every session that reads the
+  three-package baseline list counts two real failures as noise. That is `74/74`-shaped: a
+  number carried forward without its ceiling re-measured.
