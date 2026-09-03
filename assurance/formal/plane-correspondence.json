@@ -1,5 +1,4 @@
 {
-  "$schema": "../../schemas/us023-plane-correspondence-1.0.0.schema.json",
   "schema_version": "1.0.0",
   "document_id": "us023-plane-correspondence",
   "entity_type": "PlaneCorrespondence",

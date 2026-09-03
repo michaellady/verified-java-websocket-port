@@ -431,11 +431,14 @@ Every coverage axis is still 0/24. Nothing moved a numerator.
 - `TestThePlaneRecordDoesNotWeakenTheJavaFinding` pins three phrases in the
   `not_claims` text. Prose pinned by substring is a weak guard; it catches
   deletion, not dilution.
-- `plane-correspondence.json` declares a `$schema` at
-  `../../schemas/us023-plane-correspondence-1.0.0.schema.json` which **I did not
-  write**. Nothing validates the document against a schema; the Go verifier is
-  the only checker. Named here rather than left as a dangling reference nobody
-  mentions.
+- **`plane-correspondence.json` has no JSON Schema.** My first draft declared
+  `$schema: ../../schemas/us023-plane-correspondence-1.0.0.schema.json`, which
+  does not exist — a dangling reference that would have read as validation
+  nobody performs. I removed the key rather than write a schema I would not have
+  had time to test, which also matches its siblings:
+  `denominator-reconciliation.json` and `catalog-correction-proposal.json`,
+  written by the same package, carry no `$schema` either. The Go verifier is the
+  only checker, and it checks content rather than shape.
 - The correspondence states are my judgement of what the receipts say. The
   receipts' words ("adapted", "studied, NOT grafted", "NOT adopted") are quoted
   verbatim in the artifact so a reader can disagree with my reading of them
