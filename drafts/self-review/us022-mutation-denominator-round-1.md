@@ -367,6 +367,38 @@ and the restoration was verified byte-identical.
 `git diff --name-only 4a2b9c6 --diff-filter=MD` is **empty**: this branch modifies
 and deletes nothing that existed on mainline.
 
+## The full Go suite, and two failures that are not baseline-listed
+
+`VJWP_PROTECTED_STORE=… go test ./... -timeout 40m -count=1` exited **1**. Five
+packages failed. Three are the declared baseline (`internal/formalplan`,
+`internal/lab`, `internal/portplan`). `internal/mutdenom` is **ok, 14.433s**.
+
+The other two — `cmd/formalcoverctl` (3 tests) and `internal/formalcoverage` —
+were **not** on the given baseline list, so I did not assume they were
+pre-existing. "It can't be mine" is an argument, not a reading. I extracted a
+pristine mainline tree (`git archive 4a2b9c6 | tar -x`) and ran both packages
+there:
+
+```
+cmd/formalcoverctl        FAIL 0.036s   (pristine 4a2b9c6)
+internal/formalcoverage   FAIL 0.684s   (pristine 4a2b9c6)
+```
+
+Byte-identical failure, same tests, same message in both:
+
+> `websocket_driver::ConnectionOwner::poll/NEAREST_DECLARATION_IS_AT_THE_LINE_IT_CITES:`
+> `rust/ws-driver/src/lib.rs:756` reads `"/// Result of one bounded owner transition."`,
+> the record says `"pub fn poll<'owner>(&'owner mut self, …"`
+
+So: **pre-existing on mainline `4a2b9c6`, and not on the baseline list.** The
+plane-correspondence record cites a line that has drifted from the declaration it
+names. This branch cannot have caused it —
+`git diff --name-only 4a2b9c6 HEAD -- rust assurance/formal evidence` is empty,
+and those three trees are the only inputs the failing check reads — but the
+failure is real and the baseline list should either grow to include it or it
+should be fixed. That is somebody else's story; I am recording it, not
+adjudicating it.
+
 ---
 
 ## Claim grade
