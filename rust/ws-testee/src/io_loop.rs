@@ -177,11 +177,59 @@ pub fn drive_connection(
     policy: &mut dyn EventPolicy,
     report: &mut ConnectionReport,
 ) {
+    drive_connection_from(
+        driver,
+        sender,
+        stream,
+        bounds,
+        role,
+        policy,
+        report,
+        Vec::new(),
+    );
+}
+
+/// [`drive_connection`] starting from bytes that have ALREADY been read off
+/// the socket and not yet handed to the driver.
+///
+/// A peer is free to pipeline its first frames into the same TCP segment as
+/// the opening-handshake response — the Autobahn fuzzing SERVER does exactly
+/// that, answering `/getCaseCount` with the 101, the case-count text frame
+/// and a close frame back to back — so a caller that completed the handshake
+/// with its own read holds a message-phase remainder no socket read will ever
+/// return again. Handing it here is the only way it is not lost.
+///
+/// This is also the ONE entry point through which the drained-`Idle` path can
+/// be reached while the driver is still holding deferred inbound bytes: inside
+/// the loop, `pending_chunk` is filled only by a read, a read happens only on
+/// a drained `Idle` turn, and on that turn a SERVER already in
+/// [`ReadyState::Closing`] has hung up one statement earlier. The
+/// `pending_chunk.is_empty()` operand of that gate therefore has no witness
+/// through [`drive_connection`] alone, and
+/// `a_server_must_not_hang_up_on_bytes_the_driver_has_not_taken_yet` is its
+/// witness through this one.
+// Eight parameters, one over clippy's default. The alternative is a grouping
+// struct, and it would have to carry `role` — which is exactly the parameter
+// the role-gated transport close made MANDATORY and POSITIONAL so no call site
+// could acquire that behaviour by omission (see `drive_connection`'s doc). A
+// struct with a `Default` would hand that back. The seam is wide because the
+// adapter's seam is wide, and it is stated rather than hidden.
+#[allow(clippy::too_many_arguments)]
+pub fn drive_connection_from(
+    driver: &mut ConnectionDriver,
+    sender: &CommandSender,
+    stream: &mut TcpStream,
+    bounds: &IoBounds,
+    role: Role,
+    policy: &mut dyn EventPolicy,
+    report: &mut ConnectionReport,
+    carryover: Vec<u8>,
+) {
     report.outcome = LoopOutcome::BudgetExhausted;
     let _ = stream.set_read_timeout(Some(bounds.read_timeout));
     let _ = stream.set_write_timeout(Some(bounds.write_timeout.max(Duration::from_millis(1))));
     let mut read_buffer = vec![0u8; bounds.read_buffer.max(1)];
-    let mut pending_chunk: Vec<u8> = Vec::new();
+    let mut pending_chunk: Vec<u8> = carryover;
     let mut eof_seen = false;
     let mut write_stall = WriteStallClock::new(bounds.write_stall_limit);
 

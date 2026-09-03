@@ -132,6 +132,15 @@ Gate condition reduced to `server_closes_transport(role, driver.state()) && !eof
 - **Whole `ws-testee` suite ok, exit 0**: `4 passed` (lib), `22 passed`
   (loopback), `8 passed` (process). Nothing turned red.
 
+**CLOSED 2026-09-03 by `claude/adapter-residuals`;** see
+`drafts/self-review/adapter-residuals.md`. The witness is
+`a_server_must_not_hang_up_on_bytes_the_driver_has_not_taken_yet`, and A5 now
+reads exit 101, 27 passed / 1 failed. It also established WHY no witness existed
+here: on this branch's entry points the operand is unreachable by construction —
+`pending_chunk` is filled only by a read, that read sits after the role gate,
+and a closing SERVER has hung up before reaching it. `drive_connection_from` is
+the entry point that reaches it.
+
 So that operand is an **unproven line**, and this is measured rather than
 argued. It is a conservativeness guard — it stops the adapter hanging up while
 the driver still has deferred inbound bytes — but no test in this suite reaches

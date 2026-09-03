@@ -84,7 +84,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("fixtureguardctl", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", ".", "repository root")
-	maxWaivers := flags.Int("max-waivers", 0, "how many justified count-guard waivers this tree is allowed to carry")
+	maxWaivers := flags.Int("max-waivers", 0, "how many justified count-guard waivers this tree is allowed to carry for the in-fixture shapes A and B")
+	maxBudgetWaivers := flags.Int("max-budget-waivers", 0, "how many justified shape-C waivers this tree is allowed to carry (a fixture-supplied production budget); kept on its own ceiling so admitting the shape-C backlog cannot raise the shape A/B ceiling")
 	skipSelfcheck := flags.Bool("no-selfcheck", false, "skip the polarity self-check (for debugging only; the gate never sets it)")
 	if err := flags.Parse(args); err != nil {
 		return 2
@@ -104,21 +105,36 @@ func run(args []string, stdout, stderr io.Writer) int {
 			"-no-selfcheck was passed: this run makes no claim that the detector still fires on F004 and F005")
 	}
 
+	if problems := verifyBudgetAnchors(*root, func(rel string) (string, error) {
+		data, err := os.ReadFile(filepath.Join(*root, filepath.FromSlash(rel)))
+		return string(data), err
+	}); len(problems) > 0 {
+		for _, p := range problems {
+			fmt.Fprintf(stderr, "gate=%s step=budget-anchors result=FAIL problem=%q\n", gateName, p)
+		}
+		ok = false
+	} else {
+		fmt.Fprintf(stdout, "gate=%s step=budget-anchors budgets=%d result=OK\n", gateName, len(productionBudgets))
+	}
+
 	res, err := scanTree(*root)
 	if err != nil {
 		fmt.Fprintf(stderr, "gate=%s step=scan result=FAIL error=%v\n", gateName, err)
 		return 1
 	}
 
-	var live, waived []Violation
+	var live, waived, budgetWaived []Violation
 	for _, v := range res.violations {
-		if v.Waived {
+		switch {
+		case v.Waived && v.Shape == "C":
+			budgetWaived = append(budgetWaived, v)
+		case v.Waived:
 			waived = append(waived, v)
-		} else {
+		default:
 			live = append(live, v)
 		}
 	}
-	for _, v := range waived {
+	for _, v := range append(append([]Violation{}, waived...), budgetWaived...) {
 		fmt.Fprintf(stdout, "gate=%s waiver file=%s line=%d counter=%s bound=%s shape=%s why=%q\n",
 			gateName, v.File, v.Line, v.Counter, v.Bound, v.Shape, v.Reason)
 	}
@@ -129,8 +145,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "    %s\n", explain(v))
 	}
 
-	fmt.Fprintf(stdout, "gate=%s step=scan files=%d loops=%d violations=%d waivers=%d max_waivers=%d\n",
-		gateName, res.files, res.loops, len(live), len(waived), *maxWaivers)
+	fmt.Fprintf(stdout, "gate=%s step=scan files=%d loops=%d violations=%d waivers=%d max_waivers=%d budget_waivers=%d max_budget_waivers=%d\n",
+		gateName, res.files, res.loops, len(live), len(waived), *maxWaivers, len(budgetWaived), *maxBudgetWaivers)
 
 	if res.files == 0 || res.loops == 0 {
 		fmt.Fprintf(stderr, "gate=%s result=FAIL reason=%q\n", gateName,
@@ -140,6 +156,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if len(live) > 0 {
 		fmt.Fprintf(stderr, "gate=%s result=FAIL reason=%q\n", gateName,
 			fmt.Sprintf("%d count-shaped liveness guard(s) in test fixtures", len(live)))
+		ok = false
+	}
+	if len(budgetWaived) > *maxBudgetWaivers {
+		fmt.Fprintf(stderr, "gate=%s result=FAIL reason=%q\n", gateName,
+			fmt.Sprintf("%d shape-C waiver(s) present, ceiling is %d: raise -max-budget-waivers in rust/Makefile in the same change, so the pile is visible", len(budgetWaived), *maxBudgetWaivers))
 		ok = false
 	}
 	if len(waived) > *maxWaivers {
@@ -164,6 +185,8 @@ func explain(v Violation) string {
 		return fmt.Sprintf("`%s` is counted inside this loop and then decides, from inside it, whether to ABORT. "+
 			"Reaching the bound is a failure, so the bound is a liveness guard: it says how fast this host is. "+
 			"Bound the loop by a generous wall-clock deadline instead; `%s` may REPORT in the failure message, never decide.", v.Counter, v.Counter)
+	case "C":
+		return budgetExplain(v)
 	case "B2":
 		return fmt.Sprintf("`%s` is incremented once per iteration and then decides, from inside the loop, whether to break. "+
 			"The loop therefore stops after a number of MACHINE operations, and whatever is asserted afterwards is asserted about a truncated run. "+

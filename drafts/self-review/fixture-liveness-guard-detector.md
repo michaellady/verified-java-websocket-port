@@ -273,6 +273,14 @@ Current count in the tree: **0**.
    is what keeps `max_frames(1024)` and `command_queue_capacity` quiet. See §6
    for why I judged them live-but-low-risk rather than defects, and did not
    change them.
+   **CLOSED 2026-09-03 by `claude/adapter-residuals`: SHAPE C
+   (`cmd/fixtureguardctl/budget.go`) reports a count-shaped value supplied by a
+   fixture to a DECLARED production budget, whose anchor is re-verified against
+   the tree on every run. The two roles `max_polls` serves are separated by
+   reading what REACHING the bound means — the same move shape B1 makes — so
+   the `max_polls: 0` / `: 1` budget tests stay silent and untouched. All nine
+   live instances were converted to stated durations rather than waived; both
+   waiver ceilings remain 0. See `drafts/self-review/adapter-residuals.md`.**
 3. **A counter incremented at depth 0 after an early `continue`** is treated as
    unconditional (over-approximation towards firing) — but a counter
    incremented inside an `if` that always runs is treated as conditional, and
@@ -329,6 +337,9 @@ Current count in the tree: **0**.
 ## 6. Further live instances of the class found in the tree
 
 **None that this rule reports.** `files=43 loops=209 violations=0`.
+(As of 2026-09-03 the rule reports SHAPE C too, and the reading is
+`files=48 loops=296 violations=0 waivers=0 budget_waivers=0`; the candidate
+below was found by it and then fixed rather than waived.)
 
 One candidate found by hand and deliberately NOT flagged, recorded here so the
 next person does not have to find it again:
