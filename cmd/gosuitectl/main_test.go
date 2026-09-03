@@ -121,6 +121,60 @@ func TestFirstFailureReadsTheFailingLine(t *testing.T) {
 	}
 }
 
+// `run=` IS NOT A COVERAGE NUMBER AND THE GATE MUST SAY SO. `go test` on a
+// package with no test file prints "ok [no test files]" and exits 0, and a
+// _test.go behind an unsatisfied build tag is never compiled. Adversarial review
+// B2 hid a deliberate t.Fatal behind `//go:build darwin` and the census stayed
+// byte-identical; B3 hid a whole failing package the same way and `go list ./...`
+// reported the same count with nothing on stderr. This test holds the reporting
+// that makes both readable, and asserts what the tree contains today so a change
+// in either number has to be looked at.
+func TestTheGateReportsWhatTheRunDoesNotCover(t *testing.T) {
+	root := moduleRoot(t)
+	packages, err := listPackages(root)
+	if err != nil {
+		t.Fatalf("listPackages: %v", err)
+	}
+	var run []string
+	for _, name := range packages {
+		if _, skip := excluded[name]; !skip {
+			run = append(run, name)
+		}
+	}
+	untested, unbuilt, err := coverageDetail(root, run)
+	if err != nil {
+		t.Fatalf("coverageDetail: %v", err)
+	}
+	if len(untested) == 0 {
+		t.Error("no package in the run set lacks tests; if that became true the gate " +
+			"should say so, but it was 15 of 59 when this was written")
+	}
+	if len(unbuilt) == 0 {
+		t.Error("no unbuilt test file found; the run set carried 5 behind javabinde2e, " +
+			"diffregress, normcollide and formalcovere2e when this was written (2 more sit " +
+			"in the excluded internal/lab), and a detector that finds none of them is not " +
+			"reading the build list")
+	}
+	for _, file := range unbuilt {
+		if file.constraint == "" || file.constraint == "no //go:build line found" ||
+			file.constraint == "unreadable" {
+			t.Errorf("%s/%s is not compiled and the gate cannot name why: %q",
+				file.pkg, file.name, file.constraint)
+		}
+	}
+	t.Logf("run=%d with_tests=%d no_test_files=%d unbuilt_test_files=%d",
+		len(run), len(run)-len(untested), len(untested), len(unbuilt))
+}
+
+// An empty run set must be a refusal, not a PASS. `go test` with no package
+// arguments tests the directory it is invoked in, which in this repository root
+// has no test files, so it would print ok and exit 0 having run nothing.
+func TestAnEmptyRunSetIsRefused(t *testing.T) {
+	if _, _, err := coverageDetail(moduleRoot(t), nil); err == nil {
+		t.Error("an empty run set must be refused")
+	}
+}
+
 // The run set is everything that is not excluded, so a package added tomorrow is
 // covered without anyone remembering to add it. That is the property that makes
 // this a gate rather than a list.
