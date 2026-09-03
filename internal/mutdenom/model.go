@@ -243,13 +243,14 @@ const (
 	FindingSourceManifestUnreadable    = "MUT_SOURCE_MANIFEST_UNREADABLE"
 
 	// Per-mutant records.
-	FindingDispositionUnknown     = "MUT_DISPOSITION_UNKNOWN"
-	FindingDispositionAbsent      = "MUT_DISPOSITION_ABSENT"
-	FindingMutantIDDuplicate      = "MUT_MUTANT_ID_DUPLICATE"
-	FindingRecordExcluded         = "MUT_RECORD_EXCLUDED_FROM_DENOMINATOR"
-	FindingEligibilityMislabelled = "MUT_ELIGIBILITY_MISLABELLED"
-	FindingSourceToolInvalid      = "MUT_SOURCE_TOOL_INVALID"
-	FindingRawStatusAbsent        = "MUT_RAW_STATUS_ABSENT"
+	FindingDispositionUnknown           = "MUT_DISPOSITION_UNKNOWN"
+	FindingClassTableDispositionUnknown = "MUT_CLASS_TABLE_DISPOSITION_UNKNOWN"
+	FindingDispositionAbsent            = "MUT_DISPOSITION_ABSENT"
+	FindingMutantIDDuplicate            = "MUT_MUTANT_ID_DUPLICATE"
+	FindingRecordExcluded               = "MUT_RECORD_EXCLUDED_FROM_DENOMINATOR"
+	FindingEligibilityMislabelled       = "MUT_ELIGIBILITY_MISLABELLED"
+	FindingSourceToolInvalid            = "MUT_SOURCE_TOOL_INVALID"
+	FindingRawStatusAbsent              = "MUT_RAW_STATUS_ABSENT"
 
 	// AC2: equivalent / technically-unviable gating.
 	FindingEquivalenceEvidenceAbsent = "MUT_EQUIVALENCE_EVIDENCE_ABSENT"

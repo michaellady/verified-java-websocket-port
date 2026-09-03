@@ -352,7 +352,12 @@ func checkPopulations(
 		}
 		for class := range population.Classes {
 			if !IsDisposition(class) {
-				add(FindingDispositionUnknown, Block, population.ID, fmt.Sprintf(
+				// Its own code, not the per-record one. A tenth class invented in
+				// the class table and a tenth class invented on a record are two
+				// different defects, and sharing a code would let a deletion of
+				// either hide behind the other -- the exact masking US-021's
+				// deletion attack found.
+				add(FindingClassTableDispositionUnknown, Block, population.ID, fmt.Sprintf(
 					"class table names %q, which is not one of the nine AC1 dispositions", class))
 			}
 		}

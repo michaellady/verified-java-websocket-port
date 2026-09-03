@@ -48,6 +48,7 @@ func main() {
 	emitDigest := flag.String("emit-digest", "", "print CANONICAL_PATH_SHA256_V1 over these comma-separated paths and exit")
 	emitPayload := flag.Bool("emit-payload-digest", false, "print MUTDENOM_PAYLOAD_SHA256_V1 over the manifest and exit")
 	normalizeE1 := flag.Bool("normalize-e1", false, "print the nine-class normalization of mutants/e1-ws-core-manifest.json")
+	signFixture := flag.String("sign-fixture", "", "stamp a polarity fixture with its real payload digest and a signature from the published fixture key")
 	jsonOut := flag.String("json", "", "write the machine-readable result to this path, relative to root")
 	flag.Parse()
 
@@ -72,6 +73,10 @@ func main() {
 		os.Exit(normalizeE1Manifest(absRoot))
 	}
 
+	if *signFixture != "" {
+		os.Exit(SignFixture(absRoot, *signFixture))
+	}
+
 	if *replayFixtures != "" {
 		os.Exit(runFixtures(absRoot, filepath.Join(absRoot, *replayFixtures)))
 	}
@@ -92,7 +97,7 @@ func main() {
 	}
 
 	if !*check {
-		fmt.Fprintln(os.Stderr, "mutdenomctl: one of -check, -replay-fixtures, -emit-digest, -emit-payload-digest, -normalize-e1 is required")
+		fmt.Fprintln(os.Stderr, "mutdenomctl: one of -check, -replay-fixtures, -emit-digest, -emit-payload-digest, -normalize-e1, -sign-fixture is required")
 		os.Exit(2)
 	}
 

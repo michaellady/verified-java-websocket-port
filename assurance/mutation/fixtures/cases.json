@@ -1,0 +1,990 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-022",
+  "note": "Polarity suite for internal/mutdenom, driven through the REAL checker by `mutdenomctl -replay-fixtures`. Each case pins an exact exit code, state, and set of typed BLOCK codes. Exactly ONE case (`green`) expects OK: without it a checker that blocked unconditionally would pass this whole suite, and the runner refuses a catalog with no green case for that reason. Every other case carries a SINGLE mutation of the green base, so the rule it targets is the reason it is red. None of these manifests is evidence about US-022; the green one in particular describes a campaign that never happened and claims nothing.",
+  "cases": [
+    {
+      "id": "green",
+      "manifest_path": "assurance/mutation/fixtures/manifests/green.json",
+      "rationale": "The polarity anchor: a manifest that satisfies every rule. Without it, a checker that returned BLOCKED unconditionally would pass this entire suite.",
+      "expected": {
+        "exit_code": 0,
+        "state": "OK",
+        "findings": []
+      }
+    },
+    {
+      "id": "digest-scheme-invalid",
+      "manifest_path": "assurance/mutation/fixtures/manifests/digest-scheme-invalid.json",
+      "rationale": "A manifest that digests its surfaces under some other scheme is not comparable with the rest of the repository's evidence.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_DIGEST_SCHEME_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "engine-unavailable-honestly-blocked",
+      "manifest_path": "assurance/mutation/fixtures/manifests/engine-unavailable-honestly-blocked.json",
+      "rationale": "The load-bearing case. The engine is genuinely absent AND the manifest says so honestly -- the population is parked NOT_ENUMERATED_ENGINE_UNAVAILABLE and the arms are parked NOT_RUN. Honest unavailability STILL BLOCKS. Missing tooling is never a pass.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_NOT_RUN",
+          "MUT_DENOMINATOR_TOTAL_DRIFT",
+          "MUT_ELIGIBLE_TOTAL_DRIFT",
+          "MUT_ENGINE_UNAVAILABLE",
+          "MUT_KILLED_TOTAL_DRIFT",
+          "MUT_POPULATION_NOT_ENUMERATED",
+          "MUT_SCORE_NOT_COMPUTABLE",
+          "MUT_SCORE_PERCENT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "toolchain-version-mismatch",
+      "manifest_path": "assurance/mutation/fixtures/manifests/toolchain-version-mismatch.json",
+      "rationale": "The engine is installed but the runtime under it is not the pinned one. A campaign run on the wrong toolchain is a campaign about a different program.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_TOOLCHAIN_VERSION_MISMATCH"
+        ]
+      }
+    },
+    {
+      "id": "dependency-graph-not-promoted",
+      "manifest_path": "assurance/mutation/fixtures/manifests/dependency-graph-not-promoted.json",
+      "rationale": "AC1 says the engines run FROM PROMOTED tool/dependency graphs. An unpromoted graph is not one they may run from.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_DEPENDENCY_GRAPH_NOT_PROMOTED"
+        ]
+      }
+    },
+    {
+      "id": "promotion-record-empty",
+      "manifest_path": "assurance/mutation/fixtures/manifests/promotion-record-empty.json",
+      "rationale": "PROMOTED with no record named. Promotion that names no record is an adjective.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_PROMOTION_RECORD_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "promotion-record-missing-file",
+      "manifest_path": "assurance/mutation/fixtures/manifests/promotion-record-missing-file.json",
+      "rationale": "PROMOTED naming a record that is not on disk. A promotion record nobody can open promoted nothing.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_PROMOTION_RECORD_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "dependency-graph-status-unknown",
+      "manifest_path": "assurance/mutation/fixtures/manifests/dependency-graph-status-unknown.json",
+      "rationale": "An invented promotion status.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_MANIFEST_SCHEMA_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "unknown-engine-reference",
+      "manifest_path": "assurance/mutation/fixtures/manifests/unknown-engine-reference.json",
+      "rationale": "A population citing an engine the manifest never declares: its availability was never decided, so its campaign was never judged.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_UNKNOWN_ENGINE_REFERENCE"
+        ]
+      }
+    },
+    {
+      "id": "unavailable-as-skip-population-claims-run",
+      "manifest_path": "assurance/mutation/fixtures/manifests/unavailable-as-skip-population-claims-run.json",
+      "rationale": "A population recorded ENUMERATED on an engine that is not installed: the campaign is asserted and the tool is absent.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_NOT_RUN",
+          "MUT_ARM_SEPARATION_SHARED",
+          "MUT_ENGINE_UNAVAILABLE",
+          "UNAVAILABLE_REPRESENTED_AS_SKIP"
+        ]
+      }
+    },
+    {
+      "id": "unavailable-as-skip-population-parked-while-available",
+      "manifest_path": "assurance/mutation/fixtures/manifests/unavailable-as-skip-population-parked-while-available.json",
+      "rationale": "THE INVERSE EVASION. The engine is right there and the population is parked as blocked-on-tooling. That hides a campaign nobody ran behind a tool that is installed.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_DENOMINATOR_TOTAL_DRIFT",
+          "MUT_ELIGIBLE_TOTAL_DRIFT",
+          "MUT_KILLED_TOTAL_DRIFT",
+          "MUT_POPULATION_NOT_ENUMERATED",
+          "MUT_SCORE_NOT_COMPUTABLE",
+          "MUT_SCORE_PERCENT_DRIFT",
+          "UNAVAILABLE_REPRESENTED_AS_SKIP"
+        ]
+      }
+    },
+    {
+      "id": "unavailable-as-skip-arm-claims-run",
+      "manifest_path": "assurance/mutation/fixtures/manifests/unavailable-as-skip-arm-claims-run.json",
+      "rationale": "An arm recorded RUN while the only declared engine is absent.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_DENOMINATOR_TOTAL_DRIFT",
+          "MUT_ELIGIBLE_TOTAL_DRIFT",
+          "MUT_ENGINE_UNAVAILABLE",
+          "MUT_KILLED_TOTAL_DRIFT",
+          "MUT_POPULATION_NOT_ENUMERATED",
+          "MUT_SCORE_NOT_COMPUTABLE",
+          "MUT_SCORE_PERCENT_DRIFT",
+          "UNAVAILABLE_REPRESENTED_AS_SKIP"
+        ]
+      }
+    },
+    {
+      "id": "unavailable-as-skip-arm-parked-while-available",
+      "manifest_path": "assurance/mutation/fixtures/manifests/unavailable-as-skip-arm-parked-while-available.json",
+      "rationale": "THE INVERSE EVASION at the arm. Every engine probes available and the arm is still parked as blocked-on-tooling.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_NOT_RUN",
+          "UNAVAILABLE_REPRESENTED_AS_SKIP"
+        ]
+      }
+    },
+    {
+      "id": "status-skipped-forbidden-population",
+      "manifest_path": "assurance/mutation/fixtures/manifests/status-skipped-forbidden-population.json",
+      "rationale": "There is no SKIPPED status in this model. Writing one is refused BY NAME rather than falling through to 'unknown'.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SCORE_NOT_COMPUTABLE",
+          "MUT_STATUS_SKIPPED_FORBIDDEN"
+        ]
+      }
+    },
+    {
+      "id": "status-skipped-forbidden-arm",
+      "manifest_path": "assurance/mutation/fixtures/manifests/status-skipped-forbidden-arm.json",
+      "rationale": "Same refusal at the arm.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_STATUS_SKIPPED_FORBIDDEN"
+        ]
+      }
+    },
+    {
+      "id": "arm-status-unknown",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-status-unknown.json",
+      "rationale": "An invented arm run status.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_MANIFEST_SCHEMA_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "surface-undeclared",
+      "manifest_path": "assurance/mutation/fixtures/manifests/surface-undeclared.json",
+      "rationale": "A surface with no paths: AC1 mutates a DECLARED surface, and an undeclared one has no denominator.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SURFACE_UNDECLARED"
+        ]
+      }
+    },
+    {
+      "id": "surface-digest-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/surface-digest-drift.json",
+      "rationale": "The production surface moved under the manifest.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SURFACE_DIGEST_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "surface-file-count-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/surface-file-count-drift.json",
+      "rationale": "The digest matches and the file count does not: a separate rule with a separate code, so neither can hide behind the other.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SURFACE_FILE_COUNT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "surface-unreadable",
+      "manifest_path": "assurance/mutation/fixtures/manifests/surface-unreadable.json",
+      "rationale": "A surface path that is not on disk. A missing surface is not an empty surface.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SURFACE_DIGEST_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "production-surface-has-no-population",
+      "manifest_path": "assurance/mutation/fixtures/manifests/production-surface-has-no-population.json",
+      "rationale": "A declared production surface nobody enumerated a population over is a surface nobody mutated.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SURFACE_HAS_NO_POPULATION"
+        ]
+      }
+    },
+    {
+      "id": "unknown-surface-reference",
+      "manifest_path": "assurance/mutation/fixtures/manifests/unknown-surface-reference.json",
+      "rationale": "A population citing a surface the manifest never declares.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SURFACE_HAS_NO_POPULATION",
+          "MUT_UNKNOWN_SURFACE_REFERENCE"
+        ]
+      }
+    },
+    {
+      "id": "population-not-tool-enumerated",
+      "manifest_path": "assurance/mutation/fixtures/manifests/population-not-tool-enumerated.json",
+      "rationale": "THE SUBSTITUTION THIS STORY IS MOST LIKELY TO BE OFFERED: a hand-curated catalogue of chosen mutants presented as a population. The mutants nobody wrote down were never counted.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_POPULATION_NOT_TOOL_ENUMERATED"
+        ]
+      }
+    },
+    {
+      "id": "provenance-unknown",
+      "manifest_path": "assurance/mutation/fixtures/manifests/provenance-unknown.json",
+      "rationale": "An invented provenance.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_MANIFEST_SCHEMA_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "enumeration-status-unknown",
+      "manifest_path": "assurance/mutation/fixtures/manifests/enumeration-status-unknown.json",
+      "rationale": "An invented enumeration status.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_MANIFEST_SCHEMA_INVALID",
+          "MUT_SCORE_NOT_COMPUTABLE"
+        ]
+      }
+    },
+    {
+      "id": "silent-absence-record-dropped",
+      "manifest_path": "assurance/mutation/fixtures/manifests/silent-absence-record-dropped.json",
+      "rationale": "THE CENTRAL RULE. A mutant is removed from the records while the header count keeps counting it. This is what 'impossible for a mutant to be silently absent' means mechanically: the count and the records must be the same thing.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_TALLY_DRIFT",
+          "MUT_DENOMINATOR_TOTAL_DRIFT",
+          "MUT_POPULATION_RECORD_COUNT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "class-sum-mismatch",
+      "manifest_path": "assurance/mutation/fixtures/manifests/class-sum-mismatch.json",
+      "rationale": "The class table sums to something other than the declared total.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_SUM_MISMATCH",
+          "MUT_CLASS_TALLY_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "class-tally-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/class-tally-drift.json",
+      "rationale": "The class table sums correctly and disagrees with the records. A separate rule from the sum, with a separate code.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_TALLY_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "class-table-disposition-unknown",
+      "manifest_path": "assurance/mutation/fixtures/manifests/class-table-disposition-unknown.json",
+      "rationale": "A tenth class invented in the class table.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_SUM_MISMATCH",
+          "MUT_CLASS_TABLE_DISPOSITION_UNKNOWN"
+        ]
+      }
+    },
+    {
+      "id": "source-manifest-count-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/source-manifest-count-drift.json",
+      "rationale": "A population normalized from an on-disk campaign manifest whose entry count does not match. The normalization is re-derived from the file, not asserted.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SOURCE_MANIFEST_COUNT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "source-manifest-unreadable",
+      "manifest_path": "assurance/mutation/fixtures/manifests/source-manifest-unreadable.json",
+      "rationale": "A source manifest that is not on disk.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SOURCE_MANIFEST_UNREADABLE"
+        ]
+      }
+    },
+    {
+      "id": "disposition-absent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/disposition-absent.json",
+      "rationale": "A mutant with no disposition. Every mutant lands in exactly one of the nine classes, and 'none' is not one of them.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_TALLY_DRIFT",
+          "MUT_DISPOSITION_ABSENT",
+          "MUT_KILLED_TOTAL_DRIFT",
+          "MUT_SCORE_PERCENT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "disposition-unknown",
+      "manifest_path": "assurance/mutation/fixtures/manifests/disposition-unknown.json",
+      "rationale": "A tenth class invented on a record.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_TALLY_DRIFT",
+          "MUT_DISPOSITION_UNKNOWN",
+          "MUT_KILLED_TOTAL_DRIFT",
+          "MUT_SCORE_PERCENT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "mutant-id-duplicate",
+      "manifest_path": "assurance/mutation/fixtures/manifests/mutant-id-duplicate.json",
+      "rationale": "One mutant counted twice inflates every denominator it is in.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_TALLY_DRIFT",
+          "MUT_DENOMINATOR_TOTAL_DRIFT",
+          "MUT_ELIGIBLE_TOTAL_DRIFT",
+          "MUT_KILLED_TOTAL_DRIFT",
+          "MUT_MUTANT_ID_DUPLICATE",
+          "MUT_POPULATION_RECORD_COUNT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "record-excluded-from-denominator",
+      "manifest_path": "assurance/mutation/fixtures/manifests/record-excluded-from-denominator.json",
+      "rationale": "A mutant marked out of the denominator. AC2 requires EVERY classification to remain visible in it -- this is the rule that stops an inconvenient mutant from being quietly dropped.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_DENOMINATOR_TOTAL_DRIFT",
+          "MUT_RECORD_EXCLUDED_FROM_DENOMINATOR"
+        ]
+      }
+    },
+    {
+      "id": "eligibility-mislabelled-ineligible-marked-eligible",
+      "manifest_path": "assurance/mutation/fixtures/manifests/eligibility-mislabelled-ineligible-marked-eligible.json",
+      "rationale": "An equivalent mutant marked eligible. The two ineligible classes leave the ELIGIBLE set and stay in the denominator, never the reverse.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ELIGIBILITY_MISLABELLED"
+        ]
+      }
+    },
+    {
+      "id": "eligibility-mislabelled-eligible-marked-ineligible",
+      "manifest_path": "assurance/mutation/fixtures/manifests/eligibility-mislabelled-eligible-marked-ineligible.json",
+      "rationale": "A killed mutant marked ineligible, which would shrink the eligible denominator without any equivalence argument at all. Separate branch, same code, its own fixture.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ELIGIBILITY_MISLABELLED"
+        ]
+      }
+    },
+    {
+      "id": "source-tool-invalid",
+      "manifest_path": "assurance/mutation/fixtures/manifests/source-tool-invalid.json",
+      "rationale": "AC1 normalizes the output of PIT and cargo-mutants and of nothing else.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SOURCE_TOOL_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "raw-status-absent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/raw-status-absent.json",
+      "rationale": "Without the tool's own word, the normalization into an AC1 class cannot be audited.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_RAW_STATUS_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "equivalence-evidence-absent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/equivalence-evidence-absent.json",
+      "rationale": "An equivalent classification with no technical evidence. AC2 requires it.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_EQUIVALENCE_EVIDENCE_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "equivalence-review-absent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/equivalence-review-absent.json",
+      "rationale": "An equivalent classification with impeccable technical evidence and NO independent explicit review. This is the exact shape of mutants/e1-ws-core-manifest.json's four EQUIVALENT_DOCUMENTED entries today.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_EQUIVALENCE_REVIEW_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "review-record-missing",
+      "manifest_path": "assurance/mutation/fixtures/manifests/review-record-missing.json",
+      "rationale": "A review cited by id that the manifest does not carry.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_REVIEW_RECORD_MISSING"
+        ]
+      }
+    },
+    {
+      "id": "review-not-independent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/review-not-independent.json",
+      "rationale": "A review by someone who is not an independent reviewer. Self-review is not review.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_REVIEW_NOT_INDEPENDENT"
+        ]
+      }
+    },
+    {
+      "id": "review-not-blind",
+      "manifest_path": "assurance/mutation/fixtures/manifests/review-not-blind.json",
+      "rationale": "A non-blind review. The master story requires DUAL-BLIND independent review of these two classes.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_REVIEW_NOT_BLIND"
+        ]
+      }
+    },
+    {
+      "id": "review-not-approved",
+      "manifest_path": "assurance/mutation/fixtures/manifests/review-not-approved.json",
+      "rationale": "A review that rejected the classification, recorded as if it had settled it.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_REVIEW_NOT_APPROVED"
+        ]
+      }
+    },
+    {
+      "id": "technically-unviable-needs-the-same-gates",
+      "manifest_path": "assurance/mutation/fixtures/manifests/technically-unviable-needs-the-same-gates.json",
+      "rationale": "The second ineligible class carries exactly the same two gates as the first. A mutant reclassified technically-unviable without evidence and review leaves the eligible set for free.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_TALLY_DRIFT",
+          "MUT_EQUIVALENCE_EVIDENCE_ABSENT",
+          "MUT_EQUIVALENCE_REVIEW_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "denominator-total-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/denominator-total-drift.json",
+      "rationale": "The declared denominator disagrees with the records.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_DENOMINATOR_TOTAL_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "eligible-total-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/eligible-total-drift.json",
+      "rationale": "The declared eligible total disagrees with the records.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ELIGIBLE_TOTAL_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "killed-total-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/killed-total-drift.json",
+      "rationale": "The declared kill count disagrees with the records.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_KILLED_TOTAL_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "missed-total-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/missed-total-drift.json",
+      "rationale": "The declared missed count disagrees with the records -- the direction that matters, since a declared 0 over a real survivor is the whole game.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_MISSED_TOTAL_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "score-percent-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/score-percent-drift.json",
+      "rationale": "The declared percentage disagrees with killed/eligible.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SCORE_PERCENT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "missed-nonzero-survivor",
+      "manifest_path": "assurance/mutation/fixtures/manifests/missed-nonzero-survivor.json",
+      "rationale": "A real survivor. AC2 requires zero MISSED, and a survivor is MISSED however the summary is worded.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_TALLY_DRIFT",
+          "MUT_KILLED_TOTAL_DRIFT",
+          "MUT_MISSED_NONZERO",
+          "MUT_MISSED_TOTAL_DRIFT",
+          "MUT_SCORE_PERCENT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "missed-nonzero-uncovered",
+      "manifest_path": "assurance/mutation/fixtures/manifests/missed-nonzero-uncovered.json",
+      "rationale": "An uncovered mutant is MISSED too. So are not_executed, timeout, tool_failure and flaky: none of them is a demonstration that a test caught anything.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLASS_TALLY_DRIFT",
+          "MUT_KILLED_TOTAL_DRIFT",
+          "MUT_MISSED_NONZERO",
+          "MUT_MISSED_TOTAL_DRIFT",
+          "MUT_SCORE_PERCENT_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "score-claimed-computable-over-unenumerated-population",
+      "manifest_path": "assurance/mutation/fixtures/manifests/score-claimed-computable-over-unenumerated-population.json",
+      "rationale": "A score declared computable while a population was never enumerated. A ratio over a fragment of the surface is not the eligible mutation score of the surface.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_POPULATION_NOT_ENUMERATED",
+          "MUT_SCORE_NOT_COMPUTABLE",
+          "MUT_SURFACE_HAS_NO_POPULATION",
+          "UNAVAILABLE_REPRESENTED_AS_SKIP"
+        ]
+      }
+    },
+    {
+      "id": "reconciliation-leg-absent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/reconciliation-leg-absent.json",
+      "rationale": "One of AC3's four required runs is not recorded at all.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_RECONCILIATION_LEG_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "reconciliation-leg-not-run",
+      "manifest_path": "assurance/mutation/fixtures/manifests/reconciliation-leg-not-run.json",
+      "rationale": "A required run recorded as not run.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_RECONCILIATION_LEG_NOT_RUN"
+        ]
+      }
+    },
+    {
+      "id": "test-surface-mutated-across-campaign",
+      "manifest_path": "assurance/mutation/fixtures/manifests/test-surface-mutated-across-campaign.json",
+      "rationale": "THE AC3 RULE. The test surface digest moved between the before and after readings: some test changed while the mutants were running, which is exactly what AC3 forbids.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_TEST_SURFACE_MUTATED"
+        ]
+      }
+    },
+    {
+      "id": "test-surface-drifted-from-tree",
+      "manifest_path": "assurance/mutation/fixtures/manifests/test-surface-drifted-from-tree.json",
+      "rationale": "Before and after agree with each other and neither is the tree. A pinned pair that stopped describing the repository proves nothing.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_TEST_SURFACE_MUTATED"
+        ]
+      }
+    },
+    {
+      "id": "test-surface-unreadable",
+      "manifest_path": "assurance/mutation/fixtures/manifests/test-surface-unreadable.json",
+      "rationale": "A declared test surface that is not on disk.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SURFACE_DIGEST_DRIFT",
+          "MUT_TEST_SURFACE_MUTATED"
+        ]
+      }
+    },
+    {
+      "id": "arm-missing",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-missing.json",
+      "rationale": "AC4 governs the hidden and sealed runs by name; an absent arm is an ungoverned one.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_MISSING"
+        ]
+      }
+    },
+    {
+      "id": "arm-separation-dimension-missing",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-separation-dimension-missing.json",
+      "rationale": "One of AC4's six dimensions undeclared.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_SEPARATION_DIMENSION_MISSING"
+        ]
+      }
+    },
+    {
+      "id": "arm-separation-shared",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-separation-shared.json",
+      "rationale": "THE AC4 RULE. Hidden and sealed share one credential. A shared credential is the leakage channel AC4 exists to close, and it is exactly what corpora/hidden and corpora/sealed record today.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_SEPARATION_SHARED"
+        ]
+      }
+    },
+    {
+      "id": "arm-separation-witness-unreadable",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-separation-witness-unreadable.json",
+      "rationale": "A dimension whose witness names a file or field that cannot be read. A separation dimension whose witness cannot be read is a promise, not a reading.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_SEPARATION_WITNESS_UNREADABLE"
+        ]
+      }
+    },
+    {
+      "id": "arm-separation-witness-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-separation-witness-drift.json",
+      "rationale": "A dimension whose declared value is not what the named file actually says. This is the difference between a declaration and a reading.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_SEPARATION_WITNESS_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "arm-network-denial-undeclared",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-network-denial-undeclared.json",
+      "rationale": "AC4 requires candidate execution to deny network APIs.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_NETWORK_DENIAL_UNDECLARED"
+        ]
+      }
+    },
+    {
+      "id": "arm-protected-store-denial-undeclared",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-protected-store-denial-undeclared.json",
+      "rationale": "AC4 requires candidate execution to deny protected-store APIs.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_PROTECTED_STORE_DENIAL_UNDECLARED"
+        ]
+      }
+    },
+    {
+      "id": "arm-budget-not-monotonic",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-budget-not-monotonic.json",
+      "rationale": "AC4 requires monotonic budgets and anti-evasion.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_BUDGET_NOT_MONOTONIC"
+        ]
+      }
+    },
+    {
+      "id": "arm-diagnostic-policy-absent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/arm-diagnostic-policy-absent.json",
+      "rationale": "AC4 releases only policy-limited diagnostics.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_DIAGNOSTIC_POLICY_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "ac5-leg-absent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/ac5-leg-absent.json",
+      "rationale": "One of AC5's six clauses not recorded.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_AC5_LEG_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "ac5-leg-not-passed",
+      "manifest_path": "assurance/mutation/fixtures/manifests/ac5-leg-not-passed.json",
+      "rationale": "An AC5 clause recorded as anything other than PASSED.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_AC5_LEG_NOT_PASSED"
+        ]
+      }
+    },
+    {
+      "id": "signature-absent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/signature-absent.json",
+      "rationale": "AC1 requires ONE SIGNED denominator. An unsigned one is a draft. The unsigned fixture also has no declared payload digest and no key, and all three absences are reported rather than folded into one.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_PAYLOAD_DIGEST_DRIFT",
+          "MUT_SIGNATURE_ABSENT",
+          "MUT_SIGNING_KEY_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "signature-scheme-invalid",
+      "manifest_path": "assurance/mutation/fixtures/manifests/signature-scheme-invalid.json",
+      "rationale": "A signature scheme this repository does not use.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SIGNATURE_SCHEME_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "payload-digest-drift",
+      "manifest_path": "assurance/mutation/fixtures/manifests/payload-digest-drift.json",
+      "rationale": "A properly signed fixture whose DECLARED payload digest was then edited. Because the digest covers every field but the signature's own two, no surface, population, record, arm or claim can drift under it unnoticed. Applied AFTER signing, or the signer would simply restamp it.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_PAYLOAD_DIGEST_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "signature-does-not-verify",
+      "manifest_path": "assurance/mutation/fixtures/manifests/signature-does-not-verify.json",
+      "rationale": "A signature of the right shape over the wrong thing. Present-but-unverifiable is worse than absent, because it looks signed, so it raises the same BLOCK.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_SIGNATURE_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "signing-key-absent",
+      "manifest_path": "assurance/mutation/fixtures/manifests/signing-key-absent.json",
+      "rationale": "A signature with no key to check it against. An unverifiable signature is not a signature. The key is inside the signed payload, so removing it moves the digest too -- which is the point: the key identity cannot be swapped under a signature.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_PAYLOAD_DIGEST_DRIFT",
+          "MUT_SIGNING_KEY_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "claim-outruns-findings",
+      "manifest_path": "assurance/mutation/fixtures/manifests/claim-outruns-findings.json",
+      "rationale": "A manifest claiming an AC met while a BLOCK stands. This is the rule that stops the document from grading itself.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_ARM_DIAGNOSTIC_POLICY_ABSENT",
+          "UNAVAILABLE_REPRESENTED_AS_SUCCESS"
+        ]
+      }
+    },
+    {
+      "id": "claim-grade-invalid",
+      "manifest_path": "assurance/mutation/fixtures/manifests/claim-grade-invalid.json",
+      "rationale": "A claim grade outside the program's assurance vocabulary.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "MUT_CLAIM_GRADE_INVALID"
+        ]
+      }
+    }
+  ]
+}
