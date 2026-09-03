@@ -350,6 +350,14 @@ neighbouring mechanism (bounding a write in progress), not evidence about this
 one. Deciding on the strength of a tilt is how a reasoned guess becomes a
 finding, which is what F007 praises the collision audit for refusing.
 
+**The ceiling on the 1-of-247.** That extent is recomputed by
+`internal/divergencesweep` from committed per-case report bytes of an earlier
+build, the same measurement generation sequence 51 names as `518b77aa`, and
+re-running the suite is an owner gate that was not exercised. What was checked
+here is the MECHANISM, at source, and it is unchanged; the count is carried
+forward from the record rather than re-measured, and the answer to the question
+does not depend on whether it is 1 or 2.
+
 ## 7. What moved, what did not, and the ceilings on the numbers used
 
 Counts, read from `deltaledgerctl --check` output:
