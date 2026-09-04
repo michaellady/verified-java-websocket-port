@@ -119,6 +119,74 @@ func TestVerifyAdjudicationRefusesEachWayARecordCanSayNothing(t *testing.T) {
 		}
 	})
 
+	t.Run("a record declaring rfc-governs while its prose says the divergence is retained", func(t *testing.T) {
+		// ROUND 5. Rule 5 listed "fix-in-port" and "intentional-correction"
+		// and not "rfc-governs", which is the disposition the retention
+		// sentence excludes by name — "not resolved toward the RFC". The whole
+		// tree passed `deltaledgerctl --check` at exit 0 with ledger sequence
+		// 59 in exactly this state, every published counter unchanged.
+		definition := probeDefinition()
+		definition.Disposition = lab.DispositionRFCGoverns
+		definition.MismatchClass = lab.MismatchJavaQuirk
+		definition.Rationale = retentionRationale()
+		record := buildRecord(t, 1, definition)
+		err := VerifyAdjudication([]lab.BehaviorLedgerRecord{record}, 0)
+		if err == nil {
+			t.Fatal("a record declaring rfc-governs while its hashed rationale says the divergence is " +
+				"deliberately RETAINED, and NOT resolved toward the RFC, was accepted")
+		}
+		if !strings.Contains(err.Error(), "contradict each other") {
+			t.Fatalf("refused, but not on the contradiction: %v", err)
+		}
+		if !strings.Contains(err.Error(), string(lab.DispositionRFCGoverns)) {
+			t.Fatalf("refused without naming the disposition it refused: %v", err)
+		}
+	})
+
+	t.Run("a pre-vocabulary record that carries a class", func(t *testing.T) {
+		// Rule 6, the converse of rule 2. It is what makes the residual a
+		// function of the chain's sequences.
+		definition := probeDefinition()
+		definition.MismatchClass = lab.MismatchJavaQuirk
+		record := buildRecord(t, PreVocabularySequence, definition)
+		err := VerifyAdjudication([]lab.BehaviorLedgerRecord{record}, 1)
+		if err == nil {
+			t.Fatal("a record sealed before the mismatch_class field existed carried one and was accepted")
+		}
+		if !strings.Contains(err.Error(), "is at or before the pre-vocabulary sequence") {
+			t.Fatalf("refused, but not on the grandfathered-set boundary: %v", err)
+		}
+	})
+
+	t.Run("a residual that agrees with a broken recount", func(t *testing.T) {
+		// ROUND 5, THE OTHER HALF. The residual used to be checked ONLY by
+		// recounting the same field the builder counted, so the two could only
+		// ever agree: disabling the body of CountRecordsWithoutMismatchClass
+		// made `deltaledgerctl --root .` publish
+		// records_without_mismatch_class = 0 over a chain with forty-nine
+		// unclassed records, left the chain head byte-identical, and left
+		// --check at exit 0. Here the published number and the recount agree at
+		// zero and the SEQUENCES say otherwise.
+		grandfathered := probeDefinition()
+		grandfathered.Rationale = retentionRationale()
+		classed := probeDefinition()
+		classed.Subject = "org.java-websocket.probe.adjudication-two"
+		classed.Disposition = lab.DispositionAdoptJava
+		classed.MismatchClass = lab.MismatchJavaQuirk
+		records := []lab.BehaviorLedgerRecord{
+			buildRecord(t, 1, grandfathered),
+			buildRecord(t, PreVocabularySequence+1, classed),
+		}
+		// One record is at or before the boundary, so the honest residual is 1.
+		err := VerifyAdjudication(records, 0)
+		if err == nil {
+			t.Fatal("a published residual of zero was accepted over a chain with a pre-vocabulary record in it")
+		}
+		if !strings.Contains(err.Error(), "The residual is a consequence of the chain's SEQUENCES") {
+			t.Fatalf("refused, but not on the sequence-derived residual: %v", err)
+		}
+	})
+
 	t.Run("a published residual that understates the chain", func(t *testing.T) {
 		definition := probeDefinition()
 		definition.Rationale = retentionRationale()

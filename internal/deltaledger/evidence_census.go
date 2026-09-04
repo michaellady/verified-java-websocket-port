@@ -52,9 +52,11 @@ package deltaledger
 // covering record able to exist at all.
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -297,8 +299,38 @@ type CensusDocument struct {
 }
 
 // PublicCorpusManifestRelativePath holds the seed both committed corpora derive
-// from.
-const PublicCorpusManifestRelativePath = "corpora/public/manifest.json"
+// from, and HandshakeCorpusManifestRelativePath is the handshake corpus's own
+// manifest, which declares the same seed and describes its own artifact.
+const (
+	PublicCorpusManifestRelativePath    = "corpora/public/manifest.json"
+	HandshakeCorpusManifestRelativePath = "corpora/handshake/manifest.json"
+)
+
+// corpusManifest is the part of a corpus manifest this file re-derives: the
+// seed the corpus is generated from, and the manifest's own description of the
+// bytes it ships beside it.
+type corpusManifest struct {
+	Generator struct {
+		PublicSeed string `json:"public_seed"`
+	} `json:"generator"`
+	Artifacts []struct {
+		Path   string `json:"path"`
+		SHA256 string `json:"sha256"`
+		Bytes  int    `json:"bytes"`
+	} `json:"artifacts"`
+}
+
+func readCorpusManifest(root, relative string) (corpusManifest, error) {
+	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
+	if err != nil {
+		return corpusManifest{}, err
+	}
+	var manifest corpusManifest
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		return corpusManifest{}, fmt.Errorf("decode %s: %w", relative, err)
+	}
+	return manifest, nil
+}
 
 // VerifyCommittedCorporaReDerive is the PRODUCTION identity check between the
 // committed corpus files and their derivation from the committed seed.
@@ -312,18 +344,31 @@ const PublicCorpusManifestRelativePath = "corpora/public/manifest.json"
 // internal/corpora/committed_test.go, a test binary no release path runs — the
 // exact criticism round 3 made of the public corpus, applied to the file that
 // decides coverage semantics.
+//
+// WHAT ROUND 5 ADDED, AND WHY IT IS NOT DECORATION. The first version of this
+// function re-derived the two corpus FILES and asked nothing at all about the
+// manifests beside them, including the one whose seed it took as its input.
+// Three states were reachable with `make -C rust ledger-gates` at exit 0 and
+// the whole internal/corpora test package green, each reproduced by execution
+// before this paragraph was written:
+//
+//   - corpora/public/manifest.json declaring bytes 1 for a 342167-byte corpus;
+//   - corpora/handshake/manifest.json declaring an all-zero sha256 and bytes 2
+//     for the corpus this function re-derives byte-for-byte;
+//   - corpora/handshake/manifest.json declaring a generator.public_seed the
+//     handshake corpus was never derived from, while the public manifest's seed
+//     — the one actually used — stayed correct.
+//
+// The public manifest's artifact digest was reconciled, but only by
+// internal/corpora/committed_test.go, which is go-suite's to run and not this
+// gate's; its `bytes` and the handshake manifest were reconciled by nothing.
+// The corpus is not the only committed artifact that describes the corpus, and
+// a manifest that both seeds a derivation and misdescribes its result is the
+// shape this file exists to refuse.
 func VerifyCommittedCorporaReDerive(root string) error {
-	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(PublicCorpusManifestRelativePath)))
+	manifest, err := readCorpusManifest(root, PublicCorpusManifestRelativePath)
 	if err != nil {
 		return err
-	}
-	var manifest struct {
-		Generator struct {
-			PublicSeed string `json:"public_seed"`
-		} `json:"generator"`
-	}
-	if err := json.Unmarshal(raw, &manifest); err != nil {
-		return fmt.Errorf("decode %s: %w", PublicCorpusManifestRelativePath, err)
 	}
 	if manifest.Generator.PublicSeed == "" {
 		return fmt.Errorf("%s names no generator.public_seed, so the committed corpora cannot be re-derived and "+
@@ -335,10 +380,11 @@ func VerifyCommittedCorporaReDerive(root string) error {
 	}
 	for _, one := range []struct {
 		relative string
+		manifest string
 		derived  []byte
 	}{
-		{PublicCorpusRelativePath, derivedPublic},
-		{HandshakeCorpusRelativePath, derivedHandshake},
+		{PublicCorpusRelativePath, PublicCorpusManifestRelativePath, derivedPublic},
+		{HandshakeCorpusRelativePath, HandshakeCorpusManifestRelativePath, derivedHandshake},
 	} {
 		committed, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(one.relative)))
 		if err != nil {
@@ -350,6 +396,55 @@ func VerifyCommittedCorporaReDerive(root string) error {
 				"used to run only in a test binary, which is not a gate",
 				one.relative, PublicCorpusManifestRelativePath)
 		}
+		if err := verifyCorpusManifestDescribes(root, one.manifest, one.relative,
+			manifest.Generator.PublicSeed, one.derived); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// verifyCorpusManifestDescribes re-derives a corpus manifest's own claims about
+// the corpus: the seed it says the bytes come from, and the path, digest and
+// length it says those bytes have.
+//
+// It takes the DERIVED bytes rather than the committed ones on purpose. The
+// caller has already refused a corpus that is not byte-identical to its
+// derivation, so the two are equal here; passing the derivation makes this a
+// statement about what the generator produces rather than a digest of a file
+// compared against a digest of the same file.
+func verifyCorpusManifestDescribes(root, manifestRelative, corpusRelative, seed string, derived []byte) error {
+	manifest, err := readCorpusManifest(root, manifestRelative)
+	if err != nil {
+		return err
+	}
+	if manifest.Generator.PublicSeed != seed {
+		return fmt.Errorf("%s declares generator.public_seed %q, but %s is derived from the seed %q that %s "+
+			"declares. Two manifests naming two seeds for one derivation means one of them describes a corpus "+
+			"this repository does not hold",
+			manifestRelative, manifest.Generator.PublicSeed, corpusRelative, seed, PublicCorpusManifestRelativePath)
+	}
+	base := path.Base(corpusRelative)
+	if len(manifest.Artifacts) != 1 {
+		return fmt.Errorf("%s lists %d artifacts; it describes exactly one file, %s, and this rule re-derives "+
+			"only that file, so a second entry would be a claim about bytes nothing here checks",
+			manifestRelative, len(manifest.Artifacts), base)
+	}
+	artifact := manifest.Artifacts[0]
+	if artifact.Path != base {
+		return fmt.Errorf("%s describes an artifact at %q, but the corpus it seeds is %s",
+			manifestRelative, artifact.Path, corpusRelative)
+	}
+	wantDigest := fmt.Sprintf("sha256:%x", sha256.Sum256(derived))
+	if artifact.SHA256 != wantDigest {
+		return fmt.Errorf("%s declares %s at %s, but the corpus derived from the committed seed digests to %s. "+
+			"The manifest is the artifact that says what the corpus IS; a manifest that seeds the derivation and "+
+			"then misdescribes its result was accepted by this gate until round 5",
+			manifestRelative, base, artifact.SHA256, wantDigest)
+	}
+	if artifact.Bytes != len(derived) {
+		return fmt.Errorf("%s declares %s at %d bytes, but the corpus derived from the committed seed is %d bytes",
+			manifestRelative, base, artifact.Bytes, len(derived))
 	}
 	return nil
 }

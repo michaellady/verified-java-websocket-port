@@ -1208,14 +1208,97 @@
     },
     {
       "id": "T-ledger-adjudication-corpora-attacked",
-      "title": "The two ledger rules round 4 read and did not attack",
-      "state": "ready",
+      "title": "VerifyAdjudication and VerifyCommittedCorporaReDerive: both defeated once and both fixed",
+      "state": "done",
       "depends_on": [
         "T-gates-residue-attacked"
       ],
       "blocked_by": [],
-      "evidence": [],
-      "note": "Narrow and named by round 4 itself: VerifyAdjudication and VerifyCommittedCorporaReDerive, two of the eight ledger rules in its brief, 'READ, NOT ATTACKED. I ran out of round after 2a turned into a live defect that needed proving by execution. Reporting them as survivors would be the exact lie this task was created to correct.' Everything else round 4 left is either owner-blocked (attacking it moves the census, which is OA-oracle-census-anchor) or explicitly UNREACHABLE (unsafe_usage), so this is the whole unblocked residue. THIS IS THE LAST ADVERSARIAL ROUND TO RUN UNPROMPTED. Four rounds have now defeated every gate anyone attacked, and each round names a residue -- which makes 'attack the residue' an unbounded treadmill unless someone draws the line. After this the gate surface is worked, the returns are visibly diminishing, and the bottleneck is the 24 open owner actions rather than anything a further round would find. A fifth round is the owner's call."
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/gate-attack-round-5.md"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/gate-attack-round-5.md"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "func contradictsRetention\\(disposition string\\) bool \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "case lab\\.DispositionFixInPort, lab\\.DispositionIntentionalCorrection, lab\\.DispositionRFCGoverns:"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "delta\\.Disposition == lab\\.DispositionFixInPort \\|\\| delta\\.Disposition == lab\\.DispositionIntentionalCorrection"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "is at or before the pre-vocabulary sequence %d but carries mismatch_class"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "The residual is a consequence of the chain's SEQUENCES"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "func verifyCorpusManifestDescribes\\(root, manifestRelative, corpusRelative, seed string, derived \\[\\]byte\\) error \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "HandshakeCorpusManifestRelativePath = \"corpora/handshake/manifest\\.json\""
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "Two manifests naming two seeds for one derivation"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "The manifest is the artifact that says what the corpus IS"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "(?m)^const PublicCorpusManifestRelativePath = "
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication_test.go",
+          "pattern": "a record declaring rfc-governs while its prose says the divergence is retained"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication_test.go",
+          "pattern": "a residual that agrees with a broken recount"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/integrity_test.go",
+          "pattern": "func TestACorpusManifestCannotMisdescribeTheCorpusItSeeds\\(t \\*testing\\.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/observations_test.go",
+          "pattern": "HandshakeCorpusManifestRelativePath,"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust ledger-gates"
+        }
+      ],
+      "note": "Round 5, drafts/self-review/gate-attack-round-5.md. Both rules fell once and both are fixed here, each with the attack refused and the unmodified tree still green. VerifyAdjudication: rule 5's contradiction set listed fix-in-port and intentional-correction and NOT rfc-governs, the one disposition the retention sentence rules out by name -- ledger sequence 59 was made to declare rfc-governs while its own hashed rationale said the divergence is RETAINED, and ledger-gates exited 0 with every published counter unchanged; and the published residual was compared against a recount by the SAME function the builder used to write it, so breaking that function and regenerating published a residual of zero, left the chain head byte-identical and left the gate at exit 0 printing that number as 'recomputed'. A hand-edited integer was always caught, and the record says so; what was not caught is a broken counter plus a regeneration. The residual is now derived from the chain's sequences, so the two computations are independent. That second finding mutates production code, which is the class round 4 declined for VerifyEvidenceIntegrity; section 1c of the record argues in the open why this instance is worth acting on where round 4's was not, rather than leaving two rounds applying different standards silently. VerifyCommittedCorporaReDerive re-derived the two corpus files and asked nothing about the manifests beside them: the public manifest could understate its own corpus's length, and the handshake manifest could carry an all-zero digest, a false length and a seed its corpus was never derived from, all at exit 0 and all green under the internal/corpora test package too. Each corpus is now reconciled against its own manifest. HELD: raising PreVocabularySequence (caught by legacy-record-adjudications), adding a term to the Go disposition vocabulary (caught by the committed JSON Schema), and swapping the seed with a full regeneration (caught by the ledger-equals-regeneration comparison). No denominator moved, no owner action was raised, and OA-oracle-census-anchor is untouched. THE STOPPING CONDITION STATED WHEN THIS NODE WAS PLANNED STANDS: the gate surface is worked and a sixth round is the owner's call."
     }
   ]
 }

@@ -102,7 +102,7 @@ func CountRecordsWithoutMismatchClass(records []lab.BehaviorLedgerRecord) int {
 // only records excused from saying it in a FIELD are the ones that predate the
 // field and said it in their hashed prose.
 //
-// The five rules, each of which can be made to fail on its own (see
+// The rules, each of which can be made to fail on its own (see
 // adjudication_test.go, which deletes each in turn):
 //
 //  1. VOCABULARY. Every disposition and every non-empty mismatch class is in
@@ -120,12 +120,23 @@ func CountRecordsWithoutMismatchClass(records []lab.BehaviorLedgerRecord) int {
 //     what stops rule 2's exemption from being a bare sequence-number amnesty:
 //     the grandfathered records are grandfathered because of what they SAY.
 //  5. NO CONTRADICTION. A record that asserts retention must not declare
-//     "fix-in-port" or "intentional-correction", because both contradict the
-//     sentence it carries. Retention and adoption agree; retention and a fix do
-//     not.
+//     "fix-in-port", "intentional-correction" or "rfc-governs", because all
+//     three contradict the sentence it carries. Retention and adoption agree;
+//     retention and a fix do not, and neither does retention and the RFC
+//     governing — which is the contradiction the retention sentence spells out
+//     in its own words, "not resolved toward the RFC". See
+//     contradictsRetention.
+//  6. THE GRANDFATHERED SET IS THE PRE-VOCABULARY SET, BOTH WAYS. Rule 2 says
+//     an unclassed record is at or before PreVocabularySequence; rule 6 says a
+//     record at or before it carries no class. Adding a class to one of those
+//     records would mean its sealed digest preimage gained bytes, which the
+//     frozen prefix and the legacy document's pre_vocabulary_head already
+//     refuse; stating it here is what turns the published residual into a
+//     consequence of the chain's sequences rather than a recount of the field.
 //
-// It also recomputes the published residual and refuses a document that
-// understates it.
+// It also checks the published residual, and it does NOT do so by recomputing
+// the same field the builder counted and comparing the answer with itself; see
+// the residual block at the end of the function.
 func VerifyAdjudication(records []lab.BehaviorLedgerRecord, publishedResidual int) error {
 	var problems []string
 	for _, record := range records {
@@ -172,21 +183,76 @@ func VerifyAdjudication(records []lab.BehaviorLedgerRecord, publishedResidual in
 		}
 
 		// 5. NO CONTRADICTION.
-		if AssertsRetention(delta) &&
-			(delta.Disposition == lab.DispositionFixInPort || delta.Disposition == lab.DispositionIntentionalCorrection) {
+		if AssertsRetention(delta) && contradictsRetention(delta.Disposition) {
 			problems = append(problems, fmt.Sprintf(
 				"sequence %d declares disposition %q while its hashed rationale states the divergence is "+
 					"deliberately RETAINED. The field and the prose contradict each other, and the prose is inside "+
 					"the digest preimage",
 				record.Sequence, delta.Disposition))
 		}
+
+		// 6. THE GRANDFATHERED SET IS THE PRE-VOCABULARY SET, BOTH WAYS.
+		if classed && record.Sequence <= PreVocabularySequence {
+			problems = append(problems, fmt.Sprintf(
+				"sequence %d is at or before the pre-vocabulary sequence %d but carries mismatch_class %q. A "+
+					"record sealed before the field existed cannot have gained it without its digest preimage "+
+					"gaining bytes, so either the chain was rewritten or the boundary constant moved",
+				record.Sequence, PreVocabularySequence, delta.MismatchClass))
+		}
 	}
 
+	// THE PUBLISHED RESIDUAL, CHECKED AGAINST SOMETHING THAT IS NOT ITSELF.
+	//
+	// FOUND BY EXECUTION IN ADVERSARIAL ROUND 5, AND STATED CAREFULLY, BECAUSE
+	// THE FIRST COMPARISON BELOW IS NOT DEAD AND MUST NOT BE DESCRIBED AS IF IT
+	// WERE. It catches a document whose integer was edited by hand: run over
+	// such a document, VerifyIntegrity refuses it naming this recount, which
+	// was verified by doing it. Inside cmd/deltaledgerctl --check the refusal
+	// arrives one step earlier, from the regeneration comparison, so the hand
+	// edit never reaches this line — also verified, by editing the integer and
+	// reading which message fired.
+	//
+	// What neither of those catches is a BROKEN COUNTER PLUS A REGENERATION.
+	// BuildLedgerFileFrom writes the residual as
+	// CountRecordsWithoutMismatchClass(records), and the first comparison below
+	// recomputes it with that same function over those same records, so the two
+	// sides agree with each other by construction whatever the function does.
+	// Disabling the counter's body with `false &&` and regenerating made
+	// `deltaledgerctl --root .` publish records_without_mismatch_class = 0 over
+	// a chain where forty-nine records carry no class, left the record chain
+	// head byte-identical because the counter is envelope and not preimage, and
+	// left `--check` at exit 0 printing "records_without_mismatch_class
+	// recomputed = 0". The word in that line that was not true is "recomputed".
+	//
+	// The second comparison is the fix, and it is a DERIVATION rather than a
+	// recount: rules 2, 3 and 4 already prove that an unclassed record is at or
+	// before PreVocabularySequence, rule 6 proves the converse, and the two
+	// together make the residual a function of the SEQUENCES in the chain. A
+	// sequence is assigned by lab.AppendBehaviorDelta from the record's
+	// position, the prefix through 35 is pinned by VerifyFrozenPrefix and the
+	// prefix through PreVocabularySequence by the legacy document's
+	// pre_vocabulary_head, so this count cannot be moved by editing a field.
+	// TestTheCommittedChainIsAdjudicated asserted exactly this and only in the
+	// test binary; go-suite runs it and ledger-gates did not.
 	residual := CountRecordsWithoutMismatchClass(records)
 	if residual != publishedResidual {
 		problems = append(problems, fmt.Sprintf(
 			"the ledger publishes records_without_mismatch_class=%d but %d of the %d records carry no class",
 			publishedResidual, residual, len(records)))
+	}
+	grandfathered := 0
+	for _, record := range records {
+		if record.Sequence <= PreVocabularySequence {
+			grandfathered++
+		}
+	}
+	if publishedResidual != grandfathered {
+		problems = append(problems, fmt.Sprintf(
+			"the ledger publishes records_without_mismatch_class=%d, but %d of the %d records are at or before "+
+				"the pre-vocabulary sequence %d and every one of those carries no class while every record after "+
+				"them carries one. The residual is a consequence of the chain's SEQUENCES, not a number to be "+
+				"counted out of the same field the builder counted and compared with itself",
+			publishedResidual, grandfathered, len(records), PreVocabularySequence))
 	}
 
 	sort.Strings(problems)
@@ -194,6 +260,28 @@ func VerifyAdjudication(records []lab.BehaviorLedgerRecord, publishedResidual in
 		return fmt.Errorf("adjudication (%d problem(s)):\n  %s", len(problems), strings.Join(problems, "\n  "))
 	}
 	return nil
+}
+
+// contradictsRetention reports whether a disposition says the opposite of the
+// retention statements in retentionStatements.
+//
+// THE THIRD TERM IS THE ONE ROUND 5 FOUND MISSING. "fix-in-port" and
+// "intentional-correction" were here from the start. "rfc-governs" was not, and
+// it is the disposition the retention sentence rules out BY NAME: the sentence
+// reads "the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE,
+// not resolved toward the RFC", and lab.DispositionRFCGoverns means "the RFC's
+// requirement governs and the port follows the RFC rather than Java". With the
+// term absent, ledger sequence 59 was made to declare rfc-governs while its own
+// hashed rationale said the divergence is retained, and `make -C rust
+// ledger-gates` exited 0 with every published counter unchanged; the same
+// record declaring fix-in-port was refused. "unresolved" and "adopt-java" are
+// the two dispositions retention AGREES with and neither is listed.
+func contradictsRetention(disposition string) bool {
+	switch disposition {
+	case lab.DispositionFixInPort, lab.DispositionIntentionalCorrection, lab.DispositionRFCGoverns:
+		return true
+	}
+	return false
 }
 
 func vocabularyContains(value string, vocabulary []string) bool {

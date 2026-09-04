@@ -55,6 +55,10 @@ var degradedRootArtifacts = []string{
 	HandshakeCorpusRelativePath,
 	PublicCorpusRelativePath,
 	PublicCorpusManifestRelativePath,
+	// Round 5: VerifyCommittedCorporaReDerive reconciles each corpus against
+	// its OWN manifest, so the handshake manifest is an artifact the rules read
+	// and a degraded root without it makes that rule fail for the wrong reason.
+	HandshakeCorpusManifestRelativePath,
 	OwnerDecisionManifestRelativePath,
 	OwnerDecisionManifestSchemaRelativePath,
 	LegacyAdjudicationsRelativePath,
