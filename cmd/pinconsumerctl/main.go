@@ -434,6 +434,14 @@ func allowanceFor(artifact, pointer, declared string) *allowedPin {
 
 // stalePinsNaming finds objects in one artifact that name `relative` alongside a
 // digest that is not the file's current one.
+//
+// It carries the SAME C1/C2 fix as `dangling`, through the same
+// `unaccountedDigests`: the object used to be abandoned whole the moment it
+// named a second tracked path, or the moment ONE of its digests matched, or the
+// moment one of them turned out to be a field inside the named file. Each of
+// those exits took every other digest in the object with it, so `consumers`
+// answered "nothing stale here" for a file with a drifted pin sitting one key
+// away from a correct one.
 func stalePinsNaming(root string, content []byte, artifact, relative, actual string,
 	trackedSet map[string]bool) []pin {
 	var document any
@@ -443,20 +451,39 @@ func stalePinsNaming(root string, content []byte, artifact, relative, actual str
 	var found []pin
 	walk(document, "$", func(object map[string]any, pointer string) {
 		paths, digests := splitPinFields(object, trackedSet)
-		if len(paths) != 1 || paths[0] != relative || len(digests) == 0 {
+		if len(digests) == 0 {
 			return
 		}
-		for _, declared := range digests {
-			if declared == actual {
-				return
+		names := false
+		for _, candidate := range paths {
+			if candidate == relative {
+				names = true
 			}
+		}
+		if !names {
+			return
+		}
+		// Every path named here, so a digest belonging to a SIBLING path is
+		// not reported against this one.
+		var actuals []string
+		for _, candidate := range paths {
+			if current, ok := fileDigest(root, candidate); ok {
+				actuals = append(actuals, current)
+			}
+		}
+		var unaccounted []string
+		for _, declared := range unaccountedDigests(digests, actuals) {
 			if pinsAFieldInside(root, relative, declared) {
-				return
+				continue // a value the named file carries, not its bytes
 			}
+			unaccounted = append(unaccounted, declared)
+		}
+		if len(unaccounted) == 0 {
+			return
 		}
 		found = append(found, pin{
 			artifact: artifact, pointer: pointer, namedPath: relative,
-			declared: digests[0], actual: actual,
+			declared: strings.Join(unaccounted, ","), actual: actual,
 		})
 	})
 	return found
@@ -481,8 +508,8 @@ func runConsumers(root string, targets []string) int {
 			fmt.Printf("    pinned_by %s\n", artifact)
 		}
 		for _, stale := range target.stale {
-			fmt.Printf("    ALREADY_STALE %s pointer=%s declared=sha256:%s\n",
-				stale.artifact, stale.pointer, stale.declared)
+			fmt.Printf("    ALREADY_STALE %s pointer=%s declared=%s\n",
+				stale.artifact, stale.pointer, digestList(stale.declared))
 		}
 		if len(target.current) == 0 && len(target.stale) == 0 {
 			fmt.Printf("    no artifact holds this file's digest and none names it beside a" +
@@ -615,34 +642,8 @@ func runDangling(root string) int {
 		len(census.candidates)-remaining-len(acknowledged), len(acknowledged),
 		len(census.missing))
 	fmt.Printf("gate=pin-dangling ceiling=%q\n", danglingCeiling)
-	if len(stale) > 0 {
-		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
-			"a coverage claim names a check that is no longer there; the exemption "+
-				"outlived the check and every row it covered is unverified")
-		return 1
-	}
-	if len(census.unparsablePaths) > 0 {
-		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
-			fmt.Sprintf("%d tracked .json artifact(s) do not parse, so this census is "+
-				"SHORT by however many pins they hold", len(census.unparsablePaths)))
-		return 1
-	}
-	if len(census.missing) > 0 {
-		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
-			fmt.Sprintf("%d pin(s) name a tracked path the worktree no longer holds; a pin "+
-				"whose subject is gone is the most dangling pin there is", len(census.missing)))
-		return 1
-	}
-	if len(orphaned) > 0 {
-		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
-			"an allowance outlived the finding it acknowledged; delete it, or it will "+
-				"exempt whatever next lands at that artifact and pointer")
-		return 1
-	}
-	if remaining > 0 {
-		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
-			"a pin has drifted and is not among the declared allowances; read it, then "+
-				"either fix the pin or acknowledge it with the owner action it waits on")
+	if reason := danglingRefusal(census, stale, orphaned, remaining); reason != "" {
+		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n", reason)
 		return 1
 	}
 	fmt.Printf("gate=pin-dangling result=PASS detail=%q\n",
@@ -651,12 +652,65 @@ func runDangling(root string) int {
 	return 0
 }
 
+// danglingRefusal returns the reason this run must FAIL, or "" to PASS. It is a
+// separate function so every refusal can be exercised by a test even when the
+// live tree has none of that condition. MISSING_PIN_TARGET was exactly that
+// case: `missing_targets=0` today, so a deletion attack that neutered only the
+// refusal left the whole suite green while the gate had stopped refusing.
+func danglingRefusal(census danglingCensus, staleCoverage, orphaned []string,
+	remaining int) string {
+	if len(staleCoverage) > 0 {
+		return "a coverage claim names a check that is no longer there; the exemption " +
+			"outlived the check and every row it covered is unverified"
+	}
+	if len(census.unparsablePaths) > 0 {
+		return fmt.Sprintf("%d tracked .json artifact(s) do not parse, so this census is "+
+			"SHORT by however many pins they hold", len(census.unparsablePaths))
+	}
+	if len(census.missing) > 0 {
+		return fmt.Sprintf("%d pin(s) name a tracked path the worktree no longer holds; a pin "+
+			"whose subject is gone is the most dangling pin there is", len(census.missing))
+	}
+	if len(orphaned) > 0 {
+		return "an allowance outlived the finding it acknowledged; delete it, or it will " +
+			"exempt whatever next lands at that artifact and pointer"
+	}
+	if remaining > 0 {
+		return "a pin has drifted and is not among the declared allowances; read it, then " +
+			"either fix the pin or acknowledge it with the owner action it waits on"
+	}
+	return ""
+}
+
 const danglingCeiling = "candidates are objects where a tracked path and a sha256" +
-	" share one JSON object and no digest in that object matches the file;" +
+	" share one JSON object and NO digest in that object is the CURRENT digest of" +
+	" ANY tracked path named in it;" +
 	" co-location is evidence that the digest is OF that path, NOT proof, so every" +
 	" candidate must be READ before it is acted on. A pin whose digest covers" +
 	" something other than the file it sits beside is a false positive by" +
 	" construction, and a pin split across two objects is a false negative." +
+	" An object naming several paths, or carrying several unaccounted digests, is" +
+	" ONE row whose names=, declared= and actual= lists are each sorted and are" +
+	" NOT positionally paired: it asserts that none of those digests is the current" +
+	" digest of any of those paths, and which was meant for which is the reader's." +
+	" In such an object an explanation may resolve against any of the paths named." +
+	" TWO ASYMMETRIC HOLES IN THE PATH CORPUS, both MEASURED rather than assumed." +
+	" A path here is a string git TRACKS." +
+	" (1) A pin naming a path git tracks but the worktree does not hold IS" +
+	" reported, as MISSING_PIN_TARGET counted in missing_targets=, and it FAILS" +
+	" the gate -- git says the path is real, so nothing there is a guess." +
+	" (2) A pin naming an UNTRACKED path is NOT SEEN AT ALL, and that is a" +
+	" deliberate refusal, not an oversight. It is live:" +
+	" obligation-catalog.json $.denominator_basis[2] names corpora/frame/codec.json," +
+	" deleted from this plane, and this census has never counted it (reconcile.go" +
+	" does, as BASIS_PIN_PATH_IS_ABSENT_FROM_THIS_PLANE). Closing it needs a WIDER" +
+	" corpus and both widenings were measured: paths git has EVER tracked adds 26" +
+	" rows, 24 of them the vendored catalog's rust_bindings, and re-admits ignored" +
+	" trees -- `.quarantine` is in that set, which is F011 exactly; path-SHAPED" +
+	" strings adds 662, most of them version numbers like `21.0.4`. Either changes" +
+	" what the corpus contains and lands its rows on the formal denominator's" +
+	" declared basis, so the hole is disclosed here instead of being closed from" +
+	" inside a gate fix." +
 	" `explained=` counts candidates SUBTRACTED because the digest was recomputed" +
 	" from CURRENT bytes and proven to cover something else: a field the named" +
 	" file carries (assurance/concurrency/plan.json's `observed_head` is the" +
@@ -673,7 +727,10 @@ const danglingCeiling = "candidates are objects where a tracked path and a sha25
 	" sentence it prints: the decision is whether the digest occurs ANYWHERE as a" +
 	" string in the named file, not at the location the message names, so a file" +
 	" that records its own former whole-file digest launders every stale pin of" +
-	" itself. A field pin that has itself" +
+	" itself. sibling-lines is narrow in the other direction: it digests the" +
+	" object's OWN array, so by construction its rows can never re-fire on a" +
+	" change to the FILE they name -- that array is their subject by intent." +
+	" A field pin that has itself" +
 	" drifted is reported like any other. What is NOT proven and so still counts:" +
 	" digests of things this tool cannot recompute -- a realized fixture tree, a" +
 	" ledger record beside an unrelated path, a frozen historical receipt --" +
