@@ -214,7 +214,7 @@ Logs: `.f016-logs/proof1-probe-fails.*`, `proof2-declared-passes.*`,
 
 ## Attacking my own gate
 
-Fourteen attacks against the real tree, each seeded into shipped adapter code,
+Seventeen attacks against the real tree, each seeded into shipped adapter code,
 each read from the process, each restored byte-identically.
 
 | # | attack | first reading | now |
@@ -234,6 +234,27 @@ each read from the process, each restored byte-identically.
 | A11 | two-step: `let name = r.wire_name();` then `if name == "server"` | **exit 0** | **exit 0 — ceiling** |
 | A12 | `if format!("{state:?}") == "Closing"` | **exit 0** | **exit 0 — ceiling** |
 | A14 | the branch moved into the ws-driver crate | **exit 0** | **exit 0 — out of scope** |
+| A15 | `Role` renamed to `Party` in ws-core, adapter follows | exit 1 | exit 1 |
+| A16 | a `Role` guard hidden on the ALLOWED event-seam match | exit 1 | exit 1 |
+| A18 | `use ws_core::ReadyState as SemanticEventKind;` — alias a governed enum to the seam's name | exit 1 | exit 1 |
+
+### Three that did not get through, and why
+
+**A15** renamed `Role` to `Party` throughout ws-core and pointed the adapter at
+the new name. A hand-maintained list would have gone quiet; the derivation
+followed the rename and reported `Party::Server via variant-in-pattern`. That is
+the return on re-deriving the vocabulary rather than listing it.
+
+**A16** hid a `Role` comparison in the GUARD of a match on `SemanticEventKind`
+— inside the one construct the seam declaration exempts. The exemption covers
+branching on the event kind, not connection state smuggled into the same
+expression, and both the guard's `Role::Server` and its `role` binding were
+reported.
+
+**A18** imported `ReadyState` under the seam's own name
+(`use ws_core::ReadyState as SemanticEventKind;`). The seam is keyed on the
+CANONICAL enum name derived from ws-core, never on the adapter's local spelling,
+so the alias borrowed nothing.
 
 ### The two that got through and are now closed
 

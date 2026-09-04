@@ -480,3 +480,47 @@ func TestDisclosedCeilingScopeIsTheAdapterCrateOnly(t *testing.T) {
 			"excludes it, and that distinction is what the disclosure rests on")
 	}
 }
+
+// A15. The governed vocabulary is DERIVED, so renaming a core enum carries the
+// rule with it. A hand-maintained list of names would have gone quiet here,
+// which is the whole reason nothing in this file is a list of names.
+func TestRenamingACoreEnumCarriesTheRuleWithIt(t *testing.T) {
+	core := map[string]string{
+		"ws-core/src/connection.rs": "pub enum Party { Client, Server }\n" +
+			"pub enum ReadyState { NotYetConnected, Open, Closing, Closed }\n",
+		"ws-core/src/event.rs": "pub enum SemanticEventKind { Text { text: String } }\n",
+	}
+	governed := deriveGovernedEnums(core)
+	names := map[string]bool{}
+	for _, enum := range governed {
+		names[enum.Name] = true
+	}
+	if !names["Party"] {
+		t.Fatal("a renamed core enum must be governed under its new name")
+	}
+	sites, _ := findProtocolBranchSites("ws-testee/src/io_loop.rs",
+		"use ws_core::{Party, ReadyState};\n"+
+			"fn p(d: &D) -> u8 { match (d.party(), d.state()) "+
+			"{ (Party::Server, ReadyState::Closing) => 8, _ => 0 } }\n", governed)
+	if len(sites) == 0 {
+		t.Fatal("a branch on the renamed enum must still be detected")
+	}
+}
+
+// A16. The event seam exempts branching on SemanticEventKind, not branching on
+// connection state that happens to sit in a seam match's GUARD.
+func TestAGuardOnASeamMatchIsStillAProtocolBranch(t *testing.T) {
+	mustBranch(t, "role-guard-on-seam-match",
+		"use ws_core::SemanticEventKind;\n"+
+			"fn p(k: &SemanticEventKind, role: Role) -> u8 {\n"+
+			"    match k { SemanticEventKind::Text { .. } if role == Role::Server => 8, _ => 0 }\n}\n")
+}
+
+// A18. The seam exemption is keyed on the CANONICAL enum name derived from
+// ws-core, never on the adapter's local spelling, so importing a governed enum
+// under the seam's name does not borrow the exemption.
+func TestAliasingAGovernedEnumToTheSeamNameDoesNotExemptIt(t *testing.T) {
+	mustBranch(t, "alias-to-seam-name",
+		"use ws_core::ReadyState as SemanticEventKind;\n"+
+			"fn p(d: &D) -> u8 { match d.state() { SemanticEventKind::Closing => 8, _ => 0 } }\n")
+}
