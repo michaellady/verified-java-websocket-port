@@ -747,7 +747,7 @@
     {
       "id": "T-us019-survivors-open",
       "title": "Close the survivor-sweep residue that remains open",
-      "state": "ready",
+      "state": "in-progress",
       "depends_on": [],
       "blocked_by": [],
       "evidence": [
@@ -756,7 +756,7 @@
           "cmd": "go test -timeout 40m ./internal/autobahnsuite/"
         }
       ],
-      "note": "64 of 70 closed, 6 proved unreachable. 70 is a FLOOR: switch arms, all Rust-side checks, and conjuncts inside composite booleans were never swept."
+      "note": "64 of 70 closed, 6 proved unreachable. 70 is a FLOOR: switch arms, all Rust-side checks, and conjuncts inside composite booleans were never swept. | IN FLIGHT on claude/us019-survivor-residue, based at fe69b2c (a merge of claude/us019-survivor-closure-2, the head where the 70-site floor was measured, so the sweep strictly extends it rather than re-baselining). Marked in-progress so a heartbeat firing does not pick it up twice: `ready` means available, and it is not."
     },
     {
       "id": "T-drive-until-open",
