@@ -46,6 +46,12 @@ and I say below exactly how much.
 | O1 | oracle-hierarchy | drop a register entry | exit 1 | not defeated |
 | O2 | oracle-hierarchy | rename a register key | exit 1 | not defeated |
 
+H2b's "before" is the one cell not read from a live tree: it is read from the
+deletion attack on its own fix (disable `bodylessModule` and the suite goes green
+on that fixture alone), because running it live means mutating `rust/` and a
+50-minute chain run was in flight. Every other cell in the table is a process
+exit code from a run against a real tree.
+
 ---
 
 ## 1. plan-guard — rule 5 asked whether evidence HOLDS, never whether it could fail
@@ -250,11 +256,12 @@ if len(regions) == 0 {
 }
 ```
 
-— a silent skip that does not even reach `res.files++`. Three ways past it, each
-confirmed at exit **0** with `files=49 loops=310` **UNMOVED**, so the only trace
-was a census number nothing asserts. The control, an inline `#[cfg(test)] mod
-tests { }` holding `assert!(polls < 4096, …)`, is exit **1** with the violation
-named and `files=50 loops=311`.
+— a silent skip that does not even reach `res.files++`. Four ways past it. Three
+were run against a real tree and each exited **0** with `files=49 loops=310`
+**UNMOVED**, so the only trace was a census number nothing asserts; the fourth
+(H2b) is established by the deletion attack on its own fix. The control, an
+inline `#[cfg(test)] mod tests { }` holding `assert!(polls < 4096, …)`, is exit
+**1** with the violation named and `files=50 loops=311`.
 
 - **H2 is ordinary Rust.** `#[cfg(test)] mod tests;` with the fixture in
   `tests.rs`. That file carries no `#[cfg(test)]` of its own, so it is skipped
@@ -345,15 +352,29 @@ collision analysis or the neutrality derivation, none of which I touched.
 ## 5. The `^`-without-`(?m)` sweep
 
 The brief asked for more of the class that shipped four silent non-matchers. I
-scanned every `regexp.MustCompile` literal in the repository for an unescaped
-`^` or `$` outside a character class with no `m` flag: **96 hits**. I read every
-one whose input could be a multi-line document rather than a single token, in
-particular `internal/lab/supersession.go`, `internal/formalplan/model.go`,
-`internal/formalplan/concurrencyresults.go`, `cmd/fixtureguardctl/scan.go` and
-`cmd/fixtureguardctl/budget.go`. **All of them are deliberate whole-string
-validators applied to one token or one already-split line**; `supersession.go`
-says so in its own comment (*"ANCHORED at the start of the string it is applied
-to"*). I found no new instance of the round-1 defect in Go source.
+scanned all **193** `regexp.MustCompile` literals in the repository. After
+stripping escapes and character classes (`[^=]` is not an anchor), **80** use `^`
+or `$` with no `m` flag. **56** of those are fully anchored `^…$` — a whole-string
+validator, correct on a token. That leaves **24** partially anchored, which is the
+risky shape, and I read every one:
+
+- **8** use the explicit `(?:^|[\s(",])` idiom, which permits a non-line-start by
+  construction: six in `internal/deltaledger/observations.go`, two in
+  `cmd/fixtureguardctl/scan.go`.
+- **16** are applied to one already-split line or one token, and they account for
+  the 24 exactly: `recordguardctl`'s title, status, fence and blockquote patterns
+  plus its `supersededRe` (**5**, all inside a `for i, line := range lines`);
+  `fixtureguardctl`'s condition-shape matchers in `scan.go` and `budget.go`
+  (**5**, on a trimmed comparison string); `internal/formalplan/model.go`'s
+  `mpDefinitionStart` on `line`; `internal/formalcoverage/coverage_test.go:293`;
+  `internal/fuzzpin/campaign.go`'s cargo-outcome pattern, applied after
+  `strings.Split(output, "\n")`; `internal/lab/inventory.go`;
+  `concurrencyresults.go:4128` on `rustc --version` output; and
+  `internal/lab/supersession.go`, which says so in its own comment: *"ANCHORED at
+  the start of the string it is applied to"*.
+
+**I found no new instance of the round-1 defect in Go source.** That is a negative
+result and I am reporting it as one.
 
 The class reappeared somewhere else instead: in plan-guard's authored evidence
 patterns, where a mis-anchored `grep_absent` fails OPEN. That is P6, and rule 6
@@ -424,17 +445,28 @@ where it was found.
 - **oracle-hierarchy-gates beyond two register probes**, as set out in §4.
 - **The Rust gates**: `fmt-check`, `clippy`, `test`, `test-release` were run as
   part of the chain and never attacked.
-- I did not add or remove any node or owner action in the task graph. The plan's
-  node set is the owner's, and §1h is why moving it is not mine.
+- I did not add or remove any node or owner action in the task graph, including
+  for the owner actions this document raises. The plan's node set is the owner's,
+  and §1h is why moving it is not mine.
+- **The owner actions this round leaves open**, none of them taken here: whether
+  the governance mirror covers the store or the citations (§3); whether anything
+  should bind the plan's node count (§1h); and whether the plan schema needs a
+  state for "waiting on an unfinished dependency", which today has no legal one
+  (§1c).
 
 ## 8. Process
 
-Isolated worktree throughout; `.quarantine` symlinked, never staged. No `pkill`
-was used: my own chain run was stopped once, by `kill -TERM` on a pid list
-filtered by `readlink /proc/<pid>/cwd` under my own worktree, verified empty
-afterwards, and restarted from the top — the reading below is from the restarted
-run. Logs live in my own worktree, not the shared scratchpad. `df -h /home/user`
-was read before every diagnosis: 8.9G free at the start, 8.4G at the chain run.
+Isolated worktree throughout; `.quarantine` symlinked, never staged. **No `pkill`
+was used.** My own chain run was stopped twice — once to correct the ceiling
+before it shipped overstated, once to consolidate the remaining edits into a
+single authoritative run — each time by `kill -TERM` on a pid list filtered by
+`readlink /proc/<pid>/cwd` under my own worktree, with a second scan confirming
+nothing of mine survived and nothing of anyone else's was touched. A partial run
+that was terminated is not a reading and none is cited as one; §10 is the run that
+completed. Logs live in my own worktree, not the shared scratchpad.
+`df -h /home/user` was read before every diagnosis and before every restart: 8.9G
+free at the start, 7.5G by the final run, with other worktrees building
+throughout, so no timing here is a performance reading.
 Mutations were applied to a file, run, and reverted with `git checkout -- .`
 followed by a `git status --porcelain` assertion; that assertion is what caught me
 having reverted my own uncommitted ceiling edit mid-experiment, which is why the
