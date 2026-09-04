@@ -726,8 +726,10 @@ func matchArmPatterns(tokens []rustToken, open, close int) []tokenSpan {
 // `if state as u8 == 2` and `match role.wire_name() { "server" => .. }` decide
 // from protocol state while naming no variant at all. Both name the governed
 // BINDING in a condition, and that is what rule 2 catches.
-func governedBindings(tokens []rustToken, vocab *adapterVocabulary) map[string]string {
+func governedBindings(tokens []rustToken, vocab *adapterVocabulary) (map[string]string, map[string]bool) {
 	bindings := map[string]string{}
+	fields := map[string]bool{}
+	structSpans := structBodySpans(tokens)
 	for i := 1; i+1 < len(tokens); i++ {
 		if tokens[i].Text != ":" {
 			continue
@@ -754,9 +756,36 @@ func governedBindings(tokens []rustToken, vocab *adapterVocabulary) map[string]s
 		}
 		if enum, ok := vocab.enumNames[last]; ok {
 			bindings[name] = enum.Name
+			for _, span := range structSpans {
+				if span.contains(i) {
+					fields[name] = true
+				}
+			}
 		}
 	}
-	return bindings
+	return bindings, fields
+}
+
+// structBodySpans indexes the bodies of `struct Name { .. }` declarations, so a
+// governed binding can be told apart by ORIGIN. It matters after a `.`:
+// `report.role` is a governed FIELD and decides, while `driver.state()` merely
+// shares its spelling with some other function's parameter.
+func structBodySpans(tokens []rustToken) []tokenSpan {
+	var spans []tokenSpan
+	for i := 0; i+2 < len(tokens); i++ {
+		if tokens[i].Text != "struct" || !isIdentStart(tokens[i+1].Text[0]) {
+			continue
+		}
+		open := indexOfBlockOpen(tokens, i+2)
+		if open < 0 {
+			continue
+		}
+		if end := matchingDelimiter(tokens, open); end > 0 {
+			spans = append(spans, tokenSpan{open, end})
+			i = end
+		}
+	}
+	return spans
 }
 
 var rustKeywords = map[string]bool{
@@ -781,6 +810,14 @@ type protocolBranchSite struct {
 	Rule        string // "variant-in-pattern" | "variant-in-equality" | "governed-binding-in-condition"
 	Evidence    string // the exact spelling that decided
 	Fingerprint string // sha256 over the enclosing item's normalized token stream
+
+	// instance distinguishes two DIFFERENT functions that happen to normalize
+	// to the same fingerprint -- a verbatim copy of a ruled function into a
+	// nested module of the same file. It is the enclosing item's token offset,
+	// so it is meaningful only WITHIN one run: it is never pinned and never
+	// compared across versions, it only counts how many distinct functions an
+	// allowance is covering. See checkProtocolBranchAllowances.
+	instance int
 }
 
 // findProtocolBranchSites re-derives every adapter-side branch on core protocol
@@ -792,7 +829,7 @@ func findProtocolBranchSites(path, source string, governed []governedEnum) ([]pr
 		return nil, 0
 	}
 	patterns, conditions := decisionRegions(tokens)
-	bindings := governedBindings(tokens, vocab)
+	bindings, governedFields := governedBindings(tokens, vocab)
 	items := enclosingItems(tokens)
 	testSpans := cfgTestSpans(tokens)
 
@@ -821,6 +858,7 @@ func findProtocolBranchSites(path, source string, governed []governedEnum) ([]pr
 			Rule:        rule,
 			Evidence:    evidence,
 			Fingerprint: fingerprintTokens(tokens, item.span),
+			instance:    item.span.Start,
 		})
 	}
 
@@ -847,8 +885,18 @@ func findProtocolBranchSites(path, source string, governed []governedEnum) ([]pr
 		}
 		// Rule 2: a governed-TYPED BINDING named in a condition or scrutinee.
 		if enum, ok := bindings[text]; ok && inAny(conditions, i) {
-			if i > 0 && (tokens[i-1].Text == "::" || tokens[i-1].Text == ".") {
-				continue // a field/associated name that merely shares the spelling
+			if i > 0 && tokens[i-1].Text == "::" {
+				continue // a path segment, not this file's binding
+			}
+			if i > 0 && tokens[i-1].Text == "." {
+				// After a dot, only a governed FIELD decides:
+				// `if report.role.is_server()` reads protocol state, while
+				// `driver.state()` is a method that merely shares a spelling
+				// with some other function's parameter.
+				isCall := i+1 < len(tokens) && tokens[i+1].Text == "("
+				if isCall || !governedFields[text] {
+					continue
+				}
 			}
 			// Being an ARGUMENT to a call inside a condition is passing the
 			// value, not deciding on it: `if server_closes_transport(role, ..)`
@@ -1031,6 +1079,10 @@ var protocolBranchAllowance = []allowedProtocolBranch{
 func checkProtocolBranchAllowances(sites []protocolBranchSite) []adapterFinding {
 	var findings []adapterFinding
 	matched := make([]bool, len(protocolBranchAllowance))
+	instances := make([]map[int]bool, len(protocolBranchAllowance))
+	for i := range instances {
+		instances[i] = map[int]bool{}
+	}
 
 	for _, site := range sites {
 		index := allowanceIndexFor(site)
@@ -1046,6 +1098,27 @@ func checkProtocolBranchAllowances(sites []protocolBranchSite) []adapterFinding 
 			continue
 		}
 		matched[index] = true
+		instances[index][site.instance] = true
+	}
+
+	// An allowance rules on ONE instance. A byte-identical copy of a ruled
+	// function -- say into a nested `mod` of the same file -- normalizes to the
+	// same fingerprint under the same name and would otherwise inherit the
+	// ruling silently. This attack DID get a protocol branch past an earlier
+	// draft of this gate at exit 0; it is closed by re-deriving how many
+	// distinct functions the allowance actually covered this run.
+	for index, entry := range protocolBranchAllowance {
+		if len(instances[index]) <= 1 {
+			continue
+		}
+		findings = append(findings, adapterFinding{
+			Kind: "DUPLICATE_PROTOCOL_BRANCH_ALLOWANCE",
+			Detail: fmt.Sprintf(
+				"allowance for %s fn %s (fingerprint %s) matched %d distinct functions; a "+
+					"ruling covers one instance, and a copy of a ruled decision must be "+
+					"ruled on separately rather than inheriting it",
+				entry.Path, entry.Enclosing, entry.Fingerprint[:16], len(instances[index])),
+		})
 	}
 
 	for index, entry := range protocolBranchAllowance {
