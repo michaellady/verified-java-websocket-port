@@ -1,0 +1,4 @@
+# Transient by-products of the campaign-runner polarity suite, regenerated on
+# every `fuzzpinctl -campaign-fixtures` run. The real campaign evidence lives in
+# assurance/fuzz/campaign/ and IS committed.
+*.log

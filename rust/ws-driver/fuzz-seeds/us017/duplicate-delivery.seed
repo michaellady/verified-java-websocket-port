@@ -1,0 +1,5 @@
+id=duplicate-delivery
+property=terminal-exactly-once
+mutation=repeat-terminal-on-wake
+schedule=open,shutdown,drain,drain,drain
+counterexample=terminal-count-two

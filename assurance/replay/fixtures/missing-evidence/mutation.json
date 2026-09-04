@@ -1,0 +1,15 @@
+{
+  "operations": [
+    {
+      "kind": "json_set",
+      "target": "assurance/evidence-model.json",
+      "pointer": "/claims/0/evidence_ids",
+      "value": [
+        "missing-evidence-id"
+      ]
+    },
+    {
+      "kind": "refresh_bindings"
+    }
+  ]
+}

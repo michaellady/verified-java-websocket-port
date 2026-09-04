@@ -1,0 +1,140 @@
+{
+  "$schema": "../../schemas/autobahn-baseline-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "autobahn-baseline",
+  "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "status": "BLOCKED",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "image": {
+    "manifest_digest": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+    "manifest_bytes": 3477,
+    "config_digest": "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f",
+    "platform": "linux/amd64",
+    "layers": 15,
+    "pull_policy": "never",
+    "identity_verified": true
+  },
+  "selected_families": ["1.*", "2.*", "3.*", "4.*", "5.*", "6.*", "7.*", "10.*"],
+  "excluded_families": ["9.*", "12.*", "13.*"],
+  "registry": {
+    "digest": "sha256:12ce097739b14751daefa1fd1ee4125ca1b95584759100563c00cf796eac7cb4",
+    "static_expansion_complete": true
+  },
+  "client": {
+    "attempted": true,
+    "attempt_count": 2,
+    "completed": false,
+    "executed": false,
+    "first_case_id": "1.1.1",
+    "selected_count": 247,
+    "completed_count": 0,
+    "result_count": 0,
+    "attempt_state_digest": "sha256:7d987a92a1ae8a175644bc5ba852ccb525b4b3c85fe1505ae81819138bda1e8d",
+    "attempt_receipt_digest": "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff",
+    "attempt_receipt_bytes": 18920,
+    "configuration_digest": "sha256:aafb92d0bffe82781ad0085c5e08b57cb66471505c4a04a97155ec6b2e6dc69b",
+    "configuration_bytes": 128,
+    "blocker_digest": "sha256:d147f80d3b01c86cf37ff9a47daf6484130cdce24d333e937fa3f747d187aefd",
+    "blocker_bytes": 599,
+    "attempts": [
+      {
+        "sequence": 1,
+        "classification": "ORIGINAL_AUTHORITATIVE",
+        "plan_digest": "sha256:53a10ae09a728b63471e5298be777c5e86a5b2f525b43ce247787df9e2139173",
+        "receipt_digest": "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff",
+        "receipt_bytes": 18920,
+        "completed": false,
+        "executed": false,
+        "completed_count": 0,
+        "result_count": 0,
+        "blocker": {
+          "code": "AUTOBAHN_CLIENT_MODE_FAILED",
+          "detail": "The Java endpoint did not connect for the first selected case."
+        }
+      },
+      {
+        "sequence": 2,
+        "classification": "OWNER_AUTHORIZED_REMEDIATION",
+        "plan_digest": "sha256:a94500dee3959f14941a749e04fe53b4679dd84041449e45a22572fb296a56f5",
+        "receipt_digest": "sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2",
+        "receipt_bytes": 20123,
+        "completed": false,
+        "executed": false,
+        "completed_count": 0,
+        "result_count": 0,
+        "blocker": {
+          "code": "AUTOBAHN_RUNNER_CONTAINER_IDENTITY_MISMATCH",
+          "detail": "Runner container identity validation failed before any selected case executed."
+        }
+      }
+    ]
+  },
+  "server": {
+    "attempted": true,
+    "attempt_count": 2,
+    "completed": false,
+    "executed": false,
+    "first_case_id": "1.1.1",
+    "selected_count": 247,
+    "completed_count": 0,
+    "result_count": 0,
+    "attempt_state_digest": "sha256:2814864d32c1a2562aa87e91eb53d6f2ca34cdd80a7a2e5f11182aec26b7447a",
+    "attempt_receipt_digest": "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff",
+    "attempt_receipt_bytes": 18920,
+    "configuration_digest": "sha256:8ede1a49a2a6b3d1c6baa1fb7b9ed21d1b42d402aef3f72b53465e12c92377ba",
+    "configuration_bytes": 238,
+    "blocker_digest": "sha256:59d6d811800b81e69c491d8963de15f72736dc5251eadf6e945a64070dee224b",
+    "blocker_bytes": 928,
+    "attempts": [
+      {
+        "sequence": 1,
+        "classification": "ORIGINAL_AUTHORITATIVE",
+        "plan_digest": "sha256:53a10ae09a728b63471e5298be777c5e86a5b2f525b43ce247787df9e2139173",
+        "receipt_digest": "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff",
+        "receipt_bytes": 18920,
+        "completed": false,
+        "executed": false,
+        "completed_count": 0,
+        "result_count": 0,
+        "blocker": {
+          "code": "AUTOBAHN_SERVER_MODE_FAILED",
+          "detail": "Transport completed, but report extraction found no files after reports tmpfs teardown."
+        }
+      },
+      {
+        "sequence": 2,
+        "classification": "OWNER_AUTHORIZED_REMEDIATION",
+        "plan_digest": "sha256:a94500dee3959f14941a749e04fe53b4679dd84041449e45a22572fb296a56f5",
+        "receipt_digest": "sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2",
+        "receipt_bytes": 20123,
+        "completed": false,
+        "executed": false,
+        "completed_count": 0,
+        "result_count": 0,
+        "blocker": {
+          "code": "AUTOBAHN_SERVER_MODE_FAILED",
+          "detail": "Runner container identity validation failed and attach cleanup exceeded its bound before any selected case executed."
+        }
+      }
+    ]
+  },
+  "risk_disposition": {
+    "classification": "QUARANTINED_LABORATORY_QUALIFICATION_ONLY",
+    "approved_critical_findings": 12,
+    "approved_high_findings": 147
+  },
+  "rerun_disposition": {
+    "authorized_remediation_attempts_per_mode": 1,
+    "consumed_remediation_attempts_per_mode": 1,
+    "original_receipt_retained": true,
+    "further_reruns_authorized": false,
+    "disposition": "NO_FURTHER_RERUNS_AUTHORIZED"
+  },
+  "blocker": {
+    "code": "AUTOBAHN_QUALIFICATION_BLOCKED",
+    "detail": "The original plan sha256:53a10ae09a728b63471e5298be777c5e86a5b2f525b43ce247787df9e2139173 selected 247 cases and attempted client once and server once; receipt sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff (18920 bytes) binds both original blockers. The sole owner-authorized remediation used plan sha256:a94500dee3959f14941a749e04fe53b4679dd84041449e45a22572fb296a56f5 and receipt sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2 (20123 bytes). Its client and server mode receipts remained empty with executed=false, completed_count=0, and result_count=0: client stopped at runner container identity validation; server stopped at the same identity validation with attach cleanup also exceeding its bound. The original receipt is retained, the authorized remediation allowance is consumed, and no further reruns are authorized. Assurance remains OWNER_ATTESTED_NOT_INDEPENDENT with independent_review_claimed=false; production=false and publication=false."
+  },
+  "production": false,
+  "publication": false
+}

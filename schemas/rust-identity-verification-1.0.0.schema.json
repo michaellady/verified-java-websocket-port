@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/rust-identity-verification-1.0.0.schema.json",
+  "title": "E2 linkage rust-identity resolver verification overlay",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "document_id",
+    "map_ref",
+    "frozen_map_disclosure",
+    "resolver",
+    "rows",
+    "summary",
+    "assurance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "entity_type": {
+      "const": "RustIdentityVerification"
+    },
+    "document_id": {
+      "$ref": "#/$defs/text"
+    },
+    "map_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "map_id", "map_version", "sha256"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/text"
+        },
+        "map_id": {
+          "$ref": "#/$defs/text"
+        },
+        "map_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "frozen_map_disclosure": {
+      "$ref": "#/$defs/text"
+    },
+    "resolver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "strength", "statement"],
+      "properties": {
+        "method": {
+          "$ref": "#/$defs/text"
+        },
+        "strength": {
+          "$ref": "#/$defs/text"
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "row_id",
+          "java_semantic_id",
+          "planned_rust_semantic_id",
+          "disposition",
+          "rust_identity_verified",
+          "landed_symbols",
+          "rationale"
+        ],
+        "properties": {
+          "row_id": {
+            "$ref": "#/$defs/text"
+          },
+          "java_semantic_id": {
+            "$ref": "#/$defs/text"
+          },
+          "planned_rust_semantic_id": {
+            "$ref": "#/$defs/text"
+          },
+          "disposition": {
+            "enum": ["exact", "relocated", "renamed", "absorbed", "capability_excluded"]
+          },
+          "rust_identity_verified": {
+            "type": "boolean"
+          },
+          "landed_symbols": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/resolvedSymbol"
+            }
+          },
+          "rationale": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "disposition": {
+                  "const": "capability_excluded"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "rust_identity_verified": {
+                  "const": false
+                },
+                "landed_symbols": {
+                  "maxItems": 0
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "rust_identity_verified": {
+                  "const": true
+                },
+                "landed_symbols": {
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rows_total",
+        "verified",
+        "excluded_confirmed",
+        "exact",
+        "relocated",
+        "renamed",
+        "absorbed"
+      ],
+      "properties": {
+        "rows_total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "verified": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_confirmed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exact": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "relocated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "renamed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "absorbed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "assurance": {
+      "$ref": "#/$defs/assurance"
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "resolvedSymbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rust_path", "decl_kind", "file", "line", "declaration", "sha256"],
+      "properties": {
+        "rust_path": {
+          "$ref": "#/$defs/text"
+        },
+        "decl_kind": {
+          "enum": ["struct", "enum", "trait", "type_alias", "fn", "method", "enum_variant"]
+        },
+        "file": {
+          "$ref": "#/$defs/text"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "declaration": {
+          "$ref": "#/$defs/text"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance",
+        "independent_review_claimed",
+        "production",
+        "publication",
+        "signing"
+      ],
+      "properties": {
+        "assurance": {
+          "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+        },
+        "independent_review_claimed": {
+          "const": false
+        },
+        "production": {
+          "const": false
+        },
+        "publication": {
+          "const": false
+        },
+        "signing": {
+          "const": false
+        }
+      }
+    }
+  }
+}

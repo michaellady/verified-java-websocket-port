@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "corpus-manifest-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_kind", "corpus_id", "tier", "scenario_format", "generator", "counts", "execution_status", "artifacts", "assurance", "independent_review_claimed", "production", "signing", "publication"],
+  "properties": {
+    "$schema": {"const": "../../schemas/corpus-manifest-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "corpus-manifest"},
+    "corpus_id": {"enum": ["us005-behavior-public", "us005-behavior-hidden", "us005-behavior-sealed", "us005-handshake"]},
+    "tier": {"enum": ["public", "hidden", "sealed", "handshake"]},
+    "scenario_format": {"enum": ["corpus-scenario-1.0.0.schema.json", "corpus-handshake-case-1.0.0.schema.json"]},
+    "generator": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tool", "seed_visibility", "public_seed"],
+          "properties": {
+            "tool": {"const": "corporactl"},
+            "seed_visibility": {"const": "public"},
+            "public_seed": {"type": "string", "minLength": 8}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tool", "seed_visibility", "secret_seed_commitment", "epoch"],
+          "properties": {
+            "tool": {"const": "corporactl"},
+            "seed_visibility": {"const": "protected-secret"},
+            "secret_seed_commitment": {"$ref": "#/$defs/digest"},
+            "epoch": {"type": "integer", "minimum": 1}
+          }
+        }
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected", "selected", "executed", "passed", "failed", "skipped", "filtered", "timed_out"],
+      "properties": {
+        "expected": {"type": "integer", "minimum": 1},
+        "selected": {"type": "integer", "minimum": 1},
+        "executed": {"type": "integer", "minimum": 0},
+        "passed": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "skipped": {"type": "integer", "minimum": 0},
+        "filtered": {"type": "integer", "minimum": 0},
+        "timed_out": {"type": "integer", "minimum": 0}
+      }
+    },
+    "execution_status": {"enum": ["NOT_EXECUTED_PENDING_LIVE_CALIBRATION", "LIVE_EXECUTED"]},
+    "execution_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcript_sha256", "report_sha256", "evaluator"],
+      "properties": {
+        "transcript_sha256": {"$ref": "#/$defs/digest"},
+        "report_sha256": {"$ref": "#/$defs/digest"},
+        "evaluator": {"const": "corporactl evaluate"}
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "bytes", "classification", "stored_in_repo"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"$ref": "#/$defs/digest"},
+          "bytes": {"type": "integer", "minimum": 1},
+          "classification": {"enum": ["PUBLIC", "PROTECTED_HELD_OUT"]},
+          "stored_in_repo": {"type": "boolean"}
+        }
+      }
+    },
+    "commitments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "scenario_commitment_root", "committed_line_count"],
+      "properties": {
+        "scheme": {"type": "string", "minLength": 8},
+        "scenario_commitment_root": {"$ref": "#/$defs/digest"},
+        "committed_line_count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "custodian": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_digest", "canary_count"],
+      "properties": {
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "canary_count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "sealing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mechanism", "storage", "disclosure"],
+      "properties": {
+        "mechanism": {"const": "digest-committed-before-reveal"},
+        "storage": {"const": "protected-custodian-store"},
+        "disclosure": {"type": "string", "minLength": 8}
+      }
+    },
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "production": {"const": false},
+    "signing": {"const": false},
+    "publication": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"tier": {"enum": ["hidden", "sealed"]}}},
+      "then": {"required": ["commitments", "custodian", "sealing"]}
+    },
+    {
+      "if": {"properties": {"tier": {"enum": ["public", "handshake"]}}},
+      "then": {
+        "properties": {
+          "commitments": false,
+          "custodian": false,
+          "sealing": false
+        }
+      }
+    },
+    {
+      "if": {"properties": {"execution_status": {"const": "LIVE_EXECUTED"}}},
+      "then": {
+        "required": ["execution_evidence"],
+        "properties": {
+          "counts": {"properties": {"executed": {"minimum": 1}}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"execution_status": {"const": "NOT_EXECUTED_PENDING_LIVE_CALIBRATION"}}},
+      "then": {
+        "properties": {
+          "execution_evidence": false,
+          "counts": {
+            "properties": {
+              "executed": {"const": 0},
+              "passed": {"const": 0},
+              "failed": {"const": 0},
+              "skipped": {"const": 0},
+              "timed_out": {"const": 0}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

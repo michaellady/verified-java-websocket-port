@@ -1,0 +1,5 @@
+id=queue-bypass
+property=no-write-bypass
+mutation=apply-second-command-before-front-write-drains
+schedule=open,enqueue-a,enqueue-b,wake,write-partial,wake,write-all,shutdown,drain
+counterexample=second-wire-observed-before-first-completes

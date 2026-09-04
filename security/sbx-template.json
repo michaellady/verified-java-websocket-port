@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.0.0",
+  "scope": {
+    "company": "open-source-projects",
+    "project": "verified-java-websocket-port",
+    "laboratory": "lab-java-websocket"
+  },
+  "runtime": {
+    "cli_path": "/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx",
+    "cli_version": "v0.39.0",
+    "cli_commit": "def8cb0523a77e757bdd6ef52b459fe374f3783e",
+    "cli_binary_digest": "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf",
+    "daemon_version": "v0.39.0",
+    "agent": "shell",
+    "template_reference": "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "template_index_digest": "sha256:c183a8ba03cdb30011c73f555c773c5712b84c6ea066f18409253dcab2cfe799",
+    "template_platform": "linux/arm64",
+    "template_manifest_digest": "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec"
+  },
+  "isolation": {
+    "workspace_mode": "clone",
+    "cpus": 2,
+    "memory": "2g",
+    "memory_bytes": 2147483648,
+    "environment_import": "none",
+    "secret_import": "none",
+    "platform_control_secret": "mcpgateway",
+    "mcp_gateway_infrastructure": true,
+    "clone_git_bridge_required": true,
+    "host_docker_socket": false,
+    "shared_skills": false,
+    "local_mcp": false,
+    "static_mcp_servers": [],
+    "kits": [],
+    "published_ports": [],
+    "network_policy": {
+      "policy_id": "default-deny-all",
+      "rule_id": "default-deny-all",
+      "resource_type": "network",
+      "decision": "deny",
+      "resources": ["**"],
+      "origin": "local",
+      "status": "active",
+      "canonical_digest": "sha256:146dc8c6cebf3e5548cd4432c924e6271cbb7958b8427e2874ef1282d8eea541"
+      ,"per_sandbox_deny_resources": ["**"]
+    }
+  },
+  "sandbox_policy_digest": "sha256:64ef802a579cc5bd04f1cd430f1b0a1ec0829e3ee3f73a5e9f5c0c508c171854",
+  "supervisor_limits": {
+    "wall_seconds": 120,
+    "cpu_seconds": 60,
+    "memory_bytes": 536870912,
+    "pids": 64,
+    "open_files": 256,
+    "output_bytes": 8388608,
+    "workspace_bytes": 67108864,
+    "cache_bytes": 67108864,
+    "disk_bytes": 134217728,
+    "inodes": 8192
+  },
+  "cleanup": {
+    "remove_mode": "sbx-rm-force",
+    "post_removal_check": "sbx-ls-absence",
+    "absence_required": true
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false
+}

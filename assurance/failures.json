@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "entries": [
+    {"code": "NETWORK_DENIED", "disposition": "RETRY"},
+    {"code": "WORKER_INTERRUPTED", "disposition": "RETRY"},
+    {"code": "STORAGE_UNAVAILABLE", "disposition": "RETRY"},
+    {"code": "LEASE_EXPIRED", "disposition": "RETRY"},
+    {"code": "QUARANTINE_UNAVAILABLE", "disposition": "RETRY"},
+    {"code": "LSP_NAVIGATION_FAILURE", "disposition": "DEGRADE_NON_ASSURANCE"},
+    {"code": "SEMANTIC_INCONSISTENCY", "disposition": "BLOCK"},
+    {"code": "ORACLE_MISMATCH", "disposition": "BLOCK"},
+    {"code": "ORACLE_DISAGREEMENT", "disposition": "BLOCK"},
+    {"code": "STALE_INPUT", "disposition": "INVALIDATE"},
+    {"code": "AUTHORIZATION_DENIED", "disposition": "QUARANTINE"},
+    {"code": "REVOKED_KEY", "disposition": "QUARANTINE"},
+    {"code": "ROLE_CONFLICT", "disposition": "QUARANTINE"},
+    {"code": "PROTECTED_DISCLOSURE", "disposition": "QUARANTINE"},
+    {"code": "PROTECTED_PUBLICATION_DISCLOSURE", "disposition": "REVOKE"},
+    {"code": "CORRUPT_CACHE", "disposition": "QUARANTINE"},
+    {"code": "DIGEST_MISMATCH", "disposition": "QUARANTINE"},
+    {"code": "PARTIAL_PUBLICATION", "disposition": "QUARANTINE"}
+  ]
+}

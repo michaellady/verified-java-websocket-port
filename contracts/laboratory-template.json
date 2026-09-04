@@ -1,0 +1,10 @@
+{
+  "schema_version":"1.0.0",
+  "template_id":"verified-java-to-rust-child-laboratory-v1",
+  "frozen_by":"lab-zero-snapshot-v1",
+  "required_sections":["source-pin","intake-manifest","semantic-id-migration-map","port-seam-dossier","behavior-delta-ledger","compatibility-surface","cutover-contract","retained-java-baseline","safe-rust-port","oracle-hierarchy","implementation-linked-proof-target","public-hidden-sealed-corpora","developer-tool-runs","benchmark-plan","shadow-canary-rollback","evidence-dag","fresh-review","independent-replay","public-projection"],
+  "mandatory_gates":["authoritative-builds","differential","sealed","mutation","safety","formal","performance","shadow","canary","rollback"],
+  "non_assurance_inputs":["jdt-ls","rust-analyzer","glancer"],
+  "failure_rule":"any unresolved protocol, security, replay, benchmark, LSP-boundary, cutover, or rollback defect blocks the child",
+  "publication_rule":"public projection excludes protected cases, outputs, and raw diagnostics"
+}

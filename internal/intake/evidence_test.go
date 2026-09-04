@@ -1,0 +1,276 @@
+package intake
+
+import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestRetainedEvidenceProjectsRealPromotionAndRemainsPubliclyBlocked(t *testing.T) {
+	t.Parallel()
+	directory := filepath.Join("..", "..", "evidence", "intake")
+	report, err := VerifyEvidenceDir(directory, time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.EvidenceRoot != "sha256:d0fcc851c23233c645895a2fe862128ff576676da10d00c409165707ab0b482a" {
+		t.Fatalf("unexpected evidence root %s", report.EvidenceRoot)
+	}
+	assertFindingCodes(t, report.Blockers, "OWNER_RISK_DISPOSITION_REQUIRED", "PROTECTED_CALLER_REQUIRED")
+
+	var receipt promotionDocument
+	readStrictTestFile(t, filepath.Join(directory, "promotion-receipts.json"), &receipt)
+	if receipt.Status != SingleOwnerPromotedStatus || receipt.AcceptedObjectCount != len(expectedArtifacts) || receipt.PromotionStoreRoot != "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8" {
+		t.Fatalf("retained promotion projection is incomplete: status=%q accepted=%d root=%q", receipt.Status, receipt.AcceptedObjectCount, receipt.PromotionStoreRoot)
+	}
+	if receipt.PublicationRequested || receipt.PublicationCount != 0 || receipt.ProtectedAccessCount != 0 || len(receipt.SignedActions) != len(requiredActionPolicy) {
+		t.Fatalf("retained promotion projection widened scope or lost actions: publication_requested=%t publication_count=%d protected_access_count=%d signed_actions=%d", receipt.PublicationRequested, receipt.PublicationCount, receipt.ProtectedAccessCount, len(receipt.SignedActions))
+	}
+	if receipt.ApprovalPolicy.RoleAndRevocationSnapshots != "were supplied and validated by the protected caller but remain absent from this public projection" {
+		t.Fatalf("retained approval policy misstates protected snapshots: %q", receipt.ApprovalPolicy.RoleAndRevocationSnapshots)
+	}
+}
+
+func TestEvidenceMembersCannotEscapeThroughLinks(t *testing.T) {
+	for _, name := range evidenceFiles {
+		t.Run(name, func(t *testing.T) {
+			directory := copyEvidence(t)
+			path := filepath.Join(directory, name)
+			outside := filepath.Join(t.TempDir(), name)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(outside, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(outside, path); err != nil {
+				t.Fatal(err)
+			}
+			_, err = VerifyEvidenceDir(directory, time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
+			assertCode(t, err, "UNSAFE_ARCHIVE_ENTRY")
+		})
+
+		t.Run(name+"-hardlink", func(t *testing.T) {
+			directory := copyEvidence(t)
+			path := filepath.Join(directory, name)
+			outside := filepath.Join(t.TempDir(), name)
+			if err := os.Link(path, outside); err != nil {
+				t.Fatal(err)
+			}
+			_, err := VerifyEvidenceDir(directory, time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
+			assertCode(t, err, "UNSAFE_ARCHIVE_ENTRY")
+		})
+	}
+}
+
+func TestEvidenceMutationsDenyBeforePromotion(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		old  string
+		new  string
+		code string
+	}{
+		{"tenant", `"company": "open-source-projects"`, `"company": "other-company"`, "CROSS_COMPANY_REFERENCE"},
+		{"repository owner", `"owner": "michaellady"`, `"owner": "open-source-projects"`, "OWNER_URL_MISMATCH"},
+		{"classification", `"default_classification": "QUARANTINED"`, `"default_classification": ""`, "UNCLASSIFIED_OBJECT"},
+		{"digest", "f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4", "a44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4", "ARTIFACT_DRIFT"},
+		{"url", "https://github.com/TooTallNate/Java-WebSocket/archive/da3cf2a777aed862f2f5b5cf060cae7969958667.tar.gz", "https://github.com/TooTallNate/Java-WebSocket/archive/v1.6.0.tar.gz", "MUTABLE_SOURCE_REFERENCE"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			directory := copyEvidence(t)
+			path := filepath.Join(directory, "source-pins.json")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mutated := strings.Replace(string(data), tc.old, tc.new, 1)
+			if mutated == string(data) {
+				t.Fatal("test mutation did not apply")
+			}
+			if err := os.WriteFile(path, []byte(mutated), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err = VerifyEvidenceDir(directory, time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
+			assertCode(t, err, tc.code)
+		})
+	}
+}
+
+func TestSandboxAndLinuxDeferralMutationsDeny(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		file string
+		edit func(string) string
+		code string
+	}{
+		{"secrets", "toolchain-pins.json", func(data string) string {
+			return strings.Replace(data, `"secrets": "none"`, `"secrets": "available"`, 1)
+		}, "FORBIDDEN_SANDBOX_ACCESS"},
+		{"forbidden-access", "toolchain-pins.json", func(data string) string {
+			return strings.Replace(data, `"forbidden_access": ["protected-held-out", "canonical-evidence", "release-signing", "production-credentials", "cross-company-data"]`, `"forbidden_access": []`, 1)
+		}, "FORBIDDEN_SANDBOX_ACCESS"},
+		{"linux-deferral", "source-pins.json", func(data string) string {
+			start := strings.Index(data, `"deferred_platform_inputs": [`)
+			if start < 0 {
+				return data
+			}
+			return data[:start] + `"deferred_platform_inputs": []` + "\n}"
+		}, "MISSING_PROMOTION_REQUIREMENT"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			directory := copyEvidence(t)
+			path := filepath.Join(directory, tc.file)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mutated := tc.edit(string(data))
+			if mutated == string(data) {
+				t.Fatal("test mutation did not apply")
+			}
+			if err := os.WriteFile(path, []byte(mutated), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err = VerifyEvidenceDir(directory, time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
+			assertCode(t, err, tc.code)
+		})
+	}
+}
+
+func TestRequiredActionTraceRejectsMissingReorderedOrMutatedRecords(t *testing.T) {
+	now := time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC)
+	for _, testCase := range []struct {
+		name   string
+		mutate func(*promotionDocument)
+	}{
+		{"missing", func(document *promotionDocument) { document.RequiredActions = document.RequiredActions[:3] }},
+		{"reordered", func(document *promotionDocument) {
+			document.RequiredActions[0], document.RequiredActions[1] = document.RequiredActions[1], document.RequiredActions[0]
+		}},
+		{"role", func(document *promotionDocument) { document.RequiredActions[0].Role = "release-attestor" }},
+		{"sandbox", func(document *promotionDocument) {
+			document.RequiredActions[0].RequestedSandboxAccess = []string{"quarantined-source"}
+		}},
+		{"publication", func(document *promotionDocument) { document.RequiredActions[0].PublicationRequested = true }},
+		{"status", func(document *promotionDocument) {
+			document.RequiredActions[0].Status = "OWNER_SIGNATURE_REQUIRED"
+		}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			directory := copyEvidence(t)
+			path := filepath.Join(directory, "promotion-receipts.json")
+			var document promotionDocument
+			readStrictTestFile(t, path, &document)
+			before, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			testCase.mutate(&document)
+			after, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) == string(before) {
+				t.Fatal("hostile required-action mutation did not change the receipt")
+			}
+			writeJSONTestFile(t, path, document)
+			_, err = VerifyEvidenceDir(directory, now)
+			assertCode(t, err, "ACTION_SCOPE_MISMATCH")
+		})
+	}
+}
+
+func TestAuthorizeRejectsAuthoritativeRoleConflictAndRevocation(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := validAction(now)
+	action.Signature = hex.EncodeToString(ed25519.Sign(privateKey, CanonicalAction(action)))
+	identity := Identity{ActorID: action.ActorID, AuthorityMode: SingleOwnerAuthorityMode, AllowedRoles: []string{"release-attestor"}, KeyID: action.KeyID, PublicKey: hex.EncodeToString(publicKey)}
+	err = Authorize(action, map[string]Identity{action.ActorID: identity}, Snapshot{RoleDigest: action.RoleSnapshotDigest, RevocationDigest: action.RevocationSnapshotDigest}, NewMemoryLedger(), now)
+	assertCode(t, err, "ROLE_CONFLICT")
+
+	identity.AllowedRoles = []string{action.Role}
+	identity.Revoked = true
+	err = Authorize(action, map[string]Identity{action.ActorID: identity}, Snapshot{RoleDigest: action.RoleSnapshotDigest, RevocationDigest: action.RevocationSnapshotDigest}, NewMemoryLedger(), now)
+	assertCode(t, err, "REVOKED_AUTHORIZATION")
+}
+
+func copyEvidence(t *testing.T) string {
+	t.Helper()
+	directory := t.TempDir()
+	source := filepath.Join("..", "..", "evidence", "intake")
+	for _, name := range evidenceFiles {
+		data, err := os.ReadFile(filepath.Join(source, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(directory, name), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return directory
+}
+
+func copyBlockedEvidence(t *testing.T) string {
+	t.Helper()
+	directory := copyEvidence(t)
+	blockedReceipt, err := os.ReadFile(filepath.Join("testdata", "blocked-promotion-receipt.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "promotion-receipts.json"), blockedReceipt, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
+
+func readStrictTestFile(t *testing.T, path string, target any) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := DecodeStrict(data, target); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeJSONTestFile(t *testing.T, path string, value any) {
+	t.Helper()
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertFindingCodes(t *testing.T, findings []Finding, codes ...string) {
+	t.Helper()
+	if len(findings) != len(codes) {
+		t.Fatalf("got %d findings, want %d: %+v", len(findings), len(codes), findings)
+	}
+	for index, code := range codes {
+		if findings[index].Code != code {
+			t.Fatalf("finding %d is %s, want %s", index, findings[index].Code, code)
+		}
+	}
+}

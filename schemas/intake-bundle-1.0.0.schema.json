@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/intake-bundle-1.0.0.schema.json",
+  "title": "Verified Java-WebSocket immutable intake bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "project", "laboratory_id", "artifacts", "executables", "container", "actions"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "company": {"const": "open-source-projects"},
+    "project": {"const": "verified-java-websocket-port"},
+    "laboratory_id": {"const": "lab-java-websocket"},
+    "artifacts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/artifact"}},
+    "executables": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/executable"}},
+    "container": {"$ref": "#/$defs/container"},
+    "actions": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/action"}}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "immutable_url", "sha256", "classification", "license", "provenance", "replay", "expires_at", "rotation", "revocation"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "kind": {"type": "string", "minLength": 1},
+        "immutable_url": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/digest"},
+        "classification": {"enum": ["PUBLIC", "PUBLIC_DERIVED", "INTERNAL", "PROTECTED_HELD_OUT", "QUARANTINED"]},
+        "license": {"type": "string", "minLength": 1}, "provenance": {"type": "string", "minLength": 1},
+        "replay": {"type": "string", "minLength": 1}, "expires_at": {"type": "string", "format": "date-time"},
+        "rotation": {"type": "string", "minLength": 1}, "revocation": {"type": "string", "minLength": 1}
+      }
+    },
+    "executable": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "platform", "lock_graph", "sbom_component_id", "vulnerability_observation_id", "binary_digests"],
+      "properties": {
+        "artifact_id": {"type": "string"}, "platform": {"type": "string"},
+        "lock_graph": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "sbom_component_id": {"type": "string"}, "vulnerability_observation_id": {"type": "string"},
+        "binary_digests": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/digest"}}
+      }
+    },
+    "container": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reference", "platform", "manifest_digest", "config_digest"],
+      "properties": {"reference": {"type": "string"}, "platform": {"const": "linux/amd64"}, "manifest_digest": {"const": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074"}, "config_digest": {"$ref": "#/$defs/digest"}}
+    },
+    "action": {
+      "type": "object", "additionalProperties": false,
+      "required": ["object_id", "object_kind", "stage", "action", "actor_id", "role", "key_id", "company", "project", "laboratory_id", "artifact_digest", "policy_version", "policy_digest", "requested_sandbox_access", "publication", "issued_at", "expires_at", "nonce", "role_snapshot_digest", "revocation_snapshot_digest", "signature"],
+      "properties": {"object_id": {"type": "string"}, "object_kind": {"type": "string"}, "stage": {"enum": ["acquisition", "quarantine", "qualification", "independent-promotion"]}, "action": {"type": "string"}, "actor_id": {"type": "string"}, "role": {"type": "string"}, "key_id": {"type": "string"}, "company": {"const": "open-source-projects"}, "project": {"const": "verified-java-websocket-port"}, "laboratory_id": {"const": "lab-java-websocket"}, "artifact_digest": {"$ref": "#/$defs/digest"}, "policy_version": {"type": "string"}, "policy_digest": {"$ref": "#/$defs/digest"}, "requested_sandbox_access": {"type": "array", "items": {"type": "string"}}, "publication": {"type": "object"}, "issued_at": {"type": "string", "format": "date-time"}, "expires_at": {"type": "string", "format": "date-time"}, "nonce": {"type": "string"}, "role_snapshot_digest": {"$ref": "#/$defs/digest"}, "revocation_snapshot_digest": {"$ref": "#/$defs/digest"}, "signature": {"type": "string"}}
+    }
+  }
+}

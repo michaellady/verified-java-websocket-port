@@ -1,0 +1,1641 @@
+{
+  "schema_version": "1.0.0",
+  "statement": "The work plan, as data with a gate, replacing the prose board's 'read it and pick one bounded unit'. Every done node cites evidence this gate RE-DERIVES on each run; a done node whose only evidence is a command nobody runs is UNVERIFIABLE_DONE and fails. Readiness and blockage are recomputed, never read: a node cannot be ready while a dependency is unfinished or an owner action it names is open, and it cannot stay blocked once every owner action it names is ruled. That last rule exists because a ruling arrives from OUTSIDE this file and nothing here would otherwise notice.",
+  "ceiling": "This gate checks the plan's INTERNAL consistency and that each done node's cited evidence still holds. It does NOT check that the evidence is SUFFICIENT for the claim -- a node may cite a weak-but-true fact and pass -- and that gap was MEASURED rather than assumed. Of the 13 done nodes at the time of the measurement, 5 stayed at exit 0 with the IMPLEMENTATION of the work they name destroyed, two of them with the scanner's source files deleted outright, because `path_exists` establishes only that the named file exists and a `grep` for an identifier is satisfied by any dead mention of it; a 6th stayed at exit 0 with a 1453-line detector replaced by a three-line comment carrying the identifier its grep looks for; the other 7 cite a value the work itself produced, and 6 of those 7 were broken here by perturbing that value. Rule 6 refuses evidence that CANNOT fail; it cannot refuse evidence that is merely weak. It does not discover work: a task nobody wrote down is invisible here, so the graph is a floor on what remains, never a total. Deleting a node is no longer silent -- rule 12 re-derives every id this plan ever COMMITTED from its own git history and refuses a disappearance no `retired` entry explains -- but that binds only ids git has seen. A node added and removed without ever being committed leaves no trace; during an uncommitted merge the incoming branch is not yet in HEAD's ancestry, so a node dropped in a merge resolution is caught on the next run rather than this one; a rewritten history erases the evidence along with the node; and a checkout whose shallow graft cuts off the plan's origin is REFUSED rather than guessed at, so CI running this gate needs fetch-depth 0. The `retired` escape is checked for staleness, fiction and a resolvable successor, but its `reason` is prose no program can verify: retiring a node with a plausible sentence is a bypass this gate cannot close, only make visible in the diff. And `command` evidence is recorded but never verified, deliberately, so it cannot masquerade as a checked claim.",
+  "nodes": [
+    {
+      "id": "T-record-guard",
+      "title": "record-guard: refuse a landing whose self-review record is still a stub",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "(?m)^gates:.*record-guard"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/main.go"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust record-guard"
+        }
+      ],
+      "note": "Its disclosed ceiling was measured by an adversarial round and held: strip the self-declarations from all six historical stubs and 1 of 6 is still caught."
+    },
+    {
+      "id": "T-record-guard-escapes",
+      "title": "record-guard: close the unpaired-delimiter and backticked-status escapes",
+      "state": "done",
+      "depends_on": [
+        "T-record-guard"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/testdata/synthetic/unpaired-delimiter.md"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./cmd/recordguardctl/"
+        }
+      ],
+      "note": "One stray unpaired quote made the div05 stub -- the document this gate exists to refuse -- pass at exit 0. And backticked STATUS passed while plain STATUS was refused: anti-correlated with honesty."
+    },
+    {
+      "id": "T-go-suite",
+      "title": "go-suite: run the Go packages inside gates, with exclusions declared",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "(?m)^gates:.*go-suite"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/gosuitectl/main.go"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/gosuitectl/main.go",
+          "pattern": "EXCLUSION_NO_LONGER_FAILS"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust go-suite"
+        }
+      ],
+      "note": "Each exclusion is now RUN and its failure quoted. Also discloses that of 59 run packages only 44 carry a test file and 5 test files are not compiled."
+    },
+    {
+      "id": "T-pin-guard",
+      "title": "pin-guard: a drifted digest pin fails on the run it appears",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "(?m)^gates:.*pin-guard"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/pinconsumerctl/main.go",
+          "pattern": "STALE_ALLOWANCE"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust pin-guard"
+        }
+      ],
+      "note": "Eleven genuinely drifted pins are declared, each pinned to its own declared digest. The allowance list resisted every attack in the adversarial round, because it re-derives."
+    },
+    {
+      "id": "T-task-graph",
+      "title": "task-graph: the plan as data, with a gate that re-derives every done node",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "assurance/plan/task-graph.json"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/taskgraphctl/main.go"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "UNVERIFIABLE_DONE"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust plan-guard"
+        }
+      ]
+    },
+    {
+      "id": "T-F011-quarantine",
+      "title": "F011: untrack the self-referential .quarantine symlink",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "git_not_tracked",
+          "path": ".quarantine"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/findings/F011-a-diff-claim-checked-on-one-axis-and-false-on-another.md"
+        }
+      ],
+      "note": "A tracked path overrides .gitignore, so the directory could never exist and nothing could be written into it. This is why the quarantine was empty -- not the proxy refusal I had recorded."
+    },
+    {
+      "id": "T-committed-binary",
+      "title": "Remove the 3.9 MiB pinconsumerctl binary I committed",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "git_not_tracked",
+          "path": "pinconsumerctl"
+        },
+        {
+          "kind": "grep",
+          "path": ".gitignore",
+          "pattern": "(?m)^/pinconsumerctl$"
+        }
+      ]
+    },
+    {
+      "id": "T-plane-citation",
+      "title": "Repair the plane-correspondence citations DIV-05 moved",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "assurance/formal/plane-correspondence.json",
+          "pattern": "\"nearest_declaration_line\": 1003\\b"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./internal/formalcoverage/ ./cmd/formalcoverctl/"
+        }
+      ]
+    },
+    {
+      "id": "T-record-prose-bound",
+      "title": "Bind a landing record's prose to the document it cites",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "internal/normcollide/recordbounds.go"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/normalization-collision-audit.md",
+          "pattern": "29 distinct scored observations"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./internal/normcollide/"
+        }
+      ],
+      "note": "F017: my polarity test bound audit.json's value to the census and said nothing about the sentence quoting it, which still read 26."
+    },
+    {
+      "id": "T-legacy-19",
+      "title": "Legacy record 19: answer its blocking question by executing it",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "evidence/java/observations/legacy-19-highbit64-response.jsonl"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/java/observations/legacy-19-highbit64-response.jsonl",
+          "pattern": "\"close_code\": ?1009\\b"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/deltaledgerctl --root . --check"
+        }
+      ],
+      "note": "Marked OWNER ACTION only because the quarantine could not hold the jar (F011). Pinned Java answers 1009, not the RFC's 1002. Not a hang -- a typed rejection."
+    },
+    {
+      "id": "T-handshake-ceiling",
+      "title": "Raise the handshake discrimination ceiling from 26 to 29 of 49",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "evidence/normalization-collisions/audit.json",
+          "pattern": "\"handshake_distinct_scored_observations\": ?29\\b"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./internal/normcollide/"
+        }
+      ],
+      "note": "49/49 certifies at most 29 distinguishable answers. 23 cases share one; largest class 10."
+    },
+    {
+      "id": "T-jdk-vendor-agnostic",
+      "title": "Make the jdk_vendor comparison vendor-agnostic and drop portplan's exclusion",
+      "state": "done",
+      "story": "US-018",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-jdk-vendor"
+      ],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "internal/portplan/vendor_agnostic_test.go"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/portplan/reproduce.go",
+          "pattern": "ORACLE_VENDOR_FIELD_UNREADABLE"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/gosuitectl/main.go",
+          "pattern": "\"internal/portplan\":"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test -timeout 40m ./internal/portplan/",
+          "note": "vendor-only difference exits 0; one character in one of the 969 declarations exits 1 with differing_lines=1 of committed_lines=1071"
+        }
+      ],
+      "note": "Neutralises exactly ONE field in BOTH reports and compares every other byte; a count other than exactly 1 in either is refused as ORACLE_VENDOR_FIELD_UNREADABLE. No file under evidence/ was touched -- the committed report was never regenerated. portplan's go-suite exclusion removed in the same commit, so run=60 excluded=1."
+    },
+    {
+      "id": "T-F016-gate",
+      "title": "Make the architecture gate detect adapter-side branching on core protocol state",
+      "state": "done",
+      "story": "US-018",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-F016-placement"
+      ],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "cmd/rustgatectl/protocol_branch.go"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "ADAPTER_PROTOCOL_BRANCH|protocol_branch"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust ac1-gates",
+          "note": "a seeded match on (Role, ReadyState) takes ac1-gates from 8/8 to 7/8, exit 2"
+        }
+      ],
+      "note": "Closes F016. The detector re-derives the governed enums from the ws-core sources and the names the adapter can reach them by from its own `use` trees, which is what closes the root-re-export gap a module-path-keyed list could never see. It cannot see protocol state decided AFTER conversion -- two-step laundering defeats it in two statements -- and those four holes are pinned as tests that fail if a later change closes them, so the disclosure cannot drift from the code."
+    },
+    {
+      "id": "T-ledger-58",
+      "title": "Supersede ledger sequence 58 with disposition adopt-java",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-ledger-58-disposition",
+        "OA-F010-AC2-banner"
+      ],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "evidence/java/behavior-delta-ledger.json",
+          "pattern": "\"sequence\": 59\\b"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/java/behavior-delta-ledger.json",
+          "pattern": "response-server-and-date-fields\\.adopted"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/deltaledgerctl --root . --check",
+          "note": "59 records, frozen prefix through 35 intact, records_without_mismatch_class still 49"
+        }
+      ],
+      "note": "Recorded by SUPERSESSION, not by edit: sequence 58 keeps its bytes and sequence 59 answers it. All 58 pre-existing records verified byte-identical -- differing set empty. Rationale cites both 2026-08-27 decisions by digest (26849b5e, 3a9b24c4) and the owner's 2026-09-04 confirmation. No corpus or measurement denominator moved."
+    },
+    {
+      "id": "T-us019-ac4",
+      "title": "US-019 AC4: no-echo and opcode-swap discrimination",
+      "state": "blocked",
+      "story": "US-019",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-autobahn-reruns"
+      ],
+      "evidence": [],
+      "note": "Incomplete at 66/247 and 181/247; discrimination OUTSTANDING."
+    },
+    {
+      "id": "T-us019-finding7",
+      "title": "US-019 finding 7: bind the manifest to the pinned Autobahn source",
+      "state": "blocked",
+      "story": "US-019",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-autobahn-archive"
+      ],
+      "evidence": [],
+      "note": "NARROWED, not closed. Both closure routes measured shut: archive HTTP 403, provenance commit absent."
+    },
+    {
+      "id": "T-us018-macos",
+      "title": "US-018 AC2: the macOS arm64 leg",
+      "state": "blocked",
+      "story": "US-018",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-macos-arm64-host"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "T-us008-confirmation",
+      "title": "US-008: benchmark confirmation numbers",
+      "state": "blocked",
+      "story": "US-008",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-aws-benchmark-host"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "T-us009-ac1-sbx",
+      "title": "US-009 AC1: Docker sbx replay",
+      "state": "blocked",
+      "story": "US-009",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-docker-sbx-replay"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "T-F014",
+      "title": "F014: the code binding verified against a copy of itself",
+      "state": "blocked",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-F014-code-binding"
+      ],
+      "evidence": [],
+      "note": "Fixing it requires deleting its two pin-guard allowances in the same commit, or the gate fails as STALE_ALLOWANCE. That is deliberate."
+    },
+    {
+      "id": "T-denominator-basis",
+      "title": "denominator_basis pins whose anchor is not an ancestor of HEAD",
+      "state": "blocked",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-catalog-plane-denominator",
+        "OA-basis-anchor-vs-catalog-immutability"
+      ],
+      "evidence": [],
+      "note": "A DENOMINATOR. Hard stop -- never re-baselined from inside the loop. FIVE pins name 1ff89fa, not three: the three the ruling and pin-guard's allowance table mean are $.denominator_basis[1], [3] and [4], the three pin-guard SEES. [0] is invisible because its declared digest is the file's current one; [2] was invisible because its target path was untracked, which is bypass C9b and OA-pin-path-corpus. The ruling's first clause is DONE for the one pin where it was lossless -- see T-basis-artifact-onto-this-line. It is refused for [1], [3] and [4]: the artifacts at 1ff89fa under those paths are not older versions of this line's files but different documents. proof-targets.json at 1ff89fa carries plan_id and 2 targets against schema 1.1.0, where this line carries document_id formal-proof-targets.us006 and 10 against 1.0.0, and copying it in makes formalcoverctl refuse at `proof-target document id is \"\"`. semantic-id-migration-map.json at 1ff89fa declares schema 1.1.0, whose schema file this plane does not carry and which internal/portplan pins at 1.0.0. compatibility-surface.json is shape-compatible and copying it in would revert commit 93f5444. The second clause is refused for all five: see OA-basis-anchor-vs-catalog-immutability."
+    },
+    {
+      "id": "T-pr4",
+      "title": "PR #4: the US-019 line landed, and the three gate failures it cost resolved",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-pr4-fast-forward"
+      ],
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "internal/autobahnsuite/reconcile.go",
+          "note": "the package that DID NOT EXIST on mainline (`git ls-tree HEAD internal/autobahnsuite/` was empty), which is why nothing on the US-019 line could land; git tracks it here"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/autobahn-controls/src/cli.rs",
+          "note": "the other absent package, and the file the survivor sweep found untested; on this tree it is tracked, so the sweep's evidence is re-derivable at last"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/formal/us023-coverage-report.json",
+          "pattern": "31a625e269c28858",
+          "note": "fix 1: the drifted pin re-pointed from afc0ef4f to the current bytes of evidence/linkage/rust-identity-verification.json"
+        },
+        {
+          "kind": "grep",
+          "path": "assurance/formal/denominator-reconciliation.json",
+          "pattern": "autobahn_controls",
+          "note": "fix 2: the reconciliation refreshed for the added crate. It moved NO denominator -- catalog_obligations, proof_targets and both unmapped counts are what mainline states"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "40a62857c4563017",
+          "note": "fix 3: drive_until_open's allowance re-pinned to the merged function's fingerprint, so adapter-linkage stops reporting ADAPTER_PROTOCOL_BRANCH"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "Fingerprint:\\s+\"2c05c5aeae1c8921",
+          "note": "and the mainline fingerprint it replaced is no longer DECLARED by any allowance, so STALE_PROTOCOL_BRANCH_ALLOWANCE cannot be satisfied by a leftover entry. The pattern binds the Fingerprint FIELD rather than the bare digest on purpose: the digest itself still appears in that entry's reason, which discloses what the allowance was re-pinned FROM, and a grep_absent on the bare string would force that disclosure to be deleted to stay green."
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "OWNER RULING \\(OA-drive-until-open-branch, 2026-09-04\\)",
+          "note": "OA-drive-until-open-branch applied: the allowance records the ruling where it read NOT RULED ON"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "native_digest_manifest_files",
+          "note": "fix 4, which the ruling could not have named: the prose claim that only this merge made visible, because the gate is mainline's and the record it reads is the US-019 line's. BOUND, not allowed -- the stated count and the document agree, and the binding re-derives it"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/us019-landing.md",
+          "note": "the landing record: what merged, each fix with its before/after gate output, the denominator question answered, and what is left"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust gates",
+          "note": "recorded, never verified by this gate"
+        }
+      ],
+      "story": "US-019",
+      "note": "DONE ON claude/us019-landing, NOT ON MAINLINE, and the difference is the point. OA-pr4-fast-forward ruled the US-019 line lands; origin/claude/us019-survivor-residue at caa44e5 is merged here, carrying us019-survivor-closure-2 at f9b9520 and us019-native-run beneath it. The one conflict, this plan, was resolved as a union by id with nothing dropped from either side. The three gate failures the ruling names are fixed as three separate commits, each with the failing gate quoted before and after and never a bulk regeneration. WHAT REMAINS IS NOT MINE: the merge of this branch into claude/feature/verified-java-websocket-port is the coordinator's, and this node's evidence is deliberately shaped so that it CANNOT hold on a mainline where that merge did not happen -- the two git_tracked items name packages absent from mainline, so plan-guard goes red there rather than quietly reading done. | OUTCOME 2026-09-04T13:40Z: GitHub closed PR #4 as MERGED. Verified rather than assumed, because a merge nobody performed is worth checking: PR #4's base was claude/feature/verified-java-websocket-port (NOT main -- I had that wrong and corrected it against the API), its head 6416805 is an ancestor of this branch's HEAD, local and remote are identical with no third-party merge commit, and main is still 45f0fa3. So landing the US-019 line made the PR's head reachable from its base and GitHub closed it as merged. The closure is the RESULT of executing the ruling, not a competing action."
+    },
+    {
+      "id": "T-pr1",
+      "title": "PR #1: decide the superseded parallel line",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-pr1-disposition"
+      ],
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/findings/F015-two-pull-requests-to-main-from-histories-with-no-common-ancestor.md"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/findings/F015-two-pull-requests-to-main-from-histories-with-no-common-ancestor.md",
+          "pattern": "Disposition, 2026-09-04"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/findings/F015-two-pull-requests-to-main-from-histories-with-no-common-ancestor.md",
+          "pattern": "symbol sets rather than byte counts"
+        },
+        {
+          "kind": "command",
+          "cmd": "gh pr view 1",
+          "note": "PR #1 closed with the symbol-set comparison in its closing comment; GitHub state is outside anything plan-guard can re-derive, which is why the disposition is written into the finding instead"
+        }
+      ],
+      "note": "| CLOSED 2026-09-04 on the owner's ruling, with the symbol-set comparison in the closing comment and PR #5 named as the live line. The evidence here is the finding record, NOT the GitHub state: plan-guard cannot re-derive whether a PR is closed, so citing that would be an unverifiable claim. What it can re-derive is that the disposition was written down."
+    },
+    {
+      "id": "T-pin-c1-c2-c9",
+      "title": "pin-guard C1/C2/C9: three silent bypasses that move a census denominator",
+      "state": "done",
+      "depends_on": [
+        "T-pin-guard"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "cmd/pinconsumerctl/main.go",
+          "pattern": "missing_targets"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/pinconsumerctl/main.go",
+          "pattern": "danglingRefusal"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/pinconsumerctl dangling -root .",
+          "note": "85 rows before, 91 after, ZERO disappeared; candidates=0 explained=53 covered=23 allowed=15 missing_targets=0"
+        }
+      ],
+      "note": "C1, C2 and C9a fixed; C9b refused and declared as OA-pin-path-corpus. Four true positives surfaced, including e3-formal-receipt.json $.models_authored[1]: close-model.tla declared 36370b0f but is 29f1c8f1, drifted at 8f19e2b -- a commit literally titled 'fix the vacuous close invariant' that never updated the receipt attesting to it. Its sibling frame-model.tla matches and stays silent, which is the control."
+    },
+    {
+      "id": "T-other-record-prose",
+      "title": "Bind the remaining records' prose to the documents they cite",
+      "state": "done",
+      "depends_on": [
+        "T-record-prose-bound"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/prose.go"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/prose_test.go"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/record-prose-corpus.md"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/record-prose-corpus.md"
+        },
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "(?m)^\\tcd \\.\\. && go run \\./cmd/recordguardctl prose -root \\.$"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/main.go",
+          "pattern": "(?m)^\\tcase \"prose\":$"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "UNDISPOSITIONED_CLAIM"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "STALE_ALLOWANCE"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "STALE_COVERAGE_CLAIM"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "func TestMutatingTheProseGoesRedAndNamesTheField"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "func TestMutatingTheDocumentAlsoGoesRed"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/recordguardctl prose -root ."
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "TestAQuotedBesideThisREADMEDoesNotBindTheQuotingRecord"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "TestTheMirrorAddsNoLinkToTheCheckout"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "baseCopy"
+        }
+      ],
+      "note": "Twelve records bound by twenty bindings, every value re-derived from the cited document on each run; no expected value anywhere in the table. The census (241 cardinality sentences, 11 with an enumerable population, all dispositioned) fails an UNDISPOSITIONED_CLAIM, so the binding table is a floor and not a hand-picked list. Four true positives declared, none fixed by edit. Ceiling: 230 sentences name a population this gate cannot enumerate. | On merge the gate caught its own first customer: a review record REPORTING the governance README's miscount necessarily quotes \"beside this README\", and the deictic rule bound that quotation to the quoting record's own directory, reporting an UNDISPOSITIONED_CLAIM about drafts/self-review/. maskOtherVoices does not reach it -- the quotation is inline, not a block. Fixed by requiring the source to BE a README for that phrase, which is exact rather than a heuristic about quoting. Verified both ways after the fix: correcting the README to 63 fires STALE_ALLOWANCE, making it wrong differently (61) fires PROSE_DISAGREES_WITH_DOCUMENT re-deriving 63 from the directory, and the unmodified tree is PASS. | Second defect at merge: mirrorTree HARD-LINKED the checkout, raising st_nlink on every source file, and internal/assurance requires assurance/lifecycle.json to be an immutable single-link file. Packages run concurrently, so a mirror alive here failed a test there -- go-suite red in two packages this branch does not touch, reading exactly like contention. Now a byte copy (36 MB, 3014 files, under a second), with the property asserted directly rather than sampled: the regression test was shown to FAIL on the old behaviour, naming nlink=2. | Resolved on merge in favour of the author's design over mine: one byte copy of the checkout per test binary, with per-test mirrors hard-linked from THAT copy, so the checkout is never linked and mirrors stay cheap. My duplicate regression test was dropped for their TestTheMirrorAddsNoLinkToTheCheckout; my deictic-quotation test was kept, because they did not have it."
+    },
+    {
+      "id": "T-sweep-master-stories",
+      "title": "Sweep the master stories and PRD metadata for the F010 class",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/master-story-sweep.md"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/master-story-sweep.md",
+          "pattern": "\\| \\*\\*total\\*\\* \\| \\*\\*24\\*\\* \\| \\*\\*184\\*\\* \\|"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/master-story-sweep.md",
+          "pattern": "floor of 32/39"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/findings/F018-a-master-nongoal-no-decision-reaches.md"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/findings/F019-a-criterion-hidden-behind-its-own-namesake.md"
+        },
+        {
+          "kind": "grep",
+          "path": "docs/prd-pack/06a-prd-metadata-goal-through-sandbox.md",
+          "pattern": "Do not preserve undocumented Java quirks when a declared standard or neutral suite has higher oracle priority"
+        },
+        {
+          "kind": "grep",
+          "path": "docs/prd-pack/03-master-stories-intake-lsp-protocol-labzero.md",
+          "pattern": "preserve, intentionally-correct with authoritative before-and-after evidence, or unresolved; unresolved deltas block completion"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/recordguardctl precondition drafts/self-review/master-story-sweep.md drafts/self-review/findings/F018-a-master-nongoal-no-decision-reaches.md drafts/self-review/findings/F019-a-criterion-hidden-behind-its-own-namesake.md"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/oraclerankctl --root . && git status --porcelain"
+        }
+      ],
+      "note": "Corpus DERIVED, not read off a list: 24 master stories / 184 AC bullets over docs/prd-pack/02-05 (agrees with the PRD's own 'userStories | array (24)'), and 32 metadata sections over 06a/06b/06c -- a FLOOR, because 01-structure-and-index.md declares 39 metadata keys and only 32 are reproduced. Two findings: F018 (the master nonGoal at 06a:91 that no owner decision reaches, 39 higher-oracle overrides measured by cmd/oraclerankctl) and F019 (master US-020 AC5, hidden behind internal/ac5class which implements the CHILD's US-020 AC5). The load-bearing structural result: the 2026-08-27 amendment reaches NOTHING in this corpus, so every clearance here rests on the child-plane JAVA_FAITHFUL_PLUS_SAFE decision instead, and the narrow reading of its plane scope flips both findings."
+    },
+    {
+      "id": "T-remaining-gates-attacked",
+      "title": "Adversarially attack the five gates the review did not reach (four attacked; oracle-hierarchy sampled)",
+      "state": "done",
+      "depends_on": [
+        "T-record-guard-escapes",
+        "T-go-suite",
+        "T-pin-guard"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/gate-attack-round-3.md"
+        },
+        {
+          "kind": "path_exists",
+          "path": "internal/deltaledger/envelope.go"
+        },
+        {
+          "kind": "path_exists",
+          "path": "internal/deltaledger/envelope_test.go"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/integrity.go",
+          "pattern": "add\\(\"ledger-envelope\", VerifyLedgerEnvelope\\(root, committed\\)\\)"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "func licenseIdentityProblem\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "func \\(r \\*gateRunner\\) ungovernedFirstPartyRoots\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "git-diff-cargo-lock-head"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "func clippyLintNames\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main_test.go",
+          "pattern": "func TestExternalDependenciesAreNonMembersNotNonPathDeps\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/fixtureguardctl/regions.go",
+          "pattern": "func cfgPredicateGatesTest\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/fixtureguardctl/scan_test.go",
+          "pattern": "func TestCfgTestAttributeIsRecognisedByMeaningNotSpelling\\("
+        },
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "cargo test --workspace --release -- --include-ignored"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "licenseFileLooksApache2"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/fixtureguardctl/regions.go",
+          "pattern": "needle := \"#\\[cfg\\(test\\)\\]\""
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust gates"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "out-of-workspace dependencies \\(path-vendored ones INCLUDED"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "non-path dependencies"
+        }
+      ],
+      "note": "Round 3 attacked ledger-gates, oracle-hierarchy-gates, the ac1-gates members round 2 only read, the four Rust gates and fixture-guard's residual. ac1-gates fell 7 ways, ledger-gates 2, the Rust test targets 1, fixture-guard 2. Fixed in place and each fix carries a deletion attack. The frozen ledger prefix and the oracle adjudication both held under attack. Three residues are owner actions because closing them moves or creates a denominator. | Integrator addendum: A7's fix widened externalDependencies() to COUNT path-vendored packages (the old code skipped any package whose cargo `source` was empty, which is every path dep) but left all six message sites calling the set 'non-path dependencies' -- a noun that now asserts the opposite of what is counted, and one of the six is load-bearing: it is the FAIL branch that fires when dependencies exist and no audit tool does. Renamed to 'out-of-workspace dependencies'. Verified the license fix independently rather than from the report: the control is ac1-gates 8/8, a LICENSE reading 'This software is NOT distributed under the Apache License, Version 2.0' -- which satisfies the old Contains && Contains predicate by inspection -- now FAILS naming both the digest mismatch and the missing clause, and the restored tree is 8/8 again. Round 3's correction of round 2's forbid count re-derived here too: 32 test roots, `grep -l` finds 9, and two of the nine (scaffold_smoke.rs:41, protocol.rs:488) are DOC COMMENTS quoting the attribute, so 7 is right. | TITLE NARROWED at the 08:22 heartbeat, because the node claimed more than its own record establishes. Round 3 attacked ac1-gates (seven bypasses), ledger-gates (two, plus a serious frozen-prefix attempt that HELD), the Rust test targets and fixture-guard. It did NOT attack oracle-hierarchy-gates in any real sense -- its own section 8 says 'one evidence probe in two polarities and a reading of four files' -- and it lists eight ledger-gates rules it never touched, and says fmt-check and clippy were 'run, not attacked'. Marking that done over all five is exactly the sufficiency gap plan-guard's ceiling admits it cannot catch: the cited evidence HOLDS, and is weaker than the claim. Residue carried by T-gates-residue-attacked."
+    },
+    {
+      "id": "T-us019-survivors-open",
+      "title": "Sweep the three site classes the 70-site survivor floor declared unswept",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "note": "the round record: three derived populations, per-site results, both denominators, every survivor's disposition, and the new ceiling"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "\\| \\*\\*sites enumerated\\*\\* \\| \\*\\*110\\*\\* \\| \\*\\*180\\*\\* \\|",
+          "note": "both site denominators printed side by side: round 4's 110 and this round's 180"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "\\| \\*\\*survivors at baseline \\(the FLOOR\\)\\*\\* \\| \\*\\*70\\*\\* \\| \\*\\*106\\*\\* \\|",
+          "note": "both survivor floors side by side: round 4's 70 and this round's 106; the new one is a strictly larger sweep, not a correction"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "\\*\\*`make -C rust gates` \u2192 EXIT 2\\.\\*\\*",
+          "note": "the gates exit code this round measured, and the per-target table behind it: three failures, all three traced by git log and a digest recomputation to claude/us019-native-run, none of them this branch's"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "internal/autobahnsuite/residue_closure_test.go",
+          "note": "30 Go probes that close 15 switch-arm and 31 conjunct survivors"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/autobahn-controls/tests/cli_residue.rs",
+          "note": "15 probes for cli.rs, which had no test at all before this branch"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/autobahn-controls/tests/inert_residue.rs",
+          "note": "4 probes for the negative control's drain loop"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/ws-testee/tests/agent_residue.rs",
+          "note": "6 probes for valid_agent_name's conjuncts and the agent entry-point guards"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/autobahnsuite/residue_closure_test.go",
+          "pattern": "func TestEveryDiscriminateSubjectArmIssuesItsOwnVerdict",
+          "note": "the probe for reconcile.go:377 -- disabling that arm made the literal AC3 verdict for the real port come back 'unknown subject' with nothing noticing"
+        },
+        {
+          "kind": "grep",
+          "path": "rust/autobahn-controls/tests/cli_residue.rs",
+          "pattern": "fn a_control_invoked_with_no_subcommand_reports_a_usage_error",
+          "note": "the first test cli.rs ever had"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test -timeout 40m ./internal/autobahnsuite/ ./cmd/autobahnsuitectl/ && (cd rust && cargo test -p autobahn-controls -p ws-testee)",
+          "note": "recorded, never verified by this gate"
+        }
+      ],
+      "note": "SWEPT, and the residue it found is NOT all closed -- see T-us019-residue-open and T-us019-residue-live-suite. 180 new sites (29 switch arms, 84 Rust checks, 67 Go conjuncts), 7 of which admit no compiling mutant; 173 scored. Baseline 106 survivors: 75 closed by a named probe, 15 proved unreachable, 16 still open. Round 4's 110 sites / 70 survivors are a SEPARATE population and are never added to these. HARD STOP REPORTED, NOT RESOLVED: a go/ast enumeration of round 4's own four files finds 111 if-conditions, not 110; round 4's enumerator is gitignored and cannot be re-derived. make -C rust gates exited 2 on the tree that round measured, and its record still reads EXIT 2 because that reading was true of that branch: pin-guard, go-suite/internal/formalcoverage and ac1-gates/adapter-linkage all failed, all three inherited from claude/us019-native-run and none fixed there. ALL THREE ARE FIXED HERE, under T-pr4, which quotes each gate before and after.",
+      "story": "US-019"
+    },
+    {
+      "id": "T-drive-until-open",
+      "title": "Rule on the second adapter-side protocol branch the detector found",
+      "state": "done",
+      "story": "US-018",
+      "depends_on": [
+        "T-F016-gate"
+      ],
+      "blocked_by": [
+        "OA-drive-until-open-branch"
+      ],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "OWNER RULING \\(OA-drive-until-open-branch, 2026-09-04\\)"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/rustgatectl/protocol_branch.go"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/rustgatectl -root .",
+          "note": "ac1-gates 8/8 on the committed tree at 0fb75f8"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "second at :950"
+        }
+      ],
+      "note": "Declared in the allowance list with its entry saying it is UNRULED, rather than borrowing server_closes_transport's ruling. The detector found it on its first real run against shipped code. | DONE: applied during the US-019 landing, because the merge rewrote the file the allowance fingerprints and the branch moved from :745 to :831 -- found by its code, not its line number. The placeholder is gone from the tree; a grep_absent for NOT RULED ON is part of the evidence so it cannot come back unnoticed. The second site the merge introduced is NOT covered by this ruling and is OA-drive-until-open-second-site. | My first evidence item here was WRONG and plan-guard refused it: I claimed grep_absent on \"NOT RULED ON\", and the phrase legitimately survives inside the new reason text, which says the entry \"now records that ruling instead of NOT RULED ON\". An absence claim about a string that the fix itself quotes is exactly the kind of evidence that reads true and is false. Replaced with a grep for the second site's disclosure, which is a positive fact about the fixed file."
+    },
+    {
+      "id": "T-plan-guard-attacked",
+      "title": "Adversarially attack plan-guard, which is new and unattacked",
+      "state": "done",
+      "depends_on": [
+        "T-task-graph"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/gate-attack-round-2.md"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "EMPTY_PLAN"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "VACUOUS_EVIDENCE"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/fixtureguardctl/regions.go",
+          "pattern": "cfg\\(test\\)"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust gates",
+          "note": "round 2: plan-guard defeated 15 ways, fixture-guard 4; all 19 closed"
+        }
+      ],
+      "note": "The adversarial round defeated all three gates it touched, each with the same flaw: checking that a DECLARATION was well formed rather than that its CLAIM was still true. plan-guard was built on the opposite principle and caught a real regression on its first run, but that is not evidence it is sound. Its own stated ceiling already admits it checks that evidence HOLDS, not that it is SUFFICIENT -- the attack should measure how bad that is rather than restate it. | CLOSED: 15 plan-guard bypasses and 4 fixture-guard bypasses found and closed. I re-ran 7 of the plan-guard bypasses independently against the merged gate -- empty plan, path_exists \"\" and \".\", empty grep pattern, grep_absent without (?m), git_not_tracked \"\", and a path outside the tree -- all 7 REFUSED, control PASS. Two HARD STOPs were reported rather than fixed and are now owner actions."
+    },
+    {
+      "id": "T-pin-path-corpus",
+      "title": "Decide pin-guard's path corpus (bypass C9b)",
+      "state": "blocked",
+      "depends_on": [
+        "T-pin-c1-c2-c9"
+      ],
+      "blocked_by": [
+        "OA-pin-path-corpus",
+        "OA-catalog-plane-denominator"
+      ],
+      "evidence": [],
+      "note": "Measured both widenings rather than guessing: +662 path-shaped, +26 git-ever-tracked. Deliberately not fixed."
+    },
+    {
+      "id": "T-plan-node-deletion",
+      "title": "A plan that can be emptied of its obligations: bind node ids to the plan's own history",
+      "state": "done",
+      "depends_on": [
+        "T-plan-guard-attacked"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "cmd/taskgraphctl/history.go"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "cmd/taskgraphctl/history_test.go"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/history.go",
+          "pattern": "NODE_DISAPPEARED"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/history.go",
+          "pattern": "shallowBoundary"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/gosuitectl/main.go",
+          "pattern": "the pinned JDK is not on PATH"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/gosuitectl/main_test.go",
+          "pattern": "TestTheJavacRefusalNamesTheVersionAndNotTheProxyBanner"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "checkHistory\\(root\\)"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "nothing counts the nodes against"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./cmd/taskgraphctl/",
+          "note": "deleting all 11 blocked nodes was `nodes=20 result=PASS` before; now 11 NODE_DISAPPEARED findings at exit 1"
+        }
+      ],
+      "note": "Round 2 reported that nothing counts plan nodes. Measured here it was worse: deleting all 15 done nodes gave `nodes=16 done=0 result=PASS` with the detail still reading 'every done node's evidence re-derived', vacuously true of an empty set. Intent has no independent source in the tree -- the plan IS the record of intent -- but it has a HISTORY, so rule 12 re-derives every id ever committed from git and refuses an unexplained disappearance. The `retired` escape is checked for staleness, fiction, an unknown kind and a dangling successor. First implementation was FAIL-OPEN and its own test caught it: git presents a shallow graft point as a root commit, so `--diff-filter=A` reported the plan as freshly added and a depth-1 clone hiding a deletion passed; it now consults the graft points directly and refuses a truncated history. Also, met by walking into it: go-suite let a missing pinned JDK on PATH surface as a red internal/portplan (JAVAC_UNAVAILABLE, javac 21.0.10 vs pinned 17.0.19) rather than refusing, while its two sibling preconditions -- VJWP_PROTECTED_STORE and an unstaged .quarantine/ -- both refuse by name. Measured both ways on unmodified code: off PATH it fails in 0.2s, on PATH the same two tests pass in 6.9s. It refuses now, naming the export."
+    },
+    {
+      "id": "T-governance-mirror-coverage",
+      "title": "The governance mirror protects 7 of 63 store records",
+      "state": "blocked",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-governance-mirror-coverage"
+      ],
+      "evidence": [],
+      "note": "Found by the round-2 attack, measured independently here. The Makefile's unqualified claim that \"Deleting or editing a governance record fails this target\" was corrected to name the 7; the coverage question itself is the owner's."
+    },
+    {
+      "id": "T-governance-statement-supersession",
+      "title": "Supersede the digests-only statement in owner-decision-digests.json",
+      "state": "blocked",
+      "depends_on": [
+        "T-other-record-prose"
+      ],
+      "blocked_by": [
+        "OA-governance-statement"
+      ],
+      "evidence": [],
+      "note": "record-prose declares it as an allowance today: the finding is TRUE, re-derived on every run (7 of 7 mirrored records git-tracked), and the allowance fails the moment the statement stops asserting it. See drafts/self-review/record-prose-corpus.md TP-2."
+    },
+    {
+      "id": "T-record-census-prose",
+      "title": "Decide whether a recited record-census count is bindable prose",
+      "state": "blocked",
+      "depends_on": [
+        "T-other-record-prose"
+      ],
+      "blocked_by": [
+        "OA-record-census-prose"
+      ],
+      "evidence": [],
+      "note": "Reported and deliberately NOT bound. record-content-precondition.md:470 says 'The census currently reads records=41' against a census of 66. See drafts/self-review/record-prose-corpus.md TP-4."
+    },
+    {
+      "id": "T-f018-master-nongoal-disposition",
+      "title": "Record the master nonGoal ruling once the owner gives it",
+      "state": "blocked",
+      "depends_on": [
+        "T-sweep-master-stories"
+      ],
+      "blocked_by": [
+        "OA-F018-master-nongoal"
+      ],
+      "evidence": [],
+      "note": "Whichever way OA-F018-master-nongoal is ruled, the answer belongs in F018 as an addendum and, if the nonGoal is held to reach them, in the 39 enrolled propositions' dispositions. No port byte moves either way; what moves is whether the stance is compliant or merely tolerated."
+    },
+    {
+      "id": "T-f019-ac5-vocabulary-and-mechanism",
+      "title": "Reconcile the ledger's 'unresolved' with master US-020 AC5, and decide whether its blocking rule gets a gate",
+      "state": "ready",
+      "depends_on": [
+        "T-sweep-master-stories"
+      ],
+      "blocked_by": [
+        "OA-F019-master-us020-ac5"
+      ],
+      "evidence": [],
+      "note": "Two in-tree definitions of the same token disagree (internal/lab/ledger.go:78-80 'the decision is owed' vs internal/deltaledger/definitions.go:23-29 'deliberately retained'). Whichever the owner picks, one of those comments needs correcting, and the frozen prefix means the 45 retained records cannot be re-spelled -- so the remedy is a published mapping or a gate, not an edit."
+    },
+    {
+      "id": "T-gosuite-census-prose",
+      "title": "Restate or re-derive cmd/gosuitectl's recorded package census",
+      "state": "blocked",
+      "depends_on": [
+        "T-other-record-prose"
+      ],
+      "blocked_by": [
+        "OA-gosuite-census-prose"
+      ],
+      "evidence": [],
+      "note": "record-prose cannot reach it: the corpus is .md under drafts/self-review and evidence plus evidence-JSON statement fields, so a Go doc comment is out of scope by construction. The bound defect sitting inside the gate that prints the census is the sharpest statement of that ceiling. See drafts/self-review/record-prose-corpus.md TP-5."
+    },
+    {
+      "id": "T-us019-residue-open",
+      "title": "Close the 10 Class-B survivors that need no owner gate",
+      "state": "ready",
+      "story": "US-019",
+      "depends_on": [
+        "T-us019-survivors-open"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "### 6.2 OPEN, no owner gate \u2014 10 sites, each with the probe it needs",
+          "note": "the ten sites and the probe each one needs, named individually"
+        },
+        {
+          "kind": "grep",
+          "path": "rust/ws-testee/tests/process.rs",
+          "pattern": "Command",
+          "note": "the subprocess-probe shape four of the ten need already exists in this repository"
+        }
+      ],
+      "note": "cli.rs:57/66/110/195 need a subprocess probe that reads the control's stdout (rust/ws-testee/tests/process.rs already runs a built binary); mutant.rs:287/323 and agent.rs:204 need a report-equality assertion against a peer that never opens; mutant.rs:318 and agent.rs:199 need a handshake-start failure; inert.rs:130 needs a peer that forces ECONNRESET. None of these needs an owner action."
+    },
+    {
+      "id": "T-us019-residue-live-suite",
+      "title": "Close the 6 Class-B survivors past /getCaseCount",
+      "state": "blocked",
+      "story": "US-019",
+      "depends_on": [
+        "T-us019-survivors-open"
+      ],
+      "blocked_by": [
+        "OA-autobahn-reruns"
+      ],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "### 6.3 OPEN, blocked on a live suite \u2014 6 sites",
+          "note": "cli.rs:237, 250, 259 and 276 with both its conjuncts"
+        }
+      ],
+      "note": "These sit past step 1 of the mutant client pipeline: reached only after a peer answers /getCaseCount with a usable count over a completed handshake. Route 1 is a live wstest run, which is OA-autobahn-reruns and an OWNER GATE the loop must not trigger. Route 2 needs NO owner action: a hand-built fake suite in the test (a ws_driver server with an EventPolicy that answers /getCaseCount with a text frame). It was not built this round."
+    },
+    {
+      "id": "T-us019-site-count-underivable",
+      "title": "A published site count of 110 that re-derives as 111, from an enumerator that was deleted",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-pr4-fast-forward"
+      ],
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/findings/F020-a-measurement-whose-enumerator-was-deleted.md"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/findings/F020-a-measurement-whose-enumerator-was-deleted.md",
+          "pattern": "111"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "internal/autobahnsuite/baseline.go"
+        },
+        {
+          "kind": "grep",
+          "path": ".gitignore",
+          "pattern": "\\.sweep/"
+        },
+        {
+          "kind": "command",
+          "cmd": "go/ast walk of *ast.IfStmt over the four non-test files of internal/autobahnsuite",
+          "note": "43+16+27+25 = 111, re-derived on mainline after the US-019 line landed"
+        }
+      ],
+      "note": "Round 4 reported 110 `if` conditions across its four files. A go/ast enumeration of those same files returns 111 -- baseline.go 43, independence.go 16, reconcile.go 27, suite.go 25 -- which I re-derived independently of the report that raised it, getting the same total and the same per-file split. Round 4's enumerator was .sweep/mutate.py, which f9b9520 GITIGNORED, so its 110 cannot be re-derived by anyone. Round 4's numbers are left exactly as recorded and nothing was re-baselined. The lesson is the deleted derivation, not the off-by-one: a measurement whose enumerator is gone is a number no one can check, and this repository's own graph note still recites 70 of 110 on mainline. | RECORDED as F020. The repair was only possible BECAUSE the US-019 line landed: until then internal/autobahnsuite did not exist on mainline, so NEITHER number could be re-derived here. Round 4's 110 stays exactly as published and is not edited anywhere -- it remains uncheckable, because .gitignore:80 ignores .sweep/ and the enumerator is gone. The 111 is now re-derivable by anyone from the committed sources plus a stated method, which is the durable form. Deliberately NOT bound to a gate: that would fail the build whenever anyone adds an `if` to a file unrelated to the sweep, which is a treadmill and a denominator invented from inside a fix. The problem was never that 111 was unenforced; it was that 110 was uncheckable."
+    },
+    {
+      "id": "T-gates-residue-attacked",
+      "title": "The gate surface three rounds left unattacked: oracle-hierarchy defeated three ways and fixed, fmt-check and clippy defeated and reported",
+      "state": "done",
+      "depends_on": [
+        "T-remaining-gates-attacked"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/gate-attack-round-4.md"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "internal/oraclerank/adversarial_round4_test.go"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/document.go",
+          "pattern": "func checkArtifactGroupPartition\\(f Family\\) error \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/document.go",
+          "pattern": "a group split no path split supports"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/document.go",
+          "pattern": "a group merge no path merge supports"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/document.go",
+          "pattern": "if err := checkArtifactGroupPartition\\(f\\); err != nil \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/joindegeneracy.go",
+          "pattern": "DegenerateOverJoinedKeys bool"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/findings.go",
+          "pattern": "if !jd.DegenerateOverJoinedKeys \\{"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "internal/oraclerank/findings.go",
+          "pattern": "if !jd.Degenerate \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/binding.go",
+          "pattern": "func checkBindingStrengthAgainstFamilies\\(bindings \\[\\]Binding, families \\[\\]Family\\) error \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/binding.go",
+          "pattern": "a rank may not claim one strength while its own families record a weaker one"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "internal/oraclerank/binding.go",
+          "pattern": "Rank four is bound to observations of the pinned Java-WebSocket 1.6.0 process: the two Java legs"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/adversarial_round4_test.go",
+          "pattern": "func TestASplitArtifactGroupWithNoPathSplitIsRefused\\(t \\*testing.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/adversarial_round4_test.go",
+          "pattern": "func TestAMergedArtifactGroupWithNoPathMergeIsRefused\\(t \\*testing.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/adversarial_round4_test.go",
+          "pattern": "func TestTheJoinAnalysisIgnoresAKeyNoCaseReaches\\(t \\*testing.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/adversarial_round4_test.go",
+          "pattern": "func TestABindingMayNotClaimContentWhileItsFamiliesRecordLess\\(t \\*testing.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "schemas/oracle-hierarchy-adjudication-register-1.0.0.schema.json",
+          "pattern": "disagreement_structurally_impossible_over_the_keys_this_census_joins_on"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/oracle-hierarchy/adjudication-register.json",
+          "pattern": "ORACLE-RANK-BINDING-4"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/oracle-hierarchy/adjudication-register.json",
+          "pattern": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust gates"
+        }
+      ],
+      "note": "Round 4. Three attacks got a bad tree past oracle-hierarchy-gates at exit 0, and all three left the printed census byte-identical -- 640 propositions, 589 Java/Rust agreements, 39 overridden -- which is what makes them the dangerous kind. All three are on the ANALYSES around the adjudication rather than on the adjudication, which held: (1) the artifact group that decides whether the independence probe scores a rank pair was a free string, so splitting it manufactured a measurement between two ranks that read one document (co-votes 18 -> 50) and merging it deleted a BLOCKING finding; (2) the join-degeneracy analysis ran over the whole lookup table, so changing one row NO committed case reaches deleted both join-degeneracy disclosures and left a BLOCKING finding claiming 49 co-votes could have come out either way when every one was still forced; (3) a rank's binding strength was a literal, and rank four claimed CONTENT_BOUND -- the one value that suppresses both the 'not bound to' obligation and the ORACLE-RANK-BINDING disclosure -- while the census's own families record its handshake opinions as a RECORDED_READING and its public opinions as AGGREGATE_DERIVED. All three are fixed in the PRODUCTION path so oracle-hierarchy-gates itself refuses them, each with a test that asserts the refusal TEXT and fails when the fix is removed. Round 3's claim that nothing asserts 640 is corrected: the proposition count is fixed by four Go corpus-size constants the census refuses to run without; the agreement and override counts are still unanchored and OA-oracle-census-anchor stands untouched. | fmt-check and clippy both fell to a single in-source suppression, control run first in each case; NOT fixed, because a ceiling needs a count and the granular allow population is not empty -- OA-rust-lint-suppression-ceiling. | ledger-gates: the held-proposal-drafts rule is strong about every draft it reads and its POPULATION is a hardcoded list that has drifted; a rebuildable record proposal sits in the drafts directory carried by no record and outside the list, so the rule that exists to catch exactly that cannot see it. NOT fixed: deriving the population takes ledger-gates red and the way back is appending to the ledger -- OA-held-draft-legacy-13. The live-mapping source binding was probed in both polarities and HELD. | HONEST RESIDUE, and the reason this node exists at all: of the eight ledger rules named in the brief, six were attacked or read closely and two -- VerifyAdjudication and the corpora re-derivation -- were READ AND NOT ATTACKED. internal/rfcneutral was not attacked. The unsafe_usage prose remains UNREACHABLE as briefed and was not re-litigated."
+    },
+    {
+      "id": "T-ledger-adjudication-corpora-attacked",
+      "title": "VerifyAdjudication and VerifyCommittedCorporaReDerive: both defeated once and both fixed",
+      "state": "done",
+      "depends_on": [
+        "T-gates-residue-attacked"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/gate-attack-round-5.md"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/gate-attack-round-5.md"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "func contradictsRetention\\(disposition string\\) bool \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "case lab\\.DispositionFixInPort, lab\\.DispositionIntentionalCorrection, lab\\.DispositionRFCGoverns:"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "delta\\.Disposition == lab\\.DispositionFixInPort \\|\\| delta\\.Disposition == lab\\.DispositionIntentionalCorrection"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "is at or before the pre-vocabulary sequence %d but carries mismatch_class"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "The residual is a consequence of the chain's SEQUENCES"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "func verifyCorpusManifestDescribes\\(root, manifestRelative, corpusRelative, seed string, derived \\[\\]byte\\) error \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "HandshakeCorpusManifestRelativePath = \"corpora/handshake/manifest\\.json\""
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "Two manifests naming two seeds for one derivation"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "The manifest is the artifact that says what the corpus IS"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "internal/deltaledger/evidence_census.go",
+          "pattern": "(?m)^const PublicCorpusManifestRelativePath = "
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication_test.go",
+          "pattern": "a record declaring rfc-governs while its prose says the divergence is retained"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication_test.go",
+          "pattern": "a residual that agrees with a broken recount"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/integrity_test.go",
+          "pattern": "func TestACorpusManifestCannotMisdescribeTheCorpusItSeeds\\(t \\*testing\\.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/observations_test.go",
+          "pattern": "HandshakeCorpusManifestRelativePath,"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust ledger-gates"
+        }
+      ],
+      "note": "Round 5, drafts/self-review/gate-attack-round-5.md. Both rules fell once and both are fixed here, each with the attack refused and the unmodified tree still green. VerifyAdjudication: rule 5's contradiction set listed fix-in-port and intentional-correction and NOT rfc-governs, the one disposition the retention sentence rules out by name -- ledger sequence 59 was made to declare rfc-governs while its own hashed rationale said the divergence is RETAINED, and ledger-gates exited 0 with every published counter unchanged; and the published residual was compared against a recount by the SAME function the builder used to write it, so breaking that function and regenerating published a residual of zero, left the chain head byte-identical and left the gate at exit 0 printing that number as 'recomputed'. A hand-edited integer was always caught, and the record says so; what was not caught is a broken counter plus a regeneration. The residual is now derived from the chain's sequences, so the two computations are independent. That second finding mutates production code, which is the class round 4 declined for VerifyEvidenceIntegrity; section 1c of the record argues in the open why this instance is worth acting on where round 4's was not, rather than leaving two rounds applying different standards silently. VerifyCommittedCorporaReDerive re-derived the two corpus files and asked nothing about the manifests beside them: the public manifest could understate its own corpus's length, and the handshake manifest could carry an all-zero digest, a false length and a seed its corpus was never derived from, all at exit 0 and all green under the internal/corpora test package too. Each corpus is now reconciled against its own manifest. HELD: raising PreVocabularySequence (caught by legacy-record-adjudications), adding a term to the Go disposition vocabulary (caught by the committed JSON Schema), and swapping the seed with a full regeneration (caught by the ledger-equals-regeneration comparison). No denominator moved, no owner action was raised, and OA-oracle-census-anchor is untouched. THE STOPPING CONDITION STATED WHEN THIS NODE WAS PLANNED STANDS: the gate surface is worked and a sixth round is the owner's call."
+    },
+    {
+      "id": "T-retention-welded-to-citation",
+      "title": "The retention assertion is welded to the shared owner-decision citation, and the rationales are hashed",
+      "state": "ready",
+      "depends_on": [
+        "T-ledger-adjudication-corpora-attacked"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "contradictsRetention"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/definitions.go",
+          "pattern": "deliberately \\\\nretained|deliberately"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication.go",
+          "pattern": "retentionStatements"
+        }
+      ],
+      "note": "Round 5's A1 fix is right and it leaves a foreseeable trap, so this carries it out of a done node's prose where it would be lost. retentionStatements[0] is VERBATIM a sentence inside the shared `ownerDecision` constant in definitions.go -- the citation the comment says is 'appended to every rationale'. So carrying the standing US-010..US-016 authority now ASSERTS RETENTION, whether the author meant it or not, and contradictsRetention then forbids rfc-governs, fix-in-port and intentional-correction on that record. MEASURED BEFORE BEING CALLED A PROBLEM, and the measurement exonerates the fix: 45 of the 59 committed records carry the sentence and ALL 45 declare `unresolved`, which retention agrees with; the 14 that do not include every fix-in-port (3), the intentional-correction (1) and every adopt-java (3). Zero false positives on the chain as it stands. The hazard is entirely forward-looking: the next record that legitimately IS a fix-in-port and cites the same owner decision the ordinary way will be refused, and its author has to work out that a citation is carrying a disposition claim. THE CONSTRAINT THAT SHAPES ANY FIX: rationales are HASHED into record digests and the frozen prefix runs through sequence 35, so the constant cannot be reworded for existing records -- that would rewrite sealed history. A fix can only be a second citation variant without the retention clause, for records that are not retentions, plus a note telling an author which to use. Small, but it must be written before someone hits it rather than after. | LEFT READY DELIBERATELY, NOT BUILT, and the reason is the same standard the rest of this work is held to. The fix is a second citation constant without the retention clause. Adding it today means shipping a constant no record uses, with no test that could fail and no caller to bind it -- an unverifiable declaration, which is the exact shape five adversarial rounds have spent themselves finding. The trap has ZERO false positives on the chain as it stands (45 of 45 retention-asserting records declare `unresolved`), so nothing is broken and nothing is waiting. The requirement becomes concrete the moment someone writes a non-retention record citing that owner decision, and the variant should be written then, by them, with the record that needs it. A future heartbeat should NOT pick this up and build it speculatively -- it is recorded so the next author is not ambushed, which is the whole job."
+    },
+    {
+      "id": "T-drive-until-open-second-site",
+      "title": "The second ReadyState branch in drive_until_open, declared on a shared fingerprint",
+      "state": "blocked",
+      "story": "US-019",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-drive-until-open-second-site"
+      ],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "rust/ws-testee/src/io_loop.rs",
+          "pattern": "while cursor < rest\\.len\\(\\) && driver\\.state\\(\\) == ReadyState::NotYetConnected",
+          "note": "the second site itself, located by its code rather than its line number"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "OA-drive-until-open-second-site",
+          "note": "the allowance discloses that it covers a site the ruling did not name, instead of passing silently"
+        }
+      ],
+      "note": "Reported, not absorbed. Both sites live in one function and adapter-linkage pins an allowance to the function's normalized token stream, so declaring the ruled site declares this one too. That is the gate's design, not a widening chosen here, and it is written into the allowance's own reason."
+    },
+    {
+      "id": "T-held-draft-population",
+      "title": "Derive the held-draft population and declare legacy-13's exemption",
+      "state": "ready",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [],
+      "note": "OA-held-draft-legacy-13 was RULED and had no node blocked on it, so the ruling had nowhere to be done -- a decision with no work item is how an answered question quietly stops being acted on. The ruling: derive VerifyProposalDraftsAreLedgered's population from the directory rather than the hardcoded list of seven, and carry legacy-13-bare-lf-server-basis-correction.json as a DECLARED EXEMPTION with a staleness check, in the shape this repository already uses four times. Explicitly NOT by appending to the ledger to make it green. Eleven drafts exist; the seven listed are each genuinely ledgered and three of the four unlisted are not record proposals by the rule's own reader."
+    },
+    {
+      "id": "T-basis-artifact-onto-this-line",
+      "title": "The one basis artifact absent from this plane, brought onto this line byte-identically",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "corpora/frame/codec.json",
+          "note": "the artifact obligation-catalog.json $.denominator_basis[2] declares, at blob da9a7d0734b9db12a44e123ff1c33df2849fdef6 and sha256:984e59e8...b1b4d606, byte-identical to Codex 1ff89fa"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "corpora/frame/codec.json",
+          "note": "tracked, so pin-guard's `git ls-files` corpus now contains the pin's target; the census moved 3500 -> 3501 with candidates, explained, covered and allowed all unmoved"
+        },
+        {
+          "kind": "grep",
+          "path": "assurance/formal/denominator-reconciliation.json",
+          "pattern": "(?s)\"corpora/frame/codec\\.json\".{0,450}BASIS_PIN_MATCHES_FILE_ON_DISK",
+          "note": "re-derived by formalcoverctl reconcile; the pin agreed on the run this landed"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "assurance/formal/denominator-reconciliation.json",
+          "pattern": "BASIS_PIN_PATH_IS_ABSENT_FROM_THIS_PLANE",
+          "note": "the state that no longer holds for any of the five pins; it returns the moment a basis pin's path leaves this plane again"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/pinconsumerctl/main.go",
+          "pattern": "ITS LIVE EXAMPLE IS GONE",
+          "note": "the C9b disclosure restated in the same commit: the ceiling had said codec.json was `deleted from this plane`, which this change made false"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/plane-basis.md",
+          "note": "the before/after report the ruling required"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/formalcoverctl verify -repo .",
+          "note": "recorded, never counted: exit 0 before and after, with exactly one census line removed"
+        }
+      ],
+      "note": "Executes the first clause of OA-catalog-plane-denominator for the single pin where it was possible without destroying anything: corpora/frame/codec.json existed in NO commit on this line, so writing the declared blob there is additive. Nothing was re-anchored and the vendored catalog was not touched. Measured effect on the formal denominator: three fields, all inside catalog_declared_basis_pins[2]; every count in the reconciliation and every ratio in the US-023 report unmoved."
+    }
+  ],
+  "owner_actions": [
+    {
+      "id": "OA-F010-AC2-banner",
+      "state": "ruled",
+      "what_is_needed": "Confirm the 2026-08-27 amendment's 'every AC clause' reaches US-011 AC2's banner clause.",
+      "ruled_at": "2026-09-04",
+      "ruling": "CONFIRMED: it reaches it. DIV-06 emitting Date and Server: TooTallNate Java-WebSocket is compliance, not violation. Grounded in us010-016-ac-amendment-owner-decision-2026-08-27.json (sha256 26849b5e...) and us009-us008-owner-decisions-2026-08-27.json key us009_normativity (JAVA_FAITHFUL_PLUS_SAFE)."
+    },
+    {
+      "id": "OA-F016-placement",
+      "state": "ruled",
+      "what_is_needed": "Decide whether server_closes_transport(role, state) belongs in the adapter.",
+      "ruled_at": "2026-09-04",
+      "ruling": "KEEP THE PLACEMENT, FIX THE GATE. io_loop.rs argues the transport/protocol split explicitly and cites Java's own structure; the defect is that the architecture gate cannot see the shape."
+    },
+    {
+      "id": "OA-jdk-vendor",
+      "state": "ruled",
+      "what_is_needed": "internal/portplan byte-compares a regenerated oracle report against one recording jdk_vendor 'Homebrew'; a Linux Temurin regeneration differs in that one line, all 969 declarations identical.",
+      "ruled_at": "2026-09-04",
+      "ruling": "MAKE THE CHECK VENDOR-AGNOSTIC."
+    },
+    {
+      "id": "OA-ledger-58-disposition",
+      "state": "ruled",
+      "what_is_needed": "Ledger sequence 58 reads disposition=unresolved, appended as 'facts decided, disposition owed'.",
+      "ruled_at": "2026-09-04",
+      "ruling": "adopt-java, with mismatch_class staying underspecified-behavior."
+    },
+    {
+      "id": "OA-autobahn-archive",
+      "state": "open",
+      "what_is_needed": "The pinned Autobahn source archive. Its GitHub URL 403s through this proxy; place the file where the session can reach it.",
+      "why_it_blocks": "US-019 finding 7 cannot close and the AC4 discrimination runs cannot be prepared without it."
+    },
+    {
+      "id": "OA-autobahn-reruns",
+      "state": "open",
+      "what_is_needed": "Autobahn re-runs of the 247-case manifest. The loop never triggers these.",
+      "why_it_blocks": "Closes ledger 51/52, settles DIV-02/03/05/07, completes US-019 AC4."
+    },
+    {
+      "id": "OA-macos-arm64-host",
+      "state": "open",
+      "what_is_needed": "A macOS arm64 host. internal/lab's CONTROLLED_CANARY needs Darwin sandbox-exec; it is PLATFORM_EXECUTOR_UNSUPPORTED on Linux.",
+      "why_it_blocks": "One of the two Go-suite exclusions, and US-018 AC2's macOS leg."
+    },
+    {
+      "id": "OA-aws-benchmark-host",
+      "state": "open",
+      "what_is_needed": "The AWS benchmark run for US-008/US-009. Triggered ONLY by adding a label to a PR, which provisions a host at roughly $4/hour. The loop never labels.",
+      "why_it_blocks": "US-008's confirmation numbers do not exist without it."
+    },
+    {
+      "id": "OA-docker-sbx-replay",
+      "state": "open",
+      "what_is_needed": "The Docker sbx replay for child US-009 AC1.",
+      "why_it_blocks": "US-009 AC1 cannot close."
+    },
+    {
+      "id": "OA-F014-code-binding",
+      "state": "open",
+      "what_is_needed": "test-manifest.json's execution_code_binding pins two internal/lab sources whose bytes have moved: re-run the authoritative run, or stop calling it a binding.",
+      "why_it_blocks": "Two of pin-guard's eleven declared allowances are this finding."
+    },
+    {
+      "id": "OA-catalog-plane-denominator",
+      "state": "ruled",
+      "what_is_needed": "The catalog plane-correspondence decision. Three denominator_basis pins name anchor 1ff89fa, which is not an ancestor of HEAD -- it exists only on read-only codex/race-catchup.",
+      "why_it_blocks": "A DENOMINATOR. A hard stop: never re-baselined from inside the loop.",
+      "ruled_at": "2026-09-04",
+      "ruling": "BRING THE BASIS ARTIFACTS ONTO THIS LINE. Copy the artifacts anchored at 1ff89fa into this plane and re-anchor the three denominator_basis pins to a commit that IS an ancestor of HEAD. This moves the formal denominator's declared basis, so the before/after must be REPORTED side by side and never absorbed silently."
+    },
+    {
+      "id": "OA-pr4-fast-forward",
+      "state": "ruled",
+      "what_is_needed": "RESTATED 2026-09-04 and materially larger than 'fast-forward PR #4'. The whole US-019 line is unreachable from mainline: `internal/autobahnsuite` and `rust/autobahn-controls` DO NOT EXIST here (`git ls-tree HEAD internal/autobahnsuite/` is empty), so every test written against them can only live on that line. A completed survivor sweep now sits on it -- 180 newly enumerated sites, a 106-survivor floor, 75 closed -- and cannot land. Merging the line as it stands breaks THREE gates, each traced rather than guessed: pin-guard on a digest that reads afc0ef4f on mainline and 31a625e2 after claude/us019-native-run regenerated it; go-suite on internal/formalcoverage, because that branch adds the autobahn-controls crate without refreshing denominator-reconciliation.json (byte-identical to mainline on the survivor branch, so the drift is the crate, not the file); and ac1-gates adapter-linkage on io_loop.rs, which differs from mainline by 167/38 lines with every commit touching it belonging to us019-native-run. Decide the integration: fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520 and resolve those three as part of it, or say the US-019 line stays separate and mainline's plan should stop carrying nodes whose evidence can never be re-derived here.",
+      "why_it_blocks": "Three gate failures are the cost of merging and re-pointing a digest or re-fingerprinting an allowance from inside a survivor sweep is the re-baselining this project forbids, so the sweep correctly refused to fix them. Until this is decided, finished US-019 work accumulates on a branch nobody can land, and mainline's plan carries nodes it cannot verify.",
+      "ruled_at": "2026-09-04",
+      "ruling": "Fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520 and LAND the US-019 line on mainline, resolving the three gate failures as part of that work: the drifted pin target (afc0ef4f on mainline, 31a625e2 after us019-native-run regenerated it), internal/formalcoverage's denominator-reconciliation.json not refreshed for the added autobahn-controls crate, and ac1-gates adapter-linkage on the merged io_loop.rs. Each is to be resolved as its own verified step, never a bulk regeneration."
+    },
+    {
+      "id": "OA-pr1-disposition",
+      "state": "ruled",
+      "what_is_needed": "Decide PR #1's fate. Its head shares no common ancestor with the live line and is superseded, not stranded (F015).",
+      "why_it_blocks": "Two draft PRs into an empty main with nothing saying which line is live.",
+      "ruled_at": "2026-09-04",
+      "ruling": "CLOSE PR #1 with a comment recording why: the symbol-set comparison (all 8 sbx paths present here; sbx_adapter.go declares all 14 of its exported symbols plus 11 more; comm -23 empty), and PR #5 named as the live line. Superseded, not stranded."
+    },
+    {
+      "id": "OA-drive-until-open-branch",
+      "state": "ruled",
+      "what_is_needed": "Rule on a SECOND adapter-side protocol branch, found by the new detector on its first real run and ruled on by nobody: `drive_until_open` at rust/ws-testee/src/io_loop.rs:745 branches on core ReadyState -- `if driver.state() != ReadyState::NotYetConnected { return true; }`. Same shape as server_closes_transport, which you ruled stays. Keep it and declare it, or move it into the core.",
+      "why_it_blocks": "It is declared in the gate's allowance list only so the gate can pass, with its entry stating that it is UNRULED. That is an honest placeholder, not a decision, and it should not sit there indefinitely.",
+      "ruled_at": "2026-09-04",
+      "ruling": "KEEP the branch where it is and declare it. drive_until_open at rust/ws-testee/src/io_loop.rs:745 takes the same disposition as server_closes_transport: the branch stays in the adapter and its allowance records this ruling instead of NOT RULED ON."
+    },
+    {
+      "id": "OA-pin-path-corpus",
+      "state": "open",
+      "what_is_needed": "DEFERRED BY THE OWNER on 2026-09-04, deliberately and not by neglect: decide this WITH OA-catalog-plane-denominator, not separately. Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
+      "why_it_blocks": "Held until OA-catalog-plane-denominator is executed. The +26 widening's 24 rows land on the formal denominator's declared basis, and that decision MOVES that basis -- so measuring the widening now would measure it against a basis about to change. Re-measure both widenings after the basis moves, against the new one. PARTIAL RE-MEASUREMENT 2026-09-04, after the codec.json artifact was brought onto this line: the 2 rows that named corpora/frame/codec.json have LEFT the ever-tracked widening (that path is now in `git ls-files`, and its declared digest is the file's current one, so it is neither a widening row nor a candidate), and the other 24 remain, on all four of the rust/connection-core and rust/websocket-driver source paths they name, each still ever-tracked and not now-tracked. So the ever-tracked widening lands 24 rows on the declared basis rather than 26. NEITHER TOTAL SURVIVES: both widenings were measured over 1997 JSON artifacts and an ever-tracked set of 2388 paths; this tree now carries 3501 tracked JSON artifacts and an ever-tracked set of 5321 paths of which 856 are no longer tracked, so both totals need a full re-derivation and neither is obsolete. `.quarantine` is still in the ever-tracked set, so the F011 re-admission hazard is unchanged."
+    },
+    {
+      "id": "OA-governance-mirror-coverage",
+      "state": "open",
+      "what_is_needed": "Decide whether evidence/governance/owner-decision-digests.json should mirror more than the 7 records it covers today. The store holds 63. I measured the gap rather than inferring it: deleting evidence/governance/decisions/us007-attempt-0101-owner-authorization.json (uncovered) leaves `deltaledgerctl --check` at exit 0, still printing \"7 governance record digest(s) recomputed from the protected store and matched\" -- true, and true of 7. The current 7 are DERIVED, not chosen: the mirror's own statement says an entry is admitted when a ledger record cites that record's sha256, so a record nothing cites is deliberately absent. Widening it to all 63 replaces that derivation with an enumeration, moves a declared count, and re-opens the disclosure question settled by governance-publish-records-owner-decision-2026-08-29.json. Three options: leave it derived and keep the narrow claim; widen to all 63 and drop the citation derivation; or add a second, weaker arm that fails on the DELETION of any store record (a count and a name list) while leaving digest coverage derived.",
+      "why_it_blocks": "It is a denominator and a disclosure question at once, which is exactly the pair this project stops at. The rust/Makefile comment that claimed all 63 has been corrected to say 7 in the meantime, so nothing currently overclaims -- but the 56 uncovered records are unprotected against deletion and a reader should not have to measure that themselves."
+    },
+    {
+      "id": "OA-governance-statement",
+      "state": "open",
+      "what_is_needed": "Rule on evidence/governance/owner-decision-digests.json $.statement, which asserts the owner-decision records are 'deliberately NOT committed' while git tracks all seven it mirrors, byte-identical to the digests. The publication was ruled at governance-publish-records-owner-decision-2026-08-29.json; this is stale prose, not a disclosure incident.",
+      "why_it_blocks": "It cannot be corrected by editing the file: internal/deltaledger.VerifyGovernance requires the document to equal BuildOwnerDecisionManifest's output, whose Statement is the Go constant OwnerDecisionManifestStatement, so the statement is verified against a copy of itself. The correction is a change to that constant plus a regeneration, and it restates a governance posture."
+    },
+    {
+      "id": "OA-record-census-prose",
+      "state": "open",
+      "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Ten sentences across six records recite that census; five are inside code fences and are honest transcripts, and five are in the records' own voice, reciting 41, 41, 55, 55 and 61 against a census that reads 66.",
+      "why_it_blocks": "Binding it makes every future record fail record-guard against an unrelated older record until that record is restated -- a treadmill, and a gate that punishes writing records. Whether that cost is worth paying is a judgement about how this project wants its history to read, not a measurement."
+    },
+    {
+      "id": "OA-F018-master-nongoal",
+      "state": "open",
+      "what_is_needed": "Rule on docs/prd-pack/06a-prd-metadata-goal-through-sandbox.md:91, the master PRD nonGoal 'Do not preserve undocumented Java quirks when a declared standard or neutral suite has higher oracle priority'. Does it reach the 39 propositions evidence/oracle-hierarchy/adjudication-register.json enrols (20 governed by rank-2 Autobahn, 18 by rank-1 RFC 6455, 1 by rank-3)? If not, say whether that is because of what 'undocumented' modifies, or because a child-plane decision may amend a master-plane nonGoal.",
+      "why_it_blocks": "No owner decision in the store names the master PRD, its nonGoals or any master story (grep exits 1). The 2026-08-27 amendment is scoped to AC clauses of US-010..US-016 and a nonGoal is not an AC clause; JAVA_FAITHFUL_PLUS_SAFE carries plane 'verified-java-websocket-port-claude'. So the port's whole Java-faithful stance is compliant on one reading and forbidden on another, and nothing in the tree settles it. No port change is implied by either answer."
+    },
+    {
+      "id": "OA-F019-master-us020-ac5",
+      "state": "ruled",
+      "what_is_needed": "Rule on docs/prd-pack/03-master-stories-intake-lsp-protocol-labzero.md:13, master US-020 AC5. (a) Do the 52 'unresolved' dispositions count as AC5's 'unresolved' on their face, or does internal/deltaledger/definitions.go's account govern and make 45 of them AC5's 'preserve'? (b) Should AC5's 'unresolved deltas block completion' have a mechanism? It has none. (c) Sequence 53 is the only live unresolved delta citing no owner decision at all.",
+      "why_it_blocks": "The published count 52 is the criterion's number under neither reading. internal/lab/ledger.go:78-80 and internal/deltaledger/definitions.go:23-29 define the same token opposite ways. The blocking half is NOT breached on this plane (9/27, not the canonical child's 27/27), but no gate implements it, so it could not fire if this plane declared completion.",
+      "ruled_at": "2026-09-04",
+      "ruling": "The CHILD's reading governs. docs/prd-pack/01-structure-and-index.md:121 records this repository as the Claude-runtime sibling at 9/27, not the canonical child at 27/27, so master US-020 AC5's blocking half is not breached here. Close F019 narrowed, and RENAME internal/ac5class so it stops being named for a criterion it does not implement."
+    },
+    {
+      "id": "OA-master-prd-metadata-gap",
+      "state": "open",
+      "what_is_needed": "Supply the seven master prd.json metadata keys that the PRD pack does not reproduce, or confirm none carries a criterion constraining port behaviour. docs/prd-pack/01-structure-and-index.md declares 'metadata | object (39 keys)' and lists 32 as reproduced; 06a/06b/06c carry exactly those 32.",
+      "why_it_blocks": "The metadata half of the master-story sweep is a floor of 32/39. A criterion living in one of the seven unreproduced keys is invisible to any sweep run inside this repository, and prd.json is at HQ. This cannot be closed from here."
+    },
+    {
+      "id": "OA-gosuite-census-prose",
+      "state": "open",
+      "what_is_needed": "NARROWED at merge; the number itself is no longer wrong. cmd/gosuitectl/main.go's dated measurement read 'packages=61 run=60 excluded=1 with_tests=45' while the gate printed 62/61/46, and the integrator corrected it rather than leaving it. The reviewer who found it left it on the ground that editing another gate's recorded measurement is re-baselining, which is the right instinct and the wrong call here: re-baselining is moving a denominator a CLAIM RESTS ON so the claim passes, and nothing rests on this comment -- no gate reads it, and the gate's real census is re-derived and printed every run. What it was, was FALSE. The correction is not a swap: the cause is recorded beside it and was re-derived rather than argued -- `git ls-tree` gives 64 package directories at a7edbd4 and 65 at the merge, `comm` names cmd/taskgraphctl as the single addition with nothing removed, and that accounts for +1 to packages, run and with_tests exactly. The measurement was taken on the jdk-vendor branch, was CORRECT there, and became false when the merge brought in a package its base did not have. That is the F011 class. WHAT REMAINS FOR YOU is the smaller question: should a gate's prose carry dated censuses at all, when a branch measurement is true on its branch and unverified on the merge? Either bind them (they are in code, which is outside the prose corpus by construction -- widening to doc comments would move this gate's own denominator in the change that introduced it), or drop them and let the runtime census be the only census.",
+      "why_it_blocks": "Nothing is blocked on it now that the number is true. It is left open because the general question it raises -- prose in CODE is entirely outside the record-prose corpus, and TP-5 was a live instance of that ceiling -- is a scope decision that would move a denominator if taken from inside a gate fix."
+    },
+    {
+      "id": "OA-forbid-unsafe-scan-surface",
+      "state": "open",
+      "what_is_needed": "Decide whether the 32 first-party crate roots of kind `test` must carry #![forbid(unsafe_code)] themselves. rustgatectl's forbid-unsafe gate requires the attribute on member lib+bin roots only, and prints `10 first-party crate roots (lib+bin)`. Round 3 put `unsafe { std::ptr::read(raw) }` into rust/ws-core/tests/messages.rs and into a rust/ws-core/build.rs that runs at build time; both compiled and both left that line byte-identical at exit 0. The unsafe itself is now caught by an ungoverned-root keyword scan, which moves no count. Requiring the ATTRIBUTE moves the printed 10 to 42 and needs the attribute added to the 25 roots that lack it, so it is not taken here. Measured 2026-09-04: 32 test crate roots, 7 carry a real crate-root attribute, 25 do not."
+    },
+    {
+      "id": "OA-oracle-census-anchor",
+      "state": "open",
+      "what_is_needed": "Decide whether anything should bind oracle-hierarchy-gates' printed census. `oraclerankctl --check` prints '640 propositions adjudicated; 589 Java/Rust agreements, 39 of them overridden'. The register is DERIVED and is never an input to its own recomputation, which is why it refuses an un-regenerated edit; but flipping one rfc_strict_expectation in evidence/us005-public-rfc-divergence-census.json from `closed` to `open` -- a higher oracle made to agree with the Java/Rust pair -- and regenerating the register exits 0 with the count at 38. Nothing asserts 640, 589 or 39. Binding them needs an anchor outside the gate and creates a denominator the gate is then measured against, which is round 2's ruling on the same shape at plan-guard's nodes=29."
+    },
+    {
+      "id": "OA-below-msrv-differential",
+      "state": "open",
+      "what_is_needed": "Decide whether the msrv gate should EXECUTE the below-MSRV differential on a host that has an older toolchain. rustgatectl declares that checks outside its claim are recorded as explicit pending= notes and never silently passed; that held only when NO older toolchain existed. On this host `stable` resolves to rustc 1.94.1 against an MSRV of 1.95.0, so the differential could run -- and it was neither run nor noted. Round 3 made both branches print. Running it is left open because a below-MSRV build that SUCCEEDED would be a finding about the MSRV declaration, not a failure of this gate."
+    },
+    {
+      "id": "OA-round2-forbid-count",
+      "state": "open",
+      "what_is_needed": "Rule on how to correct a cardinality in a landed record. drafts/self-review/gate-attack-round-2.md states that 9 of the 32 tests/ crate roots carry #![forbid(unsafe_code)], measured with `grep -l`. rustgatectl's tokenizer-grade hasForbidUnsafe -- which exists precisely to reject mentions inside comments and string literals -- says 7: the other two are a doc comment in rust/ws-core/tests/scaffold_smoke.rs and a string literal in rust/ws-oracle-harness/tests/protocol.rs. Round 2's sentence also says 23 roots are outside the scan surface when all 32 are. This is not edited here: the repository's convention, recorded in cmd/recordguardctl/prose.go, is SUPERSEDE, do not edit."
+    },
+    {
+      "id": "OA-held-draft-legacy-13",
+      "state": "ruled",
+      "what_is_needed": "Decide the disposition of drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json, then let the rule derive its own population. The file is a record proposal of exactly the shape VerifyProposalDraftsAreLedgered reads: it rebuilds from its own digest preimages, its declared delta_id equals the identity those preimages produce, and NO record in the committed chain carries it. deltaledger.ProposalDraftPaths() is a hardcoded list that does not name it, so the rule that exists to refuse a held draft that never became a record cannot see it, and ledger-gates prints 'held proposal drafts' as verified at exit 0.",
+      "why_it_blocks": "Deriving the population from drafts/ledger-proposals/ by SHAPE rather than from the list takes ledger-gates RED on the committed tree, and the only way back to green is appending the record -- which moves the chain head, the sequence after the frozen prefix, and the unledgered_disagreements recomputation. An agent may not move a ledger. Owner rules one of: append the record and then derive the population; or record the draft as withdrawn, with the reason, and derive the population with that disposition visible.",
+      "ruled_at": "2026-09-04",
+      "ruling": "DERIVE the population from the directory rather than the hardcoded list of seven, and carry legacy-13-bare-lf-server-basis-correction.json as a DECLARED EXEMPTION with a staleness check, in the shape this repository already uses four times. Do NOT append to the ledger to make it green. The exemption must fail the moment it stops being needed."
+    },
+    {
+      "id": "OA-rust-lint-suppression-ceiling",
+      "state": "open",
+      "what_is_needed": "Decide whether the Rust lint gates get a suppression rule, and which kind. `make -C rust fmt-check` is defeated by #[rustfmt::skip] on a mis-formatted item and `make -C rust clippy` by #[allow(clippy::<lint>)] on an item that trips it -- both demonstrated at exit 0 with the mutant compiling. Neither target has a waiver ceiling, a suppression scan or a census, while fixture-guard four lines above them in the same Makefile has all three and calls raising its ceiling 'a decision, not a formality'.",
+      "why_it_blocks": "The two options are not the same decision. The granular per-lint allow attributes already occur in first-party crates, so a ceiling over that population is a measurement denominator an agent may not invent. The BLANKET forms -- allow(warnings), allow(clippy::all), allow(clippy::pedantic), a [lints] table and rustfmt::skip -- do not occur anywhere in the Rust tree today, so refusing those outright is an absolute like forbid-unsafe and creates no denominator. Owner rules which of the two is built."
+    },
+    {
+      "id": "OA-drive-until-open-second-site",
+      "state": "open",
+      "what_is_needed": "Confirm or refuse an extension of OA-drive-until-open-branch that landing the US-019 line forced. That ruling was made against mainline's drive_until_open, where the function held ONE branch on core ReadyState. The merged function holds two: the ruled site at rust/ws-testee/src/io_loop.rs:831 (`if driver.state() != ReadyState::NotYetConnected`), and a second at :950 (`while cursor < rest.len() && driver.state() == ReadyState::NotYetConnected`) added by claude/us019-native-run, which feeds the handshake one byte at a time so a read cannot straddle the 101/first-frame boundary. adapter-linkage fingerprints the ENCLOSING FUNCTION, so one allowance covers both and the second site cannot be declared or refused apart from the first. It is declared on that mechanical ground and reported here rather than counted as ruled on.",
+      "why_it_blocks": "The gate is green either way, so nothing stops on this. What is at stake is whether the owner's ruling is being read wider than it was written: either :950 is the same readiness poll and the ruling covers it, or it is a protocol decision and belongs in the core, in which case the allowance as re-pinned is too broad."
+    },
+    {
+      "id": "OA-basis-anchor-vs-catalog-immutability",
+      "state": "open",
+      "what_is_needed": "RAISED 2026-09-04 by executing OA-catalog-plane-denominator, not by neglect. That ruling's second clause -- re-anchor the denominator_basis pins to a commit that IS an ancestor of HEAD -- cannot be performed without editing assurance/formal/obligation-catalog.json, whose byte identity is the only detector this plane has for drift from the read-only Codex plane. MEASURED, not argued: re-anchoring all five pins to HEAD changes 395 bytes and moves the catalog from sha256:21112518.../be929320... to sha256:d0258b8a.../e10ec7b6..., and `formalcoverctl verify` then REFUSES the whole derivation at exit 1 with `the catalog on disk is ... not the vendored Codex catalog`. Landing it would also require editing internal/formalcoverage/identity.go's two asserted constants -- which exist so that `a silent revendoring fails` -- internal/javabind/coverage_test.go's `Codex original` assertion, and the catalog identity pinned in assurance/formal/plane-correspondence.json, assurance/formal/catalog-correction-proposal.json, assurance/formal/java-binding-spec.json, assurance/formal/denominator-reconciliation.json, evidence/java/formal-bindings/coverage-projection.json, evidence/java/formal-bindings/receipt.json and both evidence/formal/us023-coverage-report files. catalog-correction-proposal.json states the immutability rule with four reasons and sets this_document_modifies_the_catalog=false. The owner decides: (a) authorise the catalog edit and the constant changes explicitly, knowing byte-equality with Codex is then gone forever; (b) rule that the git.commit field is PROVENANCE -- where the bytes came from -- and is correct as it stands once the bytes are on this line, which is what the port-seam-dossier and codec.json pins already demonstrate; or (c) take plane-correspondence.json's option (b) properly and re-vendor the catalog from the Codex plane's current state.",
+      "why_it_blocks": "A DENOMINATOR IDENTITY. The catalog is the shared denominator two planes measure against; editing it from this side makes every number over it a number about this plane's own opinion. Never re-baselined from inside the loop."
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+# .dialed.yml — single source of truth for the US-008 benchmark-confirmation
+# pipeline's DIALED-derived deploy plumbing.
+#
+# STATUS: BOOTSTRAP APPLIED (owner-authorized, 2026-08-26). The deploy role,
+# permissions boundary, tfstate bucket, and lock table exist under the
+# vjwp-bench prefix in the EVC dev account, with OIDC trust for this repo's
+# classic AND immutable GitHub subjects (the account's existing GitHub OIDC
+# provider is reused). Applied config is committed at
+# terraform/bootstrap/bootstrap.auto.tfvars (commit 741a85d, trust fix
+# dcd7e56) and the plumbing was proven end-to-end by green sentinel-only run
+# 33000379021 (see docs/us008-benchmark-pipeline.md).
+#
+# Workflows source this file via the .github/actions/dialed-setup composite
+# action; Terraform reads a JSON copy as auto-loaded .tfvars.json.
+
+# ─── Project identity ───────────────────────────────────────────────────────
+
+project_name: "vjwp-bench" # resource-name prefix for ALL benchmark-pipeline AWS resources
+aws_region: "us-east-1" # BOUND by the owner's Tier-1 pinning decision (benchmarks/environments/confirmation.json)
+github_repo: "michaellady/verified-java-websocket-port" # scopes the OIDC trust policy to this repo
+
+# ─── Environment model ──────────────────────────────────────────────────────
+# 2-env (dev+prod), account_model=2. Only dev is real: the benchmark
+# confirmation host runs job-scoped in the EVC dev account. prod is an INERT
+# placeholder — the all-zero account id can never resolve to a real account,
+# and no prod workflow exists in this repo.
+
+env_model: "2-env"
+account_model: 2
+
+account_ids:
+  dev: "539402214167" # EVC shared dev account (source: /Users/mikelady/dev/lore/.dialed.yml, owner-authorized by the project's move into Enterprise Vibe Code)
+  prod: "000000000000" # INERT PLACEHOLDER — not a real account; prod is out of scope for the benchmark pipeline
+
+# ─── Networking ─────────────────────────────────────────────────────────────
+# needs_vpc is true for DIALED-model consistency, but NOTE: the benchmark
+# Terraform root (terraform/benchmark/) is deliberately SELF-CONTAINED. It
+# provisions its own tiny ephemeral per-job VPC (public subnet + IGW,
+# egress-only SG, no NAT dependency) and destroys it in the same job. It does
+# NOT read the EVC shared tier via terraform_remote_state — the confirmation
+# host must be provenance-distinct and must not share long-lived network
+# plumbing with app stacks. CIDR 10.208.0.0/24 avoids lore (10.1.0.0/16) and
+# roxas (10.0.0.0/16) in the same dev account.
+
+needs_vpc: true
+vpc_cidr: "10.208.0.0/24"
+
+# ─── Domain ─────────────────────────────────────────────────────────────────
+# None. The benchmark host serves no public traffic; its SG has zero ingress.
+
+domain: ""
+
+# ─── Stale-PR warning ───────────────────────────────────────────────────────
+# Not used: the benchmark stack is job-scoped (provision → measure → destroy
+# in ONE job), so there is no PR-lifetime stack to go stale. Orphan sweep is
+# handled by .github/workflows/bench-janitor.yml (3-hour threshold).
+
+enable_stale_pr_warning: false
+
+# ─── Build + test commands ──────────────────────────────────────────────────
+# Intentionally empty: this pipeline never builds or deploys application
+# code. The benchmark runner stub travels via S3 and runs under SSM.
+
+commands:
+  build: ""
+  test_unit: ""
+  test_integration: ""
+  test_system: ""
+  test_smoke: ""
+
+# ─── DIALED metadata ─────────────────────────────────────────────────────────
+# setup_completed_at remains ABSENT: bootstrap was applied out-of-band on
+# 2026-08-26 (anchored to committed config 741a85d and proven by run
+# 33000379021) rather than via `dialed:setup`, and no captured apply
+# timestamp exists — an estimated one is not recorded on principle.
+
+dialed:
+  version: "v2.0.0"

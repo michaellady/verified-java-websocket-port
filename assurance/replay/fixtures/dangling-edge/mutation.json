@@ -1,0 +1,10 @@
+{
+  "operations": [
+    {
+      "kind": "json_set",
+      "target": "assurance/lifecycle.json",
+      "pointer": "/edges/0/to",
+      "value": "missing-node"
+    }
+  ]
+}

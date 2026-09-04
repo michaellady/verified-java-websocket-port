@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/owner-authority-1.0.0.schema.json",
+  "title": "US-001 protected single-owner authority",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "authority_mode", "owner_actor_id", "identity", "snapshot"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "authority_mode": {"const": "single-owner"},
+    "owner_actor_id": {"const": "github:michaellady"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_id", "authority_mode", "allowed_roles", "key_id", "public_key_ed25519_hex", "revoked"],
+      "properties": {
+        "actor_id": {"const": "github:michaellady"},
+        "authority_mode": {"const": "single-owner"},
+        "allowed_roles": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {"enum": ["method-schema-steward", "port-implementer", "oracle-held-out-custodian", "release-attestor"]},
+          "allOf": [
+            {"contains": {"const": "method-schema-steward"}},
+            {"contains": {"const": "port-implementer"}},
+            {"contains": {"const": "oracle-held-out-custodian"}},
+            {"contains": {"const": "release-attestor"}}
+          ]
+        },
+        "key_id": {"type": "string", "minLength": 1},
+        "public_key_ed25519_hex": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "revoked": {"const": false}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_digest", "revocation_digest"],
+      "properties": {
+        "role_digest": {"$ref": "#/$defs/digest"},
+        "revocation_digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

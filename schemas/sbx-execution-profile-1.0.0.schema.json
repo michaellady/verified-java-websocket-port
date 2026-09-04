@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sbx-execution-profile-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "runtime", "isolation", "sandbox_policy_digest", "supervisor_limits", "cleanup", "assurance", "independent_review_claimed", "production", "signing", "publication"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "scope": {"type":"object","additionalProperties":false,"required":["company","project","laboratory"],"properties":{"company":{"const":"open-source-projects"},"project":{"const":"verified-java-websocket-port"},"laboratory":{"const":"lab-java-websocket"}}},
+    "runtime": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cli_path", "cli_version", "cli_commit", "cli_binary_digest", "daemon_version", "agent", "template_reference", "template_index_digest", "template_platform", "template_manifest_digest"],
+      "properties": {
+        "cli_path": {"const":"/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx"},
+        "cli_version": {"const":"v0.39.0"},
+        "cli_commit": {"const":"def8cb0523a77e757bdd6ef52b459fe374f3783e"},
+        "cli_binary_digest": {"$ref":"#/$defs/digest"},
+        "daemon_version": {"const":"v0.39.0"},
+        "agent": {"const":"shell"},
+        "template_reference": {"pattern":"^docker\\.io/docker/sandbox-templates:shell@sha256:[0-9a-f]{64}$"},
+        "template_index_digest": {"$ref":"#/$defs/digest"},
+        "template_platform": {"const":"linux/arm64"},
+        "template_manifest_digest": {"$ref":"#/$defs/digest"}
+      }
+    },
+    "isolation": {
+      "type":"object","additionalProperties":false,
+      "required":["workspace_mode","cpus","memory","memory_bytes","environment_import","secret_import","platform_control_secret","mcp_gateway_infrastructure","clone_git_bridge_required","host_docker_socket","shared_skills","local_mcp","static_mcp_servers","kits","published_ports","network_policy"],
+      "properties": {
+        "workspace_mode":{"const":"clone"},"cpus":{"const":2},"memory":{"const":"2g"},"memory_bytes":{"const":2147483648},
+        "environment_import":{"const":"none"},"secret_import":{"const":"none"},"platform_control_secret":{"const":"mcpgateway"},"mcp_gateway_infrastructure":{"const":true},"clone_git_bridge_required":{"const":true},"host_docker_socket":{"const":false},"shared_skills":{"const":false},"local_mcp":{"const":false},
+        "static_mcp_servers":{"type":"array","maxItems":0},"kits":{"type":"array","maxItems":0},"published_ports":{"type":"array","maxItems":0},
+        "network_policy":{"type":"object","additionalProperties":false,"required":["policy_id","rule_id","resource_type","decision","resources","origin","status","canonical_digest","per_sandbox_deny_resources"],"properties":{"policy_id":{"const":"default-deny-all"},"rule_id":{"const":"default-deny-all"},"resource_type":{"const":"network"},"decision":{"const":"deny"},"resources":{"const":["**"]},"origin":{"const":"local"},"status":{"const":"active"},"canonical_digest":{"$ref":"#/$defs/digest"},"per_sandbox_deny_resources":{"const":["**"]}}}
+      }
+    },
+    "sandbox_policy_digest":{"$ref":"#/$defs/digest"},
+    "supervisor_limits":{"$ref":"#/$defs/resources"},
+    "cleanup":{"type":"object","additionalProperties":false,"required":["remove_mode","post_removal_check","absence_required"],"properties":{"remove_mode":{"const":"sbx-rm-force"},"post_removal_check":{"const":"sbx-ls-absence"},"absence_required":{"const":true}}},
+    "assurance":{"const":"OWNER_ATTESTED_NOT_INDEPENDENT"},"independent_review_claimed":{"const":false},"production":{"const":false},"signing":{"const":false},"publication":{"const":false}
+  },
+  "$defs": {
+    "digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "positive":{"type":"integer","minimum":1},
+    "resources":{"type":"object","additionalProperties":false,"required":["wall_seconds","cpu_seconds","memory_bytes","pids","open_files","output_bytes","workspace_bytes","cache_bytes","disk_bytes","inodes"],"properties":{"wall_seconds":{"$ref":"#/$defs/positive"},"cpu_seconds":{"$ref":"#/$defs/positive"},"memory_bytes":{"$ref":"#/$defs/positive"},"pids":{"$ref":"#/$defs/positive"},"open_files":{"$ref":"#/$defs/positive"},"output_bytes":{"$ref":"#/$defs/positive"},"workspace_bytes":{"$ref":"#/$defs/positive"},"cache_bytes":{"$ref":"#/$defs/positive"},"disk_bytes":{"$ref":"#/$defs/positive"},"inodes":{"$ref":"#/$defs/positive"}}}
+  }
+}

@@ -1,0 +1,307 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-021",
+  "note": "Polarity fixtures for cmd/fuzzpinctl. Every manifest here is SYNTHETIC VALIDATOR INPUT, never a claim artifact, and every case runs through the REAL checker with an exact expected exit code, state, and set of typed BLOCK codes. The suite's purpose is RED: a check that stays green when it is deleted is not evidence. Exactly one case is green, so a checker that blocked unconditionally would fail the suite. Modelled on assurance/replay/fixtures/us006-cases.json.",
+  "cases": [
+    {
+      "id": "good-all-pinned",
+      "manifest_path": "assurance/fuzz/fixtures/good-all-pinned.json",
+      "rationale": "Every AC2 family mapped, every pin re-derivable, engine available. The suite's only green case: without it every red case below could be produced by a checker that blocks unconditionally.",
+      "expected": {
+        "exit_code": 0,
+        "state": "OK",
+        "findings": []
+      }
+    },
+    {
+      "id": "engine-unavailable-target-still-pinned",
+      "manifest_path": "assurance/fuzz/fixtures/engine-unavailable-target-still-pinned.json",
+      "rationale": "The engine probe cannot run and the targets still claim campaigns on it. Both the unavailability and the claim block.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_ENGINE_UNAVAILABLE",
+          "UNAVAILABLE_REPRESENTED_AS_SKIP"
+        ]
+      }
+    },
+    {
+      "id": "engine-unavailable-honestly-blocked",
+      "manifest_path": "assurance/fuzz/fixtures/engine-unavailable-honestly-blocked.json",
+      "rationale": "Unavailability recorded honestly as BLOCKED_UNAVAILABLE still BLOCKS. This is the load-bearing case: AC3 says unavailable tooling blocks, so an honest record of missing tooling is a block, never a pass and never a skip.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_ENGINE_UNAVAILABLE"
+        ]
+      }
+    },
+    {
+      "id": "unavailable-as-success",
+      "manifest_path": "assurance/fuzz/fixtures/unavailable-as-success.json",
+      "rationale": "us006-unavailable-as-success one story over: claiming the AC met while the engine is missing is its own finding.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_ENGINE_UNAVAILABLE",
+          "UNAVAILABLE_REPRESENTED_AS_SUCCESS"
+        ]
+      }
+    },
+    {
+      "id": "blocked-unavailable-while-engine-present",
+      "manifest_path": "assurance/fuzz/fixtures/blocked-unavailable-while-engine-present.json",
+      "rationale": "The inverse evasion: parking a target as BLOCKED_UNAVAILABLE when the engine is installed hides a target nobody ran behind a missing-tool excuse.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "UNAVAILABLE_REPRESENTED_AS_SKIP"
+        ]
+      }
+    },
+    {
+      "id": "status-skipped-is-not-a-status",
+      "manifest_path": "assurance/fuzz/fixtures/status-skipped-is-not-a-status.json",
+      "rationale": "There is no skip disposition in this tool. A target recorded SKIPPED is a schema violation, not a quiet pass.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_MANIFEST_SCHEMA_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "target-absent",
+      "manifest_path": "assurance/fuzz/fixtures/target-absent.json",
+      "rationale": "An AC2 family with no generative target blocks. This is the real manifest's state for handshake-client, handshake-server and owner-driver-command-byte-schedules.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_TARGET_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "family-unmapped",
+      "manifest_path": "assurance/fuzz/fixtures/family-unmapped.json",
+      "rationale": "Deleting a family from the manifest must not delete the obligation. Silence about a family is the flattering direction.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_AC2_FAMILY_UNMAPPED"
+        ]
+      }
+    },
+    {
+      "id": "unknown-engine-reference",
+      "manifest_path": "assurance/fuzz/fixtures/unknown-engine-reference.json",
+      "rationale": "A target pinned to an engine the manifest never declares has no pinned engine.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_UNKNOWN_ENGINE_REFERENCE"
+        ]
+      }
+    },
+    {
+      "id": "entrypoint-missing",
+      "manifest_path": "assurance/fuzz/fixtures/entrypoint-missing.json",
+      "rationale": "A declared entrypoint that is not in the file is a target that does not exist.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_ENTRYPOINT_MISSING"
+        ]
+      }
+    },
+    {
+      "id": "entrypoint-not-a-test",
+      "manifest_path": "assurance/fuzz/fixtures/entrypoint-not-a-test.json",
+      "rationale": "A plain fn with a test-shaped name is not an entrypoint: the harness never runs it. The #[test] attribute is required.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_ENTRYPOINT_MISSING"
+        ]
+      }
+    },
+    {
+      "id": "campaign-literal-drift",
+      "manifest_path": "assurance/fuzz/fixtures/campaign-literal-drift.json",
+      "rationale": "THE defect class: the manifest claims a ten-times-larger campaign than the loop in the code runs. Existence of a target standing in for the identity of the campaign.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_CAMPAIGN_LITERAL_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "campaign-seed-drift",
+      "manifest_path": "assurance/fuzz/fixtures/campaign-seed-drift.json",
+      "rationale": "A campaign is only reproducible from the seed it actually uses.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_CAMPAIGN_LITERAL_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "campaign-total-does-not-sum",
+      "manifest_path": "assurance/fuzz/fixtures/campaign-total-does-not-sum.json",
+      "rationale": "The headline campaign size must equal the sum of its entrypoints.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_CAMPAIGN_TOTAL_MISMATCH"
+        ]
+      }
+    },
+    {
+      "id": "campaign-zero-cases",
+      "manifest_path": "assurance/fuzz/fixtures/campaign-zero-cases.json",
+      "rationale": "A corpus is not a campaign: a target that runs zero generated cases has no campaign.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_CAMPAIGN_EMPTY"
+        ]
+      }
+    },
+    {
+      "id": "corpus-digest-mismatch",
+      "manifest_path": "assurance/fuzz/fixtures/corpus-digest-mismatch.json",
+      "rationale": "AC3 requires a corpus digest. A digest nobody recomputes is a comment.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_CORPUS_DIGEST_MISMATCH"
+        ]
+      }
+    },
+    {
+      "id": "corpus-file-count-mismatch",
+      "manifest_path": "assurance/fuzz/fixtures/corpus-file-count-mismatch.json",
+      "rationale": "A corpus that lost or gained files is a different corpus.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_CORPUS_DIGEST_MISMATCH"
+        ]
+      }
+    },
+    {
+      "id": "toolchain-pin-drift",
+      "manifest_path": "assurance/fuzz/fixtures/toolchain-pin-drift.json",
+      "rationale": "AC3 requires a pinned toolchain. A floated channel is an unpinned campaign.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_TOOLCHAIN_PIN_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "engine-source-drift",
+      "manifest_path": "assurance/fuzz/fixtures/engine-source-drift.json",
+      "rationale": "The generator itself is part of the engine pin: swapping it silently changes what the campaign explored.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_ENGINE_SOURCE_DIGEST_DRIFT"
+        ]
+      }
+    },
+    {
+      "id": "digest-scheme-drift",
+      "manifest_path": "assurance/fuzz/fixtures/digest-scheme-drift.json",
+      "rationale": "Digests only compare under one declared scheme.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_MANIFEST_SCHEMA_INVALID"
+        ]
+      }
+    },
+    {
+      "id": "liveness-guard-is-an-iteration-count",
+      "manifest_path": "assurance/fuzz/fixtures/liveness-guard-is-an-iteration-count.json",
+      "rationale": "Finding F005, fourth sighting prevented mechanically: a campaign bound written as a count of iterations is a host-speed measurement dressed as a bound.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "LIVENESS_GUARD_NOT_WALL_CLOCK"
+        ]
+      }
+    },
+    {
+      "id": "liveness-guard-no-deadline",
+      "manifest_path": "assurance/fuzz/fixtures/liveness-guard-no-deadline.json",
+      "rationale": "wall_clock with no positive deadline is not a deadline.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "LIVENESS_GUARD_DEADLINE_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "policy-incomplete",
+      "manifest_path": "assurance/fuzz/fixtures/policy-incomplete.json",
+      "rationale": "AC3 names timeout, OOM and crash. Two of three is not the policy.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_POLICY_INCOMPLETE"
+        ]
+      }
+    },
+    {
+      "id": "artifact-capture-absent",
+      "manifest_path": "assurance/fuzz/fixtures/artifact-capture-absent.json",
+      "rationale": "A declared capture path that does not exist captured nothing.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_ARTIFACT_CAPTURE_ABSENT"
+        ]
+      }
+    },
+    {
+      "id": "replay-command-absent",
+      "manifest_path": "assurance/fuzz/fixtures/replay-command-absent.json",
+      "rationale": "AC3 requires a replay command per target.",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          "FUZZ_REPLAY_COMMAND_ABSENT"
+        ]
+      }
+    }
+  ]
+}

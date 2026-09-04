@@ -1,0 +1,7 @@
+id=minimized-duplicate-delivery
+property=terminal-exactly-once
+mutation=repeat-terminal-on-wake
+event_queue_capacity=8
+schedule=shutdown
+counterexample=terminal-count-two
+found_index=45006

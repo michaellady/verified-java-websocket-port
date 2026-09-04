@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "corpus-calibration-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_kind", "corpora", "expectation_status", "offline_gates", "live_gates", "live_steps", "model_scoping", "status", "assurance", "independent_review_claimed", "production", "signing", "publication"],
+  "properties": {
+    "$schema": {"const": "../schemas/corpus-calibration-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "corpus-calibration"},
+    "corpora": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["public", "hidden", "sealed", "handshake"],
+      "properties": {
+        "public": {"$ref": "#/$defs/corpusRef"},
+        "hidden": {"$ref": "#/$defs/corpusRef"},
+        "sealed": {"$ref": "#/$defs/corpusRef"},
+        "handshake": {"$ref": "#/$defs/corpusRef"}
+      }
+    },
+    "expectation_status": {"const": "REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION"},
+    "offline_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generation_determinism", "manifest_reconciliation", "reference_mutation_analysis", "stub_target_analysis", "protected_rescue_rule"],
+      "properties": {
+        "generation_determinism": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "runs", "digests", "reconciled"],
+          "properties": {
+            "status": {"$ref": "#/$defs/offlineStatus"},
+            "runs": {"type": "integer", "minimum": 2},
+            "digests": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/digest"}},
+            "reconciled": {"type": "boolean"}
+          }
+        },
+        "manifest_reconciliation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "findings_count", "findings"],
+          "properties": {
+            "status": {"$ref": "#/$defs/offlineStatus"},
+            "findings_count": {"type": "integer", "minimum": 0},
+            "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}}
+          }
+        },
+        "reference_mutation_analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "model", "total_mutants", "killed", "surviving", "mutants"],
+          "properties": {
+            "status": {"$ref": "#/$defs/offlineStatus"},
+            "model": {"type": "string", "minLength": 16},
+            "total_mutants": {"type": "integer", "minimum": 1},
+            "killed": {"type": "integer", "minimum": 0},
+            "surviving": {"type": "integer", "minimum": 0},
+            "mutants": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/mutant"}}
+          }
+        },
+        "stub_target_analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "model", "total", "passes", "failures"],
+          "properties": {
+            "status": {"$ref": "#/$defs/offlineStatus"},
+            "model": {"type": "string", "minLength": 16},
+            "total": {"type": "integer", "minimum": 1},
+            "passes": {"type": "integer", "minimum": 0},
+            "failures": {"type": "integer", "minimum": 0}
+          }
+        },
+        "protected_rescue_rule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "rule"],
+          "properties": {
+            "status": {"const": "ENFORCED"},
+            "rule": {"type": "string", "minLength": 16}
+          }
+        }
+      }
+    },
+    "live_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["java_oracle_pass_rate", "empty_rust_target_fails", "planted_java_rust_mutants_killed", "execution_rerun_reconciliation", "sealed_network_denial"],
+      "properties": {
+        "java_oracle_pass_rate": {"$ref": "#/$defs/liveGate"},
+        "empty_rust_target_fails": {"$ref": "#/$defs/liveGate"},
+        "planted_java_rust_mutants_killed": {"$ref": "#/$defs/liveGate"},
+        "execution_rerun_reconciliation": {"$ref": "#/$defs/liveGate"},
+        "sealed_network_denial": {"$ref": "#/$defs/liveGate"}
+      }
+    },
+    "live_steps": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 8}},
+    "model_scoping": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 16}},
+    "status": {"enum": ["OFFLINE_CALIBRATED_PENDING_LIVE_EXECUTION", "BLOCKED", "LIVE_CALIBRATED", "LIVE_BLOCKED"]},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "production": {"const": false},
+    "signing": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "offlineStatus": {"enum": ["PASS", "BLOCKED"]},
+    "corpusRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_path", "manifest_sha256", "selected", "expected", "filtered"],
+      "properties": {
+        "manifest_path": {"type": "string", "minLength": 1},
+        "manifest_sha256": {"$ref": "#/$defs/digest"},
+        "selected": {"type": "integer", "minimum": 1},
+        "expected": {"type": "integer", "minimum": 1},
+        "filtered": {"type": "integer", "minimum": 0}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "path", "detail"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "detail": {"type": "string", "minLength": 1}
+      }
+    },
+    "mutant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mutant_id", "kind", "operator", "killed", "killing_scenarios", "total_killing"],
+      "properties": {
+        "mutant_id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["behavior", "handshake"]},
+        "operator": {"type": "string", "minLength": 8},
+        "killed": {"type": "boolean"},
+        "killing_scenarios": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["public", "hidden", "sealed", "handshake"],
+          "properties": {
+            "public": {"type": "integer", "minimum": 0},
+            "hidden": {"type": "integer", "minimum": 0},
+            "sealed": {"type": "integer", "minimum": 0},
+            "handshake": {"type": "integer", "minimum": 0}
+          }
+        },
+        "total_killing": {"type": "integer", "minimum": 0}
+      }
+    },
+    "liveGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "requirement", "constraint"],
+      "properties": {
+        "status": {"enum": ["BLOCKED_PENDING_LIVE_EXECUTION", "PASS", "FAIL"]},
+        "requirement": {"type": "string", "minLength": 8},
+        "constraint": {"type": "string", "minLength": 16},
+        "result": {"$ref": "#/$defs/liveResult"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"enum": ["PASS", "FAIL"]}}},
+          "then": {"required": ["result"]}
+        },
+        {
+          "if": {"properties": {"status": {"const": "BLOCKED_PENDING_LIVE_EXECUTION"}}},
+          "then": {"properties": {"result": false}}
+        },
+        {
+          "if": {"required": ["status"], "properties": {"status": {"const": "PASS"}}},
+          "then": {"properties": {"result": {"properties": {"executed": {"minimum": 1}}}}}
+        }
+      ]
+    },
+    "liveResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcript_sha256s", "executed", "passed", "failed"],
+      "properties": {
+        "transcript_sha256s": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/digest"}},
+        "executed": {"type": "integer", "minimum": 0},
+        "passed": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}

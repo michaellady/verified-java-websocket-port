@@ -19,3 +19,62 @@ target
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Rust workspace build artifacts (rust/ cargo workspace scaffold)
+/rust/target/
+rust/**/target/
+
+
+# Quarantined upstream inputs. The Java-WebSocket archive is digest-pinned in
+# evidence/intake/source-pins.json and re-acquired on demand; it is never committed.
+.quarantine/
+# ...and the bare path, because `.quarantine/` matches a DIRECTORY only. Agents
+# isolate by symlinking .quarantine into their worktree, and `git add -A` then
+# stages the SYMLINK -- which is how F011's self-referential link was committed,
+# and how it came BACK at f26e062 after being removed. A tracked path overrides
+# .gitignore, so the directory can never exist and nothing can be written into it.
+.quarantine
+java-semantic-oracle/build/
+/terraform/bootstrap/.terraform/
+/terraform/bootstrap/.terraform.lock.hcl
+/rustgatectl
+
+# Subagent worktrees. Each is a transient, isolated `git worktree` checkout of
+# THIS repository, created for a parallel agent and removed when it finishes.
+# Committing them would commit a copy of the repository into itself (1.2 GiB
+# for the four in flight on 2026-09-02). The work they produce reaches this
+# repository as a pushed branch, never as files under this path.
+.claude/worktrees/
+
+# Go binaries built into the repository root by `go build ./cmd/<tool>/`, which
+# is what a bare `go build` of a main package does. One of these (a 3.6 MiB
+# `recordguardctl`) was committed by a deletion-attack harness on 2026-09-03 and
+# caught only by reading `git diff --name-only` against the merge base.
+/ac5ctl
+/assurectl
+/corporactl
+/crosspeerctl
+/deltaledgerctl
+/diffregressctl
+/divergencesweepctl
+/fixtureguardctl
+/formalcoverctl
+/fuzzpinctl
+/intakectl
+/javabindctl
+/labctl
+/mutctl
+/normcollidectl
+/oraclerankctl
+/pinconsumerctl
+/gosuitectl
+/taskgraphctl
+/portplanctl
+/recordguardctl
+/rustgatectl
+/securityctl
+/stressrepeatctl
+/tlcdriver
+/pinconsumerctl
+/.gates-run.log
+.sweep/

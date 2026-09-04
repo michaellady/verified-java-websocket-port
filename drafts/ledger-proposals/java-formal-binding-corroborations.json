@@ -1,0 +1,48 @@
+{
+  "proposal_id": "java-formal-binding-corroborations-round-1",
+  "proposal_kind": "CORROBORATION_ONLY_NO_NEW_RECORDS",
+  "prepared_at": "2026-09-02T18:06:24Z",
+  "prepared_by": "claude/java-formal-bindings",
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  },
+  "statement": "The Java formal-binding lane surfaced two Java-versus-RFC divergences while resolving obligations against the pinned Java-WebSocket 1.6.0 source and runtime. NEITHER IS NEW. Both are already recorded in evidence/java/behavior-delta-ledger.json, at sequences 18 and 32, and were found there before this proposal was written. This document therefore proposes NO new ledger record and NO change to any existing one. It exists only to attach freshly executed, digest-bound evidence to two records that already stand, and to state plainly that this lane independently re-derived them rather than discovering them.",
+  "ledger_write_policy": "This file is a draft under drafts/ledger-proposals/. evidence/java/behavior-delta-ledger.json is owned by another track and is not edited here.",
+  "evidence_basis": {
+    "spec": {"path": "assurance/formal/java-binding-spec.json", "sha256": "sha256:468142c6d01a8c358e636f4f52aefd564c5d9854c824ece3008be67d4da7c15b"},
+    "receipt": {"path": "evidence/java/formal-bindings/receipt.json", "sha256": "sha256:1729001791383e7c50d7083ee8eb069db016420e3632cb059d2ea5c3a2e58b04"},
+    "projection": {"path": "evidence/java/formal-bindings/coverage-projection.json", "sha256": "sha256:6275808310a724f3cfb03579103751b54c67874927f870f448f2ebbbdea2bd47"},
+    "pinned_runtime": {"artifact": "org.java-websocket:Java-WebSocket:1.6.0", "sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"},
+    "pinned_source_archive": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4"
+  },
+  "corroborations": [
+    {
+      "existing_ledger_sequence": 18,
+      "existing_subject_ref": "semantic:org.java-websocket.draft6455.framing.mask-by-role-acceptance:provisional-v1",
+      "existing_disposition": "unresolved",
+      "how_this_lane_re-derived_it": "obligation.role-masking asks that inbound masking be enforced by endpoint role. Reading the pinned Draft_6455.translateSingleFrame declaration shows it reads the mask bit and unmasks when set, with no endpoint-role test anywhere in the span. The obligation is therefore recorded as unbound with reason code JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE rather than being witnessed against a construct that does not implement it.",
+      "new_evidence": "Source-level only in this round: the declaration span for Draft_6455.translateSingleFrame is recorded in the receipt at sha256:a469fed7be335c3cf9553721d4e09de8d5ee3de55418fea5c1b135e47ac5b1e9, resolved out of the digest-pinned tree. No executed scenario for role-masking was run this round.",
+      "novelty": "NONE. The ledger already carries this divergence with its own fidelity evidence and Rust-side pins.",
+      "proposed_action": "No ledger change. Optionally, a future round may attach an executed unmasked-client-frame scenario to sequence 18 as additional evidence."
+    },
+    {
+      "existing_ledger_sequence": 32,
+      "existing_subject_ref": "semantic:org.java-websocket.closeframe.invalid-utf8-reason-runtime-rejection:provisional-v1",
+      "existing_disposition": "unresolved",
+      "how_this_lane_re-derived_it": "surface.close.status-code was bound to CloseFrame.isValid with three clauses. The third clause asserts that a received close frame whose reason is not valid UTF-8 is rejected as a typed protocol fault carrying close code 1007. Its witnesses FAILED against the pinned runtime, which is why that obligation is reported PARTIAL (2 of 3 clauses) rather than CONNECTED.",
+      "new_evidence": "Executed scenario s.close.invalid-utf8-reason: a close frame carrying status code 1000 with reason bytes FF FE. The retained baseline response is digest-bound at sha256:438baf0192d1cf2b7f758267dc472945ced6d7d76200aae5678201f32d281d9c and reports outcome \"error\" with code JAVA_RUNTIME_REJECTION, detail \"Java-WebSocket rejected the operation: NullPointerException\", and NO close code. The canary m.close.skip-reason-utf8-test, spliced inside CloseFrame.isValid's own span, changes that observation, which locates the behaviour at the declared construct.",
+      "novelty": "NONE. This is the same behaviour ledger sequence 32 records as quirk Q12, reached by a different route and now carried by an executed, digest-bound observation.",
+      "proposed_action": "No ledger change. The executed run digest above may be attached to sequence 32 as supplementary evidence by the track that owns the ledger."
+    }
+  ],
+  "not_claims": [
+    "This proposal does not claim either finding is new; both were already ledgered before this lane ran.",
+    "This proposal does not adjudicate either divergence, and does not propose changing either disposition.",
+    "This proposal does not modify evidence/java/behavior-delta-ledger.json.",
+    "The evidence attached here is owner-executed on a single Linux host and is not independent."
+  ]
+}

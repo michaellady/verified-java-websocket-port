@@ -1,0 +1,28 @@
+[package]
+name = "ws-oracle-harness"
+description = "US-009 lane B: the ws_core oracle-candidate harness. A thin JSONL protocol adapter that speaks java-websocket-oracle 1.0.0 (strict request parsing, canonical request-digest verification, response envelope, transcript projection) so the SAME corpora that score the java-oracle score the Rust core. The coupling is isolated in one adapter module and is WIRED to the real ConnectionCore through the shared ws_driver single-owner seam (US-017 AC5: the differential adapter invokes the same driver and core the conformance adapters do); the harness holds no ConnectionCore of its own, reaching it only through the bounded CommandSender and ConnectionDriver::poll. The core's honest Unimplemented refusals surface as the truthful non-oracle CORE_BEHAVIOR_UNIMPLEMENTED envelope rather than fabricated behavior."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Dependency-free protocol discipline, mirroring candidate-stub and the
+# java-oracle adapter: canonical JSON, SHA-256, and base64 are hand-rolled in
+# safe Rust so no external crate enters the workspace (any external crate
+# would trigger the PRD's enumerated-dependency-unsafe review). The only
+# dependencies are the two in-workspace PATH crates this harness scores —
+# ws_core (the protocol core) and ws_driver (the shared single-owner driver
+# seam US-017 AC5 requires the differential adapter to invoke). Both are
+# path dependencies inside this workspace, so the zero-non-path-dependency
+# gate is untouched; the coupling is confined to src/core_adapter.rs (the
+# WiredCore seam).
+[dependencies]
+ws-core = { path = "../ws-core" }
+ws-driver = { path = "../ws-driver" }
+
+[dev-dependencies]
+
+[[bin]]
+name = "ws-oracle-harness"
+path = "src/main.rs"

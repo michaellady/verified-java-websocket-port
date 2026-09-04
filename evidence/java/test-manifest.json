@@ -1,0 +1,61 @@
+{
+  "$schema": "../../schemas/java-test-manifest-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "java-test-manifest",
+  "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "status": "PASS",
+  "inventory_status": "RECONCILED",
+  "inventory": {"path": "evidence/java/test-inventory.json", "schema": "schemas/java-test-inventory-1.0.0.schema.json", "digest": "sha256:cc704b3fa71864bfb065243504e7f5d89315f8d5ae3b793c0a08ad6ba70d3fc7"},
+  "discovery": {
+    "strategy": "EXPLICIT_CONCRETE_CLASS_ONCE",
+    "concrete_selector_count": 62,
+    "aggregate_suite_container_count": 10,
+    "aggregate_suites_are_executable_containers": true,
+    "aggregate_suites_excluded_from_selector": true,
+    "default_discovery_delta": "Maven default discovery selects aggregate Suite containers and their concrete member classes, causing repeated method execution; the canonical selector retains all suites in inventory while selecting each concrete annotated class exactly once."
+  },
+  "counts": {
+    "static_annotation_occurrences": 231, "concrete_classes": 62, "aggregate_suite_containers": 10,
+    "discovered": 231, "executed": 231, "passed": 231, "failed": 0, "skipped": 0, "filtered": 0, "timed_out": 0, "quarantined": 0,
+    "runtime_invocations": 326, "passed_invocations": 326, "failed_invocations": 0, "skipped_invocations": 0
+  },
+  "non_tests": [
+    {"path": "src/test/resources/org/java_websocket/AutobahnClient.feature", "kind": "feature-file", "executable": false, "counted_as_test": false},
+    {"path": "src/test/java/org/java_websocket/example/AutobahnClientTest.java", "kind": "autobahn-utility", "executable": true, "counted_as_test": false},
+    {"path": "src/test/java/org/java_websocket/example/AutobahnSSLServerTest.java", "kind": "autobahn-utility", "executable": true, "counted_as_test": false},
+    {"path": "src/test/java/org/java_websocket/example/AutobahnServerTest.java", "kind": "autobahn-utility", "executable": true, "counted_as_test": false}
+  ],
+  "authoritative_run": {
+    "plan_digest": "sha256:1802bf80d4fd5843be860e9a60136f3add67f9a4c6322cb32b48941e3d1ee89b",
+    "started_at": "2026-08-24T18:31:30.628688Z", "finished_at": "2026-08-24T18:32:45.022574Z", "exit_code": 0, "timed_out": false,
+    "source_before_digest": "sha256:455234b5cb26e46a80cd749316e40d6f6fb4bf1c43a096d8c70d1f856908cbc2",
+    "source_after_digest": "sha256:455234b5cb26e46a80cd749316e40d6f6fb4bf1c43a096d8c70d1f856908cbc2",
+    "cache_manifest_digest": "sha256:19518e08afbbd7a0dfbf893c713158487db85ea945ae1b8145897e200a007590",
+    "environment_digest": "sha256:d776cfb8105226c3105dd7e47be46107a59c355291c00c465709ad955c148111",
+    "stdout": {"digest": "sha256:62929ef08bcbd1bcca8648ee43e31174786508e72e35d1e97a0b29ffec8810a8", "bytes": 15125},
+    "stderr": {"digest": "sha256:b111cc480fc22b7e83203b6ea0af9290b3a758f096b61764132e8de8798b26db", "bytes": 4596},
+    "execution_code_binding": {
+      "artifact_id": "us002-canonical-final-labctl",
+      "binary": {"digest": "sha256:10f056f86a2a0abc021c310fdb27bc7162ec01b3bb92c2e0cdf034b3a062c94f", "bytes": 9761330},
+      "sources": [
+        {"path": "internal/lab/executor_darwin.go", "digest": "sha256:863bc6d7c2b3e6d4b13332f2b883539676c206d3df283158b8a9c254713cfa42", "bytes": 52560},
+        {"path": "internal/lab/inventory.go", "digest": "sha256:f34e5787f2055b61a0431f239c9085914dacd3182b2a7392b1acead30816187d", "bytes": 24593},
+        {"path": "internal/lab/sandbox.go", "digest": "sha256:acb7ecd0b2cf917673342506ad25a43cbce83ab87b2ea4832cdfefd23f7374cf", "bytes": 30704},
+        {"path": "cmd/labctl/main.go", "digest": "sha256:7197bfc73774ecf2f010d14364f25b8ca49d2dad99605babcbfc087499b1b13f", "bytes": 17306}
+      ],
+      "post_run_drift_checked": true,
+      "material_execution_path_changed_after_run": false
+    },
+    "observed_endpoints": ["127.0.0.1:*"], "all_enforcement_canaries_passed": true
+  },
+  "test_policy": {
+    "default_policy_evidence_path": "evidence/java/default-policy-behavior.json",
+    "default_policy_evidence_digest": "sha256:8166ea6baa84399c17074ea771aa126bce612e833642e04dfb736e616ef7ef36",
+    "java_security_digest": "sha256:ae19f494ffc23bd1a3a43e9a009f6ceabc9139c42c63d5747a602156d0a76e60",
+    "overlay_path": "evidence/java/test-only-java.security", "overlay_digest": "sha256:35115b1757d928f1aeeaed799e1d19cdf1b350d9f2071817d68caba12177808b",
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT", "independent_review_claimed": false, "local_only": true, "no_secret_access": true, "production_policy_modified": false
+  },
+  "blocker": null,
+  "production": false,
+  "publication": false
+}

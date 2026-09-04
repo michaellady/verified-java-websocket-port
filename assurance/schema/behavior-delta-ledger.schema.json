@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://github.com/michaellady/verified-java-to-rust/schemas/behavior-delta-ledger-1.0.0.schema.json",
+  "title":"BehaviorDeltaLedger 1.0.0","type":"object","additionalProperties":false,
+  "required":["ledger_id","deltas"],
+  "properties":{
+    "ledger_id":{"$ref":"#/$defs/id"},
+    "deltas":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","surface_id","classification","history"],"properties":{
+      "id":{"$ref":"#/$defs/id"},"surface_id":{"$ref":"#/$defs/id"},"classification":{"enum":["PRESERVE","INTENTIONALLY_CORRECT","UNRESOLVED"]},
+      "history":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["sequence","classification","finding_evidence_ids","adjudication_evidence_ids"],"properties":{"sequence":{"type":"integer","minimum":1},"classification":{"enum":["PRESERVE","INTENTIONALLY_CORRECT","UNRESOLVED"]},"finding_evidence_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/id"}},"adjudication_evidence_ids":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/id"}}},"x-foundation-disjoint-array-properties":{"when_property":"classification","when_value":"INTENTIONALLY_CORRECT","properties":["finding_evidence_ids","adjudication_evidence_ids"]}}}
+    }}}
+  },
+  "$defs":{"id":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"}}
+}

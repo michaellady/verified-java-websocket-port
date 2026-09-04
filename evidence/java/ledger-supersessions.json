@@ -1,0 +1,57 @@
+{
+  "$schema": "../../schemas/ledger-supersessions-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "ledger-supersessions",
+  "statement": "Machine-readable supersession map for evidence/java/behavior-delta-ledger.json. A superseded record remains byte-identical in the hash chain with its digest intact, under the owner ruling SUPERSEDE-DO-NOT-REWRITE; this file states which records are no longer the authoritative statement of their subject, so a consumer does not have to discover it by reading later rationale prose. The PER-RECORD schema stays 1.0.0, whose vocabulary has no authoritative-state field, so both the superseded and the superseding record still carry disposition 'unresolved' — bumping the record schema would change every record digest and rewrite the frozen prefix. The LEDGER DOCUMENT is at 1.1.0 and carries the same links in a first-class `supersessions` array, and internal/lab.VerifyBaselineEvidence now consumes them: it re-derives the links from the records' own hashed rationales, refuses a document whose declared array disagrees, and builds its Autobahn coverage map from AUTHORITATIVE records only, so a withdrawn record covers nothing. THE TOKEN IS PARSED, NOT SEARCHED FOR: it is read as an ANCHORED PREFIX RUN at the head of a rationale, and the canonical marker appearing anywhere else is a REFUSAL. An earlier version matched the token anywhere in the text, so a quoted or disclaimed token created a real withdrawal that regeneration then wrote into this file — the declaration and the prose agreeing with each other while the structured Definition.Supersedes claim said nothing. Generation is now bound to that structured claim as well: internal/deltaledger.VerifySupersessionsMatchDefinitions requires the links parsed out of the chain to equal the links the Definitions declare.",
+  "authority": "protected/ledger-frozen-prefix-owner-decision-2026-08-28.json (workspace orchestrator protected store, sha256 bb3cd0da7f4aed014290dab3dc35b2ec87f41d3d7e7a8c7449816159e9d837c7, decided 2026-08-28T12:54:30Z): SUPERSEDE, DO NOT REWRITE.",
+  "links": [
+    {
+      "superseded_sequence": 14,
+      "superseded_delta_id": "delta-0b3b46bc555629de7e873b3210c312d74baebd4314170b0997d4c2fd3537d99e",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-total-bytes.hs0046:provisional-v1",
+      "superseding_sequence": 45,
+      "superseding_delta_id": "delta-79c18cfe541d54e0c858e0da17e67f122da8b08b8a068d850b9770dbd6293a82",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-total-bytes.hs0046.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 15,
+      "superseded_delta_id": "delta-ffc8fa535cdeb82aaedb59919ef6b02f67b19815662737ee837c93eacacbe991",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-count.hs0047:provisional-v1",
+      "superseding_sequence": 46,
+      "superseding_delta_id": "delta-b7de70c681542c0ff650b7de1a7704826f79ed81058d7deb44aae0e5dc790e96",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-count.hs0047.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 16,
+      "superseded_delta_id": "delta-ccbff7cfa1813dadd889b86f540da4328a921a0c93972b172177b323f5f5354f",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048:provisional-v1",
+      "superseding_sequence": 47,
+      "superseding_delta_id": "delta-7270836da2cecf6acc2a8e0d2a4fd8f15873f8f8d588494c2789358d369c5f0d",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 34,
+      "superseded_delta_id": "delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8",
+      "superseded_subject_ref": "semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering:provisional-v1",
+      "superseding_sequence": 57,
+      "superseding_delta_id": "delta-f76d6c03135fa028c4a596e12c94e11540bfa942ab51003209d3fc1513f24c7e",
+      "superseding_subject_ref": "semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 55,
+      "superseded_delta_id": "delta-34db0ad7c9378f88a8b9ddd66d76f9d7323c46a13e89ca04bfac51ea6f273830",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields:provisional-v1",
+      "superseding_sequence": 58,
+      "superseding_delta_id": "delta-b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 58,
+      "superseded_delta_id": "delta-b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.corrected:provisional-v1",
+      "superseding_sequence": 59,
+      "superseding_delta_id": "delta-19de2302e80753564b622f718692411fd251a704bcd0f6c739d93f1e4d5612ca",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.adopted:provisional-v1"
+    }
+  ]
+}

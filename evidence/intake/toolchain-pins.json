@@ -1,0 +1,176 @@
+{
+  "schema_version": "1.0.0",
+  "company": "open-source-projects",
+  "project": "verified-java-websocket-port",
+  "laboratory_id": "lab-java-websocket",
+  "generated_at": "2026-08-24T12:26:43Z",
+  "execution_state": "NO_DOWNLOADED_EXECUTABLE_OR_CONTAINER_WAS_EXECUTED_DURING_INTAKE",
+  "qualification_sandbox": {
+    "required_role": "port-implementer",
+    "requested_access": ["quarantined-source"],
+    "forbidden_access": ["protected-held-out", "canonical-evidence", "release-signing", "production-credentials", "cross-company-data"],
+    "disposable": true,
+    "secrets": "none",
+    "publication": false
+  },
+  "executables": [
+    {
+      "artifact_id": "openjdk-17.0.19-homebrew-bottle",
+      "platform": "aarch64-apple-darwin",
+      "version": "17.0.19+0",
+      "binary_digests": {
+        "libexec/openjdk.jdk/Contents/Home/bin/java": "sha256:7db0dd5c0c4dc931244875d0723783a32cc7912922e6aaac1dbb744bf8ae837f",
+        "libexec/openjdk.jdk/Contents/Home/bin/javac": "sha256:a7905f0d4944e3aee8aa20673f199a688b815545f930ee537b3d28a578ae2861"
+      },
+      "lock_graph": ["openjdk-bottle@sha256:6d51e51e754dc75437c5c552eea568ec2f166e39fc3faa256e668083a8620c17", "java@sha256:7db0dd5c0c4dc931244875d0723783a32cc7912922e6aaac1dbb744bf8ae837f", "javac@sha256:a7905f0d4944e3aee8aa20673f199a688b815545f930ee537b3d28a578ae2861"],
+      "sbom_component_id": "component-openjdk-17.0.19-homebrew",
+      "vulnerability_observation_id": "vuln-openjdk-17.0.19",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0",
+      "provenance": "Homebrew bottle and embedded binaries independently hashed without executing them",
+      "mirror_or_replay": "source-pins.json#openjdk-17.0.19-homebrew-bottle",
+      "expires_at": "2026-09-23T12:26:43Z",
+      "rotation": "reacquire and requalify before expiration",
+      "revocation": "ACTIVE_AT_SNAPSHOT"
+    },
+    {
+      "artifact_id": "apache-maven-3.9.11",
+      "platform": "platform-independent-java",
+      "version": "3.9.11",
+      "binary_digests": {
+        "bin/mvn": "sha256:f9381d0cb98abaaf9592dae421eddc497e84ed9bfb723b84c111d1350863c3a2",
+        "lib/maven-core-3.9.11.jar": "sha256:93d3c0523dda6c86c6620d9e692e7df39d0e2e4e4cd860061a8c0d274c2ad185",
+        "boot/plexus-classworlds-2.9.0.jar": "sha256:1ad3292cd563381e3fd632f3fded1988f9e9b2be7a9f3db63ff4c4cedba13fa5"
+      },
+      "lock_graph": ["maven-distribution@sha256:4b7195b6a4f5c81af4c0212677a32ee8143643401bc6e1e8412e6b06ea82beac", "maven-launcher@sha256:f9381d0cb98abaaf9592dae421eddc497e84ed9bfb723b84c111d1350863c3a2", "maven-core@sha256:93d3c0523dda6c86c6620d9e692e7df39d0e2e4e4cd860061a8c0d274c2ad185", "plexus-classworlds@sha256:1ad3292cd563381e3fd632f3fded1988f9e9b2be7a9f3db63ff4c4cedba13fa5", "runtime:openjdk-17.0.19-homebrew-bottle"],
+      "sbom_component_id": "component-apache-maven-3.9.11",
+      "vulnerability_observation_id": "vuln-apache-maven-3.9.11",
+      "license": "Apache-2.0 plus distribution component licenses",
+      "provenance": "Apache archive SHA-512 matched published pin; SHA-256 and key embedded files independently hashed",
+      "mirror_or_replay": "source-pins.json#apache-maven-3.9.11",
+      "expires_at": "2026-09-23T12:26:43Z",
+      "rotation": "reacquire and requalify before expiration",
+      "revocation": "ACTIVE_AT_SNAPSHOT"
+    },
+    {
+      "artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
+      "platform": "aarch64-apple-darwin",
+      "version": "1.95.0",
+      "binary_digests": {
+        "rustc/bin/rustc": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
+        "rustc/bin/rustdoc": "sha256:59bc6a1caf617032284a2edc2aa03916396e70589c435a8b51e3957887f90ce5",
+        "cargo/bin/cargo": "sha256:c512bff73c86143b557463f021d0c3d5b0490d97d65040ba59ea2b3427784758"
+      },
+      "lock_graph": ["rust-channel@sha256:821ff14e4c4a1cbe1e8915f35aff0a3fbbdf8d293ad48ab8f31e3b0440c581f9", "rustc@sha256:149e85a285b6eba58eb6c8bdf7deb1b93763890598e62cb635a712e3a8454f04", "cargo@sha256:6c2ffed8e1ac9cf4dc9e80f282a869a6b237a153e7c55cca039d33de29d80aaf", "rust-std@sha256:9b30089b0f767cb91b2190ffec55a9beeb2a21a1405d8da0f664d7e09d08e6d8", "rust-src@sha256:67b09138c8db96afc4bbfc69ea771ac9a091fd777698acb43f6dfd9fb7dea363"],
+      "sbom_component_id": "component-rust-1.95.0-aarch64-apple-darwin",
+      "vulnerability_observation_id": "vuln-rust-1.95.0",
+      "license": "Apache-2.0 OR MIT plus component licenses",
+      "provenance": "dated Rust distribution channel manifest and all four component archives digest-matched; embedded compiler/runner binaries statically hashed",
+      "mirror_or_replay": "source-pins.json#rust-channel-1.95.0",
+      "expires_at": "2026-09-23T12:26:43Z",
+      "rotation": "reacquire the complete dated channel set before expiration",
+      "revocation": "ACTIVE_AT_SNAPSHOT"
+    },
+    {
+      "artifact_id": "eclipse-jdt-ls-1.60.0",
+      "platform": "aarch64-apple-darwin-via-java-17",
+      "version": "1.60.0-202606262232",
+      "binary_digests": {
+        "bin/jdtls": "sha256:ed0980ea2da080b79566b24b67f94f510d5001eeb401c7ed316748c0b03fbfee",
+        "plugins/org.eclipse.equinox.launcher_1.7.200.v20260619-2039.jar": "sha256:89007de5f1c1b600af7d6985665061b515f8678738a02c57098f0b3eece6e02e",
+        "plugins/org.eclipse.jdt.ls.core_1.60.0.202606262232.jar": "sha256:e83035adc685b4519f2d8a8d42fe8651ce7ea4f4daf396f47ec453b5bff07be5"
+      },
+      "lock_graph": ["jdt-ls-distribution@sha256:e94c303d8198f977930803582738771fd18c52c5492878410bf222b1aa81ef1d", "equinox-launcher@sha256:89007de5f1c1b600af7d6985665061b515f8678738a02c57098f0b3eece6e02e", "jdt-ls-core@sha256:e83035adc685b4519f2d8a8d42fe8651ce7ea4f4daf396f47ec453b5bff07be5", "runtime:openjdk-17.0.19-homebrew-bottle"],
+      "sbom_component_id": "component-eclipse-jdt-ls-1.60.0",
+      "vulnerability_observation_id": "vuln-eclipse-jdt-ls-1.60.0",
+      "license": "EPL-2.0 plus component licenses",
+      "provenance": "milestone archive and key launcher/core bytes statically hashed",
+      "mirror_or_replay": "source-pins.json#eclipse-jdt-ls-1.60.0",
+      "expires_at": "2026-09-23T12:26:43Z",
+      "rotation": "reacquire and requalify before expiration",
+      "revocation": "ACTIVE_AT_SNAPSHOT",
+      "assurance_mode": "MANDATORY_NON_ASSURANCE"
+    },
+    {
+      "artifact_id": "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
+      "platform": "aarch64-apple-darwin",
+      "version": "2026-08-17.4 commit bb3bbbd9e4",
+      "binary_digests": {
+        "rust-analyzer": "sha256:5142e0d6d0a48bc8ba0638125eaa68296defba7d32628362175eff967d12e145"
+      },
+      "lock_graph": ["rust-analyzer-compressed@sha256:ece932daf2f077be87bf745d2eb0a62cbc550f4b1e2e31ca76dfafdd0cc599b3", "rust-analyzer-binary@sha256:5142e0d6d0a48bc8ba0638125eaa68296defba7d32628362175eff967d12e145", "rust-src@sha256:67b09138c8db96afc4bbfc69ea771ac9a091fd777698acb43f6dfd9fb7dea363"],
+      "sbom_component_id": "component-rust-analyzer-2026-08-17.4",
+      "vulnerability_observation_id": "vuln-rust-analyzer-2026-08-17.4",
+      "license": "Apache-2.0 OR MIT",
+      "provenance": "GitHub release asset 518115984 and decompressed binary statically hashed",
+      "mirror_or_replay": "source-pins.json#rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
+      "expires_at": "2026-09-23T12:26:43Z",
+      "rotation": "reacquire and requalify before expiration",
+      "revocation": "ACTIVE_AT_SNAPSHOT",
+      "assurance_mode": "MANDATORY_NON_ASSURANCE"
+    },
+    {
+      "artifact_id": "rust-glancer-0.1.1-darwin-arm64",
+      "platform": "aarch64-apple-darwin",
+      "version": "0.1.1 commit 9502e2a6044bd95731c4de7467b46bd7859af8ac",
+      "binary_digests": {
+        "extension/server/rust-glancer": "sha256:bf45ccc62056fcc71817604b0a608908554f4483a9ef4a5b6997d52be4a617f6"
+      },
+      "lock_graph": ["glancer-vsix@sha256:dac95f6a2ad7cef36c552fd14eb5cf475a6eb3093f4589ecc65aaa841a0339a3", "glancer-server@sha256:bf45ccc62056fcc71817604b0a608908554f4483a9ef4a5b6997d52be4a617f6"],
+      "sbom_component_id": "component-rust-glancer-0.1.1",
+      "vulnerability_observation_id": "vuln-rust-glancer-0.1.1",
+      "license": "Apache-2.0 OR MIT",
+      "provenance": "GitHub release asset 522432616 and embedded server statically hashed",
+      "mirror_or_replay": "source-pins.json#rust-glancer-0.1.1-darwin-arm64",
+      "expires_at": "2026-09-23T12:26:43Z",
+      "rotation": "reacquire and requalify before expiration",
+      "revocation": "ACTIVE_AT_SNAPSHOT",
+      "assurance_mode": "MUTUALLY_EXCLUSIVE_BOUNDED_NON_ASSURANCE_TRIAL"
+    },
+    {
+      "artifact_id": "autobahn-linux-amd64-image",
+      "platform": "linux/amd64",
+      "version": "25.10.1 source 6ed6f439dc7ed0d7432fe2cf7481b110905ecc5c",
+      "binary_digests": {
+        "oci-manifest": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+        "oci-config": "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f"
+      },
+      "lock_graph": [
+        "manifest@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+        "config@sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f",
+        "layer@sha256:632ef5283d0fcf0e3a19d6c5dbcc294922d142b506d2ab494fb73004518cdc31",
+        "layer@sha256:2be42d221bda6286090b1656c911554463aed2c0d506c236e16250de9b9e4667",
+        "layer@sha256:54d1704eb717ce17ad2843f567b5defc32883042e6e9f97e2bcf2ce3c282677b",
+        "layer@sha256:f0f51ee5c79e1ef5812268320c854e2eaf0bb5f4e2cf2a7974448200d36854de",
+        "layer@sha256:e7f707acf267f1c9586c9bfa3a21ca6c3b0c4f8d9b696ef285fa7b41e0436a2d",
+        "layer@sha256:7fffc0dc6bc2c196d3296fdf4a65b382c5390051d4ddafd0c2b73db58e63f8ad",
+        "layer@sha256:8ba5f0ae87b9edfe1f8a23291527b23fb08352c22c357288e15469ae7b73fb79",
+        "layer@sha256:d12c4f6eb5eaefdf5c5c66a6b0477810fe5e2ed5d96fbc54438ab3f71a35ccf7",
+        "layer@sha256:257ddc2bf9fe667ed31bc4700f9863d36803438f7047e1b9615170af67cf322d",
+        "layer@sha256:63390957f7689f71c004a2da59bdb8c16153e4c05a45552e58cb71e156ddf95f",
+        "layer@sha256:33523de0a6ab7dd1c7ff2f5e0865b04fcba8fc4bec73d0899e14cf3902fa7bf6",
+        "layer@sha256:d9b05e8829feb1765f2c402af55db8a7a85565c0f6cf90ab43f243794442ecad",
+        "layer@sha256:987dbf4b181e22054c9f42939aa01d100a9a7933f6b0b7b2b3514a7bf3229112",
+        "layer@sha256:9a2715fb541b6874a9ae02c021efc78bd65b1ab1c0f717bb883b1a0c874ccf42",
+        "layer@sha256:19b7237e9447160c9577302406e759920d0df21ff39570799cb9304d88f575bc"
+      ],
+      "sbom_component_id": "component-autobahn-image-25.10.1-linux-amd64",
+      "vulnerability_observation_id": "vuln-autobahn-image-25.10.1",
+      "license": "Apache-2.0 plus 460 package/component license records",
+      "provenance": "exact linux/amd64 manifest, config, and all 15 compressed layers acquired by Docker content store without container execution",
+      "mirror_or_replay": "docker pull --platform linux/amd64 docker.io/crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+      "expires_at": "2026-09-23T12:26:43Z",
+      "rotation": "re-pull exact digest and refresh SBOM/vulnerability state before expiration",
+      "revocation": "BLOCKED_BY_VULNERABILITY_SNAPSHOT",
+      "qualification_status": "DENIED_PENDING_RELEASE_ATTESTOR_RISK_DISPOSITION"
+    }
+  ],
+  "container": {
+    "reference": "docker.io/crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+    "platform": "linux/amd64",
+    "manifest_digest": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+    "config_digest": "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f",
+    "compressed_layer_bytes": 388877802,
+    "floating_tag_satisfies_gate": false,
+    "executed": false
+  }
+}

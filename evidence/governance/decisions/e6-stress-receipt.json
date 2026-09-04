@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "e6-stress-receipt",
+  "story": "US-017",
+  "ac": 4,
+  "ac_verbatim": "Actual native-thread stress/race checks run separately from the modeled schedules across both blocking platforms with repeat counts and flake reconciliation; missing race tooling blocks the named runtime claim.",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "mission": "close US-017 AC4's platform legs: native-thread stress with repeat counts and flake reconciliation on both blocking platforms; record the race-tooling nonclaim per the AC's own rule",
+  "recorded_at": "2026-08-27T22:25:21Z",
+  "recorded_at_provenance": "captured from `date -u` immediately after the gate reruns and log verification",
+  "branch": "claude/e6-stress-legs",
+  "worktree": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-e6",
+  "base": "2244a34 (US-017 closure merge: exploration + native-thread stress tests + US-018 Docker Linux vehicles precedent)",
+  "commit": {
+    "sha": "60546d75d0a2e64cea197b4a1705b65f75cdcf8d",
+    "subject": "us017-ac4: stressrepeatctl repeat-runner for native-thread stress legs",
+    "pushed": false,
+    "files": [
+      "cmd/stressrepeatctl/main.go (repeat-runner: per-run logs, real process-state exit codes, never aborts at first failure so flakes are captured, per-label summary JSON)",
+      "cmd/stressrepeatctl/main_test.go (TDD, written first, RED read as undefined-symbol build failure before implementation)"
+    ],
+    "rust_sources_touched": false
+  },
+  "stress_suite": {
+    "file": "rust/ws-driver/tests/concurrency.rs",
+    "tests": [
+      "racing_producers_never_lose_or_duplicate_commands",
+      "terminal_is_exactly_once_under_racing_producers"
+    ],
+    "nature": "actual native-thread stress: 4 producer OS threads racing bounded try_send against the single owner; exactly-once command disposition, complete write drain, exactly-once terminal delivery across a racing shutdown",
+    "separation_from_modeled_schedules": "every repeat leg ran `cargo test [---release] -p ws-driver --test concurrency` — only the native-thread stress test binary. The modeled bounded-schedule exploration (rust/ws-driver/tests/schedule_exploration.rs) was NOT part of any repeat leg; it runs separately inside `make -C rust gates`. The suites share no test binary.",
+    "timing_model_note": "the stress tests bound progress by iteration counts (POLL_BUDGET = 2,000,000 owner polls), not wall-clock deadlines, so emulation slowness and host load cannot convert slowness into spurious failure"
+  },
+  "both_blocking_platforms": {
+    "definition_source": "US-018 AC2 (\"...on macOS arm64 and Linux x86_64\"), the plan context US-017 AC4 inherits; the US-018 closure receipt's three-vehicle pattern is followed exactly, including its emulation disclosure",
+    "vehicles": [
+      "darwin arm64 NATIVE host (Darwin 25.4.0, macOS 26.4.1, rustc 1.95.0)",
+      "linux aarch64 Docker VM, NATIVE instruction set (kernel 7.0.12-linuxkit, rust:1.95.0 image, rustc 1.95.0)",
+      "linux x86_64 via docker --platform linux/amd64, EMULATED binary translation on this arm64 Mac — NOT native x86_64 hardware; disclosed, never claimed native (kernel 7.0.12-linuxkit, rust:1.95.0 image, rustc 1.95.0)"
+    ],
+    "image_sanction": "rust:1.95.0 (image id f49565f188ee) — the parent-sanctioned US-018 vehicle, already present locally; worktree mounted read-only with a container-internal CARGO_TARGET_DIR; cargo invoked with --locked (workspace has zero non-path dependencies, so no registry access)"
+  },
+  "repeat_runs": {
+    "runner": "cmd/stressrepeatctl (this branch): every run's combined output captured to its own log, every exit code read from the real process state, all N runs execute regardless of failures, per-label summary JSON emitted",
+    "per_platform": [
+      {"label": "darwin-arm64-debug", "runs": 40, "passes": 40, "failures": [], "window_utc": "2026-08-27T22:21:30Z..22:21:31Z"},
+      {"label": "darwin-arm64-release", "runs": 10, "passes": 10, "failures": [], "window_utc": "2026-08-27T22:21:41Z"},
+      {"label": "linux-aarch64-docker-debug", "runs": 40, "passes": 40, "failures": [], "window_utc": "2026-08-27T22:22:28Z..22:22:32Z"},
+      {"label": "linux-aarch64-docker-release", "runs": 10, "passes": 10, "failures": [], "window_utc": "2026-08-27T22:22:58Z"},
+      {"label": "linux-x86_64-emulated-docker-debug", "runs": 40, "passes": 40, "failures": [], "window_utc": "2026-08-27T22:22:54Z..22:23:08Z"},
+      {"label": "linux-x86_64-emulated-docker-release", "runs": 10, "passes": 10, "failures": [], "window_utc": "2026-08-27T22:23:30Z..22:23:33Z"}
+    ],
+    "totals": {"runs": 150, "passes": 150, "failures": 0},
+    "per_run_verification": "all 150 per-run logs machine-checked: each contains `test result: ok. 2 passed; 0 failed; 0 ignored` AND both named tests' `... ok` lines (150/150 on both checks); every tool exit read (0 for all six legs)",
+    "logs": "workspace/orchestrator/verified-java-websocket-port-claude/drafts/e6-stress-legs/ (150 per-run logs, 6 summary JSONs, 3 per-platform env receipts, gate logs)"
+  },
+  "flake_reconciliation": {
+    "policy": "any non-deterministic failure is investigated and either root-caused as a real bug (fixed RED-first with a minimized repro) or evidenced as environmental with the reconciliation written down; zero unexplained flakes permitted in the final record",
+    "observed_flakes": 0,
+    "reconciliation": "no failure of any kind occurred in 150/150 runs across all six legs, so there is nothing to reconcile. The runner is constructed so flakes cannot be silently dropped: it never aborts at the first failure (all N runs always execute) and records every run's real exit code and full output; a masked or swallowed flake is therefore structurally impossible in this record.",
+    "unexplained_flakes": 0
+  },
+  "race_tooling": {
+    "status": "UNAVAILABLE under the project's own pinned gates — gates NOT bypassed",
+    "detail": [
+      "loom (and any model-checking crate): excluded by the zero-dependency gate (dependency-inventory: 0 non-path dependencies; adding loom would fail `make -C rust gates`)",
+      "ThreadSanitizer (-Zsanitizer=thread): nightly-only; the toolchain is pinned to stable 1.95.0 by rust/rust-toolchain.toml (digest-qualified intake pin evidence/intake/toolchain-pins.json); unpinning would violate the reproducibility gates",
+      "Miri: nightly component; same stable-pin exclusion"
+    ],
+    "named_runtime_claim_NOT_made": "No claim is made that the native-thread runtime has been verified free of data races by race-detection tooling. Per AC4's own rule, missing race tooling BLOCKS that named runtime claim, and this receipt does not make it. What IS claimed: (a) the native-thread stress suite passed 150/150 with repeat counts on darwin arm64 native, Linux aarch64 native-arch, and Linux x86_64 emulated (disclosed); (b) the language-level argument that #![forbid(unsafe_code)] on all crate roots plus zero non-path dependencies means safe stable Rust's type system statically excludes data races in this code — stated as a static language guarantee argument, explicitly NOT as the empirical race-tooling-verified runtime claim AC4 names."
+  },
+  "back_pressure": {
+    "rust_gates": {"command": "make -C rust gates", "exit": 0, "exit_provenance": "read from the process ($? printed by the invoking shell)", "detail": "fmt-check, clippy -D warnings, cargo test debug+release (67 `test result:` lines, all ok), ac1-gates 8/8 PASS incl. adapter-linkage; log archived at drafts/e6-stress-legs/e6-rust-gates.log"},
+    "go_build": {"command": "go build ./...", "exit": 0},
+    "go_test": {"command": "go test -count=1 ./...", "exit": 0, "packages_ok": 26, "note": "25 pre-existing + the new cmd/stressrepeatctl; log archived at drafts/e6-stress-legs/e6-gotest.log"},
+    "wired_public_corpus": "NOT re-run: no Rust source was touched on this branch (Go tool only), per the tasking rule (corpus 74/74 only if rust sources touched)",
+    "protected_store": "READ-ONLY throughout; receipts and logs written to drafts/ only",
+    "tdd": "stressrepeatctl unit tests written first, RED read (build failure: undefined runRepeats/runLogName/summaryName/loadSummary), then GREEN (exit 0 read); tests pin the all-pass tally, a deterministic mid-sequence exit-7 failure recorded while later runs still execute, and the summary-artifact round-trip"
+  },
+  "honesty_notes": [
+    "the x86_64 leg is EMULATED (Docker Desktop binary translation on an arm64 Mac), not native x86_64 hardware — same disclosure as the US-018 closure; no native-x86_64-hardware claim is made",
+    "both Docker Linux legs share one LinuxKit VM kernel (7.0.12-linuxkit) on this single physical machine; platform diversity is OS/libc/ISA-level (darwin vs linux; aarch64 vs emulated x86_64), not distinct physical hosts",
+    "repeat counts are 40 debug + 10 release per platform (150 total); this is stress-repetition evidence, systematic but NOT proof and NOT a substitute for race tooling",
+    "docker exec exit codes propagate the container process's exit status; each of the 150 exit codes was additionally cross-checked against the run log's `test result: ok. 2 passed` line",
+    "the two Linux release legs completed in under the 1-second summary-timestamp resolution; their per-run logs and read exit codes are the authoritative per-run record",
+    "host `go test`/gate activity overlapped some Docker repeat windows; the stress tests bound progress by iteration counts, not wall-clock, so load cannot fabricate or mask a failure, and none occurred"
+  ],
+  "attestation": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false
+}

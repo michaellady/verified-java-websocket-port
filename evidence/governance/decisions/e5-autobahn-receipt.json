@@ -1,0 +1,195 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_kind": "e5-autobahn-receipt",
+  "plane": "verified-java-websocket-port-claude",
+  "branch": "claude/e5-autobahn",
+  "base_commit": "eb35bc2",
+  "commit": "76158f35206a8e5d185b2c80892169f2ee61083e",
+  "generated_at": "2026-08-27T23:05:00Z",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "mission": "Run the industry Autobahn WebSocket testsuite (fuzzingclient) against the Rust port (ws-testee serve loop) and judge results JAVA-FAITHFULLY against the recorded US-002 Java Autobahn results.",
+  "infra_provenance": {
+    "image": {
+      "reference": "crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+      "manifest_digest": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+      "config_digest": "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f",
+      "platform": "linux/amd64 emulated on darwin/arm64 Docker Desktop (server 29.7.2)",
+      "pull_policy": "never (image pre-present locally; docker warned about the amd64/arm64 platform mismatch, same emulation class US-002's environment used)",
+      "identity_note": "same pinned manifest digest as the US-002 Java baseline; in-container tool identities re-verified this run: /opt/pypy/bin/wstest sha256 d8acff20961f3fc8d396944e4d38f3d06ddb11301f123670f557d6284b6ea632 and /opt/pypy/bin/pypy sha256 14c4d94ca4b7feee06acf12cf7d74e3e6fc63114d2886e5f0c45afce84250a6c, both equal to the US-002 pinned constants in cmd/autobahn-runner/main.go and 13-qualification-pass.json"
+    },
+    "case_selection": {
+      "cases": [
+        "1.*",
+        "2.*",
+        "3.*",
+        "4.*",
+        "5.*",
+        "6.*",
+        "7.*",
+        "10.*"
+      ],
+      "exclude_cases": [
+        "9.*",
+        "12.*",
+        "13.*"
+      ],
+      "options": {
+        "failByDrop": false
+      },
+      "expanded_count": 247,
+      "note": "identical family selection, exclusions, and failByDrop to the US-002 plan (selected_count 247); E5 runs all 247 cases in one wstest invocation where US-002 ran one case per sealed container \u2014 same case set, same suite version, different orchestration granularity"
+    },
+    "configs": {
+      "run1_fuzzingclient_sha256": "42508056ac5bd7ca82cf1ecc3d03227219dd6df77b1a417b05bcdd982bfaee8f",
+      "run2_fuzzingclient_sha256": "6c82ff55db17da1a1864c758d41166f8b43cbf9802b7a77702a52adff34adc29"
+    },
+    "transport": "wstest (in container) -> ws://host.docker.internal:9010 -> Docker Desktop host proxy -> ws-testee serve on 127.0.0.1:9010; probe confirmed the listener observes peer 127.0.0.1 so the US-018 loopback-only guard holds (unlike US-002's docker-attach relay, this path crosses the Docker Desktop proxy \u2014 disclosed provenance difference)",
+    "rust_endpoint": {
+      "binary": "rust/target/release/ws-testee (built from commit 76158f35)",
+      "entry": "ws-testee serve 127.0.0.1:9010 <sessions> \u2014 new sequential-session loop (run_server_sessions), TDD'd, forbid(unsafe_code), zero new dependencies, echo policy unchanged (adapter re-sends delivered text/binary through the bounded CommandSender; driver auto-pong is the Java-faithful default from e4)",
+      "fixture_config": "ceiling-tier ws_core limits (1 MiB frame/message/buffer/input, 4096 frames, 1024 actions, 16384-event queue) \u2014 adapter WIRING only: the corpus-tier defaults (64 frames / 64 KiB input per connection) are below Autobahn's own case sizes (1.1.8/1.2.8 = 64 KiB messages, 10.1.1 = 51 fragments); every value is inside the documented ConnectionConfig builder ceilings and no ws_core/ws_driver source changed"
+    },
+    "java_baseline": {
+      "authoritative_in_repo": "evidence/java/autobahn-baseline.json (sha256 54fac3c5166e6530ffb4e34ccd5a05d8122d2b2fae4fc4bc1708ac05779ff04d) \u2014 status BLOCKED, 247 selected / 0 executed in both original and sole authorized remediation attempts, NO_FURTHER_RERUNS_AUTHORIZED",
+      "per_case_source": "workspace/orchestrator/verified-java-websocket-port-claude/protected/us002-autobahn-receipts/13-qualification-pass.json (sha256 acd89d20fc6997229090b79f75aad3b911ca02fe77adc0894d1e8a86fe39364f) \u2014 the recovery-branch qualification PASS receipt preserved read-only from Codex's recovery run (MANIFEST.json, copied 2026-08-26T00:55Z), status PASS, server mode executed 247/247 with per-case status classes, same image/plan digests as the blocked baseline",
+      "caveat": "the per-case Java report is the recovered qualification receipt, not the in-repo BLOCKED evidence object; its per-case records carry the behavior status class only (no behaviorClose / no close codes), so the per-case comparison basis is the Autobahn behavior class"
+    }
+  },
+  "runs": {
+    "run1": {
+      "started_utc_date": "2026-08-27",
+      "wstest_exit_code_read": 0,
+      "serve_sessions_served": 247,
+      "serve_exit": "served=247 terminal line read from serve-run1.log (printed only on the EXIT_OK path after all 247 sessions reached terminal outcomes); the shell-level exit code of the detached serve process was not separately captured \u2014 honesty note",
+      "report_files": "496 (index + 247 case JSON + 247 case HTML + index.html); JSON committed under evidence/rust/autobahn-e5/, HTML digest-pinned in digest-manifest.json and left out of git",
+      "adapter_outcomes": {
+        "Terminal": 124,
+        "ProtocolFailure(typed)": 123,
+        "WriteStalled": 0,
+        "BudgetExhausted": 0,
+        "SocketError": 0
+      }
+    },
+    "run2_rerun_of_non_ok_cases": {
+      "cases": [
+        "3.2",
+        "3.3",
+        "4.1.3",
+        "4.1.4",
+        "4.2.3",
+        "4.2.4",
+        "5.15",
+        "6.4.1",
+        "6.4.2",
+        "6.4.3",
+        "6.4.4",
+        "7.1.6",
+        "7.3.2",
+        "7.13.1",
+        "7.13.2"
+      ],
+      "wstest_exit_code_read": 0,
+      "serve_sessions_served": 15,
+      "adapter_outcomes": {
+        "Terminal": 1,
+        "ProtocolFailure(typed)": 14,
+        "WriteStalled": 0,
+        "BudgetExhausted": 0,
+        "SocketError": 0
+      },
+      "stability": "15/15 cases reproduced identical behavior AND behaviorClose classes (STABLE); includes the FAILED case 7.3.2 and every NON-STRICT and INFORMATIONAL case"
+    }
+  },
+  "tallies": {
+    "rust_server_mode_behavior": {
+      "total": 247,
+      "ok": 232,
+      "nonstrict": 11,
+      "informational": 3,
+      "failed": 1,
+      "unimplemented": 0
+    },
+    "rust_behavior_close": {
+      "OK": 117,
+      "FAILED BY CLIENT": 90,
+      "UNCLEAN": 36,
+      "INFORMATIONAL": 3,
+      "WRONG CODE": 1
+    },
+    "java_server_mode_behavior": {
+      "total": 247,
+      "ok": 234,
+      "nonstrict": 10,
+      "informational": 3,
+      "failed": 0,
+      "unimplemented": 0
+    },
+    "behavior_close_note": "the Java per-case receipt has no behaviorClose field, so close-class tallies are reported for Rust only and are not part of the match count"
+  },
+  "java_comparison": {
+    "basis": "per-case Autobahn behavior class, Rust run1 vs Java server-mode results in 13-qualification-pass.json",
+    "matches": 245,
+    "divergences": [
+      {
+        "case": "5.15",
+        "rust": "NON-STRICT",
+        "java": "OK",
+        "analysis": "Fuzzer sends a complete 2-fragment text message, a dangling continuation, and an unfragmented text all in ONE chop. Java echoed the first complete message before failing (Autobahn OK expectation ['message','fragment1fragment2',false]); Rust failed the connection immediately and the echo of the already-delivered first message never reached the wire (received=[], the documented NON-STRICT expectation). RFC 6455 7.1.7 permits immediate fail-on-violation, so the Rust side is the RFC-stricter behavior; Autobahn classes both as passing. Root cause class: batch-drain echo-flush ordering \u2014 Java processes frame-at-a-time and flushes the echo before decoding the poison frame, the Rust driver ingests the chop then suppresses queued output once the typed protocol failure lands.",
+        "ledgered": "not specifically \u2014 same divergence FAMILY as ledgered site/timing records delta-b375f7126b944afad6a75453a1871d (post-payload-rejection-site) and delta-4e6bffb12b05856babb99a3df92f45 (consumed-bytes-error-sites), but the echo-before-fail wire ordering under a one-chop poisoned batch is not a ledger record; needs a new ledger record if wire-level Autobahn fidelity is adopted as an AC (ledger AUTOBAHN refs were written as nominal anchors while the Java leg was believed BLOCKED)"
+      },
+      {
+        "case": "7.3.2",
+        "rust": "FAILED (WRONG CODE, reply close code 1000)",
+        "java": "OK",
+        "analysis": "Fuzzer sends a close frame with a 1-byte payload; wstest requires reply 1002 or TCP drop. ws_core's pinned behavior converts the malformed close into a VALID governing close 1002 (delta-d509ac38, corpus us005.pub.0035, LIVE-ORACLE-CONFIRMED) but its close ECHO carries the Java CloseFrame constructor payload 0x03E8 = 1000 (delta-954132f2, Q19/Q10, LIVE-ORACLE-CONFIRMED) \u2014 so Rust's WIRE reply is 1000. Live Java's full stack put 1002-or-drop on the wire for this case (its receipt is OK), i.e. the malformed-close path in shipped Java does NOT go through the constructor-payload echo arm at the wire level. RFC-correct side: Java's proven behavior class (1002-or-drop; wstest accepts either, and the receipt does not record which occurred). The two ledger records pin each ingredient at the core-observable level, and the corpus run stays 74/74, but their WIRE-LEVEL COMPOSITION for a malformed inbound close diverges from live Java and is unledgered.",
+        "ledgered": "ingredients yes (delta-d509ac380f51587105ed2fb3 one-byte-close-payload, delta-954132f2fb781974 constructor-payload-echo, both disposition 'unresolved'); the wire-level composition observed here is NOT ledgered \u2014 needs a new ledger record or an owner fidelity decision; E5 deliberately did not touch ws_core (corpus-pinned, NO-CHEATING rule)"
+      }
+    ],
+    "match_detail": "10 NON-STRICT cases match Java exactly (3.2, 3.3, 4.1.3, 4.1.4, 4.2.3, 4.2.4, 6.4.1-6.4.4); all 3 INFORMATIONAL cases (7.1.6, 7.13.1, 7.13.2) match; remaining 232 OK-vs-OK",
+    "scope_boundary": "server leg (fuzzingclient) only. The Java qualification receipt also carries a client-mode leg (233 OK / 11 NON-STRICT / 3 INFORMATIONAL, 247 results) that E5 did not exercise: ws-testee's client fixture has no wstest fuzzingserver agent protocol (getCaseCount/runCase/updateReports), and adding one is a larger adapter build outside this leg's mandate"
+  },
+  "corpus_invariance": {
+    "pipeline": "corporactl oracle-requests --tier public (exit 0 READ) -> ws-oracle-harness release (exit 0 READ, twice) -> corporactl evaluate --tier public (exit 0 READ)",
+    "requests_sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85 (byte-identical to the batch-C baseline requests hash)",
+    "evaluate_counts_read": {
+      "executed": 74,
+      "passed": 74,
+      "failed": 0,
+      "missing": 0,
+      "unmatched": 0
+    },
+    "transcript_determinism": "two harness runs byte-identical, sha256 fd3f7a1c1eb0eeed0a7b214eac2dc517ab169511ce266d98280f7eff571f2326",
+    "note": "ws-core and ws-driver sources untouched by e5 (git status shows only rust/ws-testee/* modified); 74/74 evaluate exit 0 is the invariance proof at the observable level"
+  },
+  "back_pressure": {
+    "write_deadline": "bounded write deadline (IoBounds write_stall_limit 2s) never tripped: 0 WriteStalled outcomes across 262 served sessions (247 + 15)",
+    "poll_budget": "0 BudgetExhausted outcomes; 0 SocketError outcomes",
+    "typed_failures": "123 (run1) + 14 (run2) sessions ended in typed core ProtocolFailure \u2014 expected: those are the Autobahn cases that deliberately poison the protocol and the core owns the failure vocabulary"
+  },
+  "gates": {
+    "make_rust_gates": "exit 0 READ (fmt-check, clippy -D warnings, test, test-release, ac1-gates; 69 'test result: ok' lines; one cargo fmt pass was applied to the new e5 test code after an initial fmt-check exit 2, then the full gate chain ran green)",
+    "go_build": "exit 0 READ",
+    "go_test": "first full run exit 1 READ \u2014 single failure TestDeriveReproducesCommittedEvidence (ORACLE_TREE_MISMATCH) during first-run network re-acquisition of the digest-pinned quarantined Java source into the fresh worktree; isolated rerun exit 0 READ; full suite rerun exit 0 READ, 27 packages ok, 0 FAIL \u2014 the failure was quarantine materialization racing the tree check on a cold worktree, not a code regression",
+    "us006_regenerate": "not required \u2014 no ws-core/ws-driver source change; US-006 formal evidence binds to core semantics, and the LINKAGE drift gate does not exist on this base (e2 unmerged)",
+    "refreezes": "none performed"
+  },
+  "no_cheating_attestation": "ws_core and ws_driver behavior untouched; only adapter wiring added (ws-testee serve loop + ceiling-tier fixture config + tests). No Autobahn-score-chasing changes were made; the one FAILED case (7.3.2) is reported as-is with its ledger analysis instead of being patched.",
+  "honesty_notes": [
+    "The authoritative in-repo US-002 Autobahn evidence remains BLOCKED (0/247 executed, NO_FURTHER_RERUNS_AUTHORIZED); the per-case Java baseline used here is the preserved recovery-branch qualification receipt (13-qualification-pass.json, status PASS, itself OWNER_ATTESTED_NOT_INDEPENDENT). Both provenances are digest-cited; this receipt does not upgrade the blocked baseline's status.",
+    "E5's orchestration differs from US-002's sealed pipeline: single wstest invocation over Docker Desktop's host proxy versus per-case sealed containers on an internal network with a docker-attach relay and container identity validation. Image, tool digests, case selection, and options are identical; network path and per-case isolation are not.",
+    "The detached serve processes' shell exit codes were not captured; their clean completion is evidenced by the served=247 / served=15 terminal lines (printed only on the EXIT_OK path) and by wstest exit 0 with 247/15 result files.",
+    "wstest behavior/behaviorClose class semantics are the suite's own; per-case wire frames were not independently re-parsed beyond the two divergent cases.",
+    "Rust behaviorClose classes (90 FAILED BY CLIENT / 36 UNCLEAN) have no Java per-case counterpart in the receipt and were NOT judged; they are reported raw for completeness.",
+    "date -u readings: recon+run 2026-08-27T22:0x-23:0xZ; receipt written 2026-08-27T23:05Z."
+  ],
+  "blockers": [],
+  "production": false,
+  "publication": false,
+  "review_round_2": {
+    "recorded_at": "2026-08-27T23:15:09Z",
+    "review_block": "session 01a0457a-c0f4-7821-a2fc-a163873f597d: two receipt corrections \u2014 wrong ledger ids cited for the 5.15 family records (correct: delta-b375f712... post-payload-rejection-site, delta-4e6bffb1... consumed-bytes-error-sites) and an over-claim that Java put exactly 1002 on the wire for 7.3.2 (the recovered receipt proves only the OK class = 1002-or-drop).",
+    "fix": "both citations corrected; the 7.3.2 analysis now claims only the proven 1002-or-drop behavior class in BOTH sentences (a second exact-1002 phrase was missed in the first correction pass and caught by round-2 session 01a04581-804a-7fd3-bb04-53ae3cb62c3e); the composition finding is retained.",
+    "round_2b_at": "2026-08-27T23:16:31Z"
+  }
+}

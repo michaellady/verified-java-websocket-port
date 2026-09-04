@@ -1,0 +1,129 @@
+{
+  "operations": [
+    {
+      "kind": "include",
+      "path": "assurance/replay/fixtures/us006-base/mutation.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "assurance/replay/fixtures/us006-standin/production-connection-state-machine.rs",
+      "target": "fixtures-production/connection_state_machine.rs"
+    },
+    {
+      "kind": "copy_file",
+      "source": "assurance/replay/fixtures/us006-standin/seeded-receipt.json",
+      "target": "seeded/receipt.json"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/sbx_execution",
+      "value": {
+        "status": "EXECUTED",
+        "reason": "SEEDED_FIXTURE_GOOD_PATH: synthetic executed record exercising the validator's pass path; the receipt bytes live inside this fixture tree and are digest-verified by the validator.",
+        "required_profile": "sandbox_profile (this document): attempt-us007-sbx-output-live-0124-accepted digest set",
+        "receipt": {
+          "path": "seeded/receipt.json",
+          "sha256": "sha256:d3f870b46086496e47e3aa6aafad3d47d9f76676b72ca7a298e950b6eba57492"
+        },
+        "evidence_run": {
+          "source_revision": "fixture-source-rev",
+          "specification_revision": "fixture-spec-rev",
+          "java_revision": "fixture-java-rev",
+          "rust_revision": "fixture-rust-rev",
+          "java_semantic_ids": [
+            "org.java_websocket.WebSocketImpl#state"
+          ],
+          "rust_semantic_ids": [
+            "ws_core::connection::WebSocketImpl"
+          ],
+          "command": "./formalrunner tlc connection-model",
+          "working_directory": ".",
+          "tool_hashes": [
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ],
+          "container_hashes": [
+            "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec"
+          ],
+          "environment": [
+            "LANG=C.UTF-8",
+            "TZ=UTC"
+          ],
+          "seed": "0",
+          "hardware": "fixture-sbx-linux-arm64",
+          "assumptions": [
+            "finite state constraints bound all counters"
+          ],
+          "bounds": {
+            "states_explored": "412",
+            "max_queue_depth": "3"
+          },
+          "unsupported_constructs": [
+            "unbounded counters"
+          ],
+          "trusted_base": [
+            "tla2tools.jar sha256-pinned",
+            "sandbox JVM"
+          ],
+          "exit_count": 2,
+          "obligation_count": 2,
+          "raw_log_ids": [
+            "log.tlc.run-1"
+          ],
+          "artifact_ids": [
+            "artifact.tlc.states"
+          ],
+          "normalized_diff_id": "diff.tlc.none",
+          "counterexample_or_corpus_ids": [
+            "cx.tlc.jm-close-code-1000"
+          ],
+          "replay_command": "./formalrunner tlc connection-model"
+        }
+      }
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/selected",
+      "value": true
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/selection_state",
+      "value": "SELECTED_EXECUTED"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/canaries/known_good/status",
+      "value": "PASSED"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/canaries/known_bad/status",
+      "value": "DETECTED"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/canaries/known_bad/counterexample_digest",
+      "value": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/obligations/0/outcome",
+      "value": "ProofEstablished"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/obligations/0/production_code_ids",
+      "value": [
+        "fixtures-production/connection_state_machine.rs#no_such_symbol_present"
+      ]
+    }
+  ]
+}

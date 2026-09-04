@@ -1,0 +1,65 @@
+{
+  "note": "Polarity control for fixtureguardctl. The two `history/` files are the pre-fix text of F004's and F005's guards, extracted verbatim from git; the two `fixed/` files are the landed fixes and are byte-identical to the live tree at the time this gate was added. `expect` declares the EXACT findings each fixture must produce as `line|shape|counter|bound|waived`, sorted — not a count, and not a boolean, so that deleting any one shape from the detector shows up here rather than being masked by another shape still firing. This manifest is read by `go run ./cmd/fixtureguardctl` on every gates run, not only by `go test`. `synthetic/production_budget_roles.rs` is shape C's control: it pins BOTH roles of a fixture-supplied production budget, so deleting either the rule or its two-role discriminator shows up here.",
+  "cases": [
+    {
+      "path": "history/F004-pre-fix-concurrency_boundary.rs",
+      "provenance": "git blob be153ca719d3d1866d8f44226e0f1f835db10e31 = rust/ws-core/tests/concurrency_boundary.rs at 01ee515^",
+      "why": "F004: `assert!(refusals_before_the_drop < 4096, \"the producer must never spin unboundedly before the drop lands\")` inside the producer's `loop`, at line 280. Failed 2 runs in 5 on a loaded host with ws-core byte-identical to mainline.",
+      "expect": [
+        "280|B1|refusals_before_the_drop|4096|false"
+      ]
+    },
+    {
+      "path": "history/F005-pre-fix-concurrency.rs",
+      "provenance": "git blob fac0e1246dc3883bd5d4d7d85a0ff1b33bc5dc23 = rust/ws-driver/tests/concurrency.rs at 57e881c^",
+      "why": "F005: three owner loops guarded by `polls < POLL_BUDGET` with POLL_BUDGET = 2_000_000, at lines 69, 157 and 182. Failed `test-release` with `left: 179 right: 200` under other agents' load, with no defect anywhere. F005 records that two SIBLING loops carried the same guard, so all three are declared here.",
+      "expect": [
+        "157|A|polls|POLL_BUDGET|false",
+        "182|A|polls|POLL_BUDGET|false",
+        "69|A|polls|POLL_BUDGET|false"
+      ]
+    },
+    {
+      "path": "fixed/F004-post-fix-concurrency_boundary.rs",
+      "provenance": "git blob ab760daf849bcbf56a78865925fc751a24efa303 = rust/ws-core/tests/concurrency_boundary.rs at 01ee515",
+      "why": "The landed fix: a 30 s wall-clock deadline decides, and `refusals_before_the_drop` survives only inside the assertion MESSAGE. If the detector fired here it would be demanding the removal of a correct fix, which is how a gate gets routed around.",
+      "expect": []
+    },
+    {
+      "path": "fixed/F005-post-fix-concurrency.rs",
+      "provenance": "git blob 8ee52ee4290fa0a737706c945e6f229079a03f87 = rust/ws-driver/tests/concurrency.rs at 57e881c",
+      "why": "The landed fix: POLL_DEADLINE = 60 s decides in all three loops, `polls` only reports, and `disposed < 20` / `drained_idle_passes < 3` remain as GOAL conjuncts beside the deadline. Those two goals are the sharpest negative control the tree has: they are the same SHAPE as the guard that was removed, and only the increment separates them.",
+      "expect": []
+    },
+    {
+      "path": "legit/bounded_domain_constants.rs",
+      "provenance": "hand-written from shapes present in rust/ws-core/tests and rust/ws-driver/tests",
+      "why": "Legitimate bounded-domain constants: a config value that is a count, a `for` over exactly 247 cases, a `while` bounded by `bytes.len()`, goal counters incremented conditionally beside a wall clock, an assertion about the system under test placed after the loop, and prose that quotes the defect.",
+      "expect": []
+    },
+    {
+      "path": "synthetic/silent_break_and_waiver.rs",
+      "provenance": "hand-written; covers the shapes history does not supply",
+      "why": "Shape B2 (a silent `if polls >= POLL_BUDGET { break }`), shape B1 via `panic!` rather than `assert!`, shape A on an atomic counter, one properly justified waiver that must be COUNTED rather than reported, and an unjustified waiver marker that must not silence the gate.",
+      "expect": [
+        "25|B2|polls|POLL_BUDGET|false",
+        "40|B1|attempts|ATTEMPT_CAP|false",
+        "51|A|polls|POLL_BUDGET|false",
+        "69|B1|ticks|32|true",
+        "85|B1|ticks|64|false"
+      ]
+    },
+    {
+      "path": "synthetic/production_budget_roles.rs",
+      "provenance": "hand-written; every shape in it is one rust/ws-testee/tests/loopback.rs actually carried before claude/adapter-residuals",
+      "why": "SHAPE C and the two roles `max_polls` serves. Firing: a count racing a 300ms wall-clock stall limit, the same through a forwarder, and the same through a forwarder whose parameter was RENAMED (which is why the rule keys on the assignment, not the name). Silent: a supply from a test that asserts BudgetExhausted, because reaching the bound is that test's asserted result rather than a slow host; a budget DERIVED from a stated duration, which is the remedy; and prose quoting the defect. Plus one justified waiver that must be counted and one unjustified marker that must not silence anything.",
+      "expect": [
+        "100|C|max_polls|9|false",
+        "19|C|max_polls|50_000|false",
+        "69|C|max_polls|2_000|false",
+        "75|C|max_polls|250|false",
+        "89|C|max_polls|8|true"
+      ]
+    }
+  ]
+}

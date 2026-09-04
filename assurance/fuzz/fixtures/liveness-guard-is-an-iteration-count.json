@@ -1,0 +1,365 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-021",
+  "ac": 3,
+  "ac_verbatim": "fixture",
+  "digest_scheme": "CANONICAL_PATH_SHA256_V1",
+  "note": "Synthetic validator input for cmd/fuzzpinctl -replay-fixtures. Never a claim artifact.",
+  "engines": [
+    {
+      "id": "fixture-engine",
+      "kind": "in_repo_deterministic",
+      "probe_command": [
+        "go",
+        "version"
+      ],
+      "probe_dir": "",
+      "toolchain": {
+        "channel": "1.95.0",
+        "pin_file": "rust/rust-toolchain.toml",
+        "pin_digest": "sha256:4a1f489390955d744175143193edbda0d1182083902f3aaac6fd78fc394922cb"
+      },
+      "source_files": [
+        "assurance/fuzz/fixtures/src/fixture_target.rs.txt"
+      ],
+      "source_digest": "sha256:1b87a810249867637f3cbc553d1075a6a1aa7d5fb41409dd10cea82a551207a2"
+    }
+  ],
+  "targets": [
+    {
+      "id": "handshake-client",
+      "ac2_family": "handshake-client",
+      "status": "PINNED",
+      "engine": "fixture-engine",
+      "rationale": "synthetic fixture target",
+      "entrypoints": [
+        {
+          "file": "assurance/fuzz/fixtures/src/fixture_target.rs.txt",
+          "test": "fixture_target_ok",
+          "cases": 7000,
+          "case_literal": "for case in 0..7_000u32",
+          "seed": "SplitMix64::new(0xf1x7_0001)"
+        }
+      ],
+      "corpus": {
+        "paths": [
+          "assurance/fuzz/fixtures/corpus"
+        ],
+        "file_count": 2,
+        "digest": "sha256:75285cd4791274897da5c3f6077e8672a5b10c2691df1e969433ef9a19b53bb9"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 7000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 60,
+          "note": "F005: wall clock, never a count"
+        }
+      },
+      "policy": {
+        "crash": "catch_unwind fails the case",
+        "timeout": "wall-clock deadline kill fails the campaign",
+        "oom": "nonzero process state fails the run"
+      },
+      "artifacts": {
+        "dir": "assurance/fuzz/fixtures/artifacts"
+      },
+      "replay": {
+        "dir": "",
+        "command": [
+          "go",
+          "version"
+        ]
+      }
+    },
+    {
+      "id": "handshake-server",
+      "ac2_family": "handshake-server",
+      "status": "PINNED",
+      "engine": "fixture-engine",
+      "rationale": "synthetic fixture target",
+      "entrypoints": [
+        {
+          "file": "assurance/fuzz/fixtures/src/fixture_target.rs.txt",
+          "test": "fixture_target_ok",
+          "cases": 7000,
+          "case_literal": "for case in 0..7_000u32",
+          "seed": "SplitMix64::new(0xf1x7_0001)"
+        }
+      ],
+      "corpus": {
+        "paths": [
+          "assurance/fuzz/fixtures/corpus"
+        ],
+        "file_count": 2,
+        "digest": "sha256:75285cd4791274897da5c3f6077e8672a5b10c2691df1e969433ef9a19b53bb9"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 7000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 60,
+          "note": "F005: wall clock, never a count"
+        }
+      },
+      "policy": {
+        "crash": "catch_unwind fails the case",
+        "timeout": "wall-clock deadline kill fails the campaign",
+        "oom": "nonzero process state fails the run"
+      },
+      "artifacts": {
+        "dir": "assurance/fuzz/fixtures/artifacts"
+      },
+      "replay": {
+        "dir": "",
+        "command": [
+          "go",
+          "version"
+        ]
+      }
+    },
+    {
+      "id": "frame-decode",
+      "ac2_family": "frame-decode",
+      "status": "PINNED",
+      "engine": "fixture-engine",
+      "rationale": "synthetic fixture target",
+      "entrypoints": [
+        {
+          "file": "assurance/fuzz/fixtures/src/fixture_target.rs.txt",
+          "test": "fixture_target_ok",
+          "cases": 7000,
+          "case_literal": "for case in 0..7_000u32",
+          "seed": "SplitMix64::new(0xf1x7_0001)"
+        }
+      ],
+      "corpus": {
+        "paths": [
+          "assurance/fuzz/fixtures/corpus"
+        ],
+        "file_count": 2,
+        "digest": "sha256:75285cd4791274897da5c3f6077e8672a5b10c2691df1e969433ef9a19b53bb9"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 7000,
+        "liveness_guard": {
+          "kind": "iteration_count",
+          "deadline_seconds": 120,
+          "note": "F005: wall clock, never a count"
+        }
+      },
+      "policy": {
+        "crash": "catch_unwind fails the case",
+        "timeout": "wall-clock deadline kill fails the campaign",
+        "oom": "nonzero process state fails the run"
+      },
+      "artifacts": {
+        "dir": "assurance/fuzz/fixtures/artifacts"
+      },
+      "replay": {
+        "dir": "",
+        "command": [
+          "go",
+          "version"
+        ]
+      }
+    },
+    {
+      "id": "message-utf8",
+      "ac2_family": "message-utf8",
+      "status": "PINNED",
+      "engine": "fixture-engine",
+      "rationale": "synthetic fixture target",
+      "entrypoints": [
+        {
+          "file": "assurance/fuzz/fixtures/src/fixture_target.rs.txt",
+          "test": "fixture_target_ok",
+          "cases": 7000,
+          "case_literal": "for case in 0..7_000u32",
+          "seed": "SplitMix64::new(0xf1x7_0001)"
+        }
+      ],
+      "corpus": {
+        "paths": [
+          "assurance/fuzz/fixtures/corpus"
+        ],
+        "file_count": 2,
+        "digest": "sha256:75285cd4791274897da5c3f6077e8672a5b10c2691df1e969433ef9a19b53bb9"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 7000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 60,
+          "note": "F005: wall clock, never a count"
+        }
+      },
+      "policy": {
+        "crash": "catch_unwind fails the case",
+        "timeout": "wall-clock deadline kill fails the campaign",
+        "oom": "nonzero process state fails the run"
+      },
+      "artifacts": {
+        "dir": "assurance/fuzz/fixtures/artifacts"
+      },
+      "replay": {
+        "dir": "",
+        "command": [
+          "go",
+          "version"
+        ]
+      }
+    },
+    {
+      "id": "fragment-control-sequences",
+      "ac2_family": "fragment-control-sequences",
+      "status": "PINNED",
+      "engine": "fixture-engine",
+      "rationale": "synthetic fixture target",
+      "entrypoints": [
+        {
+          "file": "assurance/fuzz/fixtures/src/fixture_target.rs.txt",
+          "test": "fixture_target_ok",
+          "cases": 7000,
+          "case_literal": "for case in 0..7_000u32",
+          "seed": "SplitMix64::new(0xf1x7_0001)"
+        }
+      ],
+      "corpus": {
+        "paths": [
+          "assurance/fuzz/fixtures/corpus"
+        ],
+        "file_count": 2,
+        "digest": "sha256:75285cd4791274897da5c3f6077e8672a5b10c2691df1e969433ef9a19b53bb9"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 7000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 60,
+          "note": "F005: wall clock, never a count"
+        }
+      },
+      "policy": {
+        "crash": "catch_unwind fails the case",
+        "timeout": "wall-clock deadline kill fails the campaign",
+        "oom": "nonzero process state fails the run"
+      },
+      "artifacts": {
+        "dir": "assurance/fuzz/fixtures/artifacts"
+      },
+      "replay": {
+        "dir": "",
+        "command": [
+          "go",
+          "version"
+        ]
+      }
+    },
+    {
+      "id": "close-eof",
+      "ac2_family": "close-eof",
+      "status": "PINNED",
+      "engine": "fixture-engine",
+      "rationale": "synthetic fixture target",
+      "entrypoints": [
+        {
+          "file": "assurance/fuzz/fixtures/src/fixture_target.rs.txt",
+          "test": "fixture_target_ok",
+          "cases": 7000,
+          "case_literal": "for case in 0..7_000u32",
+          "seed": "SplitMix64::new(0xf1x7_0001)"
+        }
+      ],
+      "corpus": {
+        "paths": [
+          "assurance/fuzz/fixtures/corpus"
+        ],
+        "file_count": 2,
+        "digest": "sha256:75285cd4791274897da5c3f6077e8672a5b10c2691df1e969433ef9a19b53bb9"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 7000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 60,
+          "note": "F005: wall clock, never a count"
+        }
+      },
+      "policy": {
+        "crash": "catch_unwind fails the case",
+        "timeout": "wall-clock deadline kill fails the campaign",
+        "oom": "nonzero process state fails the run"
+      },
+      "artifacts": {
+        "dir": "assurance/fuzz/fixtures/artifacts"
+      },
+      "replay": {
+        "dir": "",
+        "command": [
+          "go",
+          "version"
+        ]
+      }
+    },
+    {
+      "id": "owner-driver-command-byte-schedules",
+      "ac2_family": "owner-driver-command-byte-schedules",
+      "status": "PINNED",
+      "engine": "fixture-engine",
+      "rationale": "synthetic fixture target",
+      "entrypoints": [
+        {
+          "file": "assurance/fuzz/fixtures/src/fixture_target.rs.txt",
+          "test": "fixture_target_ok",
+          "cases": 7000,
+          "case_literal": "for case in 0..7_000u32",
+          "seed": "SplitMix64::new(0xf1x7_0001)"
+        }
+      ],
+      "corpus": {
+        "paths": [
+          "assurance/fuzz/fixtures/corpus"
+        ],
+        "file_count": 2,
+        "digest": "sha256:75285cd4791274897da5c3f6077e8672a5b10c2691df1e969433ef9a19b53bb9"
+      },
+      "campaign": {
+        "kind": "deterministic_bounded",
+        "total_cases": 7000,
+        "liveness_guard": {
+          "kind": "wall_clock",
+          "deadline_seconds": 60,
+          "note": "F005: wall clock, never a count"
+        }
+      },
+      "policy": {
+        "crash": "catch_unwind fails the case",
+        "timeout": "wall-clock deadline kill fails the campaign",
+        "oom": "nonzero process state fails the run"
+      },
+      "artifacts": {
+        "dir": "assurance/fuzz/fixtures/artifacts"
+      },
+      "replay": {
+        "dir": "",
+        "command": [
+          "go",
+          "version"
+        ]
+      }
+    }
+  ],
+  "claim": {
+    "ac2_met": false,
+    "ac3_met": false,
+    "claim_grade": "bounded",
+    "honest_state": "fixture"
+  }
+}

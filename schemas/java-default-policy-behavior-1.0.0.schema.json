@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/java-default-policy-behavior-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "promoted_jdk", "default_policy_result", "test_only_overlay", "scope", "production", "publication"],
+  "properties": {
+    "$schema": {"const": "../../schemas/java-default-policy-behavior-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "java-default-policy-behavior"},
+    "accepted_root_digest": {"$ref": "#/$defs/digest"},
+    "status": {"const": "PASS"},
+    "promoted_jdk": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "java_security_digest", "disabled_algorithms_contains"],
+      "properties": {
+        "version": {"const": "17.0.19"},
+        "java_security_digest": {"const": "sha256:ae19f494ffc23bd1a3a43e9a009f6ceabc9139c42c63d5747a602156d0a76e60"},
+        "disabled_algorithms_contains": {"type": "array", "prefixItems": [{"const": "TLS_RSA_*"}], "items": false}
+      }
+    },
+    "default_policy_result": {"$ref": "#/$defs/default-result"},
+    "test_only_overlay": {"$ref": "#/$defs/overlay"},
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["local_only", "no_secret_access", "test_only", "production_policy_modified"],
+      "properties": {"local_only": {"const": true}, "no_secret_access": {"const": true}, "test_only": {"const": true}, "production_policy_modified": {"const": false}}
+    },
+    "production": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["digest", "bytes"],
+      "properties": {"digest": {"$ref": "#/$defs/digest"}, "bytes": {"type": "integer", "minimum": 1}}
+    },
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tests", "passed", "failures", "errors", "skipped"],
+      "properties": {"tests": {"const": 4}, "passed": {"type": "integer", "minimum": 0, "maximum": 4}, "failures": {"const": 0}, "errors": {"type": "integer", "minimum": 0, "maximum": 1}, "skipped": {"const": 0}}
+    },
+    "default-result": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authoritative", "selector", "outcome", "counts", "failing_identity", "exception_class", "diagnostic", "report", "stdout"],
+      "properties": {
+        "authoritative": {"const": false},
+        "selector": {"const": "org.java_websocket.server.CustomSSLWebSocketServerFactoryTest"},
+        "outcome": {"const": "EXPECTED_PROMOTED_POLICY_FAILURE"},
+        "counts": {"allOf": [{"$ref": "#/$defs/counts"}, {"properties": {"passed": {"const": 3}, "errors": {"const": 1}}}]},
+        "failing_identity": {"const": "org.java_websocket.server.CustomSSLWebSocketServerFactoryTest#testWrapChannel"},
+        "exception_class": {"const": "javax.net.ssl.SSLHandshakeException"},
+        "diagnostic": {"const": "No appropriate protocol (protocol is disabled or cipher suites are inappropriate)"},
+        "report": {"$ref": "#/$defs/artifact"},
+        "stdout": {"$ref": "#/$defs/artifact"}
+      }
+    },
+    "overlay": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "digest", "load_mode", "removed_tokens", "other_promoted_restrictions_preserved", "assurance", "independent_review_claimed", "focused_result"],
+      "properties": {
+        "path": {"const": "evidence/java/test-only-java.security"},
+        "digest": {"const": "sha256:35115b1757d928f1aeeaed799e1d19cdf1b350d9f2071817d68caba12177808b"},
+        "load_mode": {"const": "APPEND_SINGLE_EQUALS"},
+        "removed_tokens": {"type": "array", "prefixItems": [{"const": "TLS_RSA_*"}], "items": false},
+        "other_promoted_restrictions_preserved": {"const": true},
+        "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+        "independent_review_claimed": {"const": false},
+        "focused_result": {
+          "type": "object", "additionalProperties": false,
+          "required": ["authoritative", "outcome", "counts", "report"],
+          "properties": {
+            "authoritative": {"const": false}, "outcome": {"const": "PASS"},
+            "counts": {"allOf": [{"$ref": "#/$defs/counts"}, {"properties": {"passed": {"const": 4}, "errors": {"const": 0}}}]},
+            "report": {"$ref": "#/$defs/artifact"}
+          }
+        }
+      }
+    }
+  }
+}

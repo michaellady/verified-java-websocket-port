@@ -1,0 +1,342 @@
+{
+  "disposition_coverage": {
+    "case_mapped": [
+      {
+        "disposition": "BLOCK",
+        "case_ids": [
+          "good-owner-only",
+          "bad-receipt",
+          "zero-obligation-formal",
+          "missing-evidence",
+          "cycle",
+          "dangling-edge",
+          "unreachable-evidence",
+          "digest-mismatch"
+        ]
+      },
+      {
+        "disposition": "INVALIDATE",
+        "case_ids": [
+          "stale-pin"
+        ]
+      },
+      {
+        "disposition": "QUARANTINE",
+        "case_ids": [
+          "post-review-mutation",
+          "role-conflict",
+          "cross-company-edge"
+        ]
+      },
+      {
+        "disposition": "REVOKE",
+        "case_ids": [
+          "protected-leakage-canary"
+        ]
+      }
+    ],
+    "registry_only": [
+      {
+        "disposition": "RETRY",
+        "codes": [
+          "LEASE_EXPIRED",
+          "NETWORK_DENIED",
+          "QUARANTINE_UNAVAILABLE",
+          "STORAGE_UNAVAILABLE",
+          "WORKER_INTERRUPTED"
+        ]
+      },
+      {
+        "disposition": "DEGRADE_NON_ASSURANCE",
+        "codes": [
+          "LSP_NAVIGATION_FAILURE"
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "good-owner-only",
+      "lifecycle_path": "assurance/lifecycle.json",
+      "exact_findings": true,
+      "verify_findings": [
+        {
+          "code": "INVALID_ATTESTATION",
+          "disposition": "BLOCK",
+          "count": 2
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "INVALID_ATTESTATION",
+          "disposition": "BLOCK",
+          "count": 2
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "bad-receipt",
+      "lifecycle_path": "assurance/lifecycle.json",
+      "mutation_manifest_path": "assurance/replay/fixtures/bad-receipt/mutation.json",
+      "verify_findings": [
+        {
+          "code": "INCOMPLETE_REPLAY_BUNDLE",
+          "disposition": "BLOCK"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "INCOMPLETE_REPLAY_BUNDLE",
+          "disposition": "BLOCK"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "zero-obligation-formal",
+      "lifecycle_path": "assurance/lifecycle.json",
+      "mutation_manifest_path": "assurance/replay/fixtures/zero-obligation-formal/mutation.json",
+      "verify_findings": [
+        {
+          "code": "MISSING_PROOF_OBLIGATION",
+          "disposition": "BLOCK"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "MISSING_PROOF_OBLIGATION",
+          "disposition": "BLOCK"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "missing-evidence",
+      "lifecycle_path": "assurance/lifecycle.json",
+      "mutation_manifest_path": "assurance/replay/fixtures/missing-evidence/mutation.json",
+      "verify_findings": [
+        {
+          "code": "MISSING_REQUIRED_EVIDENCE",
+          "disposition": "BLOCK",
+          "count": 4
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "MISSING_REQUIRED_EVIDENCE",
+          "disposition": "BLOCK",
+          "count": 4
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "post-review-mutation",
+      "lifecycle_path": "assurance/lifecycle.json",
+      "mutation_manifest_path": "assurance/replay/fixtures/post-review-mutation/mutation.json",
+      "verify_findings": [
+        {
+          "code": "DIGEST_MISMATCH",
+          "disposition": "QUARANTINE"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "DIGEST_MISMATCH",
+          "disposition": "QUARANTINE"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "stale-pin",
+      "lifecycle_path": "assurance/replay/fixtures/stale/lifecycle.json",
+      "verify_findings": [
+        {
+          "code": "STALE_INPUT",
+          "disposition": "INVALIDATE"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "STALE_INPUT",
+          "disposition": "INVALIDATE"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "role-conflict",
+      "lifecycle_path": "assurance/replay/fixtures/role-conflict/lifecycle.json",
+      "verify_findings": [
+        {
+          "code": "ROLE_CONFLICT",
+          "disposition": "QUARANTINE"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "ROLE_CONFLICT",
+          "disposition": "QUARANTINE"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "cross-company-edge",
+      "lifecycle_path": "assurance/replay/fixtures/cross-company/lifecycle.json",
+      "verify_findings": [
+        {
+          "code": "CROSS_COMPANY_REFERENCE",
+          "disposition": "QUARANTINE"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "CROSS_COMPANY_REFERENCE",
+          "disposition": "QUARANTINE"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "cycle",
+      "lifecycle_path": "assurance/replay/fixtures/cycle/lifecycle.json",
+      "verify_findings": [
+        {
+          "code": "CYCLIC_GRAPH",
+          "disposition": "BLOCK"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "CYCLIC_GRAPH",
+          "disposition": "BLOCK"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "dangling-edge",
+      "lifecycle_path": "assurance/lifecycle.json",
+      "mutation_manifest_path": "assurance/replay/fixtures/dangling-edge/mutation.json",
+      "verify_findings": [
+        {
+          "code": "DANGLING_EDGE",
+          "disposition": "BLOCK"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "DANGLING_EDGE",
+          "disposition": "BLOCK"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "unreachable-evidence",
+      "lifecycle_path": "assurance/lifecycle.json",
+      "mutation_manifest_path": "assurance/replay/fixtures/unreachable-evidence/mutation.json",
+      "verify_findings": [
+        {
+          "code": "DISCONNECTED_EVIDENCE",
+          "disposition": "BLOCK"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "DISCONNECTED_EVIDENCE",
+          "disposition": "BLOCK"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "digest-mismatch",
+      "lifecycle_path": "assurance/lifecycle.json",
+      "mutation_manifest_path": "assurance/replay/fixtures/digest-mismatch/mutation.json",
+      "verify_findings": [
+        {
+          "code": "CHECKPOINT_INVALID",
+          "disposition": "BLOCK"
+        },
+        {
+          "code": "EVIDENCE_NODE_BINDING_MISMATCH",
+          "disposition": "BLOCK",
+          "count": 2
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "CHECKPOINT_INVALID",
+          "disposition": "BLOCK"
+        },
+        {
+          "code": "EVIDENCE_NODE_BINDING_MISMATCH",
+          "disposition": "BLOCK",
+          "count": 2
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    },
+    {
+      "id": "protected-leakage-canary",
+      "lifecycle_path": "assurance/lifecycle.json",
+      "mutation_manifest_path": "assurance/replay/fixtures/protected-leakage-canary/mutation.json",
+      "verify_findings": [
+        {
+          "code": "PROTECTED_PUBLICATION_DISCLOSURE",
+          "disposition": "REVOKE"
+        }
+      ],
+      "replay_findings": [
+        {
+          "code": "PROTECTED_PUBLICATION_DISCLOSURE",
+          "disposition": "REVOKE"
+        }
+      ],
+      "cli": {
+        "verify_exit_code": 1,
+        "replay_exit_code": 1
+      }
+    }
+  ]
+}

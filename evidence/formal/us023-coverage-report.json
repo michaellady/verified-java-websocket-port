@@ -1,0 +1,2642 @@
+{
+  "schema_version": "1.0.0",
+  "report_id": "us023-formal-coverage",
+  "entity_type": "FormalCoverageReport",
+  "story_id": "US-023",
+  "acceptance_criterion": "US-023 AC3 — canonical machine-readable formal-coverage report over the immutable 24-obligation denominator, exposing Java coverage, Rust coverage, paired comparable coverage, production linkage, refinement coverage, bound parity, counterexample sensitivity and every blocking gap.",
+  "statement": "Formal coverage of the immutable 24-obligation catalog, derived from the artifacts this repository actually holds. Every numerator is an unweighted count of named obligations and every axis publishes both the obligations it counted and the obligations that block it, so no aggregate can hide a blocking obligation. Evidence below an obligation's required strength is a BLOCK, not a discount.",
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  },
+  "inputs": [
+    {
+      "path": "assurance/formal/obligation-catalog.json",
+      "sha256": "sha256:21112518f48443b4e20ecae537bed72b8c9e19167ad00bc6f325bff9374cdf59",
+      "git_blob": "be929320dc8f6e52a357a6124bc17fa1db197d2b"
+    },
+    {
+      "path": "assurance/formal/proof-targets.json",
+      "sha256": "sha256:0f514b0c6e01e4149c72f8df8ef2e5593edde2d0ffd01ff2fac14faef1a00a31",
+      "git_blob": "faa0be0adbcfd959a4a408889309b2d697564653"
+    },
+    {
+      "path": "evidence/java/formal-bindings/coverage-projection.json",
+      "sha256": "sha256:02a9b1302cca2b340253ff1ed1fa1fe024a45da68c01b95a85659105121460ef",
+      "git_blob": "966d353730bf653f2d005d286b1db5c619c3a63d"
+    },
+    {
+      "path": "assurance/formal/java-binding-spec.json",
+      "sha256": "sha256:468142c6d01a8c358e636f4f52aefd564c5d9854c824ece3008be67d4da7c15b",
+      "git_blob": "6071a25893977cc59bb81d327432d9799d1cd29d"
+    },
+    {
+      "path": "evidence/linkage/rust-identity-verification.json",
+      "sha256": "sha256:31a625e269c28858675302575ab3ec0b6763ca16947455ac64ea40619c730924",
+      "git_blob": "91dc655f24e34aa0a2ea5c84caaf503137d27c51"
+    },
+    {
+      "path": "assurance/formal/catalog-correction-proposal.json",
+      "sha256": "sha256:fceb6bf4fae057a4e287a367ed255a7a616256de785a8ac2c56e2d7d0a709c38",
+      "git_blob": "8be389e4d3e19da75ea6f0af146e78e1e6692a22"
+    },
+    {
+      "path": "assurance/formal/plane-correspondence.json",
+      "sha256": "sha256:ca9754be257cac97b3e04015bc7d8b025ebdafa2c6ec9ca9f7a438b36ce9acac",
+      "git_blob": "61dba8a9b073d0bcf28e6121d59b80ce4f921658"
+    },
+    {
+      "path": "assurance/formal/denominator-reconciliation.json",
+      "sha256": "sha256:0cb3326b855b0bbb916584ce9f5271c69f957f11ba7f565dbf47c0f1d671273a",
+      "git_blob": "00fe6e29d0db3e2e37d357a1caac04598d50bcfa"
+    }
+  ],
+  "denominator": {
+    "catalog_obligations": 24,
+    "proof_targets": 10,
+    "obligations_with_no_proof_target": 13,
+    "targets_named_by_no_obligation": 4,
+    "obligation_ids_with_no_proof_target": [
+      "obligation.control-fin-and-length",
+      "obligation.length-canonical-7",
+      "obligation.mask-equation",
+      "obligation.mask-involution",
+      "surface.close.status-code",
+      "surface.concurrency.command-order",
+      "surface.control.ping-pong",
+      "surface.errors.protocol-fault",
+      "surface.framing.masking",
+      "surface.handshake.client-request",
+      "surface.messages.binary",
+      "surface.messages.text-utf8",
+      "surface.websocket-open"
+    ],
+    "target_ids_named_by_no_obligation": [
+      "target.formal.concurrency.no-data-race",
+      "target.formal.connection.no-terminal-escape",
+      "target.formal.control.payload-length-bound",
+      "target.formal.messages.utf8-validation-total"
+    ],
+    "catalog_rust_binding_rows_whose_source_path_is_absent": 24,
+    "catalog_rust_binding_rows_measurable_on_this_plane": 0,
+    "plane_correspondence": {
+      "path": "assurance/formal/plane-correspondence.json",
+      "sha256": "sha256:ca9754be257cac97b3e04015bc7d8b025ebdafa2c6ec9ca9f7a438b36ce9acac",
+      "git_blob": "61dba8a9b073d0bcf28e6121d59b80ce4f921658"
+    },
+    "reconciliation": {
+      "path": "assurance/formal/denominator-reconciliation.json",
+      "sha256": "sha256:0cb3326b855b0bbb916584ce9f5271c69f957f11ba7f565dbf47c0f1d671273a",
+      "git_blob": "00fe6e29d0db3e2e37d357a1caac04598d50bcfa"
+    }
+  },
+  "axes": [
+    {
+      "axis": "java_coverage",
+      "definition": "Obligations whose JAVA-side evidence reaches the obligation's own required_strength. Java evidence below that strength is not counted here and is not counted anywhere else either.",
+      "is_coverage": true,
+      "feeds_aggregate": true,
+      "weighting": "NONE",
+      "numerator": 0,
+      "denominator": 24,
+      "counted_obligations": null,
+      "blocking_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ]
+    },
+    {
+      "axis": "rust_coverage",
+      "definition": "Obligations whose RUST-side evidence reaches required_strength, read from the immutable catalog's own evidence rows.",
+      "is_coverage": true,
+      "feeds_aggregate": true,
+      "weighting": "NONE",
+      "numerator": 0,
+      "denominator": 24,
+      "counted_obligations": null,
+      "blocking_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ]
+    },
+    {
+      "axis": "paired_comparable_coverage",
+      "definition": "Obligations where BOTH sides reach required_strength AND their declared bounds are comparable. Pairing is an intersection, so it can never exceed either side.",
+      "is_coverage": true,
+      "feeds_aggregate": true,
+      "weighting": "NONE",
+      "numerator": 0,
+      "denominator": 24,
+      "counted_obligations": null,
+      "blocking_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ]
+    },
+    {
+      "axis": "production_linkage_java",
+      "definition": "Obligations whose Java evidence is bound to one identified declaration in the digest-pinned Java source, recorded as a byte span with its own digest.",
+      "is_coverage": false,
+      "feeds_aggregate": false,
+      "weighting": "NONE",
+      "numerator": 6,
+      "denominator": 24,
+      "counted_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-7",
+        "obligation.preallocation-cap",
+        "surface.close.status-code",
+        "surface.fragmentation.continuation"
+      ],
+      "blocking_obligations": [
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ],
+      "note": "NOT COVERAGE. Production linkage says an obligation is attached to identified shipped code; it says nothing about the strength of the evidence at the other end of that attachment. This numerator is non-zero while java_coverage is zero, and the two must never be conflated."
+    },
+    {
+      "axis": "production_linkage_rust",
+      "definition": "Obligations whose Rust evidence is bound to a RESOLVER-VERIFIED shipped Rust symbol.",
+      "is_coverage": false,
+      "feeds_aggregate": false,
+      "weighting": "NONE",
+      "numerator": 0,
+      "denominator": 24,
+      "counted_obligations": null,
+      "blocking_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ],
+      "note": "NOT COVERAGE, and zero. No Rust identity in this repository is resolver-verified; see resolver_ceiling."
+    },
+    {
+      "axis": "refinement_coverage",
+      "definition": "Obligations with a CONNECTED refinement link between the model subject and the shipped symbol.",
+      "is_coverage": true,
+      "feeds_aggregate": true,
+      "weighting": "NONE",
+      "numerator": 0,
+      "denominator": 24,
+      "counted_obligations": null,
+      "blocking_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ]
+    },
+    {
+      "axis": "bound_parity",
+      "definition": "Obligations where both sides declare bounds, so that the two sides' results are quoted under comparable assumptions.",
+      "is_coverage": false,
+      "feeds_aggregate": false,
+      "weighting": "NONE",
+      "numerator": 0,
+      "denominator": 24,
+      "counted_obligations": null,
+      "blocking_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ],
+      "note": "NOT COVERAGE. Bound parity is a precondition for comparing two sides, not a measure of either."
+    },
+    {
+      "axis": "counterexample_sensitivity_java",
+      "definition": "Obligations for which at least one obligation-specific Java canary, placed inside the bound declaration's own span, flipped a predicate that held on the baseline.",
+      "is_coverage": false,
+      "feeds_aggregate": false,
+      "weighting": "NONE",
+      "numerator": 6,
+      "denominator": 24,
+      "counted_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-7",
+        "obligation.preallocation-cap",
+        "surface.close.status-code",
+        "surface.fragmentation.continuation"
+      ],
+      "blocking_obligations": [
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ],
+      "note": "NOT COVERAGE. This counts attribution, not satisfaction: an obligation can be mutation-sensitive and still PARTIAL or DISCONNECTED."
+    },
+    {
+      "axis": "counterexample_sensitivity_rust",
+      "definition": "Obligations for which at least one OBLIGATION-SPECIFIC Rust mutant was killed. Mutants recorded as RETAINED_KILLED_DIFFERENT_SUBJECT are deliberately NOT counted: a mutant killed by some other obligation's evidence is not sensitivity for this one.",
+      "is_coverage": false,
+      "feeds_aggregate": false,
+      "weighting": "NONE",
+      "numerator": 0,
+      "denominator": 24,
+      "counted_obligations": null,
+      "blocking_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ],
+      "note": "NOT COVERAGE, and zero. All 24 catalog mutation dispositions read RETAINED_KILLED_DIFFERENT_SUBJECT."
+    },
+    {
+      "axis": "aggregate",
+      "definition": "Obligations satisfying EVERY coverage axis at required strength simultaneously. Derived as the intersection of the coverage axes' member sets, never as a weighted sum of their numerators.",
+      "is_coverage": true,
+      "feeds_aggregate": false,
+      "weighting": "NONE",
+      "numerator": 0,
+      "denominator": 24,
+      "counted_obligations": null,
+      "blocking_obligations": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ]
+    }
+  ],
+  "obligations": [
+    {
+      "obligation_id": "obligation.checked-header-arithmetic",
+      "statement": "Header and payload arithmetic is checked before allocation.",
+      "surface_ids": [
+        "surface.limits.allocation"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/translateSingleFrame.java",
+        "method": "EXECUTED_OBSERVATION_OF_THE_PINNED_RUNTIME",
+        "execution_state": "EXECUTED",
+        "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+        "meets_required_strength": false,
+        "production_linkage": "BOUND_TO_A_DIGESTED_DECLARATION_SPAN_IN_THE_PINNED_SOURCE",
+        "linkage_detail": "org/java_websocket/drafts/Draft_6455.java span sha256:a469fed7be335c3cf9553721d4e09de8d5ee3de55418fea5c1b135e47ac5b1e9, descriptor agreement RETURN_DIVERGENT, binding state CONNECTED",
+        "bounds_declared": true,
+        "bounds_description": "per-scenario execution limits, not a per-obligation bound: s.header.declared-exceeds-available{input\u003c=1048576,buffered\u003c=1048576,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304}",
+        "counterexample_sensitivity": "OBLIGATION_SPECIFIC_CANARY_KILLED_INSIDE_THE_BOUND_SPAN"
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/decode.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.control-fin-and-length",
+      "statement": "Control frames are final and have payload length at most 125.",
+      "surface_ids": [
+        "surface.control.ping-pong"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.framing.ControlFrame.isValid()V",
+        "catalog_source_path": "upstream-java/org/java_websocket/framing/ControlFrame/isValid.java",
+        "method": "EXECUTED_OBSERVATION_OF_THE_PINNED_RUNTIME",
+        "execution_state": "EXECUTED",
+        "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+        "meets_required_strength": false,
+        "production_linkage": "BOUND_TO_A_DIGESTED_DECLARATION_SPAN_IN_THE_PINNED_SOURCE",
+        "linkage_detail": "org/java_websocket/framing/ControlFrame.java span sha256:a6e0bfe618ff469d6ea94c761d01b6c63c40a5fadc9043cd0093f42408a2592d, descriptor agreement EXACT, binding state PARTIAL",
+        "bounds_declared": true,
+        "bounds_description": "per-scenario execution limits, not a per-obligation bound: s.control.fin-clear-ping{input\u003c=1048576,buffered\u003c=1048576,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304} s.control.oversized-ping{input\u003c=1048576,buffered\u003c=1048576,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304}",
+        "counterexample_sensitivity": "OBLIGATION_SPECIFIC_CANARY_KILLED_INSIDE_THE_BOUND_SPAN",
+        "notes": [
+          "PARTIAL: 1 of 2 clauses satisfied; a partial binding is never folded into a coverage numerator"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/decode.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant control-length-admission-disabled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT",
+      "proof_target_ids": null,
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-16",
+      "statement": "The 16-bit length form is canonical.",
+      "surface_ids": [
+        "surface.framing.frame-octets"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/translateSingleFrame.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/decode.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-64-high-bit-zero",
+      "statement": "The 64-bit length form is canonical and has a clear high bit.",
+      "surface_ids": [
+        "surface.framing.frame-octets"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/translateSingleFrame.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/decode.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-7",
+      "statement": "Payload lengths through 125 use the seven-bit form.",
+      "surface_ids": [
+        "surface.framing.frame-octets"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.createBinaryFrame(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/createBinaryFrame.java",
+        "method": "EXECUTED_OBSERVATION_OF_THE_PINNED_RUNTIME",
+        "execution_state": "EXECUTED",
+        "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+        "meets_required_strength": false,
+        "production_linkage": "BOUND_TO_A_DIGESTED_DECLARATION_SPAN_IN_THE_PINNED_SOURCE",
+        "linkage_detail": "org/java_websocket/drafts/Draft_6455.java span sha256:88f6107a15c4e472931667184ea8fd946721951827a7a7f20bccc1733d0dd8b0, descriptor agreement EXACT, binding state CONNECTED",
+        "bounds_declared": true,
+        "bounds_description": "per-scenario execution limits, not a per-obligation bound: s.emit.length-forms{input\u003c=1048576,buffered\u003c=1048576,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304}",
+        "counterexample_sensitivity": "OBLIGATION_SPECIFIC_CANARY_KILLED_INSIDE_THE_BOUND_SPAN"
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/decode.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT",
+      "proof_target_ids": null,
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.mask-equation",
+      "statement": "Masking applies RFC 6455 XOR at the correct offset.",
+      "surface_ids": [
+        "surface.framing.masking"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+        "catalog_source_path": "upstream-java/org/java_websocket/util/Charsetfunctions/utf8Bytes.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason CATALOG_SYMBOL_SCOPE_MISMATCH",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason CATALOG_SYMBOL_SCOPE_MISMATCH"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::mask::apply_mask_in_place",
+        "catalog_source_path": "rust/connection-core/src/frame/mask.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/mask.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "catalog_correction_proposal_id": "correction.mask-equation",
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.mask-involution",
+      "statement": "Applying the same mask twice restores the input.",
+      "surface_ids": [
+        "surface.framing.masking"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+        "catalog_source_path": "upstream-java/org/java_websocket/util/Charsetfunctions/utf8Bytes.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason CATALOG_SYMBOL_SCOPE_MISMATCH",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason CATALOG_SYMBOL_SCOPE_MISMATCH"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::mask::apply_mask_in_place",
+        "catalog_source_path": "rust/connection-core/src/frame/mask.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/mask.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "catalog_correction_proposal_id": "correction.mask-involution",
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.preallocation-cap",
+      "statement": "Configured caps are enforced before payload allocation.",
+      "surface_ids": [
+        "surface.limits.allocation"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/translateSingleFrame.java",
+        "method": "EXECUTED_OBSERVATION_OF_THE_PINNED_RUNTIME",
+        "execution_state": "EXECUTED",
+        "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+        "meets_required_strength": false,
+        "production_linkage": "BOUND_TO_A_DIGESTED_DECLARATION_SPAN_IN_THE_PINNED_SOURCE",
+        "linkage_detail": "org/java_websocket/drafts/Draft_6455.java span sha256:a469fed7be335c3cf9553721d4e09de8d5ee3de55418fea5c1b135e47ac5b1e9, descriptor agreement RETURN_DIVERGENT, binding state CONNECTED",
+        "bounds_declared": true,
+        "bounds_description": "per-scenario execution limits, not a per-obligation bound: s.limits.cap-exceeded-16{input\u003c=1048576,buffered\u003c=200,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304}",
+        "counterexample_sensitivity": "OBLIGATION_SPECIFIC_CANARY_KILLED_INSIDE_THE_BOUND_SPAN"
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/decode.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant close-payload-limit-disabled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.role-masking",
+      "statement": "Inbound masking is enforced by endpoint role.",
+      "surface_ids": [
+        "surface.framing.masking"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/translateSingleFrame.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/decode.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.adapter.byte-stream",
+      "statement": "The adapter transports bytes without protocol duplication.",
+      "surface_ids": [
+        "surface.adapter.byte-stream"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.WebSocketImpl.decode(Ljava/nio/ByteBuffer;)V",
+        "catalog_source_path": "upstream-java/org/java_websocket/WebSocketImpl/decode.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason NOT_ATTEMPTED_THIS_ROUND",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason NOT_ATTEMPTED_THIS_ROUND"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_driver::ConnectionOwner::poll",
+        "catalog_source_path": "rust/websocket-driver/src/lib.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/websocket-driver/src/lib.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_driver (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant terminal-state-guard-disabled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": [
+        "target.formal.adapter.no-protocol-logic"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.close.status-code",
+      "statement": "Close status codes and reasons are validated.",
+      "surface_ids": [
+        "surface.close.status-code"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.framing.CloseFrame.isValid()V",
+        "catalog_source_path": "upstream-java/org/java_websocket/framing/CloseFrame/isValid.java",
+        "method": "EXECUTED_OBSERVATION_OF_THE_PINNED_RUNTIME",
+        "execution_state": "EXECUTED",
+        "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+        "meets_required_strength": false,
+        "production_linkage": "BOUND_TO_A_DIGESTED_DECLARATION_SPAN_IN_THE_PINNED_SOURCE",
+        "linkage_detail": "org/java_websocket/framing/CloseFrame.java span sha256:7c2fe210b9c68584f006d6ba66c08dd7e0ef7680e63399d1c2c7b29b43616914, descriptor agreement EXACT, binding state PARTIAL",
+        "bounds_declared": true,
+        "bounds_description": "per-scenario execution limits, not a per-obligation bound: s.close.invalid-utf8-reason{input\u003c=1048576,buffered\u003c=1048576,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304} s.close.unsendable-code-1006{input\u003c=1048576,buffered\u003c=1048576,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304} s.close.valid-code-1000{input\u003c=1048576,buffered\u003c=1048576,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304}",
+        "counterexample_sensitivity": "OBLIGATION_SPECIFIC_CANARY_KILLED_INSIDE_THE_BOUND_SPAN",
+        "notes": [
+          "PARTIAL: 2 of 3 clauses satisfied; a partial binding is never folded into a coverage numerator"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant close-payload-limit-disabled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT",
+      "proof_target_ids": null,
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.close.terminal-state",
+      "statement": "Terminal close state is absorbing.",
+      "surface_ids": [
+        "surface.close.terminal-state"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.WebSocketImpl.closeConnection(ILjava/lang/String;Z)V",
+        "catalog_source_path": "upstream-java/org/java_websocket/WebSocketImpl/closeConnection.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason NOT_ATTEMPTED_THIS_ROUND",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason NOT_ATTEMPTED_THIS_ROUND"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant terminal-state-guard-disabled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": [
+        "target.formal.close.terminal-absorbing"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.concurrency.command-order",
+      "statement": "Concurrent commands have one serialized owner order.",
+      "surface_ids": [
+        "surface.concurrency.command-order"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.WebSocketImpl.sendFrame(Ljava/util/Collection;)V",
+        "catalog_source_path": "upstream-java/org/java_websocket/WebSocketImpl/sendFrame.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason NOT_OBSERVABLE_THROUGH_ADAPTER",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason NOT_OBSERVABLE_THROUGH_ADAPTER"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_driver::ConnectionOwner::poll",
+        "catalog_source_path": "rust/websocket-driver/src/lib.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/websocket-driver/src/lib.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_driver (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant terminal-state-guard-disabled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.control.ping-pong",
+      "statement": "Ping and pong control behavior preserves payloads and bounds.",
+      "surface_ids": [
+        "surface.control.ping-pong"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.WebSocketAdapter.onWebsocketPing(Lorg/java_websocket/WebSocket;Lorg/java_websocket/framing/Framedata;)V",
+        "catalog_source_path": "upstream-java/org/java_websocket/WebSocketAdapter/onWebsocketPing.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant control-length-admission-disabled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "catalog_correction_proposal_id": "correction.control-ping-pong",
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.errors.protocol-fault",
+      "statement": "Protocol faults remain typed and fail closed.",
+      "surface_ids": [
+        "surface.errors.protocol-fault"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.exceptions.InvalidDataException",
+        "catalog_source_path": "upstream-java/org/java_websocket/exceptions/InvalidDataException.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason CATALOG_SYMBOL_SCOPE_MISMATCH",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason CATALOG_SYMBOL_SCOPE_MISMATCH"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::FailureKind",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.fragmentation.continuation",
+      "statement": "Continuation fragments are admitted and assembled in order.",
+      "surface_ids": [
+        "surface.fragmentation.continuation"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.processFrameContinuousAndNonFin(Lorg/java_websocket/framing/Framedata;Lorg/java_websocket/WebSocketImpl;)V",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/processFrameContinuousAndNonFin.java",
+        "method": "EXECUTED_OBSERVATION_OF_THE_PINNED_RUNTIME",
+        "execution_state": "EXECUTED",
+        "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+        "meets_required_strength": false,
+        "production_linkage": "BOUND_TO_A_DIGESTED_DECLARATION_SPAN_IN_THE_PINNED_SOURCE",
+        "linkage_detail": "org/java_websocket/drafts/Draft_6455.java span sha256:e6ab6ac19cf6e95cadbb5dacf8f9cf004145ec4c6c38d9c7b6afe674bcae2170, descriptor agreement PARAMETERS_DIVERGENT, binding state CONNECTED",
+        "bounds_declared": true,
+        "bounds_description": "per-scenario execution limits, not a per-obligation bound: s.fragment.orphan-continuation{input\u003c=1048576,buffered\u003c=1048576,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304} s.fragment.text-ordered{input\u003c=1048576,buffered\u003c=1048576,actions\u003c=1024,frames\u003c=4096,output\u003c=4194304}",
+        "counterexample_sensitivity": "OBLIGATION_SPECIFIC_CANARY_KILLED_INSIDE_THE_BOUND_SPAN"
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant unexpected-continuation-accepted: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "ONE_SIDE_DECLARES_A_BOUND_AND_THE_OTHER_DOES_NOT",
+      "proof_target_ids": [
+        "target.formal.fragmentation.no-unbounded-growth"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.framing.frame-octets",
+      "statement": "Frame octets are parsed and emitted canonically.",
+      "surface_ids": [
+        "surface.framing.frame-octets"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/translateSingleFrame.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason NOT_ATTEMPTED_THIS_ROUND",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason NOT_ATTEMPTED_THIS_ROUND"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/decode.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.framing.masking",
+      "statement": "Masking uses the RFC 6455 transform and role rules.",
+      "surface_ids": [
+        "surface.framing.masking"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.createBinaryFrame(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/createBinaryFrame.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason NOT_OBSERVABLE_THROUGH_ADAPTER",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason NOT_OBSERVABLE_THROUGH_ADAPTER"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::mask::apply_mask_in_place",
+        "catalog_source_path": "rust/connection-core/src/frame/mask.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/mask.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.handshake.client-request",
+      "statement": "Client opening requests follow RFC 6455.",
+      "surface_ids": [
+        "surface.handshake.client-request"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.WebSocketImpl.startHandshake(Lorg/java_websocket/handshake/ClientHandshakeBuilder;)V",
+        "catalog_source_path": "upstream-java/org/java_websocket/WebSocketImpl/startHandshake.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.handshake.server-response",
+      "statement": "Server opening responses follow RFC 6455.",
+      "surface_ids": [
+        "surface.handshake.server-response"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.postProcessHandshakeResponseAsServer(Lorg/java_websocket/handshake/ClientHandshake;Lorg/java_websocket/handshake/ServerHandshakeBuilder;)Lorg/java_websocket/handshake/HandshakeBuilder;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/postProcessHandshakeResponseAsServer.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason NOT_ATTEMPTED_THIS_ROUND",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason NOT_ATTEMPTED_THIS_ROUND"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": [
+        "target.formal.handshake.accept-derivation"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.limits.allocation",
+      "statement": "Allocation limits are enforced before retaining payload bytes.",
+      "surface_ids": [
+        "surface.limits.allocation"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+        "catalog_source_path": "upstream-java/org/java_websocket/drafts/Draft_6455/translateSingleFrame.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason NOT_ATTEMPTED_THIS_ROUND",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason NOT_ATTEMPTED_THIS_ROUND"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/frame/decode.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant close-payload-limit-disabled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": [
+        "target.formal.framing.allocation-limit",
+        "target.formal.framing.length-bounds"
+      ],
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.messages.binary",
+      "statement": "Binary message payloads are delivered exactly.",
+      "surface_ids": [
+        "surface.messages.binary"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/nio/ByteBuffer;)V",
+        "catalog_source_path": "upstream-java/org/java_websocket/WebSocketListener/onWebsocketMessage.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant fragment-buffer-not-drained: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "catalog_correction_proposal_id": "correction.messages-binary",
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.messages.text-utf8",
+      "statement": "Text messages accept exactly valid UTF-8.",
+      "surface_ids": [
+        "surface.messages.text-utf8"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/lang/String;)V",
+        "catalog_source_path": "upstream-java/org/java_websocket/WebSocketListener/onWebsocketMessage.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "catalog_correction_proposal_id": "correction.messages-text-utf8",
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.websocket-open",
+      "statement": "The declared WebSocket opening seam enters the shipped connection core.",
+      "surface_ids": [
+        "surface.websocket-open"
+      ],
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "allowed_methods": [
+        "BOUNDED_MODEL",
+        "KANI",
+        "TLA_PLUS"
+      ],
+      "java": {
+        "catalog_production_symbol": "org.java_websocket.server.WebSocketServer",
+        "catalog_source_path": "upstream-java/org/java_websocket/server/WebSocketServer.java",
+        "method": "NOT_OBSERVED",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "binding state DISCONNECTED, reason NOT_OBSERVABLE_THROUGH_ADAPTER",
+        "bounds_declared": false,
+        "bounds_description": "no executed scenario, so no bound is declared",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "unbound reason NOT_OBSERVABLE_THROUGH_ADAPTER"
+        ]
+      },
+      "rust": {
+        "catalog_production_symbol": "websocket_core::ConnectionCore::step",
+        "catalog_source_path": "rust/connection-core/src/connection.rs",
+        "method": "KANI",
+        "execution_state": "NOT_EXECUTED",
+        "observed_strength": "NONE",
+        "meets_required_strength": false,
+        "production_linkage": "NOT_BOUND",
+        "linkage_detail": "catalog connection state DISCONNECTED; declared source path rust/connection-core/src/connection.rs (SOURCE_PATH_ABSENT_FROM_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); namespace root websocket_core (NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE, correspondence SHARED_ANCESTRY_ONLY); tool kani unavailable",
+        "bounds_declared": false,
+        "bounds_description": "catalog-declared bounds max_frame_bytes=null max_steps=null",
+        "counterexample_sensitivity": "NONE",
+        "notes": [
+          "mutant invalid-frame-rejection-relabeled: RETAINED_KILLED_DIFFERENT_SUBJECT"
+        ]
+      },
+      "refinement_state": "DISCONNECTED",
+      "bound_parity": "NEITHER_SIDE_DECLARES_A_BOUND",
+      "proof_target_ids": null,
+      "blocking": true,
+      "blocking_reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    }
+  ],
+  "blocking_gaps": [
+    {
+      "obligation_id": "obligation.checked-header-arithmetic",
+      "statement": "Header and payload arithmetic is checked before allocation.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.control-fin-and-length",
+      "statement": "Control frames are final and have payload length at most 125.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-16",
+      "statement": "The 16-bit length form is canonical.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-64-high-bit-zero",
+      "statement": "The 64-bit length form is canonical and has a clear high bit.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-7",
+      "statement": "Payload lengths through 125 use the seven-bit form.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.mask-equation",
+      "statement": "Masking applies RFC 6455 XOR at the correct offset.",
+      "reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.mask-involution",
+      "statement": "Applying the same mask twice restores the input.",
+      "reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.preallocation-cap",
+      "statement": "Configured caps are enforced before payload allocation.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "obligation.role-masking",
+      "statement": "Inbound masking is enforced by endpoint role.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.adapter.byte-stream",
+      "statement": "The adapter transports bytes without protocol duplication.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.close.status-code",
+      "statement": "Close status codes and reasons are validated.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.close.terminal-state",
+      "statement": "Terminal close state is absorbing.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.concurrency.command-order",
+      "statement": "Concurrent commands have one serialized owner order.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.control.ping-pong",
+      "statement": "Ping and pong control behavior preserves payloads and bounds.",
+      "reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.errors.protocol-fault",
+      "statement": "Protocol faults remain typed and fail closed.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.fragmentation.continuation",
+      "statement": "Continuation fragments are admitted and assembled in order.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.framing.frame-octets",
+      "statement": "Frame octets are parsed and emitted canonically.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.framing.masking",
+      "statement": "Masking uses the RFC 6455 transform and role rules.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.handshake.client-request",
+      "statement": "Client opening requests follow RFC 6455.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.handshake.server-response",
+      "statement": "Server opening responses follow RFC 6455.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.limits.allocation",
+      "statement": "Allocation limits are enforced before retaining payload bytes.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.messages.binary",
+      "statement": "Binary message payloads are delivered exactly.",
+      "reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.messages.text-utf8",
+      "statement": "Text messages accept exactly valid UTF-8.",
+      "reasons": [
+        "CATALOG_DECLARES_A_JAVA_SYMBOL_THAT_CANNOT_CARRY_THE_OBLIGATION",
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    },
+    {
+      "obligation_id": "surface.websocket-open",
+      "statement": "The declared WebSocket opening seam enters the shipped connection core.",
+      "reasons": [
+        "CATALOG_IS_ABOUT_ANOTHER_PLANE_AND_NO_CORRESPONDENCE_TO_THIS_ONE_IS_ESTABLISHED",
+        "CATALOG_RUST_NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+        "CATALOG_RUST_SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+        "DECLARED_BOUNDS_ARE_NOT_COMPARABLE",
+        "JAVA_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "JAVA_SIDE_NOT_BOUND_TO_AN_IDENTIFIED_DECLARATION",
+        "NO_KILLED_OBLIGATION_SPECIFIC_JAVA_CANARY",
+        "NO_OBLIGATION_SPECIFIC_RUST_COUNTEREXAMPLE_OR_MUTANT",
+        "OBLIGATION_MAPS_ONTO_NO_PLANNED_PROOF_TARGET",
+        "REFINEMENT_LINK_DISCONNECTED",
+        "RUST_EVIDENCE_BELOW_REQUIRED_STRENGTH",
+        "RUST_EVIDENCE_NOT_EXECUTED",
+        "RUST_SIDE_NOT_BOUND_TO_A_RESOLVER_VERIFIED_SHIPPED_SYMBOL"
+      ]
+    }
+  ],
+  "no_hiding_rule": "No weighted aggregate may hide a blocking obligation. Enforced three ways at once: no axis applies any weight (every axis declares weighting NONE and is derived as a count of rows); every axis publishes its counted and its blocking obligations by name, so a numerator can be checked against a list rather than trusted; and the aggregate is derived as the INTERSECTION of the coverage axes' member sets, so it is bounded above by the weakest axis and cannot be lifted by a strong one. The invariants below are recomputed on every derivation and a violated invariant refuses the report rather than annotating it.",
+  "no_hiding_invariants": [
+    {
+      "id": "NH1",
+      "statement": "Every axis numerator equals the length of the obligation list it publishes.",
+      "holds": true
+    },
+    {
+      "id": "NH2",
+      "statement": "On every axis the counted and the blocking obligations partition the fixed denominator of 24 exactly once each.",
+      "holds": true
+    },
+    {
+      "id": "NH3",
+      "statement": "No axis counts an obligation it also reports as blocking.",
+      "holds": true
+    },
+    {
+      "id": "NH4",
+      "statement": "The aggregate is bounded above by every coverage axis and its members are a subset of every coverage axis's members, so it is an intersection and not a weighted sum.",
+      "holds": true
+    },
+    {
+      "id": "NH5",
+      "statement": "No axis applies any weight; every numerator is an unweighted count of obligations.",
+      "holds": true
+    },
+    {
+      "id": "NH6",
+      "statement": "Every blocking obligation appears in blocking_gaps with at least one named reason, and blocking_gaps names nothing else.",
+      "holds": true
+    },
+    {
+      "id": "NH7",
+      "statement": "Any obligation whose evidence is below its required strength on either side is blocking.",
+      "holds": true
+    },
+    {
+      "id": "NH8",
+      "statement": "The freeze verdict is BLOCKED exactly when at least one obligation blocks, and it names every blocking obligation.",
+      "holds": true
+    },
+    {
+      "id": "NH9",
+      "statement": "No axis that is not coverage feeds the aggregate, and any non-zero non-coverage numerator states in the artifact that it is not coverage.",
+      "holds": true
+    },
+    {
+      "id": "NH10",
+      "statement": "The report holds exactly 24 rows over 24 distinct obligations.",
+      "holds": true
+    },
+    {
+      "id": "NH11",
+      "statement": "While the proof-target plan records no resolver verification, the Rust production-linkage numerator, the resolver-verified planned-symbol count and the verified migration-binding count are all zero.",
+      "holds": true
+    }
+  ],
+  "resolver_ceiling": {
+    "proof_target_resolver_state": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED",
+    "planned_resolver": "rust-analyzer",
+    "resolver_verified_at": "null",
+    "planned_production_symbols": 21,
+    "planned_symbols_resolver_verified": 0,
+    "migration_bindings": 98,
+    "migration_bindings_rust_identity_verified": 0,
+    "strongest_linkage_overlay": "evidence/linkage/rust-identity-verification.json",
+    "strongest_linkage_overlay_method": "deterministic declaration scan (internal/linkage resolveSymbol)",
+    "strongest_linkage_overlay_strength": "declaration-scan (reviewed-glancer class), not rust-analyzer semantic resolution",
+    "overlay_rows_total": 47,
+    "overlay_rows_verified": 45,
+    "obligations_bound_to_a_resolver_verified_rust_symbol": 0,
+    "denominator": 24,
+    "statement": "NO formal obligation in this repository binds to a resolver-verified shipped Rust symbol: 0 of 24. The proof-target plan reads RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED with planned_resolver rust-analyzer and resolver_verified_at null; all 21 planned production symbols are PLANNED_PENDING_RESOLVER with resolved_symbol null, and all 98 migration bindings read rust_identity_verified=false. The strongest linkage evidence this repository holds, evidence/linkage/rust-identity-verification.json, resolves 45 of 47 rows by deterministic declaration scan (internal/linkage resolveSymbol) and labels its own strength \"declaration-scan (reviewed-glancer class), not rust-analyzer semantic resolution\". That overlay and the plan do not contradict each other and neither overstates itself; the ceiling is the CONJUNCTION of what they honestly say. Every claim that formal evidence here reaches shipped Rust code therefore rests on a declaration scan, not on semantic resolution, and no coverage percentage in this report may be read as implying otherwise."
+  },
+  "catalog_denominator_defects": [
+    {
+      "obligation_id": "obligation.mask-equation",
+      "side": "JAVA",
+      "defect_class": "CATALOG_SYMBOL_SCOPE_MISMATCH",
+      "detail": "The declared symbol converts a String to its UTF-8 bytes. Nothing in its 93-byte span implements, guards, or is reached by the RFC 6455 masking transform. A masking witness attached to this symbol would be a false attribution, not a weak one.",
+      "correction_proposal_id": "correction.mask-equation"
+    },
+    {
+      "obligation_id": "obligation.mask-involution",
+      "side": "JAVA",
+      "defect_class": "CATALOG_SYMBOL_SCOPE_MISMATCH",
+      "detail": "Identical scope mismatch to obligation.mask-equation: the catalog gives both masking obligations the same UTF-8 encoding helper.",
+      "correction_proposal_id": "correction.mask-involution"
+    },
+    {
+      "obligation_id": "surface.control.ping-pong",
+      "side": "JAVA",
+      "defect_class": "CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH",
+      "detail": "The declaration is real and does implement the automatic pong, but it is dead under this laboratory's own adapter. java-oracle/src/main/java/OracleEngine.java line 777 declares `OracleListener extends WebSocketAdapter`, and lines 800-803 override `onWebsocketPing` with `addControl(\"ping\", frame);` and no `super` call. Line 85 is therefore never executed by any retained observation, so no observation can be attributed to it and no mutation canary inside its span can be killed.",
+      "correction_proposal_id": "correction.control-ping-pong"
+    },
+    {
+      "obligation_id": "surface.messages.binary",
+      "side": "JAVA",
+      "defect_class": "INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE",
+      "detail": "Two independent defects in one declaration. There is no implementation site to bind to and no unambiguous key to name it by. Neither is repairable by choosing a better descriptor for the same member.",
+      "correction_proposal_id": "correction.messages-binary"
+    },
+    {
+      "obligation_id": "surface.messages.text-utf8",
+      "side": "JAVA",
+      "defect_class": "INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE",
+      "detail": "Same two defects as surface.messages.binary, on the sibling overload. A body-less declaration also cannot decide UTF-8 validity: by the time this method is reached the String already exists, so whatever rejected invalid input did so somewhere else.",
+      "correction_proposal_id": "correction.messages-text-utf8"
+    }
+  ],
+  "plane_mismatches": [
+    {
+      "obligation_count": 10,
+      "catalog_source_path": "rust/connection-core/src/connection.rs",
+      "catalog_namespace": "websocket_core",
+      "path_state_on_this_plane": "SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+      "namespace_state_on_this_plane": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+      "path_correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "namespace_correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "detail": "the catalog names \"rust/connection-core/src/connection.rs\" in namespace \"websocket_core\"; this plane ships the crate namespaces autobahn_controls, candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence SHARED_ANCESTRY_ONLY, namespace correspondence SHARED_ANCESTRY_ONLY. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 10 obligations are not measurable here."
+    },
+    {
+      "obligation_count": 9,
+      "catalog_source_path": "rust/connection-core/src/frame/decode.rs",
+      "catalog_namespace": "websocket_core",
+      "path_state_on_this_plane": "SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+      "namespace_state_on_this_plane": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+      "path_correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "namespace_correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "detail": "the catalog names \"rust/connection-core/src/frame/decode.rs\" in namespace \"websocket_core\"; this plane ships the crate namespaces autobahn_controls, candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION, namespace correspondence SHARED_ANCESTRY_ONLY. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 9 obligations are not measurable here."
+    },
+    {
+      "obligation_count": 3,
+      "catalog_source_path": "rust/connection-core/src/frame/mask.rs",
+      "catalog_namespace": "websocket_core",
+      "path_state_on_this_plane": "SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+      "namespace_state_on_this_plane": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+      "path_correspondence_state": "NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE",
+      "namespace_correspondence_state": "SHARED_ANCESTRY_ONLY",
+      "detail": "the catalog names \"rust/connection-core/src/frame/mask.rs\" in namespace \"websocket_core\"; this plane ships the crate namespaces autobahn_controls, candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE, namespace correspondence SHARED_ANCESTRY_ONLY. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 3 obligations are not measurable here."
+    },
+    {
+      "obligation_count": 2,
+      "catalog_source_path": "rust/websocket-driver/src/lib.rs",
+      "catalog_namespace": "websocket_driver",
+      "path_state_on_this_plane": "SOURCE_PATH_ABSENT_FROM_THIS_PLANE",
+      "namespace_state_on_this_plane": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
+      "path_correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "namespace_correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
+      "detail": "the catalog names \"rust/websocket-driver/src/lib.rs\" in namespace \"websocket_driver\"; this plane ships the crate namespaces autobahn_controls, candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION, namespace correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 2 obligations are not measurable here."
+    }
+  ],
+  "freeze": {
+    "verdict": "BLOCKED",
+    "blocking_obligations": 24,
+    "denominator": 24,
+    "rule": "US-023 AC3: evidence below the obligation's required strength blocks the freeze. The freeze is BLOCKED while any obligation is blocking, regardless of any aggregate.",
+    "blocking_obligation_ids": [
+      "obligation.checked-header-arithmetic",
+      "obligation.control-fin-and-length",
+      "obligation.length-canonical-16",
+      "obligation.length-canonical-64-high-bit-zero",
+      "obligation.length-canonical-7",
+      "obligation.mask-equation",
+      "obligation.mask-involution",
+      "obligation.preallocation-cap",
+      "obligation.role-masking",
+      "surface.adapter.byte-stream",
+      "surface.close.status-code",
+      "surface.close.terminal-state",
+      "surface.concurrency.command-order",
+      "surface.control.ping-pong",
+      "surface.errors.protocol-fault",
+      "surface.fragmentation.continuation",
+      "surface.framing.frame-octets",
+      "surface.framing.masking",
+      "surface.handshake.client-request",
+      "surface.handshake.server-response",
+      "surface.limits.allocation",
+      "surface.messages.binary",
+      "surface.messages.text-utf8",
+      "surface.websocket-open"
+    ]
+  },
+  "not_claims": [
+    "No number in this report is a proof. Nothing here proves anything about Java-WebSocket 1.6.0 or about the shipped Rust; the report measures what evidence exists and at what strength.",
+    "Non-zero numerators on the production-linkage and counterexample-sensitivity axes are NOT coverage and are labelled so in the artifact. Coverage is java_coverage, rust_coverage, paired_comparable_coverage, refinement_coverage and aggregate, and all five are zero.",
+    "The six Java production-linkage rows are span digests QUOTED from evidence/java/formal-bindings/receipt.json. In the default lane those spans are provenance recorded in that receipt, not recomputed from the pinned Java tree; only the javabinde2e lane recomputes them. This report inherits that bound and does not close it.",
+    "The denominator is defective on its JAVA side: five obligations declare Java symbols that cannot carry them, all 24 java_bindings share one whole-archive source_sha256 so the column distinguishes no two obligations by content, and its 15 distinct source_path values are synthesised paths that treat a METHOD as a file and exist on NEITHER plane. That finding is plane-independent and is listed rather than corrected here.",
+    "The denominator is NOT defective on its Rust side, and an earlier version of this report said it was. All four of its distinct Rust source paths and both of its namespaces resolve on the plane the catalog is vendored from; they resolve here to nothing because they are about another tree. That is a plane mismatch, published in plane_mismatches with the correspondence evidence, and it is a question for the owner rather than a repair to the catalog.",
+    "Because no plane correspondence is established, the Rust column of this report is not a measurement of this plane's crates at all. Its zeroes are honest and they are also not about ws_core and ws_driver; they are about a document whose subject this plane has not been shown to be.",
+    "This report is owner-executed on a single host. assurance is OWNER_ATTESTED_NOT_INDEPENDENT and independent_review_claimed is false."
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "security-sandbox-policy-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scope",
+    "operations",
+    "canary_ids",
+    "required_capabilities",
+    "environment_names",
+    "secrets",
+    "network",
+    "resources",
+    "autobahn_disposition",
+    "further_reruns_authorized",
+    "fixture_bindings",
+    "finding_registry"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "operations": {
+      "$ref": "#/$defs/nonemptyUnique"
+    },
+    "canary_ids": {
+      "$ref": "#/$defs/nonemptyUnique"
+    },
+    "required_capabilities": {
+      "$ref": "#/$defs/nonemptyUnique"
+    },
+    "environment_names": {
+      "$ref": "#/$defs/nonemptyUnique"
+    },
+    "secrets": {
+      "const": "none"
+    },
+    "network": {
+      "const": "deny-all"
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wall_seconds",
+        "cpu_seconds",
+        "memory_bytes",
+        "pids",
+        "open_files",
+        "output_bytes",
+        "workspace_bytes",
+        "cache_bytes",
+        "disk_bytes",
+        "inodes"
+      ],
+      "properties": {
+        "wall_seconds": {
+          "$ref": "#/$defs/positive"
+        },
+        "cpu_seconds": {
+          "$ref": "#/$defs/positive"
+        },
+        "memory_bytes": {
+          "$ref": "#/$defs/positive"
+        },
+        "pids": {
+          "$ref": "#/$defs/positive"
+        },
+        "open_files": {
+          "$ref": "#/$defs/positive"
+        },
+        "output_bytes": {
+          "$ref": "#/$defs/positive"
+        },
+        "workspace_bytes": {
+          "$ref": "#/$defs/positive"
+        },
+        "cache_bytes": {
+          "$ref": "#/$defs/positive"
+        },
+        "disk_bytes": {
+          "$ref": "#/$defs/positive"
+        },
+        "inodes": {
+          "$ref": "#/$defs/positive"
+        }
+      }
+    },
+    "autobahn_disposition": {
+      "const": "NO_FURTHER_RERUNS_AUTHORIZED"
+    },
+    "further_reruns_authorized": {
+      "const": false
+    },
+    "fixture_bindings": {
+      "$ref": "#/$defs/fixtureBindings"
+    },
+    "finding_registry": {
+      "$ref": "#/$defs/registry"
+    }
+  },
+  "$defs": {
+    "fixtureBindings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type":"object","additionalProperties":false,"required":["id","finding"],"properties":{"id":{"type":"string","pattern":"^[a-z0-9-]+$"},"finding":{"type":"string"}}}
+    },
+    "positive": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "nonemptyUnique": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "company",
+        "project",
+        "laboratory"
+      ],
+      "properties": {
+        "company": {
+          "const": "open-source-projects"
+        },
+        "project": {
+          "const": "verified-java-websocket-port"
+        },
+        "laboratory": {
+          "const": "lab-java-websocket"
+        }
+      }
+    },
+    "registry": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "disposition"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+$"
+          },
+          "disposition": {
+            "enum": [
+              "ACCEPT",
+              "BLOCK",
+              "QUARANTINE",
+              "INVALIDATE",
+              "REVOKE"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0.0",
+  "policy_version": "foundation-1.0.0",
+  "company": "open-source-projects",
+  "project": "verified-java-to-rust-port",
+  "authority_model": "existing-identities-only",
+  "roles": [
+    {"id": "method-schema-steward", "incompatible_with": ["port-implementer", "oracle-held-out-custodian", "release-attestor"]},
+    {"id": "port-implementer", "incompatible_with": ["method-schema-steward", "oracle-held-out-custodian", "release-attestor"]},
+    {"id": "oracle-held-out-custodian", "incompatible_with": ["method-schema-steward", "port-implementer", "release-attestor"]},
+    {"id": "release-attestor", "incompatible_with": ["method-schema-steward", "port-implementer", "oracle-held-out-custodian"]}
+  ],
+  "signed_action_required_fields": ["actor_id", "role", "company", "project", "artifact_digest", "policy_version", "issued_at", "expires_at", "nonce", "requested_sandbox_access", "publication"],
+  "signed_action": {
+    "maximum_lifetime_hours": 24,
+    "nonce_reuse": "deny",
+    "artifact_binding": "sha256",
+    "ledger": "PROTECTED_HELD_OUT append-only nonce and approval ledger",
+    "revocation": "any role, identity, artifact, vulnerability, or policy revocation invalidates dependent approvals",
+    "rotation": "rotate workload credentials and signing material before expiration or immediately after compromise"
+  },
+  "trusted_input_contract": {
+    "signature_verification": "the protected promotion caller verifies every signed required field, including requested_sandbox_access and publication action intent, against the existing identity before invoking validate-policy",
+    "role_snapshot": "snapshot_roles is an authoritative artifact-scoped projection from repository permissions and protected environments, never candidate-authored data",
+    "nonce_snapshot": "prior_nonces is an authoritative read from the PROTECTED_HELD_OUT append-only ledger, never candidate-authored data",
+    "artifact_digest_snapshot": "expected_artifact_digest is an authoritative independently approved fresh-byte digest supplied by the protected caller, never candidate-authored data",
+    "classification_snapshot": "publication.classification is an authoritative classifier projection supplied by the protected caller, never candidate-authored data",
+    "time_source": "expiration is evaluated against the validator host UTC clock; the signed issued_at field is not a verifier clock substitute"
+  },
+  "promotion_stages": [
+    {"id": "acquisition", "requirements": ["immutable upstream URL and revision", "artifact digest", "license hash", "automatic updates disabled"], "executor": "method-schema-steward"},
+    {"id": "quarantine", "requirements": ["no scripts", "no secrets", "static inventory only", "read-only source", "classification QUARANTINED"], "executor": "port-implementer"},
+    {"id": "qualification", "requirements": ["dependency lock graph", "SBOM", "vulnerability snapshot", "sandbox evidence", "replay command", "expiration"], "executor": "port-implementer"},
+    {"id": "independent-promotion", "requirements": ["fresh-byte digest match", "independent approval", "unused nonce", "unexpired signature", "revocation check"], "executor": "release-attestor"}
+  ],
+  "artifact_requirements": ["source provenance", "transitive dependency lock graph", "SBOM", "vulnerability state", "approval", "expiration", "rotation", "revocation", "replayable accepted bytes"],
+  "forbidden_sandbox_access": ["protected-held-out", "canonical-evidence", "release-signing", "production-credentials", "cross-company-data"],
+  "allowed_sandbox_access": ["quarantined-source"],
+  "sandbox": {
+    "execution_allowed_only_after_quarantine": true,
+    "disposable": true,
+    "source_mount": "read-only",
+    "secrets": "none",
+    "network": "deny-by-default with audited allowlist",
+    "caches": "isolated and content-addressed",
+    "resources": "bounded CPU, memory, processes, disk, and wall time",
+    "hostile_executables": ["Maven plugins", "Gradle plugins", "annotation processors", "build.rs", "proc macros", "LSP imports", "dependencies"]
+  },
+  "storage_classifications": ["PUBLIC", "PUBLIC_DERIVED", "INTERNAL", "PROTECTED_HELD_OUT", "QUARANTINED"],
+  "publication_classifications": ["PUBLIC", "PUBLIC_DERIVED"],
+  "storage": {
+    "git": ["schemas", "small public fixtures", "methodology", "evidence indexes"],
+    "immutable_public_blobs": ["large replayable public evidence"],
+    "protected_store": ["held-out cases", "expected outputs", "nonce ledger", "custodian-only evaluator material"],
+    "unclassified": "deny"
+  },
+  "repository_enforcement": {
+    "permissions": "repository teams map existing identities to exactly one artifact-scoped role per snapshot",
+    "protected_environments": ["held-out", "evidence-promotion", "publication"],
+    "independent_approvals": 2,
+    "signed_commits_or_attestations": true,
+    "direct_main_push": false,
+    "automatic_dependency_updates": false
+  }
+}

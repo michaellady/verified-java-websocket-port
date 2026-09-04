@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/concurrency-plan-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_kind", "story", "assurance", "provenance", "seam_census", "actions", "bounds", "fairness", "races_not_corpus_encodable", "behavior_delta_ledger", "seeded_defects", "native_thread_evidence", "model_check", "production", "publication"],
+  "properties": {
+    "$schema": {"const": "../../schemas/concurrency-plan-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "concurrency-plan"},
+    "story": {"const": "US-006"},
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "claim_scope", "claim_scope_statement", "owner_attestation", "independent_review_claimed"],
+      "properties": {
+        "label": {"const": "bounded"},
+        "claim_scope": {"const": "SYSTEMATIC_CONCURRENCY_TESTING"},
+        "claim_scope_statement": {"$ref": "#/$defs/text"},
+        "owner_attestation": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+        "independent_review_claimed": {"const": false}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pinned_java_commit", "quarantine_tree", "java_package_root", "census_method", "us005_calibration", "related_model"],
+      "properties": {
+        "pinned_java_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "quarantine_tree": {"$ref": "#/$defs/text"},
+        "java_package_root": {"$ref": "#/$defs/text"},
+        "census_method": {"$ref": "#/$defs/text"},
+        "us005_calibration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "status", "close_code_mutant_summary"],
+          "properties": {
+            "path": {"$ref": "#/$defs/text"},
+            "status": {"const": "LIVE_CALIBRATED"},
+            "close_code_mutant_summary": {"$ref": "#/$defs/text"}
+          }
+        },
+        "related_model": {"const": "assurance/formal/connection-model.tla"}
+      }
+    },
+    "seam_census": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "in_port_scope", "seams"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "in_port_scope": {"type": "integer", "minimum": 0, "maximum": 1000},
+        "seams": {"type": "array", "minItems": 1, "maxItems": 1000, "items": {"$ref": "#/$defs/seam"}}
+      }
+    },
+    "actions": {"type": "array", "minItems": 1, "maxItems": 100, "items": {"$ref": "#/$defs/action"}},
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["producer_tasks_max", "owner_tasks_per_connection", "flusher_tasks_per_connection", "timer_tasks_max", "connections", "command_queue_capacity", "write_queue_capacity", "event_queue_capacity", "max_inflight_inbound_bytes", "flush_batch_max_buffers", "max_actions_per_schedule", "preemption_bound", "schedule_count_max", "branch_count_max"],
+      "properties": {
+        "producer_tasks_max": {"$ref": "#/$defs/bound"},
+        "owner_tasks_per_connection": {"$ref": "#/$defs/bound"},
+        "flusher_tasks_per_connection": {"$ref": "#/$defs/bound"},
+        "timer_tasks_max": {"$ref": "#/$defs/bound"},
+        "connections": {"$ref": "#/$defs/bound"},
+        "command_queue_capacity": {"$ref": "#/$defs/bound"},
+        "write_queue_capacity": {"$ref": "#/$defs/bound"},
+        "event_queue_capacity": {"$ref": "#/$defs/bound"},
+        "max_inflight_inbound_bytes": {"$ref": "#/$defs/bound"},
+        "flush_batch_max_buffers": {"$ref": "#/$defs/bound"},
+        "max_actions_per_schedule": {"$ref": "#/$defs/bound"},
+        "preemption_bound": {"$ref": "#/$defs/bound"},
+        "schedule_count_max": {"$ref": "#/$defs/bound"},
+        "branch_count_max": {"$ref": "#/$defs/bound"}
+      }
+    },
+    "fairness": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"$ref": "#/$defs/fairness"}},
+    "races_not_corpus_encodable": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/$defs/race"}},
+    "behavior_delta_ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ledger_path", "observed_status", "observed_head", "observed_record_count", "append_state", "append_blocker", "planned_deltas"],
+      "properties": {
+        "ledger_path": {"const": "evidence/java/behavior-delta-ledger.json"},
+        "observed_status": {"enum": ["READY", "BLOCKED_PENDING_BASELINE"]},
+        "observed_head": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "observed_record_count": {"type": "integer", "minimum": 0, "maximum": 100000},
+        "append_state": {"enum": ["APPENDED", "APPEND_BLOCKED_PENDING_BASELINE"]},
+        "append_blocker": {"$ref": "#/$defs/text"},
+        "planned_deltas": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/$defs/plannedDelta"}}
+      }
+    },
+    "seeded_defects": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/$defs/defect"}},
+    "native_thread_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["loom_style_bounded_exploration", "native_thread_stress"],
+      "properties": {
+        "loom_style_bounded_exploration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claim_kind", "cannot_establish", "statement"],
+          "properties": {
+            "claim_kind": {"const": "SYSTEMATIC_CONCURRENCY_TESTING"},
+            "cannot_establish": {"const": "NATIVE_THREAD_EVIDENCE"},
+            "statement": {"$ref": "#/$defs/text"}
+          }
+        },
+        "native_thread_stress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claim_kind", "cannot_establish", "statement"],
+          "properties": {
+            "claim_kind": {"const": "NATIVE_THREAD_STRESS"},
+            "cannot_establish": {"const": "SYSTEMATIC_SCHEDULE_COVERAGE"},
+            "statement": {"$ref": "#/$defs/text"}
+          }
+        }
+      }
+    },
+    "model_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "available", "state", "probes", "planned_run"],
+      "properties": {
+        "tool": {"$ref": "#/$defs/text"},
+        "available": {"type": "boolean"},
+        "state": {"enum": ["MODEL_CHECK_PENDING_TOOL", "EXECUTED"]},
+        "probes": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command", "observed"],
+            "properties": {
+              "command": {"$ref": "#/$defs/text"},
+              "observed": {"$ref": "#/$defs/text"}
+            }
+          }
+        },
+        "planned_run": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["staging", "command", "environment"],
+          "properties": {
+            "staging": {"$ref": "#/$defs/text"},
+            "command": {"$ref": "#/$defs/text"},
+            "environment": {"$ref": "#/$defs/text"}
+          }
+        },
+        "run_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["states_generated", "distinct_states", "result"],
+          "properties": {
+            "states_generated": {"type": "integer", "minimum": 1},
+            "distinct_states": {"type": "integer", "minimum": 1},
+            "result": {"$ref": "#/$defs/text"}
+          }
+        },
+        "executed_run": {"$ref": "#/$defs/executedRun"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "EXECUTED"}}, "required": ["state"]},
+          "then": {"required": ["run_summary", "executed_run"]}
+        },
+        {
+          "if": {"properties": {"state": {"const": "MODEL_CHECK_PENDING_TOOL"}}, "required": ["state"]},
+          "then": {"not": {"anyOf": [{"required": ["run_summary"]}, {"required": ["executed_run"]}]}}
+        }
+      ]
+    },
+    "production": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1, "maxLength": 8192},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "executedReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/text"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "checkOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exit_code", "observed"],
+      "properties": {
+        "exit_code": {"type": "integer", "minimum": 0, "maximum": 255},
+        "observed": {"$ref": "#/$defs/text"}
+      }
+    },
+    "executedDefect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defect_id", "cfg_mutation", "exit_code", "observed", "receipt_path"],
+      "properties": {
+        "defect_id": {"type": "string", "pattern": "^defect\\.model\\.[a-z0-9-]+$"},
+        "cfg_mutation": {"$ref": "#/$defs/text"},
+        "exit_code": {"type": "integer", "minimum": 0, "maximum": 255},
+        "observed": {"$ref": "#/$defs/text"},
+        "receipt_path": {"$ref": "#/$defs/text"}
+      }
+    },
+    "executedRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_id", "authorization", "sandbox", "tool", "jvm", "receipt_origin", "receipts", "sany", "tlc", "executed_defects"],
+      "properties": {
+        "attempt_id": {"$ref": "#/$defs/text"},
+        "authorization": {"$ref": "#/$defs/text"},
+        "sandbox": {"$ref": "#/$defs/text"},
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact", "pinned_release", "source_url", "sha256", "bytes", "sany_banner", "tlc_banner"],
+          "properties": {
+            "artifact": {"$ref": "#/$defs/text"},
+            "pinned_release": {"$ref": "#/$defs/text"},
+            "source_url": {"$ref": "#/$defs/text"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "bytes": {"type": "integer", "minimum": 1},
+            "sany_banner": {"$ref": "#/$defs/text"},
+            "tlc_banner": {"$ref": "#/$defs/text"}
+          }
+        },
+        "jvm": {"$ref": "#/$defs/text"},
+        "receipt_origin": {"$ref": "#/$defs/text"},
+        "receipts": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/executedReceipt"}},
+        "sany": {"$ref": "#/$defs/checkOutcome"},
+        "tlc": {"$ref": "#/$defs/checkOutcome"},
+        "executed_defects": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/executedDefect"}}
+      }
+    },
+    "bound": {"type": "integer", "minimum": 1, "maximum": 1000000000},
+    "citation": {"type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_/]*\\.java:[0-9]+(-[0-9]+)?$"},
+    "citations": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"$ref": "#/$defs/citation"}},
+    "seamIds": {"type": "array", "minItems": 1, "maxItems": 33, "items": {"type": "string", "pattern": "^[A-Z][0-9]$"}},
+    "seam": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seam_id", "kind", "name", "citations", "classification", "note", "rust_mapping"],
+      "properties": {
+        "seam_id": {"type": "string", "pattern": "^[A-Z][0-9]$"},
+        "kind": {"enum": ["monitor", "volatile_field", "plain_shared_field", "queue", "atomic", "latch", "thread_boundary"]},
+        "name": {"$ref": "#/$defs/text"},
+        "citations": {"$ref": "#/$defs/citations"},
+        "classification": {"enum": ["load_bearing", "incidental", "adapter_owned", "out_of_port_scope"]},
+        "note": {"$ref": "#/$defs/text"},
+        "rust_mapping": {"$ref": "#/$defs/text"}
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_id", "actor", "java_seams", "java_citations", "preconditions", "effects", "observable_outcomes", "max_occurrences_per_schedule"],
+      "properties": {
+        "action_id": {"type": "string", "pattern": "^action\\.[a-z0-9_.]+$"},
+        "actor": {"enum": ["producer_task", "owner_task", "flusher_task", "adapter_timer_task", "server_adapter", "client_adapter", "transport"]},
+        "java_seams": {"$ref": "#/$defs/seamIds"},
+        "java_citations": {"$ref": "#/$defs/citations"},
+        "preconditions": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/text"}},
+        "effects": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/text"}},
+        "observable_outcomes": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}},
+        "max_occurrences_per_schedule": {"$ref": "#/$defs/bound"}
+      }
+    },
+    "fairness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fairness_id", "kind", "subject", "rationale", "java_citations"],
+      "properties": {
+        "fairness_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+        "kind": {"enum": ["weak_fairness", "strong_fairness", "absent"]},
+        "subject": {"$ref": "#/$defs/text"},
+        "rationale": {"$ref": "#/$defs/text"},
+        "java_citations": {"$ref": "#/$defs/citations"}
+      }
+    },
+    "race": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["race_id", "java_seams", "java_citations", "racy_java_behavior", "why_not_corpus_encodable", "deterministic_rust_semantics", "divergence_ids"],
+      "properties": {
+        "race_id": {"type": "string", "pattern": "^race\\.[a-z0-9_.]+$"},
+        "java_seams": {"$ref": "#/$defs/seamIds"},
+        "java_citations": {"$ref": "#/$defs/citations"},
+        "racy_java_behavior": {"$ref": "#/$defs/text"},
+        "why_not_corpus_encodable": {"$ref": "#/$defs/text"},
+        "deterministic_rust_semantics": {"$ref": "#/$defs/text"},
+        "divergence_ids": {"type": "array", "minItems": 0, "maxItems": 8, "items": {"type": "string", "pattern": "^divergence\\.[a-z0-9-]+$"}}
+      }
+    },
+    "plannedDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["divergence_id", "subject_ref_planned", "java_ref_planned", "rfc_refs_planned", "java_citations", "java_behavior", "port_behavior", "disposition_planned", "rationale"],
+      "properties": {
+        "divergence_id": {"type": "string", "pattern": "^divergence\\.[a-z0-9-]+$"},
+        "subject_ref_planned": {"type": "string", "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"},
+        "java_ref_planned": {"type": "string", "pattern": "^java-v1\\.6\\.0:[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+        "rfc_refs_planned": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "string", "pattern": "^rfc6455#section-[0-9]+(\\.[0-9]+)*$"}},
+        "java_citations": {"$ref": "#/$defs/citations"},
+        "java_behavior": {"$ref": "#/$defs/text"},
+        "port_behavior": {"$ref": "#/$defs/text"},
+        "disposition_planned": {"enum": ["unresolved", "rfc-governs"]},
+        "rationale": {"$ref": "#/$defs/text"}
+      }
+    },
+    "defect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defect_id", "mutation", "target_property", "expected_result", "execution_state"],
+      "properties": {
+        "defect_id": {"type": "string", "pattern": "^defect\\.model\\.[a-z0-9-]+$"},
+        "mutation": {"$ref": "#/$defs/text"},
+        "target_property": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+        "expected_violation_set": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+          "description": "The EXACT set of invariants/properties this mutation violates (mutation specificity): the walker asserts set equality, so an undeclared extra violation is a test failure, not a footnote. Must contain target_property."
+        },
+        "expected_result": {"const": "COUNTEREXAMPLE"},
+        "execution_state": {"enum": ["MODEL_CHECK_PENDING_TOOL", "EXECUTED"]}
+      }
+    }
+  }
+}

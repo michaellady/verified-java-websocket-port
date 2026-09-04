@@ -1,0 +1,365 @@
+{
+  "$schema": "../../schemas/compatibility-surface-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "CompatibilitySurface",
+  "compatibility_surface_id": "compatibility-surface.us003",
+  "preserved_boundary": {
+    "standard": "RFC 6455",
+    "normative_artifact_id": "rfc6455-text",
+    "normative_artifact_sha256": "sha256:765775326aee0ecca9b04bde3fd1f52932d498e33e34e428bd61b8a24da0fa3b",
+    "normalized_command_event_behavior": true,
+    "wire_octet_equivalence_required": true,
+    "statement": "The preserved boundary is the RFC 6455 octet stream plus the normalized command and event behavior of one connection. Parity is judged on wire octets and normalized events, never on Java API shape."
+  },
+  "items": [
+    {
+      "surface_id": "surface.handshake.client-request",
+      "kind": "wire",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-handshake-client-request",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.handshake.server-response",
+      "kind": "wire",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-011-differential",
+        "evidence.us-011-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-handshake-server-response",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.framing.frame-octets",
+      "kind": "wire",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-framing-frame-octets",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.framing.masking",
+      "kind": "wire",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-framing-masking",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.messages.text-utf8",
+      "kind": "wire",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-messages-text-utf8",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.messages.binary",
+      "kind": "wire",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-messages-binary",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.fragmentation.continuation",
+      "kind": "wire",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-014-differential",
+        "evidence.us-014-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-fragmentation-continuation",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.control.ping-pong",
+      "kind": "wire",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-015-differential",
+        "evidence.us-015-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-control-ping-pong",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.close.status-code",
+      "kind": "wire",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-016-differential",
+        "evidence.us-016-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-close-status-code",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.close.terminal-state",
+      "kind": "state",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-016-differential",
+        "evidence.us-016-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-close-terminal-state",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.concurrency.command-order",
+      "kind": "state",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-017-differential",
+        "evidence.us-017-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-concurrency-command-order",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.errors.protocol-fault",
+      "kind": "error",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-errors-protocol-fault",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.limits.allocation",
+      "kind": "resource",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-limits-allocation",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    },
+    {
+      "surface_id": "surface.adapter.byte-stream",
+      "kind": "operational",
+      "edge_cases": [
+        "nil",
+        "empty",
+        "malformed",
+        "oversized",
+        "duplicate",
+        "interrupted",
+        "stale",
+        "upstream-error"
+      ],
+      "oracle_id": "oracle.java-websocket.v1-6-0",
+      "evidence_obligation_ids": [
+        "evidence.us-018-differential",
+        "evidence.us-018-property"
+      ],
+      "cutover_obligation_id": "cutover.surface-adapter-byte-stream",
+      "observation_status": "OBSERVED",
+      "blocker_code": ""
+    }
+  ],
+  "excluded_surfaces": [
+    {
+      "code": "EXCLUDED_TLS_WSS",
+      "reason": "TLS and the wss:// scheme are out of scope. The port preserves the RFC 6455 boundary over a plain byte stream; SSLSocketChannel, SSLSocketChannel2, and the TLS capability behind ISSLChannel are not ported."
+    },
+    {
+      "code": "EXCLUDED_PROXY_SUPPORT",
+      "reason": "HTTP CONNECT proxy support is out of scope. The Java client proxy path lives in the excluded client topology and has no Rust counterpart."
+    },
+    {
+      "code": "EXCLUDED_RECONNECT",
+      "reason": "Automatic reconnect is out of scope. The Rust core models one connection lifetime; reconnection is a caller policy, not ported behavior."
+    },
+    {
+      "code": "EXCLUDED_ANDROID",
+      "reason": "Android-specific behavior and packaging are out of scope. No Android runtime is an input to this laboratory."
+    },
+    {
+      "code": "EXCLUDED_RFC_7692_PERMESSAGE_DEFLATE",
+      "reason": "RFC 7692 permessage-deflate is out of scope. The upstream extensions/permessage_deflate package is excluded from the study surface and the port negotiates no compression extension."
+    },
+    {
+      "code": "EXCLUDED_JAVA_API_PARITY",
+      "reason": "Java API parity is out of scope. The Rust port preserves observable protocol behavior, not Java's class hierarchy, method names, or exception types."
+    },
+    {
+      "code": "EXCLUDED_JAVA_NIO_TOPOLOGY",
+      "reason": "Java's NIO topology is out of scope. The selector thread, worker pool, and SocketChannel multiplexing are replaced by a thin blocking adapter with no protocol logic."
+    },
+    {
+      "code": "EXCLUDED_EXTENSION_SUBPROTOCOL_PARITY",
+      "reason": "Extension and subprotocol framework parity is out of scope. The upstream extensions and protocols packages are excluded and the port implements no negotiation framework."
+    }
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "signing": false,
+    "publication": false
+  }
+}

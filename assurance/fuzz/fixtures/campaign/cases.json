@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-021",
+  "note": "Campaign-runner polarity for cmd/fuzzpinctl -campaign-fixtures. The -replay-fixtures catalog proves the STATIC pins can fail; this one proves the EXECUTED campaign can fail. Every manifest here is synthetic validator input, never a claim artifact.",
+  "cases": [
+    {
+      "id": "campaign-reproduces",
+      "manifest_path": "assurance/fuzz/fixtures/campaign/campaign-reproduces.json",
+      "target_id": "campaign-fixture",
+      "rationale": "The suite's only green case: a replay command that exits 0 twice with an identical normalized outcome REPRODUCES. Without it, every red case below could be produced by a runner that never reports success.",
+      "expected": {
+        "reproduced": true,
+        "failure_contains": "",
+        "first_run_exit": 0,
+        "deadline_hit": false
+      }
+    },
+    {
+      "id": "campaign-nonzero-exit",
+      "manifest_path": "assurance/fuzz/fixtures/campaign/campaign-nonzero-exit.json",
+      "target_id": "campaign-fixture",
+      "rationale": "A failing campaign is a failing campaign. The exit code is read from the real process state and printed verbatim, never invented and never rounded to zero.",
+      "expected": {
+        "reproduced": false,
+        "failure_contains": "exit=3",
+        "first_run_exit": 3,
+        "deadline_hit": false
+      }
+    },
+    {
+      "id": "campaign-hits-wall-clock-deadline",
+      "manifest_path": "assurance/fuzz/fixtures/campaign/campaign-hits-wall-clock-deadline.json",
+      "target_id": "campaign-fixture",
+      "rationale": "F005 in the runner: the liveness guard is a wall-clock deadline, and a run that exceeds it is KILLED and FAILS. A killed run must never be reported as a pass.",
+      "expected": {
+        "reproduced": false,
+        "failure_contains": "wall-clock deadline",
+        "first_run_exit": -1,
+        "deadline_hit": true
+      }
+    },
+    {
+      "id": "campaign-does-not-reproduce",
+      "manifest_path": "assurance/fuzz/fixtures/campaign/campaign-does-not-reproduce.json",
+      "target_id": "campaign-fixture",
+      "rationale": "Two runs whose normalized outcomes differ are not a reproduction, however green each run looked on its own. A replay command nobody ran is a string; a replay command that gives a different answer each time is not a replay.",
+      "expected": {
+        "reproduced": false,
+        "failure_contains": "differs from run 1",
+        "first_run_exit": 0,
+        "deadline_hit": false
+      }
+    },
+    {
+      "id": "campaign-produces-no-outcome",
+      "manifest_path": "assurance/fuzz/fixtures/campaign/campaign-produces-no-outcome.json",
+      "target_id": "campaign-fixture",
+      "rationale": "A command that exits 0 while running nothing is the quietest false green there is.",
+      "expected": {
+        "reproduced": false,
+        "failure_contains": "no test outcome lines",
+        "first_run_exit": 0,
+        "deadline_hit": false
+      }
+    }
+  ]
+}

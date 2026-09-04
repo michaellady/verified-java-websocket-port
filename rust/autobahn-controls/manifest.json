@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "AutobahnDiscriminationControls",
+  "story": "US-019",
+  "acceptance_criterion": "AC4",
+  "purpose": "Calibration instruments for the US-019 AC4 discrimination proof: an empty/stub Rust NEGATIVE CONTROL that implements no WebSocket behavior at all, and four PLANTED PROTOCOL MUTANTS that run the real ws_core/ws_driver protocol and each deviate from the shipped ws-testee adapters in exactly ONE documented way. Pointing the pinned Autobahn suite at these artifacts must produce FAILURES where the same suite produces passes against the real port. They are verification instruments, never port candidates; no story acceptance, production, or publication claim is made by them.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "measurement_status": "EXPECTATION ONLY, NOT YET OBSERVED. Every expected_discrimination below states what the suite MUST show; none of it has been scored against a live wstest run from this crate, and no numeric result, case index, or report digest is claimed here. The calibration run records the real numbers separately, in its own evidence.",
+  "suite_selection": {
+    "config": "autobahn/fuzzingclient.json and autobahn/fuzzingserver.json (frozen selection 1.*, 2.*, 3.*, 4.*, 5.*, 6.*, 7.*, 10.*; 9.*, 12.*, 13.* declared nonselected)",
+    "case_manifest": "autobahn/case-manifest.json",
+    "note": "Family 9.* (limits and performance) is NOT part of the pinned selection, so no expectation below names it."
+  },
+  "baselines": {
+    "java_pinned": {
+      "artifact": "org.java-websocket:Java-WebSocket:1.6.0 sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+      "role": "The pinned Java baseline the port is scored against. Its suite result is the reference the controls are calibrated to differ from; it is produced by the baseline run, not by this crate."
+    },
+    "rust_port": {
+      "artifact": "rust/ws-testee (bin ws-testee: subcommand `serve` for fuzzingclient mode, `autobahn-client` for fuzzingserver mode) over rust/ws-core + rust/ws-driver",
+      "role": "The real port under test. Every control below is built from the SAME io_loop and, except for the negative control, the SAME protocol core, so a scoring difference is attributable to the single planted deviation and not to harness drift."
+    }
+  },
+  "controls": [
+    {
+      "id": "us019-negative-control",
+      "binary": "us019-negative-control",
+      "kind": "negative-control",
+      "seam": "autobahn_controls::inert — raw std::net::TcpStream only; ws_core and ws_driver are not used for protocol on this path at all",
+      "deviation": "Implements NO WebSocket behavior whatsoever: it accepts (or opens) the TCP connection, reads whatever arrives, writes nothing, and closes without ever completing an opening handshake.",
+      "expected_discrimination": "EVERY selected case must FAIL against this control, in both modes. No case can pass, because no case can reach the message phase: the opening handshake never completes, so the suite records a failed connection for each of the selected 1.*, 2.*, 3.*, 4.*, 5.*, 6.*, 7.* and 10.* cases. A run that shows any passing case against this control invalidates the suite wiring, not the control.",
+      "run": {
+        "fuzzingclient_mode": "us019-negative-control serve 127.0.0.1:9010 <sessions>",
+        "fuzzingserver_mode": "us019-negative-control client 127.0.0.1:9001 127.0.0.1 <agent>"
+      },
+      "client_mode_note": "In fuzzingserver mode the control still opens the three agent-protocol connections (/getCaseCount, /runCase, /updateReports) so the suite RECORDS failures rather than simply seeing nothing on the wire; it sends zero bytes on each."
+    },
+    {
+      "id": "us019-mutant-no-echo",
+      "binary": "us019-mutant-no-echo",
+      "kind": "mutant",
+      "seam": "autobahn_controls::mutant::MutantPolicy — the adapter-side echo policy over drained semantic events; ws_core, ws_driver and the auto-response policy are untouched",
+      "deviation": "The echo obligation is removed: delivered text and binary messages are observed and never re-sent.",
+      "expected_discrimination": "Every case whose verdict depends on the testee echoing a data message back must FAIL: at minimum the 1.1.* text and 1.2.* binary echo families, the echo-scored 6.* UTF-8 cases, the 10.* auto-fragmentation cases, and the 5.* fragmentation cases scored on the reassembled echo. Cases whose verdict depends only on control-frame or close behavior — notably the 2.* ping/pong cases, which this mutant still answers because the auto-response policy is untouched — are expected to keep passing; that contrast is what makes this a single-deviation mutant rather than a second negative control.",
+      "run": {
+        "fuzzingclient_mode": "us019-mutant-no-echo serve 127.0.0.1:9010 <sessions>",
+        "fuzzingserver_mode": "us019-mutant-no-echo client 127.0.0.1:9001 127.0.0.1 <agent>"
+      }
+    },
+    {
+      "id": "us019-mutant-opcode-swap",
+      "binary": "us019-mutant-opcode-swap",
+      "kind": "mutant",
+      "seam": "autobahn_controls::mutant::MutantPolicy — the adapter-side echo policy over drained semantic events; ws_core, ws_driver and the auto-response policy are untouched",
+      "deviation": "The echo is returned on the wrong opcode: delivered text messages are re-sent as BINARY and delivered binary messages are re-sent as TEXT (a binary payload that is not valid UTF-8 is lossily transcoded on the way, which is a disclosed consequence of the swap, not a second deviation).",
+      "expected_discrimination": "Every case that checks the echoed message's TYPE must FAIL: at minimum the 1.1.* text and 1.2.* binary echo families, the 6.* UTF-8 cases scored on a text echo, the 10.* auto-fragmentation cases, and the 5.* fragmentation cases scored on the reassembled echo. Control-frame and close behavior is unchanged, so the 2.* ping/pong cases are expected to keep passing.",
+      "run": {
+        "fuzzingclient_mode": "us019-mutant-opcode-swap serve 127.0.0.1:9010 <sessions>",
+        "fuzzingserver_mode": "us019-mutant-opcode-swap client 127.0.0.1:9001 127.0.0.1 <agent>"
+      }
+    },
+    {
+      "id": "us019-mutant-payload-truncate",
+      "binary": "us019-mutant-payload-truncate",
+      "kind": "mutant",
+      "seam": "autobahn_controls::mutant::MutantPolicy — the adapter-side echo policy over drained semantic events; ws_core, ws_driver and the auto-response policy are untouched",
+      "deviation": "The echoed payload is short by one: the final byte of every non-empty payload is dropped before it is re-sent, while empty payloads are echoed unchanged (a text payload whose last byte was part of a multi-byte character is lossily re-encoded, which is a disclosed consequence of dropping the byte).",
+      "expected_discrimination": "Every case that compares the echoed payload BYTES must FAIL: at minimum the non-empty cases of the 1.1.* text and 1.2.* binary echo families, the 6.* UTF-8 cases scored on the echoed text, the 10.* auto-fragmentation cases, and the 5.* fragmentation cases scored on the reassembled echo. Cases whose payload is empty are expected to keep passing, because an empty payload has no final byte to drop; control-frame and close behavior is unchanged, so the 2.* ping/pong cases are expected to keep passing too.",
+      "run": {
+        "fuzzingclient_mode": "us019-mutant-payload-truncate serve 127.0.0.1:9010 <sessions>",
+        "fuzzingserver_mode": "us019-mutant-payload-truncate client 127.0.0.1:9001 127.0.0.1 <agent>"
+      }
+    },
+    {
+      "id": "us019-mutant-pong-suppressed",
+      "binary": "us019-mutant-pong-suppressed",
+      "kind": "mutant",
+      "seam": "ws_driver::connection_driver_with_policy(config, role, AutoResponsePolicy::Disabled) — the driver-level automatic ping reply; the echo policy is the shipped ws_testee::EchoPolicy, unmodified",
+      "deviation": "Inbound pings are never answered: the shipped-Java listener default (AutoResponsePolicy::PongInboundPing) is replaced by AutoResponsePolicy::Disabled, so no pong is ever composed.",
+      "expected_discrimination": "The 2.* ping/pong cases whose verdict depends on the testee answering an inbound ping must FAIL. The echo obligation is untouched, so the 1.1.* and 1.2.* echo families, the 6.* UTF-8 cases and the 10.* auto-fragmentation cases are expected to keep passing — this mutant is the complement of the echo mutants and discriminates the ping/pong axis on its own.",
+      "run": {
+        "fuzzingclient_mode": "us019-mutant-pong-suppressed serve 127.0.0.1:9010 <sessions>",
+        "fuzzingserver_mode": "us019-mutant-pong-suppressed client 127.0.0.1:9001 127.0.0.1 <agent>"
+      }
+    }
+  ],
+  "build": "cd rust && cargo build --release -p autobahn-controls",
+  "in_crate_proof": "rust/autobahn-controls/tests/negative_control.rs and rust/autobahn-controls/tests/mutants.rs stand real ws_core/ws_driver peers against each control over loopback and assert the deviation is observable on the wire, each paired against the same probe run against the shipped ws-testee adapter. Those are unit-scale discrimination proofs; they do NOT substitute for the live suite run this manifest exists to calibrate."
+}

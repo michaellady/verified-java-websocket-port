@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "security-release-firewall-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scope",
+    "allowed_classifications",
+    "included_classifications",
+    "detectors",
+    "protected_checker_required",
+    "publication_capability",
+    "fixture_bindings",
+    "finding_registry"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "allowed_classifications": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "PUBLIC",
+          "PUBLIC_DERIVED",
+          "INTERNAL",
+          "PROTECTED_HELD_OUT",
+          "QUARANTINED"
+        ]
+      }
+    },
+    "included_classifications": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "PUBLIC",
+          "PUBLIC_DERIVED"
+        ]
+      }
+    },
+    "detectors": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "token",
+          "finding"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "finding": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+$"
+          }
+        }
+      }
+    },
+    "protected_checker_required": {
+      "const": true
+    },
+    "publication_capability": {
+      "const": false
+    },
+    "fixture_bindings": {
+      "$ref": "#/$defs/fixtureBindings"
+    },
+    "finding_registry": {
+      "$ref": "#/$defs/registry"
+    }
+  },
+  "$defs": {
+    "fixtureBindings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type":"object","additionalProperties":false,"required":["id","finding"],"properties":{"id":{"type":"string","pattern":"^[a-z0-9-]+$"},"finding":{"type":"string"}}}
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "company",
+        "project",
+        "laboratory"
+      ],
+      "properties": {
+        "company": {
+          "const": "open-source-projects"
+        },
+        "project": {
+          "const": "verified-java-websocket-port"
+        },
+        "laboratory": {
+          "const": "lab-java-websocket"
+        }
+      }
+    },
+    "registry": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "disposition"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+$"
+          },
+          "disposition": {
+            "enum": [
+              "BLOCK",
+              "QUARANTINE",
+              "INVALIDATE",
+              "REVOKE"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,404 @@
+{
+  "$schema": "../schemas/corpus-calibration-1.0.0.schema.json",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "corpora": {
+    "handshake": {
+      "expected": 49,
+      "filtered": 0,
+      "manifest_path": "corpora/handshake/manifest.json",
+      "manifest_sha256": "sha256:c7a9e57902b1416e35d93f3b75071a2b926959cefc252466257b64a0cf0cfa8a",
+      "selected": 49
+    },
+    "hidden": {
+      "expected": 92,
+      "filtered": 0,
+      "manifest_path": "corpora/hidden/manifest.json",
+      "manifest_sha256": "sha256:b80c51d6af90d0989e2ddbc74ddf9043eb8b2d16e3a48fa7a2cacdf37e44ea63",
+      "selected": 92
+    },
+    "public": {
+      "expected": 74,
+      "filtered": 0,
+      "manifest_path": "corpora/public/manifest.json",
+      "manifest_sha256": "sha256:202a3e0d0c84c41cc635adc41a8d2eb3c1e62962c1e343697987ef8f0c69c54b",
+      "selected": 74
+    },
+    "sealed": {
+      "expected": 92,
+      "filtered": 0,
+      "manifest_path": "corpora/sealed/manifest.json",
+      "manifest_sha256": "sha256:10da65ef33f5232631a5ace30be2e2027601f1f1c589146b314fe6de1e4ebf0f",
+      "selected": 92
+    }
+  },
+  "evidence_kind": "corpus-calibration",
+  "expectation_status": "REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION",
+  "independent_review_claimed": false,
+  "live_gates": {
+    "empty_rust_target_fails": {
+      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration \u2014 satisfied by owner-authorized sbx attempt us007-sbx-output-live-0124 (receipt in the protected attempt dir)",
+      "requirement": "an empty or stub Rust target fails the behavior corpus",
+      "result": {
+        "executed": 258,
+        "failed": 258,
+        "notes": "Attempt us007-sbx-output-live-0124: the inert Rust stub executed one full behavior sweep (74 public + 92 hidden + 92 sealed = 258) inside the unprivileged network-denied sandbox and failed every scenario (0 passed / 258 failed; rerun byte-identical). Kill gate satisfied non-vacuously on every tier.",
+        "passed": 0,
+        "transcript_sha256s": [
+          "sha256:138754f4f0d4a1247e232c42cfa11d09381138435d62dacc4bba7004bebe4fd3",
+          "sha256:556a8d0ba713170b9f344dd43712796c4fecf56c02b3782d562ae1e4469cabf9",
+          "sha256:d60be522e52ab418f07971cae65aba0e87c8d561cfc967fb51c1b5222346983c"
+        ]
+      },
+      "status": "PASS"
+    },
+    "execution_rerun_reconciliation": {
+      "constraint": "requires both the live java-oracle executions and the sbx candidate executions to reconcile; satisfied by the recorded oracle runs (byte-identical per tier) and sbx attempt us007-sbx-output-live-0124 (21/21 candidate transcript pairs byte-identical; reconciliation by digest equality, no repeat held-out evaluation of identical bytes)",
+      "requirement": "two live calibration executions reconcile exactly with zero flakes",
+      "result": {
+        "executed": 21,
+        "failed": 0,
+        "notes": "Both halves reconciled: (a) java-oracle half \u2014 two live oracle executions byte-identical per tier (recorded 2026-08-26, gate 1 notes); (b) candidate half \u2014 all 15 original candidate transcripts byte-identical across runs 1/2, and all 6 UTF-8-corrected Java-mutant transcripts byte-identical across runs 3/4: 21 reconciled pairs, 0 divergent. Reconciliation by digest equality; no second held-out evaluation of identical bytes was performed (custodian latch safety).",
+        "passed": 21,
+        "transcript_sha256s": [
+          "sha256:138754f4f0d4a1247e232c42cfa11d09381138435d62dacc4bba7004bebe4fd3",
+          "sha256:556a8d0ba713170b9f344dd43712796c4fecf56c02b3782d562ae1e4469cabf9",
+          "sha256:d60be522e52ab418f07971cae65aba0e87c8d561cfc967fb51c1b5222346983c",
+          "sha256:57d8d9ee3feef6f576144052328f7ff9eee30afe8e00c9db9dc564dbae1df478",
+          "sha256:2124e35fe43bda62653bac70a00ee03bb2c5ee46cae3fcff8bc79e4c4b39db9b",
+          "sha256:9857bef909aa12b730df994423aa890842b11ce286c41a405861c3a99edde1f7",
+          "sha256:12505284db8be4d746431a20dd84cf7548470ee8964c9eb2aa26a6cb45dc5cdf",
+          "sha256:06eb05cae606ac5084db1a7085f130b1038fdbf75b5b1a94712a1ef199a7c1c1",
+          "sha256:6e67c944f3415bbc13cf58f2e98a03f352de344d717560f62e6942dd6b38dc7c",
+          "sha256:6aad912180c23811ae392190b18a7d41b1fdcff2bc7e45c7d8f10cf0ed9a4c73",
+          "sha256:28642791c56f09e509004925deb44e1e9cb1709e46133f1f9728ff4b93b63fb4",
+          "sha256:6942db3219cecdf2d45be019995159ff2d4fb94cf7536a28246e016c13e56bb1",
+          "sha256:5ef34cbd8ebc3b16598060c3c1ff0b1bd480ea2e46a16c5ce8ba4b183a5cf2ca",
+          "sha256:22ba35deaf66f92d056e3ade20affa1ed1bdb5ba2054be056bcbbf4d586c3a05",
+          "sha256:015259de1d95de7eb35abed027dfc80a2b232b5ec9ed84231b2a3d7b4ce6feda"
+        ]
+      },
+      "status": "PASS"
+    },
+    "java_oracle_pass_rate": {
+      "constraint": "the pinned Java-WebSocket 1.6.0 runtime jar (sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f) was materialized from the accepted US-001 promotion store, digest-verified before execution, and run via the vendored java-oracle adapter (javac/java 17.0.19) with the qualified slf4j-api-2.0.13 runtime support jar",
+      "requirement": "the pinned Java oracle passes 100% of behavior scenarios",
+      "result": {
+        "executed": 258,
+        "failed": 0,
+        "notes": "74 public + 92 hidden + 92 sealed behavior scenarios executed twice against the pinned oracle on 2026-08-26; both executions produced byte-identical requests, transcripts, and reports per tier; held-out invocations spent 8 custodian query units (ledger seq 1-8), zero diagnostics, probing latch untripped",
+        "passed": 258,
+        "transcript_sha256s": [
+          "sha256:2eb11ca38caf9fef9b7edb8b83f3c7f6297b3e6e3d7ccbfc2a11c84e5221bd8b",
+          "sha256:f38b23c3dfc8b58462c366ea0b23bc84388a05eb6ba7cfa2e58d6565f552783b",
+          "sha256:d6650506270bee1904230964da0c1d1b807b5fcf123b9049014ac2a74de077c3"
+        ]
+      },
+      "status": "PASS"
+    },
+    "planted_java_rust_mutants_killed": {
+      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration \u2014 satisfied by owner-authorized sbx attempt us007-sbx-output-live-0124 (receipt in the protected attempt dir)",
+      "requirement": "planted Java and Rust binary mutants are killed with nonzero inventories",
+      "result": {
+        "executed": 1032,
+        "failed": 597,
+        "notes": "Four planted mutants (2 Rust envelope-level: eager-reject-1002, digest-unbind; 2 Java behavioral: close-code-1000, utf8-accept) each executed the full 258-scenario sweep in-sandbox: every mutant killed on every tier (rs mutants 258/258 failed each; jm-close-code-1000 19+26+26=71 kills matching the predicted JAVA_INVALID_DATA close-code signature; jm-utf8-accept 2+4+4=10 kills on the 1007 scenarios). Java runs use the UTF-8-corrected invocation (-Dstdout.encoding=UTF-8) after the sandbox C-locale mangled non-ASCII text events; corrupted first runs preserved in the attempt receipt. Reruns byte-identical.",
+        "passed": 435,
+        "transcript_sha256s": [
+          "sha256:57d8d9ee3feef6f576144052328f7ff9eee30afe8e00c9db9dc564dbae1df478",
+          "sha256:2124e35fe43bda62653bac70a00ee03bb2c5ee46cae3fcff8bc79e4c4b39db9b",
+          "sha256:9857bef909aa12b730df994423aa890842b11ce286c41a405861c3a99edde1f7",
+          "sha256:12505284db8be4d746431a20dd84cf7548470ee8964c9eb2aa26a6cb45dc5cdf",
+          "sha256:06eb05cae606ac5084db1a7085f130b1038fdbf75b5b1a94712a1ef199a7c1c1",
+          "sha256:6e67c944f3415bbc13cf58f2e98a03f352de344d717560f62e6942dd6b38dc7c",
+          "sha256:6aad912180c23811ae392190b18a7d41b1fdcff2bc7e45c7d8f10cf0ed9a4c73",
+          "sha256:28642791c56f09e509004925deb44e1e9cb1709e46133f1f9728ff4b93b63fb4",
+          "sha256:6942db3219cecdf2d45be019995159ff2d4fb94cf7536a28246e016c13e56bb1",
+          "sha256:5ef34cbd8ebc3b16598060c3c1ff0b1bd480ea2e46a16c5ce8ba4b183a5cf2ca",
+          "sha256:22ba35deaf66f92d056e3ade20affa1ed1bdb5ba2054be056bcbbf4d586c3a05",
+          "sha256:015259de1d95de7eb35abed027dfc80a2b232b5ec9ed84231b2a3d7b4ce6feda"
+        ]
+      },
+      "status": "PASS"
+    },
+    "sealed_network_denial": {
+      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration \u2014 satisfied by owner-authorized sbx attempt us007-sbx-output-live-0124 (receipt in the protected attempt dir)",
+      "requirement": "sealed-tier execution observes the default-deny network policy live",
+      "result": {
+        "executed": 3,
+        "failed": 0,
+        "notes": "Layered denial evidence from inside the sealed-window sandbox: (1) TLS/HTTP egress by raw IP intercepted by the Docker Sandboxes Proxy CA and answered \"Blocked by local rule\" (no bytes reach the internet); (2) raw non-HTTP TCP to 8.8.8.8:53 black-holed \u2014 connect accepted, zero bytes ever returned to a live DNS query; (3) DNS resolution denied (NXDOMAIN from the sandbox resolver). Host-side policy check: deny explicit; create argv carried --deny-network **. HONEST CAVEAT: the connect()-level netprobe verdict (network_denied:false, preserved verbatim in the referenced netprobe JSONs) is a false alarm of its too-shallow methodology \u2014 TCP connects complete at the transparent policy proxy; the data-layer evidence above is authoritative. The netprobe tool needs a data-layer upgrade (follow-up noted).",
+        "passed": 3,
+        "transcript_sha256s": [
+          "sha256:49d866fa01285bb72d05269e9b70069642d3d72a6ce67930e4700f2ea2051926",
+          "sha256:49d866fa01285bb72d05269e9b70069642d3d72a6ce67930e4700f2ea2051926"
+        ]
+      },
+      "status": "PASS"
+    }
+  },
+  "live_steps": [
+    "materialize the pinned Java-WebSocket 1.6.0 jar per evidence/intake/source-pins.json and verify sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+    "build java-oracle (make -C java-oracle build JAVA_WEBSOCKET_JAR=... RUNTIME_SUPPORT_CP=...) and run: corporactl oracle-requests --root . --protected-root <root> --tier public | java -jar java-oracle/build/java-oracle.jar > public-transcript.jsonl",
+    "evaluate: corporactl evaluate --root . --protected-root <root> --tier public --transcript public-transcript.jsonl (requires 100% pass)",
+    "repeat oracle-requests/evaluate for hidden and sealed tiers inside the custodian boundary; each held-out invocation spends the hash-chained ledger's query budget, failure diagnostics spend the diagnostic budget, and transcripts stay in the protected store",
+    "execute the handshake corpus against an executable handshake target: corporactl oracle-requests --tier handshake emits the raw cases, corporactl evaluate --tier handshake scores the verdict transcript",
+    "run the empty Rust target and planted Java/Rust mutants inside the accepted US-007 sbx profile (owner authorization per attempt) and evaluate their transcripts; all must fail or be killed",
+    "rerun the full live calibration once more and reconcile both transcripts exactly",
+    "probe sealed-network denial inside the sbx profile and attach the receipt",
+    "record completions by setting manifest execution_status=LIVE_EXECUTED with execution_evidence digests and live gate PASS/FAIL results with transcript digests; the schemas accept both pending and completed states"
+  ],
+  "model_scoping": [
+    "masking-role violations are a documented Java-compatibility non-goal, not RFC coverage: the pinned 1.6.0 runtime does not enforce RFC 6455 section 5.1 masking on receive (Draft_6455.translateSingleFrame reads the mask bit only), so the corpus stays spec-conformant on masking and the deriver rejects wrong-masked inputs as out of scope instead of asserting either behavior",
+    "error-path counts are asserted from the pinned sources; truncated UTF-8 tails are fully modeled (translate-time DFA accepts them, the strict decoder rejects them at process time with the frame recorded); only frames that straddle chunk boundaries with invalid content remain out of the generated space because their partial-completion consumption depends on incompleteframe growth internals",
+    "send-side control payloads above 125 octets are pinned as sendable (ControlFrame.isValid has no length check) and covered by a held-out family"
+  ],
+  "offline_gates": {
+    "generation_determinism": {
+      "digests": [
+        "sha256:e5a7c6df4429b5dffa45e563f9bb2c87278795137c884ed633360c8cd99c9c88",
+        "sha256:e5a7c6df4429b5dffa45e563f9bb2c87278795137c884ed633360c8cd99c9c88"
+      ],
+      "reconciled": true,
+      "runs": 2,
+      "status": "PASS"
+    },
+    "manifest_reconciliation": {
+      "findings": [],
+      "findings_count": 0,
+      "status": "PASS"
+    },
+    "protected_rescue_rule": {
+      "rule": "public verdicts derive only from public artifacts; any protected-sourced override of a public result blocks with PROTECTED_RESCUE_BLOCKED",
+      "status": "ENFORCED"
+    },
+    "reference_mutation_analysis": {
+      "killed": 16,
+      "model": "Go reference model mutants measuring corpus discriminative power; not Java or Rust binary mutants (those remain a live gate)",
+      "mutants": [
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 2,
+            "public": 2,
+            "sealed": 2
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-control-limit-200",
+          "operator": "raise the 125-octet control payload limit to 200",
+          "total_killing": 6
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 4,
+            "public": 2,
+            "sealed": 4
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-utf8-off",
+          "operator": "accept invalid UTF-8 in text payloads",
+          "total_killing": 10
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 9,
+            "public": 4,
+            "sealed": 9
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-close-code-any",
+          "operator": "accept reserved close codes on the wire and on send",
+          "total_killing": 22
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 8,
+            "public": 5,
+            "sealed": 8
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-echo-close-off",
+          "operator": "skip echoing the close frame during the two-way close handshake",
+          "total_killing": 21
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 1,
+            "public": 1,
+            "sealed": 1
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-state-open-ignored",
+          "operator": "allow local commands outside the OPEN state",
+          "total_killing": 3
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 4,
+            "public": 4,
+            "sealed": 4
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-continuation-start-off",
+          "operator": "accept continuation frames without a started sequence",
+          "total_killing": 12
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 2,
+            "public": 1,
+            "sealed": 2
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-frame-size-limit-off",
+          "operator": "ignore the declared maximum frame size",
+          "total_killing": 5
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 6,
+            "public": 6,
+            "sealed": 6
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-client-mask-off",
+          "operator": "send client frames unmasked",
+          "total_killing": 18
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 3,
+            "public": 3,
+            "sealed": 3
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-rsv-ignored",
+          "operator": "accept frames with reserved bits set",
+          "total_killing": 9
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-method-any",
+          "operator": "accept any HTTP method for the opening handshake",
+          "total_killing": 2
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 3,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-version-any",
+          "operator": "accept any Sec-WebSocket-Version",
+          "total_killing": 3
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-key-length-any",
+          "operator": "accept keys that do not decode to 16 bytes",
+          "total_killing": 2
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-accept-any",
+          "operator": "skip Sec-WebSocket-Accept verification",
+          "total_killing": 2
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-duplicates-ok",
+          "operator": "accept duplicated singleton headers",
+          "total_killing": 2
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 3,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-limits-off",
+          "operator": "ignore configured byte and header limits",
+          "total_killing": 3
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-upgrade-value-any",
+          "operator": "accept any Upgrade and Connection values",
+          "total_killing": 2
+        }
+      ],
+      "status": "PASS",
+      "surviving": 0,
+      "total_mutants": 16
+    },
+    "stub_target_analysis": {
+      "failures": 307,
+      "model": "inert empty-behavior stub evaluated by the real corpus evaluator; a negative control of the corpus, not a Rust execution",
+      "passes": 0,
+      "status": "PASS",
+      "total": 307
+    }
+  },
+  "production": false,
+  "publication": false,
+  "schema_version": "1.0.0",
+  "signing": false,
+  "status": "LIVE_CALIBRATED"
+}

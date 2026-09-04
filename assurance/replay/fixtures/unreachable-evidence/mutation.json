@@ -1,0 +1,51 @@
+{
+  "operations": [
+    {
+      "kind": "json_set",
+      "target": "assurance/lifecycle.json",
+      "pointer": "/edges",
+      "value": [
+        {
+          "from": "claim-us004",
+          "to": "evidence-evidence-model",
+          "kind": "supports"
+        },
+        {
+          "from": "claim-us004",
+          "to": "evidence-evolution",
+          "kind": "supports"
+        },
+        {
+          "from": "claim-us004",
+          "to": "evidence-failures",
+          "kind": "supports"
+        },
+        {
+          "from": "claim-us004",
+          "to": "evidence-dag",
+          "kind": "supports"
+        },
+        {
+          "from": "claim-us004",
+          "to": "evidence-public-contract",
+          "kind": "supports"
+        },
+        {
+          "from": "claim-us004",
+          "to": "evidence-jdt-ls",
+          "kind": "supports"
+        },
+        {
+          "from": "claim-us004",
+          "to": "evidence-rust-analyzer",
+          "kind": "supports"
+        },
+        {
+          "from": "claim-us004",
+          "to": "evidence-glancer",
+          "kind": "supports"
+        }
+      ]
+    }
+  ]
+}

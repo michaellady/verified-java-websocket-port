@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "fresh-generic-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude parallel authority plane)",
+  "attempt_id": "us007-sbx-output-live-0102",
+  "sandbox_name": "us007-resource-envelope-0102",
+  "target_commit": "870aac28139604e217ae44469e679557994f7a0d",
+  "scope": "ONE_GENERIC_NON_AUTOBAHN_PROTECTED_SBX_ATTEMPT",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-26T01:55:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner explicit statement 2026-08-26 ~01:40Z: 'I approve of you running any tests you need and iterating', given immediately after the owner-approved attempt 0101 blocked on two validator defects (SBX_INSPECT_MISMATCH and SANDBOX_ABSENCE_QUERY_INVALID against live daemon output shape). This attempt carries the remediation: absence validator accepts live v0.39.0 entry decoration by exact-name semantics (TDD RED->GREEN), and the operator now retains bounded (64KiB, 0600, protected-root-only) diagnostics on strict-validation mismatch so a blocked attempt names its mismatch. Recorded owner decision, not an independent attestation.",
+  "predecessor_attempt": {
+    "attempt_id": "us007-sbx-output-live-0101",
+    "state": "BLOCKED (SBX_INSPECT_MISMATCH/BLOCK + cleanup absence-query validator defect)",
+    "sandbox_created": true,
+    "sandbox_absent_after": "verified by read-only sbx ls (only preexisting unrelated claude-mikelady remains)",
+    "receipts_retained_immutable": true
+  },
+  "driver": "claude-fable-5",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "constraints": [
+    "One live attempt under this authorization; failures preserved immutably",
+    "No Autobahn rerun of any kind",
+    "Codex-plane ledger, nonces, receipts, and attempt dirs remain untouched",
+    "production=false, signing=false, publication=false"
+  ],
+  "compiled_identity": {
+    "host_operator_digest": "sha256:5ba6d70988bd6d79780d3e30467d1678bf23729a654bb941373e6f629d798b06",
+    "linux_supervisor_digest": "sha256:6280acb07f6796995ed6a58f4b31df932a282fb43a457fb7063fa2ad490e4962",
+    "owner_anchor_digest": "sha256:631888ecf4810c9155ad171f10d5ceb4d5816cce0ac2ea9cb97a4d001ef861c7",
+    "owner_public_key_digest": "sha256:441147ea2da5e63d2411bc01242153c86a81022935635ca8edad494416055f22",
+    "role_snapshot_digest": "sha256:11cacdccca949676aa712d58575995c5eeb041aa9e1cc4adcf279add37ecee39",
+    "revocation_snapshot_digest": "sha256:bca86576c90f52d97677fa4be0783a050383aef0edace19bbec7b60fb4665459",
+    "sbx_cli_digest": "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf",
+    "source_clone_tree": "4937f8fab01300b542ca4dd23f90f6202ed3f268"
+  }
+}

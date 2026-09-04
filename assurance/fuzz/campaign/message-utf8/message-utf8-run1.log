@@ -1,0 +1,24 @@
+# target=message-utf8 run=1
+# dir=rust
+# command=cargo test --locked -p ws-core --test adversarial_properties
+# wall_clock_deadline_seconds=900
+# exit=0
+# deadline_hit=false
+
+   Compiling ws-core v0.0.0 (/home/user/verified-java-websocket-port/.claude/worktrees/agent-ac5e49d2d3e40bd5d/rust/ws-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.30s
+     Running tests/adversarial_properties.rs (target/debug/deps/adversarial_properties-bad64249ad208a95)
+
+running 9 tests
+test close_code_tables_exhaustive_against_the_java_model ... ok
+test close_payload_parse_round_trips ... ok
+test noncanonical_length_escapes_and_incomplete_prefixes ... ok
+test utf8_curated_malformed_corpus ... ok
+test equivalent_mutant_witnesses_close_chain_redundancy ... ok
+test masking_equation_involution_and_chunked_equivalence ... ok
+test length_encoding_round_trip_at_the_pinned_sites ... ok
+test utf8_differential_random_byte_soup ... ok
+test utf8_differential_encoded_strings_corruptions_and_truncations ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+

@@ -1,0 +1,18 @@
+# target=close-eof run=1
+# dir=rust
+# command=cargo test --locked -p ws-core --test close_eof_fuzz
+# wall_clock_deadline_seconds=900
+# exit=0
+# deadline_hit=false
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running tests/close_eof_fuzz.rs (target/debug/deps/close_eof_fuzz-f2b48ae04c1d801e)
+
+running 4 tests
+test close_eof_modeled_schedules ... ok
+test close_payload_parse_differential ... ok
+test close_eof_hostile_soup_no_panic_deterministic ... ok
+test close_eof_terminal_is_exactly_once_and_post_terminal_is_inert ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+

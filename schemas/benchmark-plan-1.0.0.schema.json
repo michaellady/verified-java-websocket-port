@@ -1,0 +1,356 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/benchmark-plan-1.0.0.schema.json",
+  "title": "US-008 frozen benchmark preregistration plan",
+  "description": "Machine-enforced preregistration: frozen workloads, seed rule, sample counts, statistics constants, CI thresholds, and the forbidden-practices list. The schema forbids unknown keys everywhere, so no results field can ever be added to the plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "attestation_state", "source_of_truth", "assurance", "independent_review_claimed", "no_results_invariant", "shared_definitions", "comparison_boundary", "metric_endpoints", "workloads", "pairing_and_ordering", "statistics", "ci_thresholds", "run_validity", "binding"],
+  "properties": {
+    "schema": {"const": "vjwp-benchmark-plan/1.0.0"},
+    "status": {"type": "string", "pattern": "^PREREGISTERED_(BY_DRIVER_UNATTESTED|OWNER_ATTESTED|INDEPENDENTLY_ATTESTED)"},
+    "attestation_state": {"enum": ["UNATTESTED", "OWNER_ATTESTED", "INDEPENDENTLY_ATTESTED"]},
+    "attestation_record": {"anyOf": [{"$ref": "#/$defs/ownerAttestationRecord"}, {"$ref": "#/$defs/independentAttestationRecord"}]},
+    "source_of_truth": {"type": "string", "minLength": 1},
+    "assurance": {"enum": ["OWNER_ATTESTED_NOT_INDEPENDENT", "INDEPENDENTLY_ATTESTED"]},
+    "independent_review_claimed": {"type": "boolean"},
+    "no_results_invariant": {"type": "string", "minLength": 1},
+    "shared_definitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["keystream", "pacing_model", "sample_definition", "invalid_sample_rule", "mask_spec_version", "masking_rule"],
+      "properties": {
+        "keystream": {"type": "string", "minLength": 1},
+        "pacing_model": {"type": "string", "minLength": 1},
+        "sample_definition": {"type": "string", "minLength": 1},
+        "invalid_sample_rule": {"type": "string", "minLength": 1},
+        "mask_spec_version": {"const": "vjwp-us008-mask|v1"},
+        "masking_rule": {"type": "string", "pattern": "vjwp-us008-mask\\|v1"}
+      }
+    },
+    "comparison_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definition", "provenance", "endpoint"],
+      "properties": {
+        "definition": {"type": "string", "minLength": 1},
+        "provenance": {"const": "PRD_VERBATIM"},
+        "endpoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["transport", "listen_address", "listen_port", "url", "request_path", "tls", "websocket_version", "extensions", "subprotocols", "client_frames", "provenance", "rationale"],
+          "properties": {
+            "transport": {"const": "TCP over IPv4 loopback"},
+            "listen_address": {"const": "127.0.0.1"},
+            "listen_port": {"const": 9101},
+            "url": {"const": "ws://127.0.0.1:9101/"},
+            "request_path": {"const": "/"},
+            "tls": {"const": false},
+            "websocket_version": {"const": 13},
+            "extensions": {"type": "string", "pattern": "^none"},
+            "subprotocols": {"type": "string", "pattern": "^none"},
+            "client_frames": {"type": "string", "minLength": 1},
+            "provenance": {"const": "PREREGISTERED_BY_DRIVER"},
+            "rationale": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "metric_endpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["peak_rss", "steady_rss", "cpu_time", "startup_to_ready", "latency_p50", "latency_p95", "latency_p99", "allocated_bytes", "allocation_count", "throughput", "tool_identity_note"],
+      "properties": {
+        "peak_rss": {"$ref": "#/$defs/metricDefinition"},
+        "steady_rss": {"$ref": "#/$defs/metricDefinition"},
+        "cpu_time": {"$ref": "#/$defs/metricDefinition"},
+        "startup_to_ready": {"$ref": "#/$defs/metricDefinition"},
+        "latency_p50": {"$ref": "#/$defs/metricDefinition"},
+        "latency_p95": {"$ref": "#/$defs/metricDefinition"},
+        "latency_p99": {"$ref": "#/$defs/metricDefinition"},
+        "allocated_bytes": {"$ref": "#/$defs/metricDefinition"},
+        "allocation_count": {"$ref": "#/$defs/metricDefinition"},
+        "throughput": {"$ref": "#/$defs/metricDefinition"},
+        "tool_identity_note": {"type": "string", "pattern": "OWNER_DECISION_PENDING"}
+      }
+    },
+    "workloads": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "prefixItems": [
+        {"allOf": [{"$ref": "#/$defs/workload"}, {"properties": {"id": {"const": "wl-01-handshake-close"}}}]},
+        {"allOf": [{"$ref": "#/$defs/workload"}, {"properties": {"id": {"const": "wl-02-small-text-echo"}}}]},
+        {"allOf": [{"$ref": "#/$defs/workload"}, {"properties": {"id": {"const": "wl-03-fragmented-64kib-binary-echo"}}}]},
+        {"allOf": [{"$ref": "#/$defs/workload"}, {"properties": {"id": {"const": "wl-04-control-mix"}}}]},
+        {"allOf": [{"$ref": "#/$defs/workload"}, {"properties": {"id": {"const": "wl-05-cap-rejection"}}}]},
+        {"allOf": [{"$ref": "#/$defs/workload"}, {"properties": {"id": {"const": "wl-06-concurrent-pressure"}}}]}
+      ],
+      "items": false
+    },
+    "pairing_and_ordering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["warmup_pairs_excluded", "measured_pairs", "total_pairs", "order_values", "seed_spec_version", "seed_derivation_rule", "provenance", "forbidden"],
+      "properties": {
+        "warmup_pairs_excluded": {"const": 5},
+        "measured_pairs": {"const": 30},
+        "total_pairs": {"const": 35},
+        "order_values": {"const": ["JAVA_FIRST", "RUST_FIRST"]},
+        "seed_spec_version": {"const": "vjwp-us008-pair-order|v1"},
+        "seed_derivation_rule": {"type": "string", "minLength": 1},
+        "provenance": {"type": "string", "minLength": 1},
+        "forbidden": {"const": ["extension", "replacement", "optional stopping", "outlier deletion", "missing pairs", "extra pairs", "aggregate-only decisions"]}
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["per_endpoint_analysis", "confidence_level", "degrees_of_freedom", "power_model", "reference_drift_procedure", "decision_rule"],
+      "properties": {
+        "per_endpoint_analysis": {"type": "string", "minLength": 1},
+        "confidence_level": {"const": 0.95},
+        "degrees_of_freedom": {"const": 29},
+        "reference_drift_procedure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reference_workload", "reference_implementation", "statistic", "schedule", "reference_runs_total", "subsequent_runs", "baseline", "envelope_percent", "comparison", "decision", "provenance", "rationale"],
+          "properties": {
+            "reference_workload": {"const": "wl-02-small-text-echo"},
+            "reference_implementation": {"const": "JAVA"},
+            "statistic": {"type": "string", "minLength": 1},
+            "schedule": {"type": "string", "minLength": 1},
+            "reference_runs_total": {"const": 8},
+            "subsequent_runs": {"const": 7},
+            "baseline": {"type": "string", "minLength": 1},
+            "envelope_percent": {"const": 5},
+            "comparison": {"type": "string", "pattern": "0\\.05 \\* baseline"},
+            "decision": {"type": "string", "pattern": "INCONCLUSIVE"},
+            "provenance": {"const": "PREREGISTERED_BY_DRIVER"},
+            "rationale": {"type": "string", "minLength": 1}
+          }
+        },
+        "power_model": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "alpha", "power_min", "max_log_ratio_sd", "underpowered_rule", "named_alternatives", "reference_drift_envelope_percent"],
+          "properties": {
+            "kind": {"const": "frozen one-sample log-ratio power model"},
+            "alpha": {"const": 0.025},
+            "power_min": {"const": 0.8},
+            "max_log_ratio_sd": {"const": 0.1},
+            "underpowered_rule": {"type": "string", "minLength": 1},
+            "named_alternatives": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["memory", "non_regression"],
+              "properties": {
+                "memory": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["log_ratio_expression", "log_ratio", "provenance", "rationale"],
+                  "properties": {
+                    "log_ratio_expression": {"const": "ln(0.8)"},
+                    "log_ratio": {"type": "number", "exclusiveMaximum": 0},
+                    "provenance": {"const": "PREREGISTERED_BY_DRIVER"},
+                    "rationale": {"type": "string", "minLength": 1}
+                  }
+                },
+                "non_regression": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["log_ratio_expression", "log_ratio", "provenance", "rationale"],
+                  "properties": {
+                    "log_ratio_expression": {"const": "ln(1.1)"},
+                    "log_ratio": {"type": "number", "exclusiveMinimum": 0},
+                    "provenance": {"const": "PREREGISTERED_BY_DRIVER"},
+                    "rationale": {"type": "string", "minLength": 1}
+                  }
+                }
+              }
+            },
+            "reference_drift_envelope_percent": {"const": 5}
+          }
+        },
+        "decision_rule": {"type": "string", "pattern": "INCONCLUSIVE"}
+      }
+    },
+    "ci_thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["note", "peak_rss", "steady_rss", "cpu_time", "startup_to_ready", "latency_p50", "latency_p95", "latency_p99", "allocated_bytes", "allocation_count", "throughput"],
+      "properties": {
+        "note": {"type": "string", "minLength": 1},
+        "peak_rss": {"const": {"bound": "upper", "value": 0.8}},
+        "steady_rss": {"const": {"bound": "upper", "value": 0.8}},
+        "cpu_time": {"const": {"bound": "upper", "value": 1.0}},
+        "startup_to_ready": {"const": {"bound": "upper", "value": 1.0}},
+        "latency_p50": {"const": {"bound": "upper", "value": 1.0}},
+        "latency_p95": {"const": {"bound": "upper", "value": 1.0}},
+        "latency_p99": {"const": {"bound": "upper", "value": 1.0}},
+        "allocated_bytes": {"const": {"bound": "upper", "value": 1.0}},
+        "allocation_count": {"const": {"bound": "upper", "value": 1.0}},
+        "throughput": {"const": {"bound": "lower", "value": 1.0}}
+      }
+    },
+    "run_validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["background_cpu_percent_max", "thermal_power_identity", "provenance"],
+      "properties": {
+        "background_cpu_percent_max": {"const": 2},
+        "thermal_power_identity": {"type": "string", "pattern": "fail-closed"},
+        "provenance": {"const": "PRD_VERBATIM"}
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["note", "required_sample_bindings", "plan_digest", "environment_bindings", "java_source_digest", "rust_source_digest", "analyzer_digest"],
+      "properties": {
+        "note": {"type": "string", "minLength": 1},
+        "required_sample_bindings": {"const": ["plan_digest", "primary_environment_digest", "confirmation_environment_digest", "java_source_digest", "rust_source_digest", "java_executable_digest", "rust_executable_digest", "adapter_digest", "tool_identity_digest", "analyzer_digest"]},
+        "plan_digest": {"type": "string", "pattern": "^NOT_MEASURED"},
+        "environment_bindings": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string", "minLength": 1}},
+        "java_source_digest": {"type": "string", "pattern": "^NOT_MEASURED"},
+        "rust_source_digest": {"type": "string", "pattern": "^NOT_MEASURED"},
+        "analyzer_digest": {"type": "string", "pattern": "^NOT_MEASURED"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"attestation_state": {"const": "UNATTESTED"}}, "required": ["attestation_state"]},
+      "then": {
+        "properties": {
+          "status": {"pattern": "^PREREGISTERED_BY_DRIVER_UNATTESTED"},
+          "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+          "independent_review_claimed": {"const": false}
+        },
+        "not": {"required": ["attestation_record"]}
+      }
+    },
+    {
+      "if": {"properties": {"attestation_state": {"const": "OWNER_ATTESTED"}}, "required": ["attestation_state"]},
+      "then": {
+        "properties": {
+          "status": {"pattern": "^PREREGISTERED_OWNER_ATTESTED"},
+          "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+          "independent_review_claimed": {"const": false},
+          "attestation_record": {"$ref": "#/$defs/ownerAttestationRecord"}
+        },
+        "required": ["attestation_record"]
+      }
+    },
+    {
+      "if": {"properties": {"attestation_state": {"const": "INDEPENDENTLY_ATTESTED"}}, "required": ["attestation_state"]},
+      "then": {
+        "properties": {
+          "status": {"pattern": "^PREREGISTERED_INDEPENDENTLY_ATTESTED"},
+          "assurance": {"const": "INDEPENDENTLY_ATTESTED"},
+          "independent_review_claimed": {"const": true},
+          "attestation_record": {"$ref": "#/$defs/independentAttestationRecord"}
+        },
+        "required": ["attestation_record"]
+      }
+    }
+  ],
+  "$defs": {
+    "ownerAttestationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_content_sha256", "frozen_plan_git_commit", "frozen_plan_path", "digest_scope", "decision_record", "attested_at", "assurance", "independent_review_claimed"],
+      "properties": {
+        "plan_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "frozen_plan_git_commit": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+        "frozen_plan_path": {"const": "benchmarks/plan/workloads.json"},
+        "digest_scope": {"type": "string", "minLength": 1},
+        "decision_record": {"type": "string", "minLength": 1},
+        "attested_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+        "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+        "independent_review_claimed": {"const": false}
+      }
+    },
+    "independentAttestationRecord": {
+      "description": "The INDEPENDENTLY_ATTESTED record variant: it requires independent-specific evidence an owner-only record structurally cannot provide (a distinct attestor identity, record-level independent_review_claimed true, the attestor record digest and date), so a state/status relabel of the owner record can never satisfy the independent state.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_content_sha256", "frozen_plan_git_commit", "frozen_plan_path", "digest_scope", "decision_record", "attested_at", "assurance", "independent_review_claimed", "independent_attestor_identity", "independent_attestation_record_sha256", "independent_attested_at"],
+      "properties": {
+        "plan_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "frozen_plan_git_commit": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+        "frozen_plan_path": {"const": "benchmarks/plan/workloads.json"},
+        "digest_scope": {"type": "string", "minLength": 1},
+        "decision_record": {"type": "string", "minLength": 1},
+        "attested_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+        "assurance": {"const": "INDEPENDENTLY_ATTESTED"},
+        "independent_review_claimed": {"const": true},
+        "independent_attestor_identity": {"type": "string", "minLength": 1},
+        "independent_attestation_record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "independent_attested_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"}
+      }
+    },
+    "metricDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definition", "unit"],
+      "properties": {
+        "definition": {"type": "string", "minLength": 1},
+        "unit": {"type": "string", "minLength": 1}
+      }
+    },
+    "numericParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit", "provenance", "rationale"],
+      "properties": {
+        "value": {"type": "number", "exclusiveMinimum": 0},
+        "unit": {"type": "string", "minLength": 1},
+        "pacing": {"type": "string", "minLength": 1},
+        "provenance": {"enum": ["PRD_VERBATIM", "PREREGISTERED_BY_DRIVER"]},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    },
+    "definitionParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definition", "provenance", "rationale"],
+      "properties": {
+        "definition": {"type": "string", "minLength": 1},
+        "provenance": {"enum": ["PRD_VERBATIM", "PREREGISTERED_BY_DRIVER"]},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "definition", "fixed_parameters", "derived_pair_order"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "definition": {"type": "string", "minLength": 1},
+        "fixed_parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rate", "concurrency", "operations", "nominal_duration_seconds", "hard_timeout_seconds", "inputs", "outputs"],
+          "properties": {
+            "rate": {"$ref": "#/$defs/numericParameter"},
+            "concurrency": {"$ref": "#/$defs/numericParameter"},
+            "operations": {"$ref": "#/$defs/numericParameter"},
+            "nominal_duration_seconds": {"$ref": "#/$defs/numericParameter"},
+            "hard_timeout_seconds": {"$ref": "#/$defs/numericParameter"},
+            "server_configuration": {"$ref": "#/$defs/definitionParameter"},
+            "inputs": {"$ref": "#/$defs/definitionParameter"},
+            "outputs": {"$ref": "#/$defs/definitionParameter"}
+          }
+        },
+        "derived_pair_order": {
+          "type": "array",
+          "minItems": 35,
+          "maxItems": 35,
+          "items": {"enum": ["JAVA_FIRST", "RUST_FIRST"]}
+        }
+      }
+    }
+  }
+}

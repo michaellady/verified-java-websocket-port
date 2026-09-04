@@ -1,0 +1,529 @@
+{
+  "entries": [
+    {
+      "direction": "client_request",
+      "key": "accept",
+      "rfc_verdict": "accept",
+      "java_observable": "accept",
+      "divergent": false,
+      "basis": [
+        "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+        "WebSocketImpl.java:269-315 (decodeHandshake server loop)",
+        "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+      ],
+      "note": "Sec-WebSocket-Accept equals the RFC value: generateFinalKey (Draft_6455.java:832-841) is the same SHA-1 derivation after String.trim"
+    },
+    {
+      "direction": "client_request",
+      "key": "incomplete",
+      "rfc_verdict": "incomplete",
+      "java_observable": "incomplete",
+      "divergent": false,
+      "basis": [
+        "Draft.java:100-102, 128-130 (IncompleteHandshakeException)",
+        "WebSocketImpl.java:370-387 (buffered, nothing written)"
+      ]
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_LIMIT_TOTAL_BYTES",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "Java-WebSocket 1.6.0 has no handshake byte, header-count, or header-line limits (translateHandshakeHttp reads unboundedly; WebSocketImpl.java:370-387 grows tmpHandshakeBytes); the observable is decided by the remaining Java checks over the same bytes",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ],
+      "note": "committed corpus family limit-total-bytes resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_LIMIT_HEADER_COUNT",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "Java-WebSocket 1.6.0 has no handshake byte, header-count, or header-line limits (translateHandshakeHttp reads unboundedly; WebSocketImpl.java:370-387 grows tmpHandshakeBytes); the observable is decided by the remaining Java checks over the same bytes",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ],
+      "note": "committed corpus family limit-header-count resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_LIMIT_HEADER_LINE_BYTES",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "Java-WebSocket 1.6.0 has no handshake byte, header-count, or header-line limits (translateHandshakeHttp reads unboundedly; WebSocketImpl.java:370-387 grows tmpHandshakeBytes); the observable is decided by the remaining Java checks over the same bytes",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ],
+      "note": "committed corpus family limit-header-line resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_BARE_LF",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "Draft.readLine terminates only on CRLF (Draft.java:78), so a bare-LF line folds into the following CRLF-terminated line as one header; the observable is decided by the surviving fields",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ],
+      "note": "committed corpus family bare-lf resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_OBS_FOLD",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ],
+      "note": "a folded continuation line has no colon and rejects as 'not an http header' (Draft.java:115-118); coarser than HS_OBS_FOLD"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_MALFORMED_HEADER",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ],
+      "note": "coarser: every parse-level rejection is the same observable"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_HEADER_NAME_NOT_TOKEN",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "Java performs no header-name token validation (Draft.java:115-125 stores any name); the observable is decided by the remaining Java checks",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ],
+      "note": "committed corpus family header-name-not-token resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_DUPLICATE_HEADER",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "duplicates join with '; ' (Draft.java:119-125): a duplicated Sec-WebSocket-Version becomes unparseable and rejects NOT_MATCHED, while a duplicated Sec-WebSocket-Key is accepted with the accept value computed over the joined string",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ],
+      "note": "committed corpus family duplicate-header splits: seed 0 (key) is a divergent Java accept, seed 1 (version) rejects NOT_MATCHED"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_MALFORMED_REQUEST_LINE",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)",
+        "Draft.java:141-155 (translateHandshakeHttpServer)"
+      ],
+      "note": "Java splits with limit 3 (Draft.java:104), so extra tokens fold into the version token and reject on the HTTP/1.1 comparison"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_METHOD_NOT_GET",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:141-155 (translateHandshakeHttpServer)"
+      ],
+      "note": "granularity: Java compares equalsIgnoreCase, so a lowercase 'get' would be accepted by Java and rejected by the RFC model"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_HTTP_VERSION",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:141-155 (translateHandshakeHttpServer)"
+      ],
+      "note": "granularity: Java compares equalsIgnoreCase('HTTP/1.1')"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_MISSING_HOST",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+      "basis": [
+        "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+        "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+      ],
+      "note": "committed corpus family missing-host resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_MISSING_UPGRADE",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+      "basis": [
+        "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+        "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+      ],
+      "note": "committed corpus family missing-upgrade resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_UPGRADE_VALUE",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+      "basis": [
+        "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+        "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+      ],
+      "note": "committed corpus family upgrade-value resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_MISSING_CONNECTION",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+      "basis": [
+        "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+        "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+      ],
+      "note": "committed corpus family missing-connection resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_CONNECTION_VALUE",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+      "basis": [
+        "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+        "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+      ],
+      "note": "committed corpus family connection-value resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_MISSING_KEY",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+      ],
+      "note": "the version check passes (MATCHED) but building the response throws 'missing Sec-WebSocket-Key'"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_KEY_NOT_BASE64",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "generateFinalKey (Draft_6455.java:832-841) hashes any non-empty string; the key encoding is never validated",
+      "basis": [
+        "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+      ],
+      "note": "committed corpus family key-not-base64 resolves to a divergent Java accept whose accept value hashes the malformed key"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_KEY_LENGTH",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "the decoded key length is never validated; generateFinalKey hashes the raw header string",
+      "basis": [
+        "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+      ],
+      "note": "committed corpus family key-wrong-length resolves to a divergent Java accept"
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_MISSING_VERSION",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "not_matched",
+      "divergent": false,
+      "basis": [
+        "Draft.java:329-341 (readVersion returns -1)",
+        "Draft_6455.java:262-268 (NOT_MATCHED when != 13)"
+      ]
+    },
+    {
+      "direction": "client_request",
+      "key": "HS_VERSION_UNSUPPORTED",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "not_matched",
+      "divergent": false,
+      "basis": [
+        "Draft.java:329-341 (readVersion)",
+        "Draft_6455.java:262-268 (NOT_MATCHED when != 13)"
+      ],
+      "note": "granularity: Java accepts any Integer.parseInt spelling of 13 after trim ('+13', '0013', ' 13 '), which the RFC model rejects"
+    },
+    {
+      "direction": "server_response",
+      "key": "accept",
+      "rfc_verdict": "accept",
+      "java_observable": "accept",
+      "divergent": false,
+      "basis": [
+        "Draft_6455.java:306-343 (acceptHandshakeAsClient)",
+        "Draft.java:188-191 (basicAccept)",
+        "WebSocketImpl.java:336-364 (decodeHandshake client path)"
+      ],
+      "note": "no accept value is observable on the client side"
+    },
+    {
+      "direction": "server_response",
+      "key": "incomplete",
+      "rfc_verdict": "incomplete",
+      "java_observable": "incomplete",
+      "divergent": false,
+      "basis": [
+        "Draft.java:100-102, 128-130 (IncompleteHandshakeException)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_LIMIT_TOTAL_BYTES",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "Java-WebSocket 1.6.0 has no handshake byte, header-count, or header-line limits (translateHandshakeHttp reads unboundedly; WebSocketImpl.java:370-387 grows tmpHandshakeBytes); the observable is decided by the remaining Java checks over the same bytes",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_LIMIT_HEADER_COUNT",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "Java-WebSocket 1.6.0 has no handshake byte, header-count, or header-line limits (translateHandshakeHttp reads unboundedly; WebSocketImpl.java:370-387 grows tmpHandshakeBytes); the observable is decided by the remaining Java checks over the same bytes",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_LIMIT_HEADER_LINE_BYTES",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "Java-WebSocket 1.6.0 has no handshake byte, header-count, or header-line limits (translateHandshakeHttp reads unboundedly; WebSocketImpl.java:370-387 grows tmpHandshakeBytes); the observable is decided by the remaining Java checks over the same bytes",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_BARE_LF",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "a bare-LF line folds into the following CRLF-terminated line; unlike the server side, basicAccept still checks Upgrade and Connection, so folded responses usually reject NOT_MATCHED",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)",
+        "Draft_6455.java:306-343 (acceptHandshakeAsClient)",
+        "Draft.java:188-191 (basicAccept)",
+        "WebSocketImpl.java:336-364 (decodeHandshake client path)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_OBS_FOLD",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_MALFORMED_HEADER",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_HEADER_NAME_NOT_TOKEN",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "Java performs no header-name token validation; the observable is decided by basicAccept and the accept comparison",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_DUPLICATE_HEADER",
+      "rfc_verdict": "reject",
+      "java_observable": "conditional",
+      "divergent": true,
+      "condition": "duplicates join with '; '; a duplicated Sec-WebSocket-Accept joins to a value that cannot equal the derived key and rejects NOT_MATCHED",
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)",
+        "Draft_6455.java:306-343 (acceptHandshakeAsClient)",
+        "Draft.java:188-191 (basicAccept)",
+        "WebSocketImpl.java:336-364 (decodeHandshake client path)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_MALFORMED_STATUS_LINE",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:70-132 (readLine, translateHandshakeHttp)",
+        "Draft.java:164-180 (translateHandshakeHttpClient)"
+      ],
+      "note": "granularity: Java requires exactly three tokens and the literal '101', so a two-token status line or '0101' rejects in Java while the RFC model reads them differently"
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_HTTP_VERSION",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:164-180 (translateHandshakeHttpClient)"
+      ],
+      "note": "Java checks the status code before the HTTP version; both paths reject the committed corpus inputs"
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_STATUS_NOT_101",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "invalid_handshake",
+      "divergent": false,
+      "basis": [
+        "Draft.java:164-180 (translateHandshakeHttpClient)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_MISSING_UPGRADE",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "not_matched",
+      "divergent": false,
+      "basis": [
+        "Draft_6455.java:306-343 (acceptHandshakeAsClient)",
+        "Draft.java:188-191 (basicAccept)",
+        "WebSocketImpl.java:336-364 (decodeHandshake client path)"
+      ],
+      "note": "coarser: basicAccept failures on Upgrade and Connection are one indistinguishable NOT_MATCHED observable"
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_UPGRADE_VALUE",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "not_matched",
+      "divergent": false,
+      "basis": [
+        "Draft_6455.java:306-343 (acceptHandshakeAsClient)",
+        "Draft.java:188-191 (basicAccept)",
+        "WebSocketImpl.java:336-364 (decodeHandshake client path)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_MISSING_CONNECTION",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "not_matched",
+      "divergent": false,
+      "basis": [
+        "Draft_6455.java:306-343 (acceptHandshakeAsClient)",
+        "Draft.java:188-191 (basicAccept)",
+        "WebSocketImpl.java:336-364 (decodeHandshake client path)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_CONNECTION_VALUE",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "not_matched",
+      "divergent": false,
+      "basis": [
+        "Draft_6455.java:306-343 (acceptHandshakeAsClient)",
+        "Draft.java:188-191 (basicAccept)",
+        "WebSocketImpl.java:336-364 (decodeHandshake client path)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_MISSING_ACCEPT",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "not_matched",
+      "divergent": false,
+      "basis": [
+        "Draft_6455.java:312-316 (missing key or accept)"
+      ]
+    },
+    {
+      "direction": "server_response",
+      "key": "HS_ACCEPT_MISMATCH",
+      "rfc_verdict": "reject",
+      "java_observable": "reject",
+      "reject_channel": "not_matched",
+      "divergent": false,
+      "basis": [
+        "Draft_6455.java:318-325 (literal accept comparison)"
+      ]
+    }
+  ],
+  "evidence_kind": "handshake-live-verdict-mapping",
+  "granularity_statement": "The Java runtime cannot observably distinguish most HS_* reject codes: on a real server every rejection collapses to one HTTP error response plus a PROTOCOL_ERROR (1002) close, and generateHttpResponseDueToError(404) (WebSocketImpl.java:447-461) builds that response from a CONSTANT string, so two rejections are byte-identical to the peer. The adapter reports the finest honest granularity available at the draft API, which is a PAIR: the channel (invalid_handshake vs not_matched) and the CALL that decided it (reject_stage: translate | accept_predicate | response_build). The stage is not a refinement of the wire — it is the same kind of fact as the channel. It matters because invalid_handshake conflates two structurally different events: a translateHandshake refusal, where no Handshakedata is ever built and WebSocketImpl never reaches the application listener, and a postProcessHandshakeResponseAsServer refusal (Draft_6455.java:438-440), which happens only after acceptHandshakeAsServer returned MATCHED and onWebsocketHandshakeReceivedAsServer has already been called (WebSocketImpl.java:284-301). WHAT REMAINS UNREPORTABLE, and why: within one stage the runtime distinguishes causes only through InvalidHandshakeException MESSAGE STRINGS, which the differential classifies non-semantic and which a port could only reproduce by emulation; and HandshakeState is a single enum value returned by a single method, so not_matched has no finer draft-API fact underneath it at all. Rows marked divergent identify inputs the RFC-derived Go model rejects but the Java runtime observably accepts (or splits); conditional rows name the exact source behavior that decides the outcome, resolved per case by ExpectedJavaHandshakeObservable.",
+  "map_id": "us005-handshake-live-mapping",
+  "protocol": {
+    "id": "java-websocket-handshake-oracle",
+    "version": "1.0.0"
+  },
+  "schema_version": "1.0.0",
+  "source": {
+    "artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+    "revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+    "statement": "Every row was derived by reading the quarantined Java-WebSocket 1.6.0 source at the cited lines; no row was inferred from documentation or invented. Jar-execution status: the 49-case committed census is parity-model-derived from those cited source lines; the java-oracle handshake harness has executed five synthetic representative divergence families against the real digest-verified jar (missing Host, missing Upgrade, non-base64 key, duplicated key, bare LF) plus synthetic reject, incomplete, and client-direction probes; zero committed-corpus cases have been executed against the jar so far (the committed corpus is executed live in a later step and scored fail-closed by EvaluateHandshakeLiveTranscript)."
+  }
+}

@@ -1,0 +1,179 @@
+{
+  "schema": "vjwp-benchmark-environment/1.0.0",
+  "role": "confirmation",
+  "status": "PARTIALLY BOUND, document UNBOUND - The owner's Tier-1 decision of 2026-08-26 bound four host identities (instance_type c7i.xlarge, region us-east-1, ami_id ami-02b3d83d84b07786d, ami_name al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64) plus the pipeline tool identities recorded below; the owner's round-2 decision of 2026-08-27 bound cpu_frequency_policy (DOCUMENT_DEFAULTS_RECORD_OBSERVED) and decided the allocation-accounting method (BUILTIN_ACCOUNTING_PER_RUN, recorded under tool_identities.measurement_tools); the owner's round-3 decision of 2026-08-27 (us008-owner-attestation-2026-08-27.json) bound the host-tenancy allocation_evidence observation procedure (STANDARD_CLOUD_CHECKS), resolving the round-2 name collision. Tier-2 (METAL_MEASURED) is DEFERRED_BY_OWNER: no flagship run is scheduled and no metal type is bound. Every other field remains OWNER_DECISION_PENDING or NOT_MEASURED and nothing may be filled in without an explicit owner decision plus a real probe of the provisioned host. The required_binding_fields list below is the machine-checkable completion meter for the remaining US-008 gap (HOST_BINDING_PENDING); 'benchplanctl verify' reports exactly which fields remain unbound. No benchmark sample may be collected against an unbound environment.",
+  "binding_status": "UNBOUND",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "provenance": {
+    "class": "job-scoped exclusively reserved EC2 instance with tiered confirmation rigor (owner amendment 2026-08-26): Tier-1 VM_MEASURED_JITTER_AVERAGED (campaign default; bound c7i.xlarge) / Tier-2 METAL_MEASURED (opt-in flagship; DEFERRED_BY_OWNER)",
+    "rationale": "PRD US-008: confirmation requires a provenance-distinct dedicated or exclusively reserved Linux x86_64 host. Rigor is tiered per the owner-authorized amendment of 2026-08-26 (workspace protected root us008-contract-amendment-tiered-benchmark-rigor.json): bare metal remains the flagship tier because virtualization overhead is the reason Docker sbx is excluded from hosting measured samples, while the Tier-1 VM tier absorbs residual virtualization jitter through the preregistered N-round protocol. Tier-1 binding basis: owner decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-pinning-tier1.json AS CORRECTED BY the timestamp-correction sidecar /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-pinning-tier1-timestamp-correction.json — the original record's decided_at (~19:55Z) was a too-late estimate typed at record-writing time, and the sidecar is the authoritative chronology: the owner's explicit decision preceded, and occurred no later than, the binding commit ac17b35 (2026-08-26T19:46:21Z). Options were prepared probe-before-wire from real read-only AWS calls against the dev account with profile dev-sso, probe log in workspace drafts/us008-pinning-decision-package.md; the bound AMI reproduces the CPU family, OS release set, and kernel line observed green in plumbing run 33000379021. Round-2 binding basis (2026-08-27): owner decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us009-us008-owner-decisions-2026-08-27.json (decided_at captured from date -u, no chronology sidecar needed) — us008_cpu_frequency_policy = DOCUMENT_DEFAULTS_RECORD_OBSERVED is bound at host_identity.cpu_frequency_policy, and us008_allocation_evidence = BUILTIN_ACCOUNTING_PER_RUN decides the allocation-accounting method recorded under tool_identities.measurement_tools; it does not designate the host-tenancy observation procedure of host_identity.allocation_evidence. Round-3 binding basis (2026-08-27): owner decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-attestation-2026-08-27.json (decided_at 2026-08-27T03:52:36Z captured from date -u) — us008_tenancy_allocation_evidence_procedure = STANDARD_CLOUD_CHECKS binds host_identity.allocation_evidence to the per-run tenancy observation procedure, resolving the round-2 name collision (collision and resolution documented in docs/us008-attestation-package.md), and us008_plan_attestation = ATTESTED_BY_OWNER freezes the benchmark plan (digest-bound attestation_record in benchmarks/plan/workloads.json; owner-only, OWNER_ATTESTED_NOT_INDEPENDENT).",
+    "provisioner": "terraform/benchmark via .github/workflows/benchmark.yml (DIALED-derived, job-scoped lifecycle)",
+    "aws_account": "539402214167 (Enterprise Vibe Code dev; source /Users/mikelady/dev/lore/.dialed.yml, owner-authorized by the project's move into EVC)"
+  },
+  "host_identity": {
+    "instance_type": {
+      "status": "BOUND",
+      "value": "c7i.xlarge",
+      "rationale": "Tier-1 VM_MEASURED_JITTER_AVERAGED per owner decision 2026-08-26. Probed us-east-1 2026-08-26 (describe-instance-types + describe-instance-type-offerings, profile dev-sso): 4 vCPU, 8192 MiB, current generation, 3.2 GHz sustained, USD 0.1785/hr on-demand (Pricing API probe). The owner chose the 4-vCPU variant over the plumbing-proven c7i.large so the load driver and the endpoint under test do not share a physical core; same CPU family and image as green plumbing run 33000379021.",
+      "notes": "Tier-2 (METAL_MEASURED) instance type is DEFERRED_BY_OWNER (2026-08-26): no flagship run is scheduled, and deferring lets a vCPU quota-increase request be sized to the eventual choice. c5n.metal remains only the unbound feasibility-study default-candidate in terraform/benchmark/variables.tf; m5zn.metal is the only probed metal candidate under the account's 64-vCPU standard on-demand quota (L-1216C47A)."
+    },
+    "instance_id": {
+      "status": "NOT_MEASURED",
+      "notes": "The EC2 instance id of the exact provisioned confirmation host, recorded at provision. Binding to an instance id makes the exact host (not just its class) representable."
+    },
+    "observed_architecture": {
+      "status": "NOT_MEASURED",
+      "notes": "uname -m of the booted bound host. Must equal x86_64 at binding (PRD: Linux x86_64); the schema rejects any other value on an OBSERVED/BOUND record."
+    },
+    "allocation_evidence": {
+      "status": "BOUND",
+      "value": "STANDARD_CLOUD_CHECKS: per-run DescribeInstances tenancy-attribute query + exact instance-type confirmation + a job-scoped exclusive-reservation record covering the run's duration",
+      "rationale": "Owner decision 2026-08-27 (us008_tenancy_allocation_evidence_procedure = STANDARD_CLOUD_CHECKS; decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-attestation-2026-08-27.json, decided_at 2026-08-27T03:52:36Z captured from date -u per the standing no-estimated-timestamps rule): the dedicated/exclusive TENANCY observation procedure of review fix B3, resolving the name-collision owner touch surfaced by binding round 2 (session 01a0414b).",
+      "notes": "This binds the observation PROCEDURE only. The per-run observations it prescribes - the DescribeInstances tenancy-attribute response for the provisioned instance, the confirmation that its instance type equals the bound c7i.xlarge, and the job-scoped exclusive-reservation record covering the run's duration - are produced at each measured run and recorded in that run's record; none exists yet and none is fabricated. Name-collision resolution: the round-2 record us009-us008-owner-decisions-2026-08-27.json's us008_allocation_evidence (BUILTIN_ACCOUNTING_PER_RUN) decided the allocation-ACCOUNTING method recorded under tool_identities.measurement_tools and never bound this field; the round-3 record us008-owner-attestation-2026-08-27.json designates this field's own tenancy procedure. The collision and its resolution are documented in docs/us008-attestation-package.md."
+    },
+    "region": {
+      "status": "BOUND",
+      "value": "us-east-1",
+      "rationale": "Owner decision 2026-08-26. Probed region for the bound instance type and AMI (describe-instance-type-offerings + describe-images, 2026-08-26); matches the DIALED .dialed.yml region and the standing tfstate bucket."
+    },
+    "availability_zone": {
+      "status": "NOT_MEASURED",
+      "notes": "Recorded at provision of the bound host."
+    },
+    "ami_id": {
+      "status": "BOUND",
+      "value": "ami-02b3d83d84b07786d",
+      "rationale": "Owner decision 2026-08-26. Probed 2026-08-26 via aws ec2 describe-images --owners amazon (al2023-ami-2023.*-x86_64, state=available) with profile dev-sso in account 539402214167, per the documented probe-before-wire step in terraform/benchmark/variables.tf. Newest AL2023 release set 2023.12.20260817.0, kernel-6.1 flavor - the only flavor with a real observed boot in this pipeline (green plumbing run 33000379021).",
+      "notes": "DeprecationTime 2026-11-10T23:53:00Z: after that date the id disappears from unfiltered describe-images listings and launch-by-exact-id was not probed. If measured runs continue past it, re-probe and re-pin - a preregistration change that must be recorded as such."
+    },
+    "ami_name": {
+      "status": "BOUND",
+      "value": "al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64",
+      "rationale": "Name of the pinned ami_id, from the same describe-images probe of 2026-08-26."
+    },
+    "os_identity": {
+      "status": "NOT_MEASURED",
+      "notes": "/etc/os-release PRETTY_NAME + VERSION_ID of the pinned AMI as booted on the bound host. Provenance: plumbing run 33000379021 observed 'Amazon Linux 2023.12.20260817' booted from this AMI's release set on c7i.large; that observation does not transfer - the bound c7i.xlarge host records its own at first boot."
+    },
+    "kernel_identity": {
+      "status": "NOT_MEASURED",
+      "notes": "uname -r -v of the pinned AMI as booted on the bound instance type. Provenance: plumbing run 33000379021 observed kernel 6.1.180-225.360.amzn2023.x86_64 booted from this AMI's release set on c7i.large; the identical AMI on c7i.xlarge is expected to boot the same kernel build, but the exact uname strings on the bound type are recorded at first boot and remain NOT_MEASURED until then."
+    },
+    "cpu_model": {
+      "status": "NOT_MEASURED",
+      "notes": "lscpu model name, sockets, cores, threads, base/turbo policy."
+    },
+    "cpu_frequency_policy": {
+      "status": "BOUND",
+      "value": "DOCUMENT_DEFAULTS_RECORD_OBSERVED: no frequency tuning and no tuning claims — no governor, turbo, or SMT setting is mutated on the bound host; the booted host's default scaling facts (cpufreq driver and governor presence or absence, turbo/boost visibility, SMT state) are recorded at provision alongside the other booted-host facts, and the observed CPU clock is recorded per measured run",
+      "rationale": "Owner decision 2026-08-27 (us008_cpu_frequency_policy = DOCUMENT_DEFAULTS_RECORD_OBSERVED; decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us009-us008-owner-decisions-2026-08-27.json, decided_at 2026-08-27T03:21:08Z captured from date -u per the standing no-estimated-timestamps rule): the measurement host's default scaling behavior is documented, never tuned, and the observed clock is recorded per run.",
+      "notes": "This binds the POLICY only; it asserts no fact about the booted host. CORRECTION (2026-08-28): an earlier revision of this note said the host's default-scaling facts \"remain NOT_MEASURED sentinels in those fields.\" That was false. No dedicated field or sentinel exists in this document for the scaling driver, the governor, turbo/boost visibility, SMT state, or the observed clock; only cpu_model (NOT_MEASURED) gestures at them, and its notes cover just \"base/turbo policy.\" cpu_frequency_policy itself is BOUND, so it is not a sentinel either. The accurate statement: those provision-time facts are UNRECORDED and currently UNREPRESENTED in this document. Whether representing them requires a schema change is CONDITIONAL on what is added, and both halves of the condition were probed. ADDING AN OPTIONAL FIELD RECORD NEEDS NO SCHEMA CHANGE: benchmark-environment-1.0.0.schema.json does not block one, because the BASE host_identity subschema declares no named properties and its additionalProperties is {\"$ref\": \"#/$defs/fieldRecord\"}, so a well-formed record is admitted under any name THE SCHEMA DOES NOT SEPARATELY CONSTRAIN — probed by adding scaling_driver, smt_state and turbo_visibility to host_identity and validating against the canonical schema, which returned 0 failures against an unmodified control of 0. MAKING ONE MANDATORY — enrolling it on the completion meter — DOES REQUIRE A SCHEMA CHANGE: required_binding_fields is pinned by an exact 23-item const in that schema's confirmation branch, and appending those three paths to this document's required_binding_fields failed validation with \"at '/required_binding_fields': 'const' failed\"; extending the const to 26 entries made the same document validate with 0 failures, so the const is exactly the schema blocker. Mandatory enrolment moves SEVEN edit sites across FIVE files in lockstep, enumerated by executing the enrolment and reading which tests fail: that schema const; CanonicalBindingFields[\"confirmation\"] in internal/benchplan/validate.go (23 entries today, and at the SAME INDEX, because the meter compares the two lists positionally and reported METER_TAMPERED when one was appended to and the other inserted into); the required_binding_fields list in this document PLUS the three host_identity field records themselves; and four hard-coded counts in the suite — the 23-entry assertion in TestCanonicalBindingFieldListsAreTheFrozenShapes, the 17-unbound assertion in TestVerifyShrunkenMeterIsMeterTampered, the 24-unbound assertion in TestVerifyRealTreeReportsOnlyHostBindingPending, and the literal \"binding completion meter: 24 field(s) unbound\" in cmd/benchplanctl/main_test.go — the meter is code+schema truth and failed the 26-entry document with \"declares 26 required binding fields; the canonical confirmation list has 23\". Schema-enforcing the record's PRESENCE additionally requires the confirmation branch's host_identity.required list, without which the const-extended schema accepted a document whose three records were absent. None of this is done: nothing records, requires, or checks these facts today, and the extension is still outstanding. CORRECTION (2026-08-28, round 3): both earlier framings of this sentence were wrong, in opposite directions. The round-1 revision said representing them requires adding fields to the schema — false for optional records. The round-2 revision said this is an outstanding METER extension \"not a schema change\" — false for mandatory metering, which is the case actually contemplated here, because of that 23-item const. The per-run observed-clock RECORD SLOT is implemented (US-008 restart 2026-08-28): schemas/benchmark-raw-sample-1.0.0.schema.json defines run_validity_observations.observed_cpu_clock (source + samples_mhz), requires it on MEASURED records only, and requires a non-whitespace source; internal/benchplan.DecideEndpoint BLOCKS any MEASURED sample that omits it (the RULE is implemented; DecideEndpoint has no non-test caller yet, and wiring it before any measured run is accepted is a recorded follow-up) and validates the observations BEFORE pair analysis, so malformed evidence cannot be masked as INCONCLUSIVE by an unanalyzable set. The slot is RECORD-ONLY, matching the bound policy: no threshold is applied to clock values and none may be added without a recorded preregistration change. CORRECTION (2026-08-28): an earlier revision said this was implemented \"ahead of the Rust implementation.\" That was false, and the round-1 correction of it was itself inaccurate: its unscoped \"63 tracked .rs files (~22,350 lines)\" mixed two scopes and counted test code as production. Verified at 85366c4 and unchanged at the correcting commit because no .rs file changed between them: the whole tree tracks 64 .rs files (22,359 lines), and rust/ holds 63 of them (22,350 lines), of which 11,955 lines are test or canary code (9,638 in Cargo integration tests under */tests/*, 48 in rust/gates/canaries/, and 2,269 in inline #[cfg(test)] modules inside src/ files) leaving 10,395 lines of production Rust. The earliest tracked .rs landed at d9211f8 (2026-08-26T15:37:07Z) and rust/ws-core/src/lib.rs reached that path at 9fe68ff (2026-08-27T03:29:19Z) via the crate rename, both ancestors of the correcting commit; the round-1 note's \"2026-08-26\" for 9fe68ff was the committer's local date, not UTC. What is true is that the slot was frozen before any MEASURED sample exists and before the measurement runner is built; the runner that POPULATES the slot still binds with the measurement runner identity (currently a NOT_MEASURED-only stub). CORRECTION (2026-08-28, round 4): two claims in this note were wrong. First, \"admitted under any name\" was too broad. The confirmation branch DOES declare one named host_identity property, observed_architecture, which requires value and pins it to x86_64 whenever status is OBSERVED or BOUND — probed all four ways: BOUND/arm64 fails with \"at '/host_identity/observed_architecture/value': value must be 'x86_64'\", BOUND/x86_64 returns 0, BOUND with no value fails with \"missing property 'value'\", and NOT_MEASURED returns 0, so the constraint is status-gated. The admission claim therefore holds only for previously UNDECLARED names, such as the three probed; the field-record SHAPE is enforced for those too (a malformed record failed with 7 failures). Second, the lockstep inventory said three artifacts. Executing the enrolment showed seven edit sites across five files, listed above: four tests across two packages fail that the three-artifact list did not mention. Those four count assertions move only when the enrolled records are PENDING (23 -> 26, 17 -> 20, 24 -> 27); enrolling three already-BOUND records failed the 23-entry assertion only."
+    },
+    "memory_total_bytes": {
+      "status": "NOT_MEASURED"
+    },
+    "numa_topology": {
+      "status": "NOT_MEASURED"
+    },
+    "clocksource": {
+      "status": "NOT_MEASURED"
+    }
+  },
+  "run_policy": {
+    "background_cpu_percent_max": {
+      "status": "PRD_VERBATIM",
+      "value": 2,
+      "unit": "percent"
+    },
+    "thermal_power_identity_policy": {
+      "status": "PRD_VERBATIM",
+      "value": "fail-closed: any thermal throttle event, power-state anomaly, or host/tool identity mismatch during a run invalidates the run (INCONCLUSIVE, never patched or resampled around)"
+    }
+  },
+  "tool_identities": {
+    "java_runtime": {
+      "status": "OWNER_DECISION_PENDING",
+      "candidate": "OpenJDK 17.0.19, Linux x86_64 distribution (distribution vendor = owner decision; version matched to the intake pin evidence/intake/toolchain-pins.json)",
+      "notes": "Exact JDK distribution, version, and archive digest. The intake digests are aarch64-apple-darwin and do not transfer to x86_64; the exact Linux archive + digest are recorded at acquisition."
+    },
+    "rust_toolchain": {
+      "status": "OWNER_DECISION_PENDING",
+      "candidate": "rustc/cargo 1.95.0, x86_64-unknown-linux-gnu (channel matched to rust/rust-toolchain.toml)",
+      "notes": "Exact rustc/cargo version and component digests. Dated channel manifest + component digests are recorded at acquisition for the Linux x86_64 target."
+    },
+    "java_executable_digest": {
+      "status": "NOT_MEASURED",
+      "notes": "No Java benchmark executable is promoted for measurement yet."
+    },
+    "rust_executable_digest": {
+      "status": "NOT_MEASURED",
+      "notes": "No Rust executable exists to bind; none is fabricated."
+    },
+    "load_driver": {
+      "status": "OWNER_DECISION_PENDING",
+      "notes": "Workload driver identity + digest implementing the frozen generators in benchmarks/plan/workloads.json."
+    },
+    "measurement_tools": {
+      "status": "OWNER_DECISION_PENDING",
+      "candidate": "allocation samplers decided BUILTIN_ACCOUNTING_PER_RUN (owner decision 2026-08-27): Java allocation evidence from the JVM's own accounting (GC/NMT statistics), Rust from a counting allocator, both recorded per run; exact sampler identities and digests remain pending",
+      "notes": "RSS/CPU/latency/allocation samplers; exact identities + digests remain the open owner decision. The allocation-evidence METHOD is owner-decided (decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us009-us008-owner-decisions-2026-08-27.json, us008_allocation_evidence = BUILTIN_ACCOUNTING_PER_RUN); the exact accounting interfaces (the JVM GC/NMT reading procedure and the Rust counting-allocator implementation) bind with these tool identities and digests, so this field stays pending."
+    },
+    "analyzer": {
+      "status": "OWNER_DECISION_PENDING",
+      "notes": "Independently rebuilt analyzer identity + digest, per PRD. internal/benchplan is the preregistered reference implementation, not the bound analyzer."
+    },
+    "runner": {
+      "status": "OWNER_DECISION_PENDING",
+      "notes": "cmd/benchrunner is a stub that emits NOT_MEASURED sentinels only; the bound, digested measurement runner replaces it at binding time."
+    },
+    "terraform": {
+      "status": "BOUND",
+      "value": "1.9.8",
+      "rationale": "Owner decision 2026-08-26: the .github/actions/dialed-setup/action.yml terraform_version default (pinned exact).",
+      "notes": "The AWS provider constraint in terraform/benchmark/versions.tf is still floating (>= 6.0.0); an exact provider pin + lockfile are flagged repo follow-ups before measured runs."
+    },
+    "go_toolchain": {
+      "status": "BOUND",
+      "value": "go1.25.5 (go.mod directive 'go 1.25')",
+      "rationale": "Owner decision 2026-08-26: record the go.mod directive alongside the toolchain actually resolved at binding-commit time. 'go version' in this repo at the binding commit reported go1.25.5 (darwin/arm64 driver machine).",
+      "notes": "CI resolves its own 1.25.x at run time via actions/setup-go with go-version-file: go.mod (floating minor). The resolved 'go version' that builds the runner for the confirmation host must be recorded per run; an exact CI pin is a flagged follow-up before measured samples."
+    },
+    "runner_build_flags": {
+      "status": "BOUND",
+      "value": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner",
+      "rationale": "Owner decision 2026-08-26: the exact in-workflow build literal in .github/workflows/benchmark.yml ('Build and stage benchmark runner in results bucket'), recorded verbatim including the /tmp/benchrunner output path. Review round 1 (session 01a03f9c) corrected an earlier inexact transcription that omitted the /tmp/ prefix; internal/benchplan/validate_test.go now cross-checks this literal against the workflow file."
+    },
+    "yq": {
+      "status": "BOUND",
+      "value": "4.44.3",
+      "rationale": "Owner decision 2026-08-26: the exact yq version the dialed-setup composite action ENFORCES. Review round 1 (session 01a03f9c) found the action previously accepted any preinstalled yq and only downloaded 4.44.3 when absent; it now installs the pinned v4.44.3 whenever the resolving yq differs and fails closed if the pinned version does not resolve after install, so this recorded value is enforced, not assumed."
+    }
+  },
+  "required_binding_fields": [
+    "host_identity.instance_type",
+    "host_identity.instance_id",
+    "host_identity.observed_architecture",
+    "host_identity.allocation_evidence",
+    "host_identity.region",
+    "host_identity.availability_zone",
+    "host_identity.ami_id",
+    "host_identity.ami_name",
+    "host_identity.os_identity",
+    "host_identity.kernel_identity",
+    "host_identity.cpu_model",
+    "host_identity.cpu_frequency_policy",
+    "host_identity.memory_total_bytes",
+    "host_identity.numa_topology",
+    "host_identity.clocksource",
+    "tool_identities.java_runtime",
+    "tool_identities.rust_toolchain",
+    "tool_identities.java_executable_digest",
+    "tool_identities.rust_executable_digest",
+    "tool_identities.load_driver",
+    "tool_identities.measurement_tools",
+    "tool_identities.analyzer",
+    "tool_identities.runner"
+  ],
+  "measurements": "NONE. This file contains no measurements and must never contain results; results bind to canonical raw pairs per the PRD analysis contract."
+}

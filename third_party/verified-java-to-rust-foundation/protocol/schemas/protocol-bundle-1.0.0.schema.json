@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://michaellady.github.io/verified-java-to-rust/protocol/protocol-bundle-1.0.0.schema.json",
+  "title": "Java-to-Rust Assurance Protocol Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "project", "verified_at", "snapshot", "root_node_id", "nodes", "edges", "stages", "attempts", "failures", "authorization", "attestations", "publication"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "company": {"type": "string", "minLength": 1},
+    "project": {"type": "string", "minLength": 1},
+    "verified_at": {"type": "string", "format": "date-time"},
+    "snapshot": {"$ref": "#/$defs/snapshot"},
+    "root_node_id": {"$ref": "#/$defs/id"},
+    "nodes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/node"}},
+    "edges": {"type": "array", "items": {"$ref": "#/$defs/edge"}},
+    "stages": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/stage"}},
+    "attempts": {"type": "array", "items": {"$ref": "#/$defs/attempt"}},
+    "failures": {"type": "array", "items": {"$ref": "#/$defs/failure"}},
+    "authorization": {"$ref": "#/$defs/authorization"},
+    "attestations": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/attestation"}},
+    "publication": {"$ref": "#/$defs/publication"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "candidate_digest", "previous_state", "state", "stale"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "candidate_digest": {"$ref": "#/$defs/digest"},
+        "previous_state": {"enum": ["PROPOSED", "QUALIFIED", "CANDIDATE", "ACCEPTED", "PUBLISHED", "BLOCKED", "STALE", "SUPERSEDED", "REVOKED"]},
+        "state": {"enum": ["PROPOSED", "QUALIFIED", "CANDIDATE", "ACCEPTED", "PUBLISHED", "BLOCKED", "STALE", "SUPERSEDED", "REVOKED"]},
+        "stale": {"type": "boolean"}, "supersedes": {"type": "string"}
+      }
+    },
+    "node": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "digest", "content_base64", "classification", "stale", "contradictory", "migrated", "migration_lossless"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "kind": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/digest"},
+        "content_base64": {"type": "string", "minLength": 1, "contentEncoding": "base64"},
+        "classification": {"enum": ["PUBLIC", "PUBLIC_DERIVED", "INTERNAL", "PROTECTED_HELD_OUT", "QUARANTINED"]},
+        "stale": {"type": "boolean"}, "contradictory": {"type": "boolean"}, "migrated": {"type": "boolean"}, "migration_lossless": {"type": "boolean"}
+      }
+    },
+    "edge": {
+      "type": "object", "additionalProperties": false, "required": ["from", "to", "kind"],
+      "properties": {"from": {"$ref": "#/$defs/id"}, "to": {"$ref": "#/$defs/id"}, "kind": {"type": "string", "minLength": 1}}
+    },
+    "retry": {
+      "type": "object", "additionalProperties": false, "required": ["maximum_attempts", "initial_backoff", "maximum_backoff"],
+      "properties": {"maximum_attempts": {"type": "integer", "minimum": 1, "maximum": 3}, "initial_backoff": {"type": "integer", "minimum": 1}, "maximum_backoff": {"type": "integer", "minimum": 1}}
+    },
+    "stage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "snapshot_id", "idempotency_key", "inputs", "outputs", "lease_seconds", "retry", "state", "required_roles"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "snapshot_id": {"$ref": "#/$defs/id"}, "idempotency_key": {"type": "string", "minLength": 1},
+        "inputs": {"type": "array", "items": {"$ref": "#/$defs/id"}}, "outputs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/id"}},
+        "lease_seconds": {"type": "integer", "minimum": 1, "maximum": 300}, "lease_expires_at": {"type": "string", "format": "date-time"},
+        "retry": {"$ref": "#/$defs/retry"}, "state": {"enum": ["PENDING", "RUNNING", "SUCCEEDED", "DEGRADED", "FAILED"]}, "required_roles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "attempt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "stage_id", "snapshot_id", "ordinal", "actor_id", "role", "run_id", "started_at", "finished_at", "outcome", "query_budget_consumed", "security_finding_ids", "reviewer_interventions"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "stage_id": {"$ref": "#/$defs/id"}, "snapshot_id": {"$ref": "#/$defs/id"}, "ordinal": {"type": "integer", "minimum": 1}, "actor_id": {"type": "string", "minLength": 1}, "role": {"type": "string", "minLength": 1}, "run_id": {"type": "string", "minLength": 1},
+        "started_at": {"type": "string", "format": "date-time"}, "finished_at": {"type": "string", "format": "date-time"}, "outcome": {"enum": ["SUCCEEDED", "FAILED"]},
+        "error_type": {"type": "string"}, "disposition": {"$ref": "#/$defs/disposition"}, "failure_id": {"type": "string"},
+        "query_budget_consumed": {"type": "integer", "minimum": 0}, "security_finding_ids": {"type": "array", "items": {"type": "string"}}, "reviewer_interventions": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "failure": {
+      "type": "object", "additionalProperties": false,
+      "required": ["failure_id", "attempt_id", "stage_id", "snapshot_id", "error_type", "phase", "codepath", "severity", "retryability", "disposition", "affected_claim_ids", "affected_artifact_ids", "actor_id", "role", "run_id", "safe_message", "cause_chain", "diagnostic_artifact_id", "occurred_at", "query_budget_consumed", "security_finding_ids", "reviewer_interventions"],
+      "properties": {
+        "failure_id": {"$ref": "#/$defs/id"}, "attempt_id": {"$ref": "#/$defs/id"}, "stage_id": {"$ref": "#/$defs/id"}, "snapshot_id": {"$ref": "#/$defs/id"},
+        "error_type": {"type": "string", "minLength": 1}, "phase": {"type": "string", "minLength": 1}, "codepath": {"type": "string", "minLength": 1}, "severity": {"type": "string", "minLength": 1}, "retryability": {"type": "string", "minLength": 1}, "disposition": {"$ref": "#/$defs/disposition"},
+        "affected_claim_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "affected_artifact_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "actor_id": {"type": "string", "minLength": 1}, "role": {"type": "string", "minLength": 1}, "run_id": {"type": "string", "minLength": 1},
+        "safe_message": {"type": "string", "minLength": 1}, "cause_chain": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "diagnostic_artifact_id": {"type": "string", "minLength": 1},
+        "occurred_at": {"type": "string", "format": "date-time"}, "query_budget_consumed": {"type": "integer", "minimum": 0}, "security_finding_ids": {"type": "array", "items": {"type": "string"}}, "reviewer_interventions": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "authorization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["actor_id", "role", "snapshot_roles", "snapshot_digest", "policy_version", "nonce", "prior_nonces", "issued_at", "expires_at", "signature_verified", "revoked"],
+      "properties": {
+        "actor_id": {"type": "string", "minLength": 1}, "role": {"type": "string", "minLength": 1}, "snapshot_roles": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "snapshot_digest": {"$ref": "#/$defs/digest"}, "policy_version": {"type": "string", "minLength": 1}, "nonce": {"type": "string", "minLength": 8}, "prior_nonces": {"type": "array", "items": {"type": "string"}},
+        "issued_at": {"type": "string", "format": "date-time"}, "expires_at": {"type": "string", "format": "date-time"}, "signature_verified": {"type": "boolean"}, "revoked": {"type": "boolean"},
+        "command_id": {"type": "string"}, "action": {"type": "string"}, "stage_id": {"type": "string"}, "intent_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "attestation": {
+      "type": "object", "additionalProperties": false, "required": ["id", "actor_id", "role", "snapshot_digest", "independent"],
+      "properties": {"id": {"$ref": "#/$defs/id"}, "actor_id": {"type": "string", "minLength": 1}, "role": {"type": "string", "minLength": 1}, "snapshot_digest": {"$ref": "#/$defs/digest"}, "independent": {"type": "boolean"}}
+    },
+    "publication": {
+      "type": "object", "additionalProperties": false, "required": ["requested", "complete", "classification", "object_digests", "replay_command"],
+      "properties": {"requested": {"type": "boolean"}, "complete": {"type": "boolean"}, "classification": {"type": "string"}, "object_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}}, "replay_command": {"type": "string"}}
+    },
+    "disposition": {"enum": ["RETRY", "DEGRADE_NON_ASSURANCE", "BLOCK", "INVALIDATE", "QUARANTINE", "REVOKE"]}
+  }
+}

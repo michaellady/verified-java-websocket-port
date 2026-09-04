@@ -1,0 +1,5 @@
+id=lock-sharing
+property=single-owner
+mutation=mutate-protocol-through-producer
+schedule=open,enqueue-a,wake,write-all,shutdown,drain
+counterexample=producer-protocol-mutation-visible

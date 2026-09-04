@@ -1,0 +1,25 @@
+[package]
+name = "ws-core"
+description = "Deterministic Sans-I/O WebSocket ConnectionCore contract (US-009): immutable checked config, typed events/failures, single-owner + bounded-channel boundary. Protocol behavior (handshake/framing/messages/control/close) pending US-010..US-016."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# The library namespace is `ws_core` -- the canonical namespace fixed by the
+# owner crate-naming decision (us009_crate_naming = ws_core): the migration
+# map's `ws_core::` semantic ids are authoritative, and `use ws_core::...`
+# must resolve against this crate. Explicit rather than derived so the
+# namespace cannot drift with a package rename.
+[lib]
+name = "ws_core"
+
+# Design stance (see docs/rust-workspace.md): the Sans-I/O core is
+# dependency-free. Bytes in, typed values out, no sockets, no clocks, no
+# callbacks -- so it needs nothing beyond the standard library. Any future
+# dependency added here requires an enumerated-unsafe review per the PRD
+# quality gates.
+[dependencies]
+
+[dev-dependencies]

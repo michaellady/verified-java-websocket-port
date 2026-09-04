@@ -1,0 +1,58 @@
+{
+  "$schema": "../../schemas/corpus-manifest-1.0.0.schema.json",
+  "artifacts": [
+    {
+      "bytes": 356615,
+      "classification": "PROTECTED_HELD_OUT",
+      "path": "us005-corpora/hidden/scenarios.jsonl",
+      "sha256": "sha256:637be9570e31c73b88bb4436d5363defbf34cc347f4e56df38a9c59246b7a4db",
+      "stored_in_repo": false
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "commitments": {
+    "committed_line_count": 92,
+    "scenario_commitment_root": "sha256:b0c056def3461cf299f4467350d0f574c25b1984036b743d7cf70730b0ee7cd1",
+    "scheme": "sha256(salt || canonical_line); salt = stream(secret, commitment-salt|tier|scenario_id)"
+  },
+  "corpus_id": "us005-behavior-hidden",
+  "counts": {
+    "executed": 92,
+    "expected": 92,
+    "failed": 0,
+    "filtered": 0,
+    "passed": 92,
+    "selected": 92,
+    "skipped": 0,
+    "timed_out": 0
+  },
+  "custodian": {
+    "canary_count": 3,
+    "policy_digest": "sha256:67b20f391ad9a7386726f901bd89973d87501e1c21d6fbb8bf4c6c3dd126038b"
+  },
+  "evidence_kind": "corpus-manifest",
+  "execution_evidence": {
+    "evaluator": "corporactl evaluate",
+    "report_sha256": "sha256:61e1ce89fb298787619603c12b2a90611347f91d591bdf33ba281591afb560e3",
+    "transcript_sha256": "sha256:f38b23c3dfc8b58462c366ea0b23bc84388a05eb6ba7cfa2e58d6565f552783b"
+  },
+  "execution_status": "LIVE_EXECUTED",
+  "generator": {
+    "epoch": 1,
+    "secret_seed_commitment": "sha256:08ae5e87916ad20c76dd4d7450e23a87cb966ad4e8ed58be4dffd8430173f331",
+    "seed_visibility": "protected-secret",
+    "tool": "corporactl"
+  },
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false,
+  "scenario_format": "corpus-scenario-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "sealing": {
+    "disclosure": "the sole owner can technically read the protected store; these mechanics prove process, not independence",
+    "mechanism": "digest-committed-before-reveal",
+    "storage": "protected-custodian-store"
+  },
+  "signing": false,
+  "tier": "hidden"
+}

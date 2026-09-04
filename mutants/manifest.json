@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0.0",
+  "purpose": "US-005 planted candidate mutants: small, documented, deliberate planted deviations whose evaluation MUST fail (be killed) on every behavior tier. The Java mutants are behavioral deviations in the oracle's protocol handling; the Rust mutants are envelope-level deviations planted in the inert stub's response envelope, because no Rust protocol behavior exists yet to mutate (see each Rust entry's deviation disclosure). These are calibration instruments for the planted_java_rust_mutants_killed live gate, never port candidates.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "baselines": {
+    "java_pristine": {
+      "source": "java-oracle/src/main/java (never modified by mutant tooling; mutants are staged copies built by cmd/us005-mutantctl)",
+      "runtime_jar": "org.java-websocket:Java-WebSocket:1.6.0 sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+      "public_tier_separation": "74 executed / 74 passed / 0 failed, evaluate exit 0; transcript byte-identical to the recorded live public transcript sha256:2eb11ca38caf9fef9b7edb8b83f3c7f6297b3e6e3d7ccbfc2a11c84e5221bd8b"
+    },
+    "rust_stub": {
+      "source": "rust/candidate-stub (bin us005-candidate-stub)",
+      "purpose": "inert negative control for the empty_rust_target_fails gate; mirrors the committed Go synthesizeStubResponse shape",
+      "public_tier_result": "74 executed / 0 passed / 74 failed, evaluate exit 1"
+    }
+  },
+  "mutants": [
+    {
+      "id": "us005-jm-close-code-1000",
+      "language": "java",
+      "baseline": "java-oracle (pristine)",
+      "overlay": "mutants/java/us005-jm-close-code-1000/OracleEngine.java",
+      "seam": "OracleEngine.process catch(InvalidDataException): e.getCloseCode() replaced with CloseFrame.NORMAL (1000)",
+      "deviation": "reports the NORMAL close code (1000) instead of the library's rejection close code on every InvalidDataException protocol error",
+      "build": "us005-mutantctl stage --pristine java-oracle/src/main/java --overlay mutants/java/us005-jm-close-code-1000 --out DIR && us005-mutantctl build --staged DIR --java-websocket-jar <pinned-jar>",
+      "expected_kill_signature": "close_code 1000, expected 1002/1007/1009 on every JAVA_INVALID_DATA error-outcome scenario",
+      "measured_public_result": {
+        "executed": 74,
+        "passed": 55,
+        "failed": 19,
+        "evaluate_exit": 1,
+        "first_failure": "us005.pub.0000: close_code 1000, expected 1002",
+        "transcript_sha256": "sha256:6aad912180c23811ae392190b18a7d41b1fdcff2bc7e45c7d8f10cf0ed9a4c73"
+      }
+    },
+    {
+      "id": "us005-jm-utf8-accept",
+      "language": "java",
+      "baseline": "java-oracle (pristine)",
+      "overlay": "mutants/java/us005-jm-utf8-accept/OracleEngine.java",
+      "seam": "OracleEngine.process catch(InvalidDataException): close code NO_UTF8 (1007) rejections are swallowed and reported as execution.success()",
+      "deviation": "skips strict UTF-8 rejection: invalid-UTF-8 text that the pinned library rejects with close code 1007 is reported as a successful run",
+      "build": "us005-mutantctl stage --pristine java-oracle/src/main/java --overlay mutants/java/us005-jm-utf8-accept --out DIR && us005-mutantctl build --staged DIR --java-websocket-jar <pinned-jar>",
+      "expected_kill_signature": "outcome ok, expected error on every scenario expecting JAVA_INVALID_DATA close_code 1007",
+      "measured_public_result": {
+        "executed": 74,
+        "passed": 72,
+        "failed": 2,
+        "evaluate_exit": 1,
+        "first_failure": "us005.pub.0056: outcome ok, expected error",
+        "transcript_sha256": "sha256:5ef34cbd8ebc3b16598060c3c1ff0b1bd480ea2e46a16c5ce8ba4b183a5cf2ca"
+      }
+    },
+    {
+      "id": "us005-rm-eager-reject-1002",
+      "language": "rust",
+      "baseline": "rust/candidate-stub inert stub",
+      "binary": "us005-mutant-rs-eager-reject (rust/candidate-stub/src/bin/us005-mutant-rs-eager-reject.rs)",
+      "seam": "candidate_stub::Deviation::EagerReject response path",
+      "deviation": "wrong-close-code rejecter analog: answers every request with outcome error, code JAVA_INVALID_DATA, close_code 1002, final_state closed, zero counts (no Rust protocol behavior exists yet to mutate, so the deviation is planted at the response-envelope level)",
+      "build": "cargo build --release -p candidate-stub --bin us005-mutant-rs-eager-reject",
+      "expected_kill_signature": "outcome error, expected ok on ok-outcome scenarios; final_state/counts divergence on error-outcome scenarios",
+      "measured_public_result": {
+        "executed": 74,
+        "passed": 0,
+        "failed": 74,
+        "evaluate_exit": 1,
+        "first_failure": "us005.pub.0000: final_state closed, expected open",
+        "transcript_sha256": "sha256:57d8d9ee3feef6f576144052328f7ff9eee30afe8e00c9db9dc564dbae1df478"
+      }
+    },
+    {
+      "id": "us005-rm-digest-unbind",
+      "language": "rust",
+      "baseline": "rust/candidate-stub inert stub",
+      "binary": "us005-mutant-rs-digest-unbind (rust/candidate-stub/src/bin/us005-mutant-rs-digest-unbind.rs)",
+      "seam": "candidate_stub::Deviation::DigestUnbind response path",
+      "deviation": "digest-binding break analog of skipped strictness: emits the stub response with request_digest replaced by the all-zero identity, so no response binds its scenario",
+      "build": "cargo build --release -p candidate-stub --bin us005-mutant-rs-digest-unbind",
+      "expected_kill_signature": "request_digest does not bind this scenario on every scenario",
+      "measured_public_result": {
+        "executed": 74,
+        "passed": 0,
+        "failed": 74,
+        "evaluate_exit": 1,
+        "first_failure": "us005.pub.0000: request_digest does not bind this scenario",
+        "transcript_sha256": "sha256:12505284db8be4d746431a20dd84cf7548470ee8964c9eb2aa26a6cb45dc5cdf"
+      }
+    }
+  ],
+  "measurement_conditions": "local darwin/arm64 public-tier proof, 2026-08-26: scratch generation roots (fresh secret; public tier depends only on the committed public seed and was verified byte-identical to corpora/public/scenarios.jsonl and to the recorded live public requests), corporactl evaluate --tier public (custodian-free per cmd/corporactl/main.go heldOutTier gating). Full command log: evidence/us005-candidate-public-proof.json."
+}

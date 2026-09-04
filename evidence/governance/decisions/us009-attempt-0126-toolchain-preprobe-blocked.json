@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us009-ac1-sbx-toolchain-preprobe-blocked",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "planned_attempt_id": "us007-sbx-output-live-0126",
+  "attempt_consumed": false,
+  "attempt_consumed_meaning": "Per probe-before-wire, the sandbox template was probed for the required toolchain BEFORE minting an owner-authorization record or consuming a live attempt id. The probe found the template non-viable, so NO live attempt was minted, NO authorization record for 0126 exists, and the next live attempt should mint whatever fresh id the standing series is at when it runs.",
+  "story": "US-009 AC1 (execute the Rust workspace gates — make -C rust gates: fmt-check, clippy, test, test-release, ac1-gates incl. canary polarity — inside the accepted US-007 sandbox workload profile; repo claude/feature/verified-java-websocket-port @ d0c8656)",
+  "recorded_at": "2026-08-27T18:36:55Z",
+  "recorded_at_provenance": "Captured from `date -u` immediately before writing (standing no-estimates rule).",
+  "owner": "mikelady",
+  "driver": "claude-fable-5",
+  "probe_vehicle": {
+    "sbx_cli": "sbx version: v0.39.0 def8cb0523a77e757bdd6ef52b459fe374f3783e (read from the CLI banner on this host)",
+    "template": "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "create_argv": "sbx create --clone --cpus 2 -m 2g --deny-network '**' --name us009-tc-probe --template <digest above> shell <scratch git repo, one probe commit> (exit 0, read)",
+    "sandbox_user": "uid=1000(agent) gid=1000(agent) groups=1000(agent),27(sudo),1001(docker); unprivileged, no --privileged, no root",
+    "platform": "aarch64, Ubuntu 26.04 LTS (read from uname -m and /etc/os-release inside the sandbox)",
+    "disposition": "Probe sandbox removed after evidence capture (sbx rm --force us009-tc-probe, exit 0; no commits were made inside, nothing discarded). Same accepted US-007 profile shape as attempts 0101-0125: unprivileged, non-root, --deny-network '**', clone-mode source, pinned template digest."
+  },
+  "probe_results": {
+    "probe_1_tool_presence": {
+      "invocation": "sbx exec us009-tc-probe sh -lc '<command -v + version sweep>' (exit 0, read)",
+      "cargo": "ABSENT (command -v empty; 'sh: cargo: not found')",
+      "rustc": "ABSENT (command -v empty; 'sh: rustc: not found')",
+      "rustup": "ABSENT (command -v empty; 'sh: rustup: not found')",
+      "cc": "ABSENT",
+      "gcc": "ABSENT",
+      "go": "PRESENT /usr/bin/go — 'go version go1.26.0 linux/arm64' (verbatim)",
+      "git": "PRESENT /usr/bin/git — 'git version 2.53.0' (verbatim)",
+      "make": "PRESENT — 'GNU Make 4.4.1' (verbatim)",
+      "java": "PRESENT (JVM banner observed, consistent with the 0124/0125 receipts)"
+    },
+    "probe_2_alternate_locations_and_linkers": {
+      "invocation": "sbx exec us009-tc-probe sh -lc '<ls alt dirs; find / -maxdepth 4 -name rustc -o -name cargo; linker sweep>' (exit 0, read)",
+      "home_dot_cargo": "ABSENT (/home/agent/.cargo: No such file or directory)",
+      "home_dot_rustup": "ABSENT",
+      "usr_local_cargo_rustup": "ABSENT",
+      "opt_rust_star": "ABSENT",
+      "filesystem_search": "find / -maxdepth 4 (-name rustc -o -name cargo) -type f returned ZERO hits",
+      "linkers": "cc ABSENT, gcc ABSENT, clang ABSENT, ld ABSENT"
+    }
+  },
+  "blocking_analysis": {
+    "requirement": "The gates need cargo/rustc pinned at 1.95.0. rust/rust-toolchain.toml pins channel=1.95.0 (any rustup-shimmed cargo demands that exact toolchain), and cmd/rustgatectl's msrv gate HARD-REQUIRES a rustup-managed 1.95.0 toolchain (`rustup toolchain list` must show it; absence FAILS the gate by design, per the tool's honesty contract). cargo build/test additionally needs a C linker for aarch64-unknown-linux-gnu; the template has no cc/gcc/clang/ld.",
+    "template_state": "The accepted template ships NO Rust toolchain in any location and NO C toolchain (probe results above, read from real command output, probe exits 0).",
+    "network_path_closed": "The accepted profile is --deny-network '**'; rustup/cargo cannot download anything in-sandbox.",
+    "no_standing_authorization_for_materialization": "The 0125 precedent (tla2tools.jar) required an EXPLICIT owner decision approving the host-side tool download (protected/us009-us008-owner-decisions-2026-08-27.json, us006_tlc_in_sbx). That decision batch contains NO authorization for fetching or materializing a Rust toolchain. protected/us008-owner-pinning-tier1.json records rustc 1.95.0 only as a 'Linux x86_64 archive digest pending acquisition' for the x86_64 benchmark host — not acquired, and the wrong architecture for this arm64 sandbox. No other protected record or draft authorizes it (searched protected/*.json and drafts/).",
+    "conclusion": "BLOCKED without improvising a new profile. Executing the gates in-sandbox requires either (a) an explicit owner decision authorizing host-side fetch (digest-recorded at fetch, per probe-before-wire) and digest-verified materialization of rustup + rust 1.95.0 aarch64-unknown-linux-gnu + a C toolchain into the sandbox, or (b) a Rust-bearing template revision accepted through US-007-style qualification. Neither exists today; inventing either without the owner is prohibited."
+  },
+  "owner_decision_required": [
+    "Authorize host-side fetch + digest-verified sandbox materialization of the Rust 1.95.0 aarch64-unknown-linux-gnu toolchain (rustup-managed, so the msrv gate can genuinely execute) plus a C linker toolchain, continuing the us007-sbx-output-live-NNNN series",
+    "OR accept a Rust-bearing sandbox template revision through the US-007 qualification pattern"
+  ],
+  "host_side_note": "The gates themselves are green on the host at d0c8656 (merged AC1 chain); this record blocks ONLY the in-sandbox execution leg of US-009 AC1.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false
+}

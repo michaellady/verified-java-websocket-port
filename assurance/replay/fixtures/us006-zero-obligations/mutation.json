@@ -1,0 +1,14 @@
+{
+  "operations": [
+    {
+      "kind": "include",
+      "path": "assurance/replay/fixtures/us006-base/mutation.json"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/0/obligations",
+      "value": []
+    }
+  ]
+}

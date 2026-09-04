@@ -1,0 +1,425 @@
+{
+  "$schema": "../schemas/public-rfc-divergence-census-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "public-rfc-divergence-census",
+  "census_id": "us005-public-rfc-divergence-census",
+  "statement": "Public-corpus propositions where this port follows the pinned Java oracle over an RFC-strict reading, with the ledger record that discloses each one. It exists because the reserved-bit ready-state divergence was found by a cross-plane audit reading another plane's manifest by hand, and no gate of ours would have found it \u2014 nor the seventeen sibling instances the same mechanism produces. Rows are swept from the committed corpus by CAUSE, every row must carry the derivation this gate actually runs, and every row must name a ledger record that actually discusses its scenario; internal/deltaledger.VerifyIntegrity enforces all three, and cmd/deltaledgerctl --check runs it, so this is a gate rather than a document.",
+  "completeness": "The protocol-rejection-readystate class is COMPLETE over the 74-scenario public tier by the CAUSE predicate stated in every row's `derivation` field, and internal/deltaledger re-derives it from the corpus on every run, so a new scenario that falls in the class fails the gate until it is enrolled here and ledgered. THREE PREDICATES HAVE BEEN WRONG AND EACH CORRECTION IS RECORDED HERE RATHER THAN QUIETLY APPLIED. (1) The original selected on error.close_code in {1002,1007,1009}, a RESULT SHAPE. It enrolled us005.pub.0000, a locally initiated send_close(999) with no inbound byte decoded at all. RFC 6455 section 7.1.7 requires closing only where another algorithm or provision requires Failing the WebSocket Connection, and an invalid local API call is not such a provision, so this document's claim that the RFC-strict state there was 'closed' was wrong; that scenario is ledgered separately and correctly at ledger sequence 35, which records that the RFC behaviour remains OPEN because no Close frame was ever sent. That correction is why the count went from nineteen to eighteen. (2) Its replacement selected on the AGGREGATE counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close also satisfies \u2014 the same mistake one level less obvious. (3) Its replacement derived the failing step FROM those same counts, so a scenario that understated its own action count made the bytes prefix the unique match and was enrolled anyway; the evidence that decided membership was supplied by the thing membership was meant to constrain. The failing step is now derived by EXECUTING each scenario's own steps under the reference model, and every committed corpus line must equal its own re-derivation. The close-code set is an asserted CONSISTENCY property of the class rather than its boundary: a future member carrying some other code fails the gate and forces a decision instead of being silently excluded. Completeness is claimed for THIS CLASS ONLY. Other Java-over-RFC propositions exist in the corpus (consumed-byte rejection sites, error-site offsets, the absent automatic pong) and no mechanical predicate sweeps them.",
+  "entries": [
+    {
+      "scenario_id": "us005.pub.0005",
+      "pointer": "/final_state",
+      "family": "rsv-bit",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-137c3716a7e7280172a22e7f2cd0e468a923442aec3eea765c3b36c6e7ddacac",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0019",
+      "pointer": "/final_state",
+      "family": "close-code-invalid-wire",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-7.1.7",
+        "rfc6455#section-7.4"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0020",
+      "pointer": "/final_state",
+      "family": "control-nonfin",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.5.2",
+        "rfc6455#section-5.5.3",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0029",
+      "pointer": "/final_state",
+      "family": "rsv-bit",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0031",
+      "pointer": "/final_state",
+      "family": "buffer-limit-frame",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-10.4",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1009,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0033",
+      "pointer": "/final_state",
+      "family": "close-code-invalid-wire",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-7.1.7",
+        "rfc6455#section-7.4"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0036",
+      "pointer": "/final_state",
+      "family": "bad-opcode",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0039",
+      "pointer": "/final_state",
+      "family": "unexpected-continuation",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.4",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0041",
+      "pointer": "/final_state",
+      "family": "close-code-invalid-wire",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-7.1.7",
+        "rfc6455#section-7.4"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0042",
+      "pointer": "/final_state",
+      "family": "data-during-fragment",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.4",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0052",
+      "pointer": "/final_state",
+      "family": "fragment-restart",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.4",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0056",
+      "pointer": "/final_state",
+      "family": "invalid-utf8-text",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-7.1.7",
+        "rfc6455#section-8.1"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1007,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0057",
+      "pointer": "/final_state",
+      "family": "control-oversize",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-10.4",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0058",
+      "pointer": "/final_state",
+      "family": "rsv-bit",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0059",
+      "pointer": "/final_state",
+      "family": "control-oversize",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-10.4",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0065",
+      "pointer": "/final_state",
+      "family": "bad-opcode",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.2",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0066",
+      "pointer": "/final_state",
+      "family": "unexpected-continuation",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-5.4",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1002,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    },
+    {
+      "scenario_id": "us005.pub.0067",
+      "pointer": "/final_state",
+      "family": "invalid-utf8-text",
+      "class": "protocol-rejection-readystate",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape and not by any recorded aggregate: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step \u2014 that is, the rejection was raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits and steps under the reference model and reports the index of the step whose execution raised the error. expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step from those same counts, which let a scenario understate its own action count and choose the answer. See this document's completeness field.",
+      "rfc_clauses": [
+        "rfc6455#section-7.1.7",
+        "rfc6455#section-8.1"
+      ],
+      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
+      "recorded_observable": "open",
+      "recorded_close_code": 1007,
+      "port_follows": "java-adapter-path",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
+      "evidence": [
+        "corpora/public/scenarios.jsonl",
+        "protected/us005-corpora/live/public/transcript.jsonl",
+        "java-oracle/src/main/java/OracleEngine.java",
+        "WebSocketImpl.java:391-419"
+      ]
+    }
+  ]
+}

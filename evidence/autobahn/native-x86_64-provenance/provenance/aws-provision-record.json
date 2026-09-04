@@ -1,0 +1,11 @@
+[
+    {
+        "Id": "i-0fd462789e9e80548",
+        "State": "running",
+        "AZ": "us-east-1a",
+        "Ami": "ami-02b3d83d84b07786d",
+        "Arch": "x86_64",
+        "Vol": "vol-0fa35fde4b90691d4",
+        "Eni": "eni-0012c87790625597a"
+    }
+]

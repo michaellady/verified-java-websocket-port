@@ -1,0 +1,9 @@
+{
+  "operations": [
+    {
+      "kind": "raw_append",
+      "target": "assurance/evidence-model.json",
+      "value": "\n"
+    }
+  ]
+}

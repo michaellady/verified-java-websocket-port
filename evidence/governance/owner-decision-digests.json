@@ -1,0 +1,115 @@
+{
+  "$schema": "../../schemas/owner-decision-digests-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "owner-decision-digest-manifest",
+  "statement": "Digest mirror of the owner decisions that govern this project. The records themselves live in the workspace orchestrator's immutable protected store and are deliberately NOT committed: this repository is public and those records carry internal deliberation, cost figures and infrastructure identifiers. Committing their sha256 gets tamper-detection without the disclosure, under the owner ruling governance-mirroring-and-record-schema-owner-decision-2026-08-28.json. Every entry is DERIVED — from the digests the ledger records' own hashed rationales already assert, plus the decisions this repository's gate design rests on — and internal/deltaledger.VerifyGovernance requires the committed file to equal that derivation AND requires the protected store to be reachable and every mirrored digest to recompute. An unreachable store is a refusal, not a skip. CITATIONS ARE RECOGNISED STRUCTURALLY, not by phrasing: a protected-store record name (bare or explicitly under protected/, and under no other directory) followed by a clause asserting that record's sha256. The digest is the marker, because asserting a record's digest is what makes a citation load-bearing. An earlier version recognised one wording and therefore omitted the only citation of us012-us016-owner-decisions-2026-08-28-formal.json, which sits in the frozen prefix and cannot be reworded, so deleting that ruling from the store failed nothing. A second, deliberately weaker arm refuses any record that NAMES a decision record without a digest attributable to it, so a citation form the parser does not understand fails the gate rather than being quietly left out of the mirror.",
+  "store": "workspace orchestrator protected store for the verified-java-websocket-port-claude plane; set VJWP_PROTECTED_STORE to point at it explicitly, or leave it unset and let ResolveProtectedStore discover workspace/orchestrator/verified-java-websocket-port-claude/protected above the checkout",
+  "decisions": [
+    {
+      "name": "governance-mirroring-and-record-schema-owner-decision-2026-08-28.json",
+      "sha256": "e6837006a722b71f6b7137b82be31f4a9e8d802f0ef4c0614dbd4016f27c361f",
+      "cited_by_sequences": [],
+      "basis": "no divergence record cites it; it is the ruling this repository's gate design itself rests on, mirrored so that deleting the authority for the mirror fails the gate too"
+    },
+    {
+      "name": "ledger-frozen-prefix-owner-decision-2026-08-28.json",
+      "sha256": "bb3cd0da7f4aed014290dab3dc35b2ec87f41d3d7e7a8c7449816159e9d837c7",
+      "cited_by_sequences": [
+        45,
+        46,
+        47,
+        57,
+        58,
+        59
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    },
+    {
+      "name": "us009-us008-owner-decisions-2026-08-27.json",
+      "sha256": "3a9b24c4b7ee607d981f52e6881ad2476cf03cff01da89bb29461b97f2f99593",
+      "cited_by_sequences": [
+        59
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    },
+    {
+      "name": "us010-016-ac-amendment-owner-decision-2026-08-27.json",
+      "sha256": "26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974",
+      "cited_by_sequences": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        59
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    },
+    {
+      "name": "us012-us016-owner-decisions-2026-08-28-formal.json",
+      "sha256": "d7a54e2c5aac48cc9ef1b3afa19d14593555e1fce7cb49fed69484ba24bfc352",
+      "cited_by_sequences": [
+        35
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    },
+    {
+      "name": "us017-c6-layer-split-owner-decision-2026-08-28.json",
+      "sha256": "d41b5307de3a85f6e83d49767a366035139721eadb03be0efb4784af810bb8c6",
+      "cited_by_sequences": [
+        49
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    },
+    {
+      "name": "us017-post-failure-owner-decisions-2026-08-28.json",
+      "sha256": "612546e8ee34cf6979d1258b0f2f020aeacfeedee3e22a291c4e4c9e6c474a33",
+      "cited_by_sequences": [
+        49
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    }
+  ]
+}

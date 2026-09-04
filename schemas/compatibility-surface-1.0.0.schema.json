@@ -1,0 +1,437 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/compatibility-surface-1.0.0.schema.json",
+  "title": "US-003 CompatibilitySurface",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "compatibility_surface_id",
+    "preserved_boundary",
+    "items",
+    "excluded_surfaces",
+    "assurance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "entity_type": {
+      "const": "CompatibilitySurface"
+    },
+    "compatibility_surface_id": {
+      "$ref": "#/$defs/id"
+    },
+    "preserved_boundary": {
+      "$ref": "#/$defs/preservedBoundary"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface_id",
+          "kind",
+          "edge_cases",
+          "oracle_id",
+          "evidence_obligation_ids",
+          "cutover_obligation_id",
+          "observation_status",
+          "blocker_code"
+        ],
+        "properties": {
+          "surface_id": {
+            "$ref": "#/$defs/id"
+          },
+          "kind": {
+            "enum": [
+              "public",
+              "wire",
+              "file",
+              "database",
+              "state",
+              "error",
+              "timing",
+              "resource",
+              "operational"
+            ]
+          },
+          "edge_cases": {
+            "type": "array",
+            "minItems": 8,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "allOf": [
+              {
+                "contains": {
+                  "const": "nil"
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "const": "empty"
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "const": "malformed"
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "const": "oversized"
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "const": "duplicate"
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "const": "interrupted"
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "const": "stale"
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "const": "upstream-error"
+                },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            ]
+          },
+          "oracle_id": {
+            "$ref": "#/$defs/id"
+          },
+          "evidence_obligation_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "cutover_obligation_id": {
+            "$ref": "#/$defs/id"
+          },
+          "observation_status": {
+            "enum": [
+              "OBSERVED",
+              "UNOBSERVABLE",
+              "UNSUPPORTED"
+            ]
+          },
+          "blocker_code": {
+            "type": "string"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "observation_status": {
+                  "const": "OBSERVED"
+                }
+              },
+              "required": [
+                "observation_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "blocker_code": {
+                  "const": ""
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "observation_status": {
+                  "const": "UNOBSERVABLE"
+                }
+              },
+              "required": [
+                "observation_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "blocker_code": {
+                  "const": "COMPATIBILITY_SURFACE_INCOMPLETE"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "observation_status": {
+                  "const": "UNSUPPORTED"
+                }
+              },
+              "required": [
+                "observation_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "blocker_code": {
+                  "const": "UNSUPPORTED_DYNAMIC_FEATURE"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "excluded_surfaces": {
+      "type": "array",
+      "minItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/exclusionRecord"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "code": {
+                "const": "EXCLUDED_TLS_WSS"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "minContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "code": {
+                "const": "EXCLUDED_PROXY_SUPPORT"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "minContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "code": {
+                "const": "EXCLUDED_RECONNECT"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "minContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "code": {
+                "const": "EXCLUDED_ANDROID"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "minContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "code": {
+                "const": "EXCLUDED_RFC_7692_PERMESSAGE_DEFLATE"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "minContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "code": {
+                "const": "EXCLUDED_JAVA_API_PARITY"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "minContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "code": {
+                "const": "EXCLUDED_JAVA_NIO_TOPOLOGY"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "minContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "code": {
+                "const": "EXCLUDED_EXTENSION_SUBPROTOCOL_PARITY"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "minContains": 1
+        }
+      ]
+    },
+    "assurance": {
+      "$ref": "#/$defs/assurance"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance",
+        "independent_review_claimed",
+        "production",
+        "signing",
+        "publication"
+      ],
+      "properties": {
+        "assurance": {
+          "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+        },
+        "independent_review_claimed": {
+          "const": false
+        },
+        "production": {
+          "const": false
+        },
+        "signing": {
+          "const": false
+        },
+        "publication": {
+          "const": false
+        }
+      }
+    },
+    "preservedBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "standard",
+        "normative_artifact_id",
+        "normative_artifact_sha256",
+        "normalized_command_event_behavior",
+        "wire_octet_equivalence_required",
+        "statement"
+      ],
+      "properties": {
+        "standard": {
+          "const": "RFC 6455"
+        },
+        "normative_artifact_id": {
+          "const": "rfc6455-text"
+        },
+        "normative_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "normalized_command_event_behavior": {
+          "const": true
+        },
+        "wire_octet_equivalence_required": {
+          "const": true
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "exclusionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "reason"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "EXCLUDED_TLS_WSS",
+            "EXCLUDED_PROXY_SUPPORT",
+            "EXCLUDED_RECONNECT",
+            "EXCLUDED_ANDROID",
+            "EXCLUDED_RFC_7692_PERMESSAGE_DEFLATE",
+            "EXCLUDED_JAVA_API_PARITY",
+            "EXCLUDED_JAVA_NIO_TOPOLOGY",
+            "EXCLUDED_EXTENSION_SUBPROTOCOL_PARITY"
+          ]
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    }
+  }
+}

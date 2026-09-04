@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "BehaviorDeltaLedgerRecordProposal",
+  "note": "A DRAFT, not a ledger record. evidence/java/behavior-delta-ledger.json is append-only with a frozen prefix and is edited by another track; this file exists so the owner can append the record without retyping it. previous_digest and record_digest are functions of the append position and are therefore marked PENDING_APPEND_POSITION. Everything else, including delta_id, is computed here from the digest preimages below by the same construction internal/deltaledger uses, so appending this definition reproduces this delta_id exactly.",
+  "sweep_class_id": "DIV-05-close-overtakes-a-large-echo",
+  "sweep_recommendation": "FIX_IN_PORT",
+  "measured_extent": {
+    "sweep_document": "evidence/java/observed-close-divergences.json",
+    "run_id": "us019-prov-20260828T183623Z",
+    "subject_commit": "518b77aa3ecdc180c832a0d988adf498d687e1b8",
+    "case_counts_by_subject_role": {
+      "client": 1,
+      "server": 1
+    },
+    "cases_by_subject_role": {
+      "client": [
+        "7.1.6"
+      ],
+      "server": [
+        "7.1.6"
+      ]
+    }
+  },
+  "digest_preimages": {
+    "autobahn_result_digest": "EXECUTED, native x86_64 provenance run us019-prov-20260828T183623Z, port build 518b77aa. MEASURED EXTENT (native x86_64 run, 247-case pinned manifest, both roles): server role 1/247 cases, client role 1/247 cases. The port's received list is empty and its subject_close_code is null; the suite's own verdict text on the port is 'Close was processed before text message could be returned.' against Java's 'Actual events differ from any expected.'. Autobahn scores this case INFORMATIONAL for BOTH subjects, so no behaviour-class gate in this repository can see the difference, and the public corpus has no 256 KiB echo-versus-close race. The extent above is recomputed from the committed per-case report bytes by internal/divergencesweep and recorded per case in evidence/java/observed-close-divergences.json; the digest manifest over the 1048 pinned files is verified before any report is read, and internal/divergencesweep's tests refuse a document that disagrees with the reports.",
+    "autobahn_value_digest": "port received=[] and subject_close_code=null; java received=[256 KiB echo, 'Hello World!'] and subject_close_code=1000",
+    "java_observation_digest": "Shipped Java 1.6.0 returns the 256 KiB echo and then answers the close with code 1000: on the native x86_64 run its received list carries both the 256 KiB message and the follow-up, and remoteCloseCode is 1000. flushAndClose demands a write of the queued frames before the channel is closed, so the echo is on the wire ahead of the close.",
+    "java_value_digest": "received=[the 256 KiB echo, ...]; subject_close_code=1000",
+    "rfc_expectation_digest": "RFC 6455 5.5.1 lets an endpoint that receives a Close frame finish sending a message already in progress before responding with its own Close frame; nothing requires discarding an application message already fully received.",
+    "rfc_value_digest": "an already-complete application message is delivered, then the close is answered"
+  },
+  "proposed_record": {
+    "schema_version": "1.0.0",
+    "sequence": "PENDING_APPEND_POSITION (the next free sequence at append time)",
+    "previous_digest": "PENDING_APPEND_POSITION",
+    "delta": {
+      "schema_version": "1.0.0",
+      "delta_id": "delta-02e2846c025deec4fd7e279956a7b997c6cab42aa57d0e91df2acb4107c4afb8",
+      "subject_ref": "semantic:org.java-websocket.websocketimpl.pending-echo-versus-close-ordering:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-5.5.1",
+        "rfc6455#section-7.1.7"
+      ],
+      "rfc_expectation_digest": "sha256:eff0b133b0f231e45d30b9a80ec0b2b8bd54ae3994e8f58ebc7af771a0d0c574",
+      "rfc_value_digest": "sha256:4b637e1cf8f2b73b3c75c576df93fd1971860d231a7369d5efd5b618e219dc73",
+      "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
+      "java_observation_digest": "sha256:4382cc72e4fb1d691882d4aa603a1fd920718171095b8da8949d992f6349c4b4",
+      "java_value_digest": "sha256:1c53b149f64c6e11cf036f642a6ae4a093d6b3521642ec4ce60be1b275a11be1",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:7.1.6"
+      ],
+      "autobahn_result_digest": "sha256:684e0e52f43b244f79c50515508a7e8226cf0cd9689591cd84716c4437f3e53e",
+      "autobahn_value_digest": "sha256:9e1c2665bc3f56d1649ad2384a8df904c1867e97704aca74b2f33863bbab3527",
+      "disagreement_digest": "sha256:02e2846c025deec4fd7e279956a7b997c6cab42aa57d0e91df2acb4107c4afb8",
+      "normative_authority": "rfc6455",
+      "disposition": "unresolved",
+      "rationale": "DIVERGENCE (a close overtakes a large pending echo): with a 256 KiB text message followed immediately by a Close, shipped Java delivers the echo and answers the close; the port drops the echo and sends no close. MEASURED EXTENT (native x86_64 run, 247-case pinned manifest, both roles): server role 1/247 cases, client role 1/247 cases. RECOMMENDATION: FIX IN THE PORT, with a reproduction as its precondition: this must first be reproduced as a rust/ws-core or rust/ws-driver test, because the sweep can only show WHAT the suite saw, not which of the two orderings the port's write queue is actually taking. If the reproduction shows the port cannot enqueue the echo without breaking the ordering ledgered at sequence 34, this becomes a ledger record for a preserved ordering instead, and the record's disposition should be revisited then. It is NOT sequence 34: that record is about a FAILURE path's flush and this is a clean close with no protocol violation. SAFETY: delivering a message already fully received before answering a close adds no unbounded buffering — the message is already in memory — but it does extend the window before the socket is released, which review must bound. The extent above is recomputed from the committed per-case report bytes by internal/divergencesweep and recorded per case in evidence/java/observed-close-divergences.json; the digest manifest over the 1048 pinned files is verified before any report is read, and internal/divergencesweep's tests refuse a document that disagrees with the reports."
+    },
+    "record_digest": "PENDING_APPEND_POSITION"
+  }
+}

@@ -1,0 +1,31 @@
+[package]
+name = "candidate-stub"
+description = "US-005 candidate-execution artifacts: an inert stub target that speaks the java-oracle JSONL protocol but implements NO WebSocket behavior (negative control that must FAIL the behavior corpus), plus two planted Rust mutants with documented deliberate deviations (see mutants/manifest.json). These are verification instruments for corpus calibration, not port crates; no story acceptance is claimed."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Verification-instrument stance: like ws-core, this crate is
+# dependency-free by design. The protocol envelope it needs (extracting
+# request_id / request_digest / role / initial_state from canonical JSONL
+# request lines and emitting fixed inert or planted-deviant responses) is
+# implemented against the canonical-JSON guarantees of corporactl
+# oracle-requests (sorted keys, no insignificant whitespace, no escapes in
+# the extracted fields) and fails closed on anything else.
+[dependencies]
+
+[dev-dependencies]
+
+[[bin]]
+name = "us005-candidate-stub"
+path = "src/bin/us005-candidate-stub.rs"
+
+[[bin]]
+name = "us005-mutant-rs-eager-reject"
+path = "src/bin/us005-mutant-rs-eager-reject.rs"
+
+[[bin]]
+name = "us005-mutant-rs-digest-unbind"
+path = "src/bin/us005-mutant-rs-digest-unbind.rs"

@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-confirmation-host-pinning",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "story": "US-008 (preregistered benchmark environment binding; also feeds US-025)",
+  "decided_at": "2026-08-26T19:55:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner explicit AskUserQuestion decisions 2026-08-26 (~19:55Z): Tier-1 'c7i.xlarge + proven image'; Tier-2 'Defer (Recommended)'. Options were prepared probe-before-wire from real read-only AWS calls against the EVC dev account REDACTED-AWS-ACCOUNT-ID (profile dev-sso, us-east-1); full probe log in workspace drafts/us008-pinning-decision-package.md.",
+  "tier1_binding": {
+    "rigor_tier": "VM_MEASURED_JITTER_AVERAGED",
+    "instance_type": "c7i.xlarge",
+    "vcpu": 4,
+    "memory_mib": 8192,
+    "on_demand_usd_per_hour_probed": 0.1785,
+    "region": "us-east-1",
+    "ami_id": "ami-02b3d83d84b07786d",
+    "ami_name": "al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64",
+    "ami_deprecation": "2026-11-10 (re-pin required after; pinned id may not remain launchable)",
+    "kernel_provenance": "6.1.180-225.360.amzn2023.x86_64 as observed booted from this AMI's release set during green plumbing run 33000379021 on c7i.large; the identical AMI on c7i.xlarge boots the same kernel build — exact uname strings on the bound type are recorded at first boot, and remain NOT_MEASURED until then",
+    "rationale": "Owner chose the 4-vCPU variant so the load driver and the system under test do not share a physical core; same CPU family and image as the proven pipeline run"
+  },
+  "tier2_binding": {
+    "status": "DEFERRED_BY_OWNER",
+    "note": "No flagship run scheduled; decision deferred so a vCPU quota-increase request can be sized to the eventual choice. Candidates and quota math retained in the decision package (m5zn.metal is the only candidate under today's 64-vCPU quota)."
+  },
+  "tool_identities": {
+    "terraform": "1.9.8 (dialed-setup pin)",
+    "go": "go.mod 'go 1.25' — resolved toolchain version to be recorded at binding-commit time in the repo document",
+    "runner_build_flags": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 -trimpath",
+    "yq": "4.44.3",
+    "jdk_candidate": "17.0.19 (Linux x86_64 archive digest pending acquisition)",
+    "rustc_candidate": "1.95.0 (Linux x86_64 archive digest pending acquisition)"
+  },
+  "still_unbound_honestly": [
+    "java_executable_digest, rust_executable_digest, load_driver, measurement_tools, analyzer, runner (runner is still the NOT_MEASURED stub; no Rust executable exists yet)",
+    "allocation_evidence and cpu_frequency_policy remain open owner decisions",
+    "booted-host facts (CPU model string, NUMA, clocksource, memory_total_bytes, AZ, instance id) recorded at first bound boot"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/benchmark-environment-1.0.0.schema.json",
+  "title": "US-008 benchmark environment binding document",
+  "description": "Uniform field-record format for the primary and confirmation environments. Every field carries an explicit status; pending fields cannot smuggle values (the schema forbids a 'value' on OWNER_DECISION_PENDING, NOT_MEASURED, and PENDING_FREEZE_AT_MEASUREMENT records), and required_binding_fields is the machine-checkable completion meter that benchplanctl verify walks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "role", "status", "binding_status", "assurance", "independent_review_claimed", "provenance", "host_identity", "run_policy", "tool_identities", "required_binding_fields", "measurements"],
+  "properties": {
+    "schema": {"const": "vjwp-benchmark-environment/1.0.0"},
+    "role": {"enum": ["primary", "confirmation"]},
+    "status": {"type": "string", "minLength": 1},
+    "binding_status": {"enum": ["UNBOUND", "BOUND"]},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "rationale"],
+      "properties": {
+        "class": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1},
+        "provisioner": {"type": "string", "minLength": 1},
+        "aws_account": {"type": "string", "minLength": 1}
+      }
+    },
+    "host_identity": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/fieldRecord"}
+    },
+    "run_policy": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/fieldRecord"}
+    },
+    "tool_identities": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/fieldRecord"}
+    },
+    "required_binding_fields": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^(host_identity|run_policy|tool_identities)\\.[a-z0-9_]+$"}
+    },
+    "measurements": {"type": "string", "pattern": "^NONE"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"role": {"const": "primary"}}},
+      "then": {
+        "properties": {
+          "host_identity": {
+            "required": ["os_product_version", "os_build_version", "hardware_model_identifier", "cpu_brand", "cpu_logical_cores", "cpu_performance_cores", "cpu_efficiency_cores", "memory_total_bytes", "power_source_state", "low_power_mode_state", "thermal_pressure_state", "background_process_census", "clock_sync_state"]
+          },
+          "required_binding_fields": {
+            "const": ["host_identity.os_product_version", "host_identity.os_build_version", "host_identity.hardware_model_identifier", "host_identity.cpu_brand", "host_identity.cpu_logical_cores", "host_identity.cpu_performance_cores", "host_identity.cpu_efficiency_cores", "host_identity.memory_total_bytes", "host_identity.power_source_state", "host_identity.low_power_mode_state", "host_identity.thermal_pressure_state", "host_identity.background_process_census", "host_identity.clock_sync_state", "tool_identities.java_runtime", "tool_identities.rust_toolchain", "tool_identities.java_executable_digest", "tool_identities.rust_executable_digest", "tool_identities.load_driver", "tool_identities.measurement_tools", "tool_identities.analyzer"]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"role": {"const": "confirmation"}}},
+      "then": {
+        "properties": {
+          "host_identity": {
+            "required": ["instance_type", "instance_id", "observed_architecture", "allocation_evidence", "region", "availability_zone", "ami_id", "ami_name", "os_identity", "kernel_identity", "cpu_model", "cpu_frequency_policy", "memory_total_bytes", "numa_topology", "clocksource"],
+            "properties": {
+              "observed_architecture": {
+                "if": {"properties": {"status": {"enum": ["OBSERVED", "BOUND"]}}, "required": ["status"]},
+                "then": {"required": ["value"], "properties": {"value": {"const": "x86_64"}}}
+              }
+            }
+          },
+          "tool_identities": {
+            "required": ["java_runtime", "rust_toolchain", "java_executable_digest", "rust_executable_digest", "load_driver", "measurement_tools", "analyzer", "runner"]
+          },
+          "required_binding_fields": {
+            "const": ["host_identity.instance_type", "host_identity.instance_id", "host_identity.observed_architecture", "host_identity.allocation_evidence", "host_identity.region", "host_identity.availability_zone", "host_identity.ami_id", "host_identity.ami_name", "host_identity.os_identity", "host_identity.kernel_identity", "host_identity.cpu_model", "host_identity.cpu_frequency_policy", "host_identity.memory_total_bytes", "host_identity.numa_topology", "host_identity.clocksource", "tool_identities.java_runtime", "tool_identities.rust_toolchain", "tool_identities.java_executable_digest", "tool_identities.rust_executable_digest", "tool_identities.load_driver", "tool_identities.measurement_tools", "tool_identities.analyzer", "tool_identities.runner"]
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "tool_identities": {
+          "required": ["java_runtime", "rust_toolchain", "java_executable_digest", "rust_executable_digest", "load_driver", "measurement_tools", "analyzer"]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "fieldRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["OBSERVED", "PRD_VERBATIM", "PREREGISTERED_BY_DRIVER", "BOUND", "OWNER_DECISION_PENDING", "NOT_MEASURED", "PENDING_FREEZE_AT_MEASUREMENT"]},
+        "value": {"type": ["string", "number", "boolean"]},
+        "unit": {"type": "string", "minLength": 1},
+        "observed_by_command": {"type": "string", "minLength": 1},
+        "observed_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+        "prd_pin": {"type": "string", "minLength": 1},
+        "prd_pin_match": {"type": "boolean"},
+        "candidate": {"type": "string", "minLength": 1},
+        "rationale": {"type": "string", "minLength": 1},
+        "notes": {"type": "string", "minLength": 1},
+        "freeze_procedure": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "OBSERVED"}}},
+          "then": {"required": ["value", "observed_by_command", "observed_at"]}
+        },
+        {
+          "if": {"properties": {"status": {"const": "PREREGISTERED_BY_DRIVER"}}},
+          "then": {"required": ["value", "rationale"]}
+        },
+        {
+          "if": {"properties": {"status": {"const": "PRD_VERBATIM"}}},
+          "then": {"required": ["value"]}
+        },
+        {
+          "if": {"properties": {"status": {"const": "BOUND"}}},
+          "then": {"required": ["value"]}
+        },
+        {
+          "if": {"properties": {"status": {"enum": ["OWNER_DECISION_PENDING", "NOT_MEASURED"]}}},
+          "then": {"not": {"required": ["value"]}}
+        },
+        {
+          "if": {"properties": {"status": {"const": "PENDING_FREEZE_AT_MEASUREMENT"}}},
+          "then": {"allOf": [{"required": ["freeze_procedure"]}, {"not": {"required": ["value"]}}]}
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "ProvenanceRunSummary",
+  "attempt_id": "us019-prov-20260828T183623Z",
+  "commit_sha": "518b77aa3ecdc180c832a0d988adf498d687e1b8",
+  "image_invoked_by": "crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+  "image_reference_form": "MANIFEST_DIGEST",
+  "manifest": "autobahn/case-manifest.json",
+  "expected_case_count": 247,
+  "legs": [
+    {"leg": "rust-fuzzingclient", "subject": "rust", "role": "server", "agent": "verified-rust-ws-testee-us019"},
+    {"leg": "rust-fuzzingserver", "subject": "rust", "role": "client-agent", "agent": "verified-rust-ws-testee-us019"},
+    {"leg": "java-fuzzingclient", "subject": "java-websocket-1.6.0", "role": "server", "agent": "verified-java-websocket-port-1.6.0"},
+    {"leg": "java-fuzzingserver", "subject": "java-websocket-1.6.0", "role": "client-agent", "agent": "verified-java-websocket-port-1.6.0"}
+  ],
+  "finalized_at": "2026-08-28T18:52:56Z"
+}

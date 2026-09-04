@@ -1,0 +1,614 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "java-formal-bindings",
+  "generated_at": "2026-09-02T18:20:32Z",
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  },
+  "spec": {
+    "path": "assurance/formal/java-binding-spec.json",
+    "sha256": "sha256:468142c6d01a8c358e636f4f52aefd564c5d9854c824ece3008be67d4da7c15b"
+  },
+  "catalog": {
+    "path": "assurance/formal/obligation-catalog.json",
+    "sha256": "sha256:21112518f48443b4e20ecae537bed72b8c9e19167ad00bc6f325bff9374cdf59"
+  },
+  "pinned_source": {
+    "archive_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "tree_directory": "Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "source_root": "src/main/java"
+  },
+  "pinned_runtime": {
+    "artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+    "sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
+  },
+  "toolchain": {
+    "os": "linux",
+    "arch": "amd64",
+    "java_version": "openjdk version \"17.0.19\" 2026-04-21",
+    "adapter_source_digests": [
+      "sha256:aabf82477d8872053b9a32ab8ba42cf2be3711d7f5e1cea671b32a0436588a24",
+      "sha256:ea562de9da7e628bccdb410e6806cba16bab86293b2d59bac14b2bb6fb77b4c8",
+      "sha256:6ac014e35db3dd5268e45c63f10c0375ba60e0fa74098a2415ab2257dfb81e2e",
+      "sha256:f97eddcf38fd644bc1bc4b0ec703586f4b46a91cac1810867ebabd35889ef49e",
+      "sha256:a449bae8e4561724eb1b12f1ec00d6f76a2e0743550e9437d036f2d7b9785db2"
+    ],
+    "adapter_jar_sha256": "sha256:ece59c47aaa42fef9192b1b0f475177cc802d77bf06af01e5ff8d2179ca1b2a0",
+    "mutant_driver_source_sha256": "sha256:9969d431d96429ff48c1142f3cb12bf5746c5e11ffe91ca1067a1d3046cfcb5b",
+    "mutant_driver_jar_sha256": "sha256:c02b20c7bee8458a3d97369f6efe4dc69ec88ee4bcc703a835c7f6c139c2ca3f",
+    "runtime_support_sha256": [
+      "sha256:e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9"
+    ]
+  },
+  "source_constructs": [
+    {
+      "obligation_id": "obligation.checked-header-arithmetic",
+      "chain_member": "translateSingleFrame",
+      "is_chain_root": true,
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+      "start": 18862,
+      "end": 21573,
+      "span_sha256": "sha256:a469fed7be335c3cf9553721d4e09de8d5ee3de55418fea5c1b135e47ac5b1e9",
+      "structure_fingerprint": "sha256:a11487846246937b0a7167384c4efa835683a50407a69b98b334b9f322c65572",
+      "declared_parameter_types": [
+        "ByteBuffer"
+      ],
+      "declared_return_type": "Framedata",
+      "has_body": true,
+      "catalog_descriptor": "(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "descriptor_agreement": "RETURN_DIVERGENT"
+    },
+    {
+      "obligation_id": "obligation.control-fin-and-length",
+      "chain_member": "isValid",
+      "is_chain_root": true,
+      "source_file": "org/java_websocket/framing/ControlFrame.java",
+      "file_sha256": "sha256:d88df4f62cabe7e85aa09c4eb0e438836c8a1b973df5b898a6b34763b7c68521",
+      "start": 1623,
+      "end": 2122,
+      "span_sha256": "sha256:a6e0bfe618ff469d6ea94c761d01b6c63c40a5fadc9043cd0093f42408a2592d",
+      "structure_fingerprint": "sha256:2986200b25e46f9fae569599aae05dab43d1ec0903ba22ee20dcbdf505f0ce4b",
+      "declared_parameter_types": [],
+      "declared_return_type": "void",
+      "has_body": true,
+      "catalog_descriptor": "()V",
+      "descriptor_agreement": "EXACT"
+    },
+    {
+      "obligation_id": "obligation.length-canonical-7",
+      "chain_member": "createBinaryFrame",
+      "is_chain_root": true,
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+      "start": 16695,
+      "end": 17131,
+      "span_sha256": "sha256:88f6107a15c4e472931667184ea8fd946721951827a7a7f20bccc1733d0dd8b0",
+      "structure_fingerprint": "sha256:d1f68f6e2db290e2d78839247fb034e8c087e745dfec304a705823ffec461b91",
+      "declared_parameter_types": [
+        "Framedata"
+      ],
+      "declared_return_type": "ByteBuffer",
+      "has_body": true,
+      "catalog_descriptor": "(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+      "descriptor_agreement": "EXACT"
+    },
+    {
+      "obligation_id": "obligation.length-canonical-7",
+      "chain_member": "createByteBufferFromFramedata",
+      "is_chain_root": false,
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+      "start": 17135,
+      "end": 18858,
+      "span_sha256": "sha256:137f5cfffb5d25c6a12ceb634a31063ca4f7b29d09d1d4094ff6d201c31bf91a",
+      "structure_fingerprint": "sha256:c2abf22c53eb59172f7f3628956fd74d1c3910a06c5f2916e55370e53b6bdf52",
+      "declared_parameter_types": [
+        "Framedata"
+      ],
+      "declared_return_type": "ByteBuffer",
+      "has_body": true,
+      "catalog_descriptor": "",
+      "descriptor_agreement": ""
+    },
+    {
+      "obligation_id": "obligation.length-canonical-7",
+      "chain_member": "getSizeBytes",
+      "is_chain_root": false,
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+      "start": 25935,
+      "end": 26110,
+      "span_sha256": "sha256:d2b373596ec154a14a262e01eb24c54dde79473dba8dd484ad3a2a6879bf22a6",
+      "structure_fingerprint": "sha256:bce8e783cea95a8e2b2e14e448fe6c02b8cc44fdb4662e9d11f947c09f8a0d95",
+      "declared_parameter_types": [
+        "ByteBuffer"
+      ],
+      "declared_return_type": "int",
+      "has_body": true,
+      "catalog_descriptor": "",
+      "descriptor_agreement": ""
+    },
+    {
+      "obligation_id": "obligation.preallocation-cap",
+      "chain_member": "translateSingleFrame",
+      "is_chain_root": true,
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+      "start": 18862,
+      "end": 21573,
+      "span_sha256": "sha256:a469fed7be335c3cf9553721d4e09de8d5ee3de55418fea5c1b135e47ac5b1e9",
+      "structure_fingerprint": "sha256:a11487846246937b0a7167384c4efa835683a50407a69b98b334b9f322c65572",
+      "declared_parameter_types": [
+        "ByteBuffer"
+      ],
+      "declared_return_type": "Framedata",
+      "has_body": true,
+      "catalog_descriptor": "(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "descriptor_agreement": "RETURN_DIVERGENT"
+    },
+    {
+      "obligation_id": "obligation.preallocation-cap",
+      "chain_member": "translateSingleFrameCheckLengthLimit",
+      "is_chain_root": false,
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+      "start": 23854,
+      "end": 24496,
+      "span_sha256": "sha256:0e9fd149bb6f5e4a19f8ffd2bfb252280631736706d467b5e57d3644b6a7250c",
+      "structure_fingerprint": "sha256:09364aad57cc3df47a17d7d1f94588c3d8437a6b1d9d171501d094e18bfb98bf",
+      "declared_parameter_types": [
+        "long"
+      ],
+      "declared_return_type": "void",
+      "has_body": true,
+      "catalog_descriptor": "",
+      "descriptor_agreement": ""
+    },
+    {
+      "obligation_id": "surface.close.status-code",
+      "chain_member": "isValid",
+      "is_chain_root": true,
+      "source_file": "org/java_websocket/framing/CloseFrame.java",
+      "file_sha256": "sha256:bf62f1f9acae130ec5139c964f8be1fea12e896c4e5314000e33ea15deb4c742",
+      "start": 7852,
+      "end": 8815,
+      "span_sha256": "sha256:7c2fe210b9c68584f006d6ba66c08dd7e0ef7680e63399d1c2c7b29b43616914",
+      "structure_fingerprint": "sha256:dc3033f531aafa4052d2dd1cdaf072fef321f757524b1da0995e6a7df1e629f6",
+      "declared_parameter_types": [],
+      "declared_return_type": "void",
+      "has_body": true,
+      "catalog_descriptor": "()V",
+      "descriptor_agreement": "EXACT"
+    },
+    {
+      "obligation_id": "surface.fragmentation.continuation",
+      "chain_member": "processFrameContinuousAndNonFin",
+      "is_chain_root": true,
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "file_sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+      "start": 33025,
+      "end": 34096,
+      "span_sha256": "sha256:e6ab6ac19cf6e95cadbb5dacf8f9cf004145ec4c6c38d9c7b6afe674bcae2170",
+      "structure_fingerprint": "sha256:bab413137236431365a0aed493988810981aac507d41aeaa1673d966708dd429",
+      "declared_parameter_types": [
+        "WebSocketImpl",
+        "Framedata",
+        "Opcode"
+      ],
+      "declared_return_type": "void",
+      "has_body": true,
+      "catalog_descriptor": "(Lorg/java_websocket/framing/Framedata;Lorg/java_websocket/WebSocketImpl;)V",
+      "descriptor_agreement": "PARAMETERS_DIVERGENT"
+    }
+  ],
+  "mutation_applications": [
+    {
+      "mutation_id": "m.header-arithmetic.drop-payload-term",
+      "obligation_id": "obligation.checked-header-arithmetic",
+      "chain_member": "translateSingleFrame",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "absolute_offset": 19971,
+      "length": 32,
+      "removed_sha256": "sha256:baaef3c0f1365a557bff6b7adede11afbbaf370e868a4bab54d78b13c7d9dd91",
+      "replacement_sha256": "sha256:f883a10c37c92805de472f3742f31a41edab774cea3b46d5a0ea994511e74b79",
+      "mutated_file_sha256": "sha256:3f7034459e3f18e5b8926d1a54c6c5bc2db552d7c94e99be82dc68a1d55753f3",
+      "control_runtime_sha256": "sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c",
+      "mutant_runtime_sha256": "sha256:82a8b0c8176ba05b4e6f1472461bd53253cddabf32fe07b43f74d1bccee31712"
+    },
+    {
+      "mutation_id": "m.control.admit-non-final",
+      "obligation_id": "obligation.control-fin-and-length",
+      "chain_member": "isValid",
+      "source_file": "org/java_websocket/framing/ControlFrame.java",
+      "absolute_offset": 1695,
+      "length": 8,
+      "removed_sha256": "sha256:a7e0973414e3cbed094430cd39559ad302137899b67c89b9c0ba1da500a911b7",
+      "replacement_sha256": "sha256:fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+      "mutated_file_sha256": "sha256:4f31e0fa8cdcddf95ee7c54ea7c667f6fd4d191972c6ea2f902343485e0fdac9",
+      "control_runtime_sha256": "sha256:7705def4409adb2a4df1015629227f2e7b44695f8b80515d2e6bed97e917f463",
+      "mutant_runtime_sha256": "sha256:2b4a106d377e8f7cc559eba633564d9d70ed94383968b2d4df3673aa01c873cb"
+    },
+    {
+      "mutation_id": "m.len7.never-use-seven-bit-form",
+      "obligation_id": "obligation.length-canonical-7",
+      "chain_member": "getSizeBytes",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "absolute_offset": 25986,
+      "length": 22,
+      "removed_sha256": "sha256:234b2966dd2e9756d1065b131e61526bfd16928de5de944016b7af32130a6d50",
+      "replacement_sha256": "sha256:fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+      "mutated_file_sha256": "sha256:c406c35cb22f6410e6f84b2a3309a9928c5c0b80567151ac23930d68bdfb6eba",
+      "control_runtime_sha256": "sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c",
+      "mutant_runtime_sha256": "sha256:74120bbec52b0ee9987a699f5b2ca6fe01f2a88872a60d7073162a229c657608"
+    },
+    {
+      "mutation_id": "m.len7.extend-boundary-to-126",
+      "obligation_id": "obligation.length-canonical-7",
+      "chain_member": "getSizeBytes",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "absolute_offset": 25986,
+      "length": 22,
+      "removed_sha256": "sha256:234b2966dd2e9756d1065b131e61526bfd16928de5de944016b7af32130a6d50",
+      "replacement_sha256": "sha256:1344d9c69802b4d7cb1056db06571696ddb68752fc5578a66c51002156230366",
+      "mutated_file_sha256": "sha256:4ac4efba25b1bed6441e027c1a623134ac554dd6b1c27d449e196e39608bbd4f",
+      "control_runtime_sha256": "sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c",
+      "mutant_runtime_sha256": "sha256:7e4049fafa67dc3c389c0816b44683d6961599ca7acbfb8c8d3564896b6b36d9"
+    },
+    {
+      "mutation_id": "m.cap.disable-configured-limit",
+      "obligation_id": "obligation.preallocation-cap",
+      "chain_member": "translateSingleFrameCheckLengthLimit",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "absolute_offset": 24129,
+      "length": 21,
+      "removed_sha256": "sha256:e89c0387cdbc3620f35f14d571506ac25f032dae3cd2cc52d47919eea5871f30",
+      "replacement_sha256": "sha256:fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+      "mutated_file_sha256": "sha256:36b7e13079151e2934c15cc118c00b22b0ff73738feed77a661fa3bce16da0b9",
+      "control_runtime_sha256": "sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c",
+      "mutant_runtime_sha256": "sha256:3e101521ba13a3791b88aff20c9980db2b6fa3a431338a7e07fc1f603c8974a7"
+    },
+    {
+      "mutation_id": "m.close.admit-unsendable-codes",
+      "obligation_id": "surface.close.status-code",
+      "chain_member": "isValid",
+      "source_file": "org/java_websocket/framing/CloseFrame.java",
+      "absolute_offset": 8562,
+      "length": 148,
+      "removed_sha256": "sha256:1aff8be06a90496fd22e0e277e227113af07dca4e22359b339e95e8be530822d",
+      "replacement_sha256": "sha256:fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+      "mutated_file_sha256": "sha256:64f7be566f998f838d2f9b1b4f60f7aade8a23ad69ae4e2759332e56d9271a09",
+      "control_runtime_sha256": "sha256:c3d46f25cec8f36deadc518517aef7a4012721b12af1602f6cad06b5215387e6",
+      "mutant_runtime_sha256": "sha256:a763708afdb5a43145a49465a48a21e836031c400a36e88cfe517fa0c40d026a"
+    },
+    {
+      "mutation_id": "m.close.reject-every-code",
+      "obligation_id": "surface.close.status-code",
+      "chain_member": "isValid",
+      "source_file": "org/java_websocket/framing/CloseFrame.java",
+      "absolute_offset": 8405,
+      "length": 44,
+      "removed_sha256": "sha256:2d54d1a430e76548d8fa28c08c6e33aae4e2b5b44ae66593dba9b71bcec67817",
+      "replacement_sha256": "sha256:1375625452d1e0973d4f12c284f976e484e98b89cce3f0f5e5021526dd791a55",
+      "mutated_file_sha256": "sha256:7e333145e5dc895ad14d4721867a805403009787194ce255b44482b6dfb7bc49",
+      "control_runtime_sha256": "sha256:c3d46f25cec8f36deadc518517aef7a4012721b12af1602f6cad06b5215387e6",
+      "mutant_runtime_sha256": "sha256:d160738eee94886a000940dc584c11b414ab8f12255ea76d225d3ba8f3a9b9e3"
+    },
+    {
+      "mutation_id": "m.close.skip-reason-utf8-test",
+      "obligation_id": "surface.close.status-code",
+      "chain_member": "isValid",
+      "source_file": "org/java_websocket/framing/CloseFrame.java",
+      "absolute_offset": 7945,
+      "length": 46,
+      "removed_sha256": "sha256:206df08dfc07091c1472967d5738646fa0379e0a613b14ddd2c76549b6c65cb6",
+      "replacement_sha256": "sha256:fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+      "mutated_file_sha256": "sha256:91cf2715c082aeb9e0044e4fce3c92a73b7038dfb937bc56378b215513b146ca",
+      "control_runtime_sha256": "sha256:c3d46f25cec8f36deadc518517aef7a4012721b12af1602f6cad06b5215387e6",
+      "mutant_runtime_sha256": "sha256:bce815a8bf94cb733e4ab9661686a2e00f6f9e02689e8fa9b72c00b054192497"
+    },
+    {
+      "mutation_id": "m.frag.never-complete-sequence",
+      "obligation_id": "surface.fragmentation.continuation",
+      "chain_member": "processFrameContinuousAndNonFin",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "absolute_offset": 33254,
+      "length": 13,
+      "removed_sha256": "sha256:56e9b7b1f47f8da190697c94cb33cb03d28e434b3ffb72e0dd1aa7d760fc63b9",
+      "replacement_sha256": "sha256:fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+      "mutated_file_sha256": "sha256:96e3d5935dcb214e3b5dd69f1905d2cf85f2b6cf5303d9b3debd8e08dc15de84",
+      "control_runtime_sha256": "sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c",
+      "mutant_runtime_sha256": "sha256:cff68347d3e443afcd8457110fbaab05c2e50f62b4c26f657a81889a5b5b3718"
+    },
+    {
+      "mutation_id": "m.frag.admit-orphan-continuation",
+      "obligation_id": "surface.fragmentation.continuation",
+      "chain_member": "processFrameContinuousAndNonFin",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "absolute_offset": 33333,
+      "length": 30,
+      "removed_sha256": "sha256:e4b5959a0344c7e306067704fccf5e969654dbc8c8fe06e2d4155f500ca6af59",
+      "replacement_sha256": "sha256:fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+      "mutated_file_sha256": "sha256:a783c4cfd23976766b170e47b1c5fca16ca392632d14cce6466a0052937d01ae",
+      "control_runtime_sha256": "sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c",
+      "mutant_runtime_sha256": "sha256:92fcccb620813b726590122013590beb602a788a36d7a3a849cddba3893ff886"
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "baseline/s.close.invalid-utf8-reason",
+      "variant": "BASELINE",
+      "scenario_id": "s.close.invalid-utf8-reason",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f282827a8a1ec9170dad05e8c0d497e1569cb5b39be9ff9b42cc2059e767e7b4\",\"request_id\":\"s.close.invalid-utf8-reason\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iAQD6P/+\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:f282827a8a1ec9170dad05e8c0d497e1569cb5b39be9ff9b42cc2059e767e7b4",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":0,\"consumed_bytes\":6,\"frames\":0,\"input_bytes\":6,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"error\":{\"code\":\"JAVA_RUNTIME_REJECTION\",\"detail\":\"Java-WebSocket rejected the operation: NullPointerException\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f282827a8a1ec9170dad05e8c0d497e1569cb5b39be9ff9b42cc2059e767e7b4\",\"request_id\":\"s.close.invalid-utf8-reason\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:438baf0192d1cf2b7f758267dc472945ced6d7d76200aae5678201f32d281d9c"
+    },
+    {
+      "run_id": "baseline/s.close.unsendable-code-1006",
+      "variant": "BASELINE",
+      "scenario_id": "s.close.unsendable-code-1006",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:b15fdb0d087ff15ec371e156426f11af8416b13ec94e1235b642b92b47abb604\",\"request_id\":\"s.close.unsendable-code-1006\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iAID7g==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:b15fdb0d087ff15ec371e156426f11af8416b13ec94e1235b642b92b47abb604",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":0,\"consumed_bytes\":4,\"frames\":0,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"error\":{\"close_code\":1002,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"closecode must not be sent over the wire: 1006\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:b15fdb0d087ff15ec371e156426f11af8416b13ec94e1235b642b92b47abb604\",\"request_id\":\"s.close.unsendable-code-1006\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:4f8a0e372223f7ad8d34eec8443e66677adc771e50550dcbaaa4d5cdad63340a"
+    },
+    {
+      "run_id": "baseline/s.close.valid-code-1000",
+      "variant": "BASELINE",
+      "scenario_id": "s.close.valid-code-1000",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:c95c4e7b49f6d48765d453034af341ad354a59600cc90161377fdfccc550ca94\",\"request_id\":\"s.close.valid-code-1000\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iAID6A==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:c95c4e7b49f6d48765d453034af341ad354a59600cc90161377fdfccc550ca94",
+      "response_line": "{\"close\":{\"code\":1000,\"handshake_complete\":true,\"origin\":\"transport\",\"reason\":\"\",\"remote\":true},\"counts\":{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":4,\"frames\":2,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"bytes\":4,\"step\":0,\"type\":\"input_chunk\"},{\"code\":1000,\"handshake_complete\":true,\"origin\":\"remote\",\"reason\":\"\",\"remote\":true,\"step\":0,\"type\":\"close\"},{\"opcode\":\"closing\",\"step\":0,\"type\":\"echo_close\"},{\"code\":1000,\"handshake_complete\":true,\"origin\":\"transport\",\"reason\":\"\",\"remote\":true,\"step\":1,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"inbound\",\"fin\":true,\"masked\":false,\"opcode\":\"closing\",\"payload_base64\":\"A+g=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"closing\",\"payload_base64\":\"A+g=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:c95c4e7b49f6d48765d453034af341ad354a59600cc90161377fdfccc550ca94\",\"request_id\":\"s.close.valid-code-1000\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"transitions\":[{\"cause\":\"receive_close\",\"from\":\"open\",\"step\":0,\"to\":\"closing\"},{\"cause\":\"eof\",\"from\":\"closing\",\"step\":1,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:bb1b92b5c9ac5ada51c86d192c3ecba51d111ef533aab16ce9483c65d95afb37"
+    },
+    {
+      "run_id": "baseline/s.control.fin-clear-ping",
+      "variant": "BASELINE",
+      "scenario_id": "s.control.fin-clear-ping",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:15d21a6e05e016ab8d5d13220f093383d9f50e66be224a2a214c1eeb5939cc65\",\"request_id\":\"s.control.fin-clear-ping\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"CQJoaQ==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:15d21a6e05e016ab8d5d13220f093383d9f50e66be224a2a214c1eeb5939cc65",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":0,\"consumed_bytes\":4,\"frames\":0,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"error\":{\"close_code\":1002,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"Control frame can't have fin==false set\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:15d21a6e05e016ab8d5d13220f093383d9f50e66be224a2a214c1eeb5939cc65\",\"request_id\":\"s.control.fin-clear-ping\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:6652f51ffb751123ca1d1bb05b47cecee3e8870f3876d11ba5bb12ccf4e51d58"
+    },
+    {
+      "run_id": "baseline/s.control.oversized-ping",
+      "variant": "BASELINE",
+      "scenario_id": "s.control.oversized-ping",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:42009b7f81f7ddc47bb2f8f33161d9bf6db71ae5864c43d080f9ab8f10bf87a4\",\"request_id\":\"s.control.oversized-ping\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iX4AgA==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:42009b7f81f7ddc47bb2f8f33161d9bf6db71ae5864c43d080f9ab8f10bf87a4",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":4,\"consumed_bytes\":2,\"frames\":0,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":4},\"error\":{\"close_code\":1002,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"more than 125 octets\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:42009b7f81f7ddc47bb2f8f33161d9bf6db71ae5864c43d080f9ab8f10bf87a4\",\"request_id\":\"s.control.oversized-ping\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:dc0c49758974dde0be0c03c9b317f4557d0cf77d973c8add2761b69f7d7c8441"
+    },
+    {
+      "run_id": "baseline/s.emit.length-forms",
+      "variant": "BASELINE",
+      "scenario_id": "s.emit.length-forms",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"steps\":[{\"action\":\"send_binary\",\"data_base64\":\"AAECAwQ=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"kind\":\"action\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":4,\"buffered_bytes\":0,\"consumed_bytes\":0,\"frames\":3,\"input_bytes\":0,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"opcode\":\"binary\",\"step\":0,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":1,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":2,\"type\":\"send_binary\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":3,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"AAECAwQ=\",\"payload_bytes\":5,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":7},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"payload_bytes\":125,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":1,\"wire_bytes\":127},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"payload_bytes\":126,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":2,\"wire_bytes\":130}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":3,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:870869f450828b47c1783ef09c049be557baec15117db0f9ddad86905ea2ec2f"
+    },
+    {
+      "run_id": "baseline/s.fragment.orphan-continuation",
+      "variant": "BASELINE",
+      "scenario_id": "s.fragment.orphan-continuation",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f5e3d62b9a63e977dd03218fda178e9146d76476db64dfd1485c24aff8116614\",\"request_id\":\"s.fragment.orphan-continuation\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"AANsbG8=\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:f5e3d62b9a63e977dd03218fda178e9146d76476db64dfd1485c24aff8116614",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":0,\"consumed_bytes\":5,\"frames\":1,\"input_bytes\":5,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"error\":{\"close_code\":1002,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"Continuous frame sequence was not started.\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f5e3d62b9a63e977dd03218fda178e9146d76476db64dfd1485c24aff8116614\",\"request_id\":\"s.fragment.orphan-continuation\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:3d0f021bd0d228e5f1b26860b722fb1bc1fb3c6a5bdd5f43d1d2338db25e3c80"
+    },
+    {
+      "run_id": "baseline/s.fragment.text-ordered",
+      "variant": "BASELINE",
+      "scenario_id": "s.fragment.text-ordered",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:6fee8f3e276d274857ab3bcba80824a05e14801f4612a515b9e36423a954fa6e\",\"request_id\":\"s.fragment.text-ordered\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"AQJoZQ==\",\"kind\":\"bytes\"},{\"data_base64\":\"gANsbG8=\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:6fee8f3e276d274857ab3bcba80824a05e14801f4612a515b9e36423a954fa6e",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":9,\"frames\":2,\"input_bytes\":9,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"bytes\":4,\"step\":0,\"type\":\"input_chunk\"},{\"bytes\":5,\"step\":1,\"type\":\"input_chunk\"},{\"step\":1,\"text\":\"hello\",\"type\":\"text\",\"utf8_bytes\":5},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":2,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"inbound\",\"fin\":false,\"masked\":false,\"opcode\":\"text\",\"payload_base64\":\"aGU=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4},{\"direction\":\"inbound\",\"fin\":true,\"masked\":false,\"opcode\":\"continuous\",\"payload_base64\":\"bGxv\",\"payload_bytes\":3,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":1,\"wire_bytes\":5}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:6fee8f3e276d274857ab3bcba80824a05e14801f4612a515b9e36423a954fa6e\",\"request_id\":\"s.fragment.text-ordered\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":2,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:9b6ccc0b278b2732bd02128f436326e3ee35237f14cee2f945aed1ff035e518d"
+    },
+    {
+      "run_id": "baseline/s.header.declared-exceeds-available",
+      "variant": "BASELINE",
+      "scenario_id": "s.header.declared-exceeds-available",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:e4fffdd0c78fef8e5cb75220311bf3774d3c87f6246e72559e172c2c3147a151\",\"request_id\":\"s.header.declared-exceeds-available\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"ggoBAgMEBQ==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:e4fffdd0c78fef8e5cb75220311bf3774d3c87f6246e72559e172c2c3147a151",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":1,\"buffered_bytes\":7,\"consumed_bytes\":7,\"frames\":0,\"input_bytes\":7,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":7},\"events\":[{\"bytes\":7,\"step\":0,\"type\":\"input_chunk\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":1,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:e4fffdd0c78fef8e5cb75220311bf3774d3c87f6246e72559e172c2c3147a151\",\"request_id\":\"s.header.declared-exceeds-available\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":1,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:4616ea3b397e07c8c5b58cc0f4fedf76222713c792ce031d08babe2bee6e0cc9"
+    },
+    {
+      "run_id": "baseline/s.limits.cap-exceeded-16",
+      "variant": "BASELINE",
+      "scenario_id": "s.limits.cap-exceeded-16",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":200,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b\",\"request_id\":\"s.limits.cap-exceeded-16\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gn4D6A==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":4,\"consumed_bytes\":4,\"frames\":0,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":4},\"error\":{\"close_code\":1009,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"Payload limit reached.\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b\",\"request_id\":\"s.limits.cap-exceeded-16\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:1c972073a7c079764b1240296c83690607802838922dc759677afce8582ba58a"
+    },
+    {
+      "run_id": "control/m.header-arithmetic.drop-payload-term",
+      "variant": "CONTROL:m.header-arithmetic.drop-payload-term",
+      "scenario_id": "s.header.declared-exceeds-available",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:e4fffdd0c78fef8e5cb75220311bf3774d3c87f6246e72559e172c2c3147a151\",\"request_id\":\"s.header.declared-exceeds-available\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"ggoBAgMEBQ==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:e4fffdd0c78fef8e5cb75220311bf3774d3c87f6246e72559e172c2c3147a151",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":1,\"buffered_bytes\":7,\"consumed_bytes\":7,\"frames\":0,\"input_bytes\":7,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":7},\"events\":[{\"bytes\":7,\"step\":0,\"type\":\"input_chunk\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":1,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:e4fffdd0c78fef8e5cb75220311bf3774d3c87f6246e72559e172c2c3147a151\",\"request_id\":\"s.header.declared-exceeds-available\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":1,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:d984b0a582524542aacdade1e36c50e7af1b14b644c311b8cf6742900f6aaaca"
+    },
+    {
+      "run_id": "mutant/m.header-arithmetic.drop-payload-term",
+      "variant": "MUTANT:m.header-arithmetic.drop-payload-term",
+      "scenario_id": "s.header.declared-exceeds-available",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:e4fffdd0c78fef8e5cb75220311bf3774d3c87f6246e72559e172c2c3147a151\",\"request_id\":\"s.header.declared-exceeds-available\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"ggoBAgMEBQ==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:e4fffdd0c78fef8e5cb75220311bf3774d3c87f6246e72559e172c2c3147a151",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":7,\"consumed_bytes\":2,\"frames\":0,\"input_bytes\":7,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":7},\"error\":{\"code\":\"JAVA_RUNTIME_REJECTION\",\"detail\":\"Java-WebSocket rejected the operation: IndexOutOfBoundsException\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:e4fffdd0c78fef8e5cb75220311bf3774d3c87f6246e72559e172c2c3147a151\",\"request_id\":\"s.header.declared-exceeds-available\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:82a8b0c8176ba05b4e6f1472461bd53253cddabf32fe07b43f74d1bccee31712\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:c9dfe91727fabc4c8530c098858e37773e6cbd6584a0f01c3a90eda8490f69c1"
+    },
+    {
+      "run_id": "control/m.control.admit-non-final",
+      "variant": "CONTROL:m.control.admit-non-final",
+      "scenario_id": "s.control.fin-clear-ping",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:15d21a6e05e016ab8d5d13220f093383d9f50e66be224a2a214c1eeb5939cc65\",\"request_id\":\"s.control.fin-clear-ping\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"CQJoaQ==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:15d21a6e05e016ab8d5d13220f093383d9f50e66be224a2a214c1eeb5939cc65",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":0,\"consumed_bytes\":4,\"frames\":0,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"error\":{\"close_code\":1002,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"Control frame can't have fin==false set\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:15d21a6e05e016ab8d5d13220f093383d9f50e66be224a2a214c1eeb5939cc65\",\"request_id\":\"s.control.fin-clear-ping\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:7705def4409adb2a4df1015629227f2e7b44695f8b80515d2e6bed97e917f463\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:15f7833e519e59a070451ef745cc45f3fb4b624393534680b7e12603b01af6d2"
+    },
+    {
+      "run_id": "mutant/m.control.admit-non-final",
+      "variant": "MUTANT:m.control.admit-non-final",
+      "scenario_id": "s.control.fin-clear-ping",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:15d21a6e05e016ab8d5d13220f093383d9f50e66be224a2a214c1eeb5939cc65\",\"request_id\":\"s.control.fin-clear-ping\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"CQJoaQ==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:15d21a6e05e016ab8d5d13220f093383d9f50e66be224a2a214c1eeb5939cc65",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":4,\"frames\":1,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"bytes\":4,\"step\":0,\"type\":\"input_chunk\"},{\"bytes\":2,\"data_base64\":\"aGk=\",\"step\":0,\"type\":\"ping\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":1,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"inbound\",\"fin\":false,\"masked\":false,\"opcode\":\"ping\",\"payload_base64\":\"aGk=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:15d21a6e05e016ab8d5d13220f093383d9f50e66be224a2a214c1eeb5939cc65\",\"request_id\":\"s.control.fin-clear-ping\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:2b4a106d377e8f7cc559eba633564d9d70ed94383968b2d4df3673aa01c873cb\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":1,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:cfe7b402d2b4e541c50972f100a9d1bde414a66f03b9e617cd1a858c3bd97448"
+    },
+    {
+      "run_id": "control/m.len7.never-use-seven-bit-form",
+      "variant": "CONTROL:m.len7.never-use-seven-bit-form",
+      "scenario_id": "s.emit.length-forms",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"steps\":[{\"action\":\"send_binary\",\"data_base64\":\"AAECAwQ=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"kind\":\"action\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":4,\"buffered_bytes\":0,\"consumed_bytes\":0,\"frames\":3,\"input_bytes\":0,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"opcode\":\"binary\",\"step\":0,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":1,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":2,\"type\":\"send_binary\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":3,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"AAECAwQ=\",\"payload_bytes\":5,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":7},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"payload_bytes\":125,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":1,\"wire_bytes\":127},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"payload_bytes\":126,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":2,\"wire_bytes\":130}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":3,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:35aad99d667d011c48022a860ce9203983d547a6f5b06ab9a76956f29a19b472"
+    },
+    {
+      "run_id": "mutant/m.len7.never-use-seven-bit-form",
+      "variant": "MUTANT:m.len7.never-use-seven-bit-form",
+      "scenario_id": "s.emit.length-forms",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"steps\":[{\"action\":\"send_binary\",\"data_base64\":\"AAECAwQ=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"kind\":\"action\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":4,\"buffered_bytes\":0,\"consumed_bytes\":0,\"frames\":3,\"input_bytes\":0,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"opcode\":\"binary\",\"step\":0,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":1,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":2,\"type\":\"send_binary\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":3,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"AAECAwQ=\",\"payload_bytes\":5,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":9},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"payload_bytes\":125,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":1,\"wire_bytes\":129},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"payload_bytes\":126,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":2,\"wire_bytes\":130}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:74120bbec52b0ee9987a699f5b2ca6fe01f2a88872a60d7073162a229c657608\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":3,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:7204ce6d720f76cbcdc7176a2e18659c8fc1e9c3ff95f246f7d2c90575e35840"
+    },
+    {
+      "run_id": "control/m.len7.extend-boundary-to-126",
+      "variant": "CONTROL:m.len7.extend-boundary-to-126",
+      "scenario_id": "s.emit.length-forms",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"steps\":[{\"action\":\"send_binary\",\"data_base64\":\"AAECAwQ=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"kind\":\"action\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":4,\"buffered_bytes\":0,\"consumed_bytes\":0,\"frames\":3,\"input_bytes\":0,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"opcode\":\"binary\",\"step\":0,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":1,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":2,\"type\":\"send_binary\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":3,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"AAECAwQ=\",\"payload_bytes\":5,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":7},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"payload_bytes\":125,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":1,\"wire_bytes\":127},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"payload_bytes\":126,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":2,\"wire_bytes\":130}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":3,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:35aad99d667d011c48022a860ce9203983d547a6f5b06ab9a76956f29a19b472"
+    },
+    {
+      "run_id": "mutant/m.len7.extend-boundary-to-126",
+      "variant": "MUTANT:m.len7.extend-boundary-to-126",
+      "scenario_id": "s.emit.length-forms",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"steps\":[{\"action\":\"send_binary\",\"data_base64\":\"AAECAwQ=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"kind\":\"action\"},{\"action\":\"send_binary\",\"data_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"kind\":\"action\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":4,\"buffered_bytes\":0,\"consumed_bytes\":0,\"frames\":3,\"input_bytes\":0,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"opcode\":\"binary\",\"step\":0,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":1,\"type\":\"send_binary\"},{\"opcode\":\"binary\",\"step\":2,\"type\":\"send_binary\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":3,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"AAECAwQ=\",\"payload_bytes\":5,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":7},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=\",\"payload_bytes\":125,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":1,\"wire_bytes\":127},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"binary\",\"payload_base64\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ\",\"payload_bytes\":126,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":2,\"wire_bytes\":128}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:728e7707448f80b1fd61ace49c6f7d5865760a0f5f37e88aa8dd29eb68ace7c5\",\"request_id\":\"s.emit.length-forms\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:7e4049fafa67dc3c389c0816b44683d6961599ca7acbfb8c8d3564896b6b36d9\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":3,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:45b96953bd3961cce831f3e3de9acd0163c1e2d59570ec1eac35b58176e3b6ce"
+    },
+    {
+      "run_id": "control/m.cap.disable-configured-limit",
+      "variant": "CONTROL:m.cap.disable-configured-limit",
+      "scenario_id": "s.limits.cap-exceeded-16",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":200,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b\",\"request_id\":\"s.limits.cap-exceeded-16\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gn4D6A==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":4,\"consumed_bytes\":4,\"frames\":0,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":4},\"error\":{\"close_code\":1009,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"Payload limit reached.\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b\",\"request_id\":\"s.limits.cap-exceeded-16\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:3ba723c2e11b94592103b32eccd886ad025965da584b9d1c4eddbaa809cfa8e3"
+    },
+    {
+      "run_id": "mutant/m.cap.disable-configured-limit",
+      "variant": "MUTANT:m.cap.disable-configured-limit",
+      "scenario_id": "s.limits.cap-exceeded-16",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":200,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b\",\"request_id\":\"s.limits.cap-exceeded-16\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"gn4D6A==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":1,\"buffered_bytes\":4,\"consumed_bytes\":4,\"frames\":0,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":4},\"events\":[{\"bytes\":4,\"step\":0,\"type\":\"input_chunk\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":1,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:dd726e720246e80fc8bd18fa0c18ec84d3a8a52b7682bf461e5acf0ee33ff66b\",\"request_id\":\"s.limits.cap-exceeded-16\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:3e101521ba13a3791b88aff20c9980db2b6fa3a431338a7e07fc1f603c8974a7\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":1,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:4f7ee3ae56ec196a68a2dc52c58679d02d676ee3ed0bb0740fe3c50232c36e9c"
+    },
+    {
+      "run_id": "control/m.close.admit-unsendable-codes",
+      "variant": "CONTROL:m.close.admit-unsendable-codes",
+      "scenario_id": "s.close.unsendable-code-1006",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:b15fdb0d087ff15ec371e156426f11af8416b13ec94e1235b642b92b47abb604\",\"request_id\":\"s.close.unsendable-code-1006\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iAID7g==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:b15fdb0d087ff15ec371e156426f11af8416b13ec94e1235b642b92b47abb604",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":0,\"consumed_bytes\":4,\"frames\":0,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"error\":{\"close_code\":1002,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"closecode must not be sent over the wire: 1006\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:b15fdb0d087ff15ec371e156426f11af8416b13ec94e1235b642b92b47abb604\",\"request_id\":\"s.close.unsendable-code-1006\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:c3d46f25cec8f36deadc518517aef7a4012721b12af1602f6cad06b5215387e6\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:23fee298d31a43cd174824b0cd2289d8d56b31d60cfb440febfef4592915e578"
+    },
+    {
+      "run_id": "mutant/m.close.admit-unsendable-codes",
+      "variant": "MUTANT:m.close.admit-unsendable-codes",
+      "scenario_id": "s.close.unsendable-code-1006",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:b15fdb0d087ff15ec371e156426f11af8416b13ec94e1235b642b92b47abb604\",\"request_id\":\"s.close.unsendable-code-1006\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iAID7g==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:b15fdb0d087ff15ec371e156426f11af8416b13ec94e1235b642b92b47abb604",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":true,\"origin\":\"transport\",\"reason\":\"\",\"remote\":true},\"counts\":{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":4,\"frames\":2,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"bytes\":4,\"step\":0,\"type\":\"input_chunk\"},{\"code\":1006,\"handshake_complete\":true,\"origin\":\"remote\",\"reason\":\"\",\"remote\":true,\"step\":0,\"type\":\"close\"},{\"opcode\":\"closing\",\"step\":0,\"type\":\"echo_close\"},{\"code\":1006,\"handshake_complete\":true,\"origin\":\"transport\",\"reason\":\"\",\"remote\":true,\"step\":1,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"inbound\",\"fin\":true,\"masked\":false,\"opcode\":\"closing\",\"payload_base64\":\"A+g=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"closing\",\"payload_base64\":\"A+g=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:b15fdb0d087ff15ec371e156426f11af8416b13ec94e1235b642b92b47abb604\",\"request_id\":\"s.close.unsendable-code-1006\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:a763708afdb5a43145a49465a48a21e836031c400a36e88cfe517fa0c40d026a\"},\"transitions\":[{\"cause\":\"receive_close\",\"from\":\"open\",\"step\":0,\"to\":\"closing\"},{\"cause\":\"eof\",\"from\":\"closing\",\"step\":1,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:de7031e7f9fe2c5c774de287fa72053ba9501034b498076d69c3d7aaf61f1ea9"
+    },
+    {
+      "run_id": "control/m.close.reject-every-code",
+      "variant": "CONTROL:m.close.reject-every-code",
+      "scenario_id": "s.close.valid-code-1000",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:c95c4e7b49f6d48765d453034af341ad354a59600cc90161377fdfccc550ca94\",\"request_id\":\"s.close.valid-code-1000\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iAID6A==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:c95c4e7b49f6d48765d453034af341ad354a59600cc90161377fdfccc550ca94",
+      "response_line": "{\"close\":{\"code\":1000,\"handshake_complete\":true,\"origin\":\"transport\",\"reason\":\"\",\"remote\":true},\"counts\":{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":4,\"frames\":2,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"bytes\":4,\"step\":0,\"type\":\"input_chunk\"},{\"code\":1000,\"handshake_complete\":true,\"origin\":\"remote\",\"reason\":\"\",\"remote\":true,\"step\":0,\"type\":\"close\"},{\"opcode\":\"closing\",\"step\":0,\"type\":\"echo_close\"},{\"code\":1000,\"handshake_complete\":true,\"origin\":\"transport\",\"reason\":\"\",\"remote\":true,\"step\":1,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"inbound\",\"fin\":true,\"masked\":false,\"opcode\":\"closing\",\"payload_base64\":\"A+g=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"closing\",\"payload_base64\":\"A+g=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:c95c4e7b49f6d48765d453034af341ad354a59600cc90161377fdfccc550ca94\",\"request_id\":\"s.close.valid-code-1000\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:c3d46f25cec8f36deadc518517aef7a4012721b12af1602f6cad06b5215387e6\"},\"transitions\":[{\"cause\":\"receive_close\",\"from\":\"open\",\"step\":0,\"to\":\"closing\"},{\"cause\":\"eof\",\"from\":\"closing\",\"step\":1,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:7455e263a0b3faf90ac3d9163908b62df28d5d3c434866caa42baef6358f1f5a"
+    },
+    {
+      "run_id": "mutant/m.close.reject-every-code",
+      "variant": "MUTANT:m.close.reject-every-code",
+      "scenario_id": "s.close.valid-code-1000",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:c95c4e7b49f6d48765d453034af341ad354a59600cc90161377fdfccc550ca94\",\"request_id\":\"s.close.valid-code-1000\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iAID6A==\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:c95c4e7b49f6d48765d453034af341ad354a59600cc90161377fdfccc550ca94",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":0,\"consumed_bytes\":4,\"frames\":0,\"input_bytes\":4,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"error\":{\"close_code\":1002,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"Trying to send an illegal close code!\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:c95c4e7b49f6d48765d453034af341ad354a59600cc90161377fdfccc550ca94\",\"request_id\":\"s.close.valid-code-1000\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:d160738eee94886a000940dc584c11b414ab8f12255ea76d225d3ba8f3a9b9e3\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:6a4b541e284ee73a492ad3f8e82ce49ef63f0ca197a3f245c13a211ffaad9cdf"
+    },
+    {
+      "run_id": "control/m.close.skip-reason-utf8-test",
+      "variant": "CONTROL:m.close.skip-reason-utf8-test",
+      "scenario_id": "s.close.invalid-utf8-reason",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f282827a8a1ec9170dad05e8c0d497e1569cb5b39be9ff9b42cc2059e767e7b4\",\"request_id\":\"s.close.invalid-utf8-reason\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iAQD6P/+\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:f282827a8a1ec9170dad05e8c0d497e1569cb5b39be9ff9b42cc2059e767e7b4",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":0,\"consumed_bytes\":6,\"frames\":0,\"input_bytes\":6,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"error\":{\"code\":\"JAVA_RUNTIME_REJECTION\",\"detail\":\"Java-WebSocket rejected the operation: NullPointerException\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f282827a8a1ec9170dad05e8c0d497e1569cb5b39be9ff9b42cc2059e767e7b4\",\"request_id\":\"s.close.invalid-utf8-reason\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:c3d46f25cec8f36deadc518517aef7a4012721b12af1602f6cad06b5215387e6\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:e7f7bb79b1c28212855ce9ad3c0630526f3c1c6d8085c6231972ec3f39853830"
+    },
+    {
+      "run_id": "mutant/m.close.skip-reason-utf8-test",
+      "variant": "MUTANT:m.close.skip-reason-utf8-test",
+      "scenario_id": "s.close.invalid-utf8-reason",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f282827a8a1ec9170dad05e8c0d497e1569cb5b39be9ff9b42cc2059e767e7b4\",\"request_id\":\"s.close.invalid-utf8-reason\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"iAQD6P/+\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:f282827a8a1ec9170dad05e8c0d497e1569cb5b39be9ff9b42cc2059e767e7b4",
+      "response_line": "{\"close\":{\"code\":1007,\"handshake_complete\":true,\"origin\":\"transport\",\"reason\":null,\"remote\":true},\"counts\":{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":6,\"frames\":2,\"input_bytes\":6,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"bytes\":6,\"step\":0,\"type\":\"input_chunk\"},{\"code\":1007,\"handshake_complete\":true,\"origin\":\"remote\",\"reason\":null,\"remote\":true,\"step\":0,\"type\":\"close\"},{\"opcode\":\"closing\",\"step\":0,\"type\":\"echo_close\"},{\"code\":1007,\"handshake_complete\":true,\"origin\":\"transport\",\"reason\":null,\"remote\":true,\"step\":1,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"inbound\",\"fin\":true,\"masked\":false,\"opcode\":\"closing\",\"payload_base64\":\"A+g=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":6},{\"direction\":\"outbound\",\"fin\":true,\"masked\":false,\"opcode\":\"closing\",\"payload_base64\":\"A+g=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f282827a8a1ec9170dad05e8c0d497e1569cb5b39be9ff9b42cc2059e767e7b4\",\"request_id\":\"s.close.invalid-utf8-reason\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:bce815a8bf94cb733e4ab9661686a2e00f6f9e02689e8fa9b72c00b054192497\"},\"transitions\":[{\"cause\":\"receive_close\",\"from\":\"open\",\"step\":0,\"to\":\"closing\"},{\"cause\":\"eof\",\"from\":\"closing\",\"step\":1,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:e629334520faac6c22cb7ef15eafcaddc50d56bae972df792df55f68c85ae7bb"
+    },
+    {
+      "run_id": "control/m.frag.never-complete-sequence",
+      "variant": "CONTROL:m.frag.never-complete-sequence",
+      "scenario_id": "s.fragment.text-ordered",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:6fee8f3e276d274857ab3bcba80824a05e14801f4612a515b9e36423a954fa6e\",\"request_id\":\"s.fragment.text-ordered\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"AQJoZQ==\",\"kind\":\"bytes\"},{\"data_base64\":\"gANsbG8=\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:6fee8f3e276d274857ab3bcba80824a05e14801f4612a515b9e36423a954fa6e",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":9,\"frames\":2,\"input_bytes\":9,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"bytes\":4,\"step\":0,\"type\":\"input_chunk\"},{\"bytes\":5,\"step\":1,\"type\":\"input_chunk\"},{\"step\":1,\"text\":\"hello\",\"type\":\"text\",\"utf8_bytes\":5},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":2,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"inbound\",\"fin\":false,\"masked\":false,\"opcode\":\"text\",\"payload_base64\":\"aGU=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4},{\"direction\":\"inbound\",\"fin\":true,\"masked\":false,\"opcode\":\"continuous\",\"payload_base64\":\"bGxv\",\"payload_bytes\":3,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":1,\"wire_bytes\":5}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:6fee8f3e276d274857ab3bcba80824a05e14801f4612a515b9e36423a954fa6e\",\"request_id\":\"s.fragment.text-ordered\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":2,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:290fe0c6fbfc3b3beb7a12579282844daa169fedba4f8b1dfeec8b5f2623bd32"
+    },
+    {
+      "run_id": "mutant/m.frag.never-complete-sequence",
+      "variant": "MUTANT:m.frag.never-complete-sequence",
+      "scenario_id": "s.fragment.text-ordered",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:6fee8f3e276d274857ab3bcba80824a05e14801f4612a515b9e36423a954fa6e\",\"request_id\":\"s.fragment.text-ordered\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"AQJoZQ==\",\"kind\":\"bytes\"},{\"data_base64\":\"gANsbG8=\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:6fee8f3e276d274857ab3bcba80824a05e14801f4612a515b9e36423a954fa6e",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":9,\"frames\":2,\"input_bytes\":9,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"events\":[{\"bytes\":4,\"step\":0,\"type\":\"input_chunk\"},{\"bytes\":5,\"step\":1,\"type\":\"input_chunk\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":2,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"inbound\",\"fin\":false,\"masked\":false,\"opcode\":\"text\",\"payload_base64\":\"aGU=\",\"payload_bytes\":2,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":4},{\"direction\":\"inbound\",\"fin\":true,\"masked\":false,\"opcode\":\"continuous\",\"payload_base64\":\"bGxv\",\"payload_bytes\":3,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":1,\"wire_bytes\":5}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:6fee8f3e276d274857ab3bcba80824a05e14801f4612a515b9e36423a954fa6e\",\"request_id\":\"s.fragment.text-ordered\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:cff68347d3e443afcd8457110fbaab05c2e50f62b4c26f657a81889a5b5b3718\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":2,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:76b30f169866216ef4a7d2e86f97e6441b8dd9a6687a35dcb0ecc12f86def8c2"
+    },
+    {
+      "run_id": "control/m.frag.admit-orphan-continuation",
+      "variant": "CONTROL:m.frag.admit-orphan-continuation",
+      "scenario_id": "s.fragment.orphan-continuation",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f5e3d62b9a63e977dd03218fda178e9146d76476db64dfd1485c24aff8116614\",\"request_id\":\"s.fragment.orphan-continuation\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"AANsbG8=\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:f5e3d62b9a63e977dd03218fda178e9146d76476db64dfd1485c24aff8116614",
+      "response_line": "{\"counts\":{\"actions\":0,\"buffered_bytes\":0,\"consumed_bytes\":5,\"frames\":1,\"input_bytes\":5,\"message_buffered_bytes\":0,\"wire_buffered_bytes\":0},\"error\":{\"close_code\":1002,\"code\":\"JAVA_INVALID_DATA\",\"detail\":\"Continuous frame sequence was not started.\"},\"final_state\":\"open\",\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f5e3d62b9a63e977dd03218fda178e9146d76476db64dfd1485c24aff8116614\",\"request_id\":\"s.fragment.orphan-continuation\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:5d02a2ab9a35fa591dc4402c2527621af5d40b898d0d33857eb1ae3e4e87d29c\"},\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:b762edd050ee64b115372f752d588b15b1336e4fad97601c1297f8ef35ff00ee"
+    },
+    {
+      "run_id": "mutant/m.frag.admit-orphan-continuation",
+      "variant": "MUTANT:m.frag.admit-orphan-continuation",
+      "scenario_id": "s.fragment.orphan-continuation",
+      "request_canonical": "{\"initial_state\":\"open\",\"limits\":{\"max_actions\":1024,\"max_buffered_bytes\":1048576,\"max_frames\":4096,\"max_input_bytes\":1048576,\"max_output_bytes\":4194304},\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f5e3d62b9a63e977dd03218fda178e9146d76476db64dfd1485c24aff8116614\",\"request_id\":\"s.fragment.orphan-continuation\",\"role\":\"server\",\"steps\":[{\"data_base64\":\"AANsbG8=\",\"kind\":\"bytes\"},{\"action\":\"eof\",\"kind\":\"action\"}],\"version\":\"1.0.0\"}",
+      "request_digest": "sha256:f5e3d62b9a63e977dd03218fda178e9146d76476db64dfd1485c24aff8116614",
+      "response_line": "{\"close\":{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false},\"counts\":{\"actions\":1,\"buffered_bytes\":3,\"consumed_bytes\":5,\"frames\":1,\"input_bytes\":5,\"message_buffered_bytes\":3,\"wire_buffered_bytes\":0},\"events\":[{\"bytes\":5,\"step\":0,\"type\":\"input_chunk\"},{\"code\":1006,\"handshake_complete\":false,\"origin\":\"transport\",\"reason\":\"transport EOF before close handshake completed\",\"remote\":false,\"step\":1,\"type\":\"eof\"}],\"final_state\":\"closed\",\"frames\":[{\"direction\":\"inbound\",\"fin\":false,\"masked\":false,\"opcode\":\"continuous\",\"payload_base64\":\"bGxv\",\"payload_bytes\":3,\"rsv1\":false,\"rsv2\":false,\"rsv3\":false,\"step\":0,\"wire_bytes\":5}],\"initial_state\":\"open\",\"outcome\":\"ok\",\"protocol\":\"java-websocket-oracle\",\"request_digest\":\"sha256:f5e3d62b9a63e977dd03218fda178e9146d76476db64dfd1485c24aff8116614\",\"request_id\":\"s.fragment.orphan-continuation\",\"role\":\"server\",\"runtime\":{\"artifact\":\"org.java-websocket:Java-WebSocket:1.6.0\",\"sha256\":\"sha256:92fcccb620813b726590122013590beb602a788a36d7a3a849cddba3893ff886\"},\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",\"step\":1,\"to\":\"closed\"}],\"version\":\"1.0.0\"}",
+      "response_digest": "sha256:db3853fd5927404bda3ccbee975655f74e94452b9fbc87770084842980aade61"
+    }
+  ]
+}

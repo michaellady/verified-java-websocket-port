@@ -1,0 +1,22 @@
+# Rust workspace for the verified Java -> Rust WebSocket port (enabling scaffold).
+# See docs/rust-workspace.md and rust/README.md. No user story is claimed complete
+# by this workspace. ws-core (library namespace `ws_core`, per the owner
+# crate-naming decision us009_crate_naming = ws_core) is an UNIMPLEMENTED
+# placeholder pending US-009..US-019; candidate-stub holds the US-005
+# candidate-execution instruments (inert stub negative control + planted Rust
+# mutants), which are calibration artifacts, not port crates.
+[workspace]
+resolver = "3"
+members = ["autobahn-controls", "candidate-stub", "ws-core", "ws-driver", "ws-oracle-harness", "ws-testee"]
+# The US-009 AC1 scaffold canaries are standalone fixture crates scored by
+# the canary gate (cmd/rustgatectl), never workspace members: the good one
+# must pass the gate suite, the bad one must fail it, and neither may be
+# swept into the workspace-wide fmt/clippy/test gates.
+exclude = ["gates/canaries/good-scaffold", "gates/canaries/bad-scaffold"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95.0"
+license = "Apache-2.0"
+publish = false

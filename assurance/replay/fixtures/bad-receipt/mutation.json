@@ -1,0 +1,13 @@
+{
+  "operations": [
+    {
+      "kind": "json_set",
+      "target": "assurance/evidence-model.json",
+      "pointer": "/replay_bundles/0/replay_command",
+      "value": ""
+    },
+    {
+      "kind": "refresh_bindings"
+    }
+  ]
+}

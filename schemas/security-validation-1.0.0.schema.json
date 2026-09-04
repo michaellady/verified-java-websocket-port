@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "security-validation-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "story",
+    "company",
+    "project",
+    "policy_digests",
+    "schema_digests",
+    "fixture_catalog_digest",
+    "autobahn_baseline_digest",
+    "original_receipt_digests",
+    "remediation_receipt_digests",
+    "consumed_remediation_attempts_per_mode",
+    "further_reruns_authorized",
+    "reruns_performed_by_us007",
+    "fixture_results",
+    "mechanics_state",
+    "assurance",
+    "independent_review_claimed",
+    "production",
+    "signing",
+    "publication",
+    "sandbox_mechanics",
+    "sbx_live_evidence",
+    "lifecycle_integration",
+    "runtime"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "story": {
+      "const": "US-007"
+    },
+    "company": {
+      "const": "open-source-projects"
+    },
+    "project": {
+      "const": "verified-java-websocket-port"
+    },
+    "policy_digests": {
+      "$ref": "#/$defs/digestMap"
+    },
+    "schema_digests": {
+      "$ref": "#/$defs/digestMap"
+    },
+    "fixture_catalog_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "autobahn_baseline_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "original_receipt_digests": {
+      "$ref": "#/$defs/twoDigests"
+    },
+    "remediation_receipt_digests": {
+      "$ref": "#/$defs/twoDigests"
+    },
+    "consumed_remediation_attempts_per_mode": {
+      "const": 1
+    },
+    "further_reruns_authorized": {
+      "const": false
+    },
+    "reruns_performed_by_us007": {
+      "const": 0
+    },
+    "fixture_results": {
+      "type": "array",
+      "minItems": 13,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "component",
+          "state",
+          "input_digest",
+          "output_digest",
+          "expected_code",
+          "actual_code",
+          "expected_disposition",
+          "actual_disposition",
+          "cli_exit",
+          "matched"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component": {
+            "enum": ["INGESTION", "INVENTORY", "SANDBOX", "RELEASE"]
+          },
+          "state": {
+            "enum": ["PASS_SYNTHETIC_NON_CLAIM", "BLOCKED"]
+          },
+          "input_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "output_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "expected_code": {
+            "type": "string"
+          },
+          "actual_code": {
+            "type": "string"
+          },
+          "expected_disposition": {
+            "type": "string"
+          },
+          "actual_disposition": {
+            "type": "string"
+          },
+          "cli_exit": {
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "matched": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "mechanics_state": {
+      "const": "RLIMIT_ENVELOPE_PROVEN_LIVE_MEMORY_SCOPED_TO_OUTER_ENVELOPE_ATTEMPT_0123"
+    },
+    "assurance": {
+      "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+    },
+    "independent_review_claimed": {
+      "const": false
+    },
+    "production": {
+      "const": false
+    },
+    "signing": {
+      "const": false
+    },
+    "publication": {
+      "const": false
+    },
+    "sandbox_mechanics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "disposition",
+        "path",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "const": "SANDBOX_RLIMIT_ENVELOPE_PROVEN_LIVE"
+        },
+        "disposition": {
+          "const": "ACCEPT"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sbx_live_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_id",
+        "evidence_path",
+        "evidence_digest",
+        "projection_canonical_digest",
+        "target_commit",
+        "source_tree",
+        "enforcement_model"
+      ],
+      "properties": {
+        "attempt_id": {
+          "const": "us007-sbx-output-live-0123"
+        },
+        "evidence_path": {
+          "const": "evidence/sbx-validation.json"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "projection_canonical_digest": {
+          "const": "sha256:f89d23b18b1f7784d315e411ec90b38055f88026d08ffb188bd4fc8d1c961685"
+        },
+        "target_commit": {
+          "const": "870aac28139604e217ae44469e679557994f7a0d"
+        },
+        "source_tree": {
+          "const": "4937f8fab01300b542ca4dd23f90f6202ed3f268"
+        },
+        "enforcement_model": {
+          "const": "PARENT_SET_POSIX_RLIMIT_ENVELOPE"
+        }
+      }
+    },
+    "lifecycle_integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "evidence_node_id", "evidence_path", "lifecycle_path", "classification", "verification_modes"],
+      "properties": {
+        "state": {
+          "const": "BOUND_CANONICAL_VERIFY_REPLAY"
+        },
+        "evidence_node_id": {
+          "const": "evidence-security-validation"
+        },
+        "evidence_path": {
+          "const": "evidence/security-validation.json"
+        },
+        "lifecycle_path": {
+          "const": "assurance/lifecycle.json"
+        },
+        "classification": {
+          "const": "PUBLIC_DERIVED"
+        },
+        "verification_modes": {
+          "type": "array",
+          "prefixItems": [{"const": "VERIFY"}, {"const": "REPLAY"}],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "requested_model",
+        "requested_reasoning_effort",
+        "task_session_path",
+        "actual_deployment_identifier",
+        "runtime_session_uuid"
+      ],
+      "properties": {
+        "provider": {
+          "const": "Anthropic"
+        },
+        "requested_model": {
+          "const": "claude-fable-5"
+        },
+        "requested_reasoning_effort": {
+          "const": "high"
+        },
+        "task_session_path": {
+          "const": "us007-claude-plane-evidence-closure"
+        },
+        "actual_deployment_identifier": {
+          "const": "not_exposed"
+        },
+        "runtime_session_uuid": {
+          "const": "not_exposed"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "digestMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "twoDigests": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-009",
+  "policy": "US-009 AC1 dependency-unsafe inventory. The rust/ workspace is dependency-free by design (std only; see docs/rust-workspace.md): cargo metadata must report zero non-path dependencies, and the dependency-inventory gate (cmd/rustgatectl) verifies that mechanically on every run. The empty list below is the stated inventory of dependency unsafe: zero external crates, zero dependency unsafe. If a non-path dependency ever enters the workspace, the gate FAILS until a reviewed entry lands here with the shape {\"name\", \"version\", \"source\", \"unsafe_usage\"}, where unsafe_usage is a non-blank statement of the crate's unsafe surface and its review outcome. Entries bind the reviewed identity name@version@source: source is required on every entry, and the same name and version arriving from a different source is NOT covered — it fails the gate until a renewed reviewed entry lands. Entries with no matching dependency are stale and also fail the gate.",
+  "external_dependencies": []
+}

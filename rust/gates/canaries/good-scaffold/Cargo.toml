@@ -1,0 +1,19 @@
+# US-009 AC1 GOOD scaffold canary. A minimal standalone crate that satisfies
+# every mechanical AC1 gate: #![forbid(unsafe_code)] present, clippy-clean
+# under -D warnings, tests pass, MSRV and license declared. The canary gate
+# (cmd/rustgatectl, gate=canaries) builds it standalone and FAILS if this
+# crate stops passing — proving the gates still accept a conforming scaffold.
+# Deliberately excluded from the rust/ workspace (own empty [workspace]
+# table + exclude entry in rust/Cargo.toml) so the workspace gates never
+# score the canaries as first-party crates.
+[package]
+name = "good-scaffold"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95.0"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+
+[workspace]

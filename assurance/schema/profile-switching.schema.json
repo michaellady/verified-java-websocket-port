@@ -1,0 +1,16 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://github.com/michaellady/verified-java-to-rust/schemas/profile-switching-1.0.0.schema.json",
+  "title":"Mutually exclusive Rust profile-switching fixture 1.0.0",
+  "type":"object","additionalProperties":false,
+  "required":["schema_version","fixture_id","execution_mode","profiles","mutually_exclusive","cache_roots","workspace_roots","stale_canary","steps","fallback","assurance_claims"],
+  "properties":{
+    "schema_version":{"const":"1.0.0"},"fixture_id":{"$ref":"#/$defs/id"},"execution_mode":{"const":"CONTRACT_FIXTURE_NO_LANGUAGE_SERVER"},
+    "profiles":{"type":"array","minItems":2,"maxItems":2,"uniqueItems":true,"items":{"$ref":"#/$defs/id"}},"mutually_exclusive":{"const":true},
+    "cache_roots":{"$ref":"#/$defs/profilePaths"},"workspace_roots":{"$ref":"#/$defs/profilePaths"},"stale_canary":{"$ref":"#/$defs/text"},
+    "steps":{"type":"array","minItems":15,"maxItems":15,"items":{"type":"object","additionalProperties":false,"required":["sequence","action","profile_id","expected"],"properties":{"sequence":{"type":"integer","minimum":1,"maximum":15},"action":{"enum":["ACTIVATE","INDEX","INVALIDATE","CORRUPT","CRASH","RECOVER","DEACTIVATE","MARK_UNSUITABLE","FALLBACK"]},"profile_id":{"$ref":"#/$defs/id"},"expected":{"enum":["ACTIVE_EXCLUSIVE","CACHE_BOUND_TO_REVISION_V1","STALE_INDEX_DETECTED","CORRUPTION_DETECTED","CRASH_DETECTED","CACHE_REBUILT_AND_RESTARTED","INACTIVE","UNSUITABLE_NON_WAIVER","FALLBACK_RECOVERY"]}}}},
+    "fallback":{"type":"object","additionalProperties":false,"required":["from_profile_id","to_profile_id","reason","waives_assurance_gate"],"properties":{"from_profile_id":{"$ref":"#/$defs/id"},"to_profile_id":{"$ref":"#/$defs/id"},"reason":{"$ref":"#/$defs/text"},"waives_assurance_gate":{"const":false}}},
+    "assurance_claims":{"type":"array","maxItems":0}
+  },
+  "$defs":{"id":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"},"text":{"type":"string","minLength":1,"pattern":"\\S"},"path":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$"},"profilePaths":{"type":"object","minProperties":2,"maxProperties":2,"additionalProperties":{"$ref":"#/$defs/path"}}}
+}

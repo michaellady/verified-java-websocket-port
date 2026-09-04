@@ -1,0 +1,14 @@
+{
+  "operations": [
+    {
+      "kind": "include",
+      "path": "assurance/replay/fixtures/us006-base/mutation.json"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/sandbox_profile/accepted_attempt_id",
+      "value": "us007-sbx-output-live-0123"
+    }
+  ]
+}

@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/linkage-evidence-dag-1.0.0.schema.json",
+  "title": "E2 linkage evidence DAG (story/symbol/proof-target/evidence bindings)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "dag_id",
+    "scope_statement",
+    "nonclaim",
+    "nodes",
+    "edges",
+    "assurance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "entity_type": {
+      "const": "LinkageEvidenceDAG"
+    },
+    "dag_id": {
+      "$ref": "#/$defs/text"
+    },
+    "scope_statement": {
+      "$ref": "#/$defs/text"
+    },
+    "nonclaim": {
+      "$ref": "#/$defs/text"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind"],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/text"
+          },
+          "kind": {
+            "enum": ["story", "migration_row", "symbol", "planned_symbol", "proof_target", "evidence"]
+          },
+          "title": {
+            "$ref": "#/$defs/text"
+          },
+          "rust_path": {
+            "$ref": "#/$defs/text"
+          },
+          "decl_kind": {
+            "enum": ["struct", "enum", "trait", "type_alias", "fn", "method", "enum_variant"]
+          },
+          "file": {
+            "$ref": "#/$defs/text"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sha256": {
+            "$ref": "#/$defs/digest"
+          },
+          "java_semantic_id": {
+            "$ref": "#/$defs/text"
+          },
+          "disposition": {
+            "enum": ["exact", "relocated", "renamed", "absorbed", "capability_excluded"]
+          },
+          "lineage": {
+            "$ref": "#/$defs/text"
+          },
+          "path": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "symbol"
+                }
+              }
+            },
+            "then": {
+              "required": ["rust_path", "decl_kind", "file", "line", "sha256"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "evidence"
+                }
+              }
+            },
+            "then": {
+              "required": ["title", "path", "sha256", "lineage"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "migration_row"
+                }
+              }
+            },
+            "then": {
+              "required": ["java_semantic_id", "disposition"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "planned_symbol"
+                }
+              }
+            },
+            "then": {
+              "required": ["title", "disposition", "lineage"]
+            }
+          }
+        ]
+      }
+    },
+    "edges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "kind"],
+        "properties": {
+          "from": {
+            "$ref": "#/$defs/text"
+          },
+          "to": {
+            "$ref": "#/$defs/text"
+          },
+          "kind": {
+            "enum": ["owns", "maps_to", "implements", "declares", "landed_as", "evidenced_by", "declared_in"]
+          }
+        }
+      }
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance",
+        "independent_review_claimed",
+        "production",
+        "publication",
+        "signing"
+      ],
+      "properties": {
+        "assurance": {
+          "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+        },
+        "independent_review_claimed": {
+          "const": false
+        },
+        "production": {
+          "const": false
+        },
+        "publication": {
+          "const": false
+        },
+        "signing": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

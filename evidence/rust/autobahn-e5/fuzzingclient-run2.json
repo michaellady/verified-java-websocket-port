@@ -1,0 +1,8 @@
+{
+   "options": {"failByDrop": false},
+   "outdir": "/reports",
+   "servers": [{"agent": "verified-rust-ws-testee-e5", "url": "ws://host.docker.internal:9010"}],
+   "cases": ["3.2", "3.3", "4.1.3", "4.1.4", "4.2.3", "4.2.4", "5.15", "6.4.1", "6.4.2", "6.4.3", "6.4.4", "7.1.6", "7.3.2", "7.13.1", "7.13.2"],
+   "exclude-cases": [],
+   "exclude-agent-cases": {}
+}

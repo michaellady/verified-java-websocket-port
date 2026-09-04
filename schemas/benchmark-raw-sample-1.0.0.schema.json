@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/benchmark-raw-sample-1.0.0.schema.json",
+  "title": "US-008 canonical raw-pair record",
+  "description": "The preregistered shape of one canonical raw sample set (one workload x metric endpoint). A MEASURED record must carry every required binding digest; the only other admissible provenance is the synthetic engine-validation label. No MEASURED record may exist before the attested plan freeze and full host/tool binding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "provenance_label", "environment_role", "workload_id", "metric", "order", "warmup_pairs", "measured_pairs"],
+  "properties": {
+    "schema": {"const": "vjwp-benchmark-raw-sample/1.0.0"},
+    "provenance_label": {"enum": ["SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT", "MEASURED"]},
+    "environment_role": {"enum": ["primary", "confirmation"]},
+    "workload_id": {"enum": ["wl-01-handshake-close", "wl-02-small-text-echo", "wl-03-fragmented-64kib-binary-echo", "wl-04-control-mix", "wl-05-cap-rejection", "wl-06-concurrent-pressure"]},
+    "metric": {"enum": ["peak_rss", "steady_rss", "cpu_time", "startup_to_ready", "latency_p50", "latency_p95", "latency_p99", "allocated_bytes", "allocation_count", "throughput"]},
+    "order": {
+      "type": "array",
+      "minItems": 35,
+      "maxItems": 35,
+      "items": {"enum": ["JAVA_FIRST", "RUST_FIRST"]}
+    },
+    "warmup_pairs": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/pair"}
+    },
+    "measured_pairs": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": {"$ref": "#/$defs/pair"}
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "plan_digest": {"$ref": "#/$defs/digest"},
+        "primary_environment_digest": {"$ref": "#/$defs/digest"},
+        "confirmation_environment_digest": {"$ref": "#/$defs/digest"},
+        "java_source_digest": {"$ref": "#/$defs/digest"},
+        "rust_source_digest": {"$ref": "#/$defs/digest"},
+        "java_executable_digest": {"$ref": "#/$defs/digest"},
+        "rust_executable_digest": {"$ref": "#/$defs/digest"},
+        "adapter_digest": {"$ref": "#/$defs/digest"},
+        "tool_identity_digest": {"$ref": "#/$defs/digest"},
+        "analyzer_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "run_validity_observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["background_cpu_percent_max_observed", "thermal_throttle_events", "power_state_anomalies", "identity_checks_passed", "invalid_samples", "reference_drift"],
+      "properties": {
+        "background_cpu_percent_max_observed": {"type": "number", "minimum": 0},
+        "thermal_throttle_events": {"type": "integer", "minimum": 0},
+        "power_state_anomalies": {"type": "integer", "minimum": 0},
+        "identity_checks_passed": {"type": "boolean"},
+        "invalid_samples": {"type": "integer", "minimum": 0},
+        "observed_cpu_clock": {
+          "description": "Per-run observed CPU clock, required by the owner-bound host CPU-frequency policy DOCUMENT_DEFAULTS_RECORD_OBSERVED (decision record us009-us008-owner-decisions-2026-08-27.json, us008_cpu_frequency_policy). RECORD-ONLY: the bound policy documents default scaling behavior and records the observed clock; it declares no threshold, so no pass/fail rule is applied to these values and none may be added without a recorded preregistration change. Required for MEASURED records only.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "samples_mhz"],
+          "properties": {
+            "source": {
+              "description": "Identity of the reader that produced these observations (e.g. the exact sysfs path or tool invocation). Free-form but must carry at least one non-whitespace character: an unattributed clock reading is not evidence, and a whitespace-only string attributes nothing. The pattern is the exact complement of Go's unicode.IsSpace, so this schema and internal/benchplan.ObservedCPUClock.validate (which uses strings.TrimSpace) agree on every input; a differential test pins that agreement.",
+              "type": "string",
+              "minLength": 1,
+              "pattern": "[^\\s\\x{000B}\\x{0085}\\p{Z}]"
+            },
+            "samples_mhz": {
+              "description": "Observed CPU clock readings in MHz taken across the run sequence. At least one; every value finite and positive.",
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        },
+        "reference_drift": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["baseline_statistic", "subsequent_statistics"],
+          "properties": {
+            "baseline_statistic": {"type": "number", "exclusiveMinimum": 0},
+            "subsequent_statistics": {
+              "type": "array",
+              "minItems": 7,
+              "maxItems": 7,
+              "items": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        }
+      }
+    },
+    "declared_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mean", "sample_sd", "ci_lower_exp", "ci_upper_exp"],
+      "properties": {
+        "mean": {"type": "number"},
+        "sample_sd": {"type": "number", "minimum": 0},
+        "ci_lower_exp": {"type": "number", "exclusiveMinimum": 0},
+        "ci_upper_exp": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  },
+  "if": {"properties": {"provenance_label": {"const": "MEASURED"}}},
+  "then": {
+    "required": ["bindings", "run_validity_observations"],
+    "properties": {
+      "bindings": {
+        "required": ["plan_digest", "primary_environment_digest", "confirmation_environment_digest", "java_source_digest", "rust_source_digest", "java_executable_digest", "rust_executable_digest", "adapter_digest", "tool_identity_digest", "analyzer_digest"]
+      },
+      "run_validity_observations": {
+        "required": ["background_cpu_percent_max_observed", "thermal_throttle_events", "power_state_anomalies", "identity_checks_passed", "invalid_samples", "reference_drift", "observed_cpu_clock"]
+      }
+    }
+  },
+  "$defs": {
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["java", "rust"],
+      "properties": {
+        "java": {"type": "number", "exclusiveMinimum": 0},
+        "rust": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

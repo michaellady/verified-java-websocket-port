@@ -1,0 +1,5 @@
+{
+  "kind": "us006-fixture-seeded-receipt",
+  "note": "FIXTURE_STANDIN: synthetic receipt bytes for the good-path validator fixture only. This is NOT evidence of any real sbx execution; real receipts are written only by owner-authorized attempts.",
+  "attempt_id": "us006-fixture-seeded-attempt-0000"
+}

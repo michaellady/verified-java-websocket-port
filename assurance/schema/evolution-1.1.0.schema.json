@@ -1,0 +1,35 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://verified-java-to-rust.example/schemas/evolution-1.1.0.schema.json",
+  "title":"Evidence model migration and staleness case 1.1.0",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema_version","historical_validator","current_validator","historical_bytes_base64","historical_root","migrated_bytes_base64","migrated_root","round_trip_bytes_base64","migration_artifact","nodes","edges","changed_inputs","expected_stale_claim_ids","fallback_snapshot_id","fallback_snapshot_state","historical_snapshot_replayable","transition"],
+  "properties":{
+    "schema_version":{"const":"1.1.0"},
+    "historical_validator":{"const":"schemas/evidence-model-1.0.0.schema.json"},
+    "current_validator":{"const":"schemas/evidence-model-1.1.0.schema.json"},
+    "historical_bytes_base64":{"type":"string","contentEncoding":"base64"},
+    "historical_root":{"$ref":"#/$defs/SHA256"},
+    "migrated_bytes_base64":{"type":"string","contentEncoding":"base64"},
+    "migrated_root":{"$ref":"#/$defs/SHA256"},
+    "round_trip_bytes_base64":{"type":"string","contentEncoding":"base64"},
+    "migration_artifact":{"$ref":"#/$defs/MigrationArtifact"},
+    "nodes":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/Node"}},
+    "edges":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/Edge"}},
+    "changed_inputs":{"type":"array","items":{"$ref":"#/$defs/ChangedInput"}},
+    "expected_stale_claim_ids":{"type":"array","items":{"type":"string"}},
+    "fallback_snapshot_id":{"type":"string","minLength":1},
+    "fallback_snapshot_state":{"const":"ACCEPTED"},
+    "historical_snapshot_replayable":{"const":true},
+    "transition":{"$ref":"#/$defs/Transition"}
+  },
+  "$defs":{
+    "SHA256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "MigrationArtifact":{"type":"object","additionalProperties":false,"required":["id","from_version","to_version","source_root","target_root","lossless","content_address"],"properties":{"id":{"type":"string"},"from_version":{"const":"1.0.0"},"to_version":{"const":"1.1.0"},"source_root":{"$ref":"#/$defs/SHA256"},"target_root":{"$ref":"#/$defs/SHA256"},"lossless":{"type":"boolean"},"content_address":{"$ref":"#/$defs/SHA256"}}},
+    "Node":{"type":"object","additionalProperties":false,"required":["id","kind","correctness_claim","state"],"properties":{"id":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"},"kind":{"enum":["source","suite","toolchain","schema","proof","security","lsp","policy","evidence","claim"]},"correctness_claim":{"type":"boolean"},"state":{"enum":["CURRENT","STALE"]}},"allOf":[{"if":{"properties":{"kind":{"const":"claim"}}},"then":{"properties":{"correctness_claim":{"const":true}}},"else":{"properties":{"correctness_claim":{"const":false}}}}]},
+    "Edge":{"type":"object","additionalProperties":false,"required":["from","to","type"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"type":{"enum":["source","suite","toolchain","schema","proof","security","lsp","policy","evidence","lsp-navigation"]}}},
+    "ChangedInput":{"type":"object","additionalProperties":false,"required":["id","type"],"properties":{"id":{"type":"string"},"type":{"enum":["source","suite","toolchain","schema","proof","security","lsp","policy"]}}},
+    "Transition":{"type":"object","additionalProperties":false,"required":["from","to"],"properties":{"from":{},"to":{}},"oneOf":[{"properties":{"from":{"const":"PROPOSED"},"to":{"enum":["QUALIFIED","BLOCKED","STALE","SUPERSEDED","REVOKED"]}}},{"properties":{"from":{"const":"QUALIFIED"},"to":{"enum":["CANDIDATE","BLOCKED","STALE","SUPERSEDED","REVOKED"]}}},{"properties":{"from":{"const":"CANDIDATE"},"to":{"enum":["ACCEPTED","BLOCKED","STALE","SUPERSEDED","REVOKED"]}}},{"properties":{"from":{"const":"ACCEPTED"},"to":{"enum":["PUBLISHED","BLOCKED","STALE","SUPERSEDED","REVOKED"]}}}]}
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us009-wiring-public-wired-baseline",
+  "recorded_at": "2026-08-27",
+  "revision": "US-009 WIRING re-review round 1 (pinned review session 01a04427 BLOCK): constructible commands are now ALWAYS delivered to the core, which produces its own state gating/refusal (connection.rs handle_command); the adapter's pre-delivery requireOpen/prelude mirrors are scoped to driver-level failures of unconstructible or unrepresentable steps only. The pre-merge unwired baseline file is retained unchanged as history.",
+  "stance": "HONEST WIRED BASELINE — the corpus genuinely scores the Rust core, and the core is still the deliberately skeletal US-009 contract: only EOF (quirk Q20), state gating (quirk Q26), the action prelude, empty-chunk recording, and input/buffer/action limit behavior exist; every send path that passes the gates refuses with the non-oracle Unimplemented code, surfaced as the truthful CORE_BEHAVIOR_UNIMPLEMENTED envelope. 7 of 74 public scenarios pass because they exercise exactly that encoded slice — the core was NOT tuned toward any scenario, and the re-run after the re-review fix reproduced the identical pass set. The remaining 67 failures are the protocol-stub gate doing its job; closing them belongs to US-010..US-016. No story acceptance beyond US-009 is claimed.",
+  "review_round_1_fix": {
+    "finding": "us005.pub.0068 (send_text in closing) previously passed with the ADAPTER synthesizing the StateViolation (pre-delivery require_open) and the pending-action count; the core's equivalent gate never executed, contradicting the seven-genuine-passes attribution.",
+    "fix": "For every constructible command the driver now parses all fields in Java's exact read order and delivers the command; the core runs Java's interleaved gates itself (actionCount++/max_actions prelude, requireOpen, payload limit — the identical sequence in connection.rs handle_command). The begin_action/require_open driver-gate mirrors remain ONLY for steps that can never become a core input (missing/mistyped fields, unknown fields/actions, a send_close code outside the core's u16 command vocabulary), where Java's requireOpen-before-field-read ordering must still be shaped by the driver — input-shaping of malformed steps, verified line-by-line against the quarantined OracleEngine (Execution.action:412-430, sendText:432-439, sendFragment:477-496, requireOpen:546-550), not protocol behavior.",
+    "provenance_tests": "core_adapter.rs: wired_send_in_closing_is_core_produced_not_adapter_synthesized (0068's exact shape driven through the full driver with every session hook recorded — the hook trace is exactly [send_text], the core counted the action at receipt), wired_send_close_in_closing_is_core_gated, wired_oversized_constructible_send_is_gated_by_the_core_payload_gate, driver_delivers_constructible_commands_without_pre_gating; malformed-step ordering regressions: wired_malformed_send_in_closing_keeps_java_require_open_order, wired_unknown_field_wins_over_state_gate_in_non_open_state, wired_send_close_code_outside_u16_in_closing_reports_state_violation, wired_fragment_payload_limit_and_state_shaping_for_unreadable_fin, driver_gate_hooks_fire_only_for_undeliverable_steps."
+  },
+  "pipeline": {
+    "requests": "corporactl oracle-requests --root <worktree> --protected-root <protected> --tier public --out requests.jsonl",
+    "candidate": "rust/target/release/ws-oracle-harness < requests.jsonl > transcript.jsonl",
+    "evaluate": "corporactl evaluate --root <worktree> --protected-root <protected> --tier public --transcript transcript.jsonl",
+    "custodian": "public tier is custodian-free (cmd/corporactl/main.go heldOutTier: hidden/sealed only); the protected custodian ledger was byte-identical before and after this run (9001 bytes, sha256 f4941dc801af5a41a2e3285a71d269975ea6e06774d1e1a4573fd6b6d6f400ae both times), and no hidden or sealed tier was requested or evaluated"
+  },
+  "artifacts": {
+    "worktree_commit": "bd8e496 (claude/us009-wiring, the round-1 wiring commit) plus the uncommitted re-review round-1 fix this baseline accompanies (committed together with this file)",
+    "corporactl_built_from": "this worktree (cmd/corporactl and internal/corpora unmodified by the fix; go test -count=1 ./internal/formalplan/ ./internal/corpora/ ok, exit 0 read)",
+    "requests_jsonl_sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85",
+    "requests_lines": 74,
+    "requests_identical_to_unwired_baseline": true,
+    "transcript_jsonl_sha256": "3c7b1327ce4ea0c3798793cb4dc0e9df2b41518390cafb816f8d839c0da756fa",
+    "transcript_lines": 74,
+    "transcript_rerun_sha256": "3c7b1327ce4ea0c3798793cb4dc0e9df2b41518390cafb816f8d839c0da756fa",
+    "rerun_byte_identical": true,
+    "transcript_file": "us009-public-wired-transcript.jsonl (committed alongside this baseline for reproducibility per the round-1 review's transcript-reproducibility remark; verified public-tier-only before committing: all 74 request_ids match ^us005\\.pub\\.[0-9]{4}$ and the file contains no hidden/sealed/canary content)",
+    "transcript_digest_change_note": "the previous baseline's transcript sha (aadebe59a948b0586558cbde5d5b8061cf48b87cc663b9ea849bfe3d9ade3780) is superseded: every response line embeds the harness executable's own sha256 in its runtime object, and the fixed harness is a different binary, so the digests cannot coincide. The previous transcript was not committed (the reproducibility gap this round closes), so no line-by-line diff against it is possible; what IS verified is that the evaluator scores the identical 7-scenario pass set in both runs, which pins every pass envelope's code/close_code/counts/final_state to the same expected values in both",
+    "harness_executable_sha256": "sha256:e4f25def442d7987bd6fece366bf10f1fd1bed789732340d6a6bb9a9ddafc4b1",
+    "harness_identify": "{\"artifact\":\"ws-oracle-harness\",\"core\":\"wired\",\"protocol\":\"java-websocket-oracle\",\"purpose\":\"us009-oracle-candidate-harness\",\"version\":\"1.0.0\"}",
+    "harness_executable_note": "release build on this development host; carried in every response's runtime object (read via std::env::current_exe and SHA-256'd at startup). Not a promoted artifact digest — sbx-profile execution and artifact promotion belong to the pipeline stories."
+  },
+  "evaluate_report": {
+    "executed": 74,
+    "passed": 7,
+    "failed": 67,
+    "missing": 0,
+    "unmatched": 0,
+    "exit_code": 1,
+    "exit_code_read_from": "the corporactl process's own exit status, read directly after the run"
+  },
+  "failure_breakdown": {
+    "method": "deterministic re-classification of the 67 failures from the committed transcript against corpora/public/scenarios.jsonl (the evaluator's own first-reported divergent field is Go-map-iteration-order-dependent for ok-vs-ok scenarios that diverge in several fields at once, so the previous baseline's finer ok-vs-ok split was one sample of that ordering; the outcome- and error-code-level buckets below are deterministic in both)",
+    "outcome ok, expected error (skeleton byte-path buffers without decoding, so frame-level protocol errors the oracle detects go unnoticed)": 19,
+    "outcome error, expected ok (send paths refuse CORE_BEHAVIOR_UNIMPLEMENTED where the oracle sends frames)": 11,
+    "expected ok, answered ok, observations diverge (all 34 diverge in counts+events+frames — the skeleton emits input_chunk only and decodes no frames; 6 of the 34 additionally diverge in transitions/final_state/close)": 34,
+    "error code CORE_BEHAVIOR_UNIMPLEMENTED, expected JAVA_INVALID_DATA": 1,
+    "error code CORE_BEHAVIOR_UNIMPLEMENTED, expected ACTION_LIMIT_EXCEEDED": 1,
+    "error code BUFFER_LIMIT_EXCEEDED, expected JAVA_INVALID_DATA (Q24 leftover cap fires where the oracle rejects the frame first)": 1
+  },
+  "genuine_passes": [
+    {
+      "scenario": "us005.pub.0015",
+      "shape": "initial closed, one nonzero bytes chunk",
+      "why_it_passes": "quirk Q26 (derive.go:292-294): closed + nonzero payload is STATE_VIOLATION before input accounting — encoded in the US-009 skeleton"
+    },
+    {
+      "scenario": "us005.pub.0017",
+      "shape": "initial closed, one EMPTY bytes chunk",
+      "why_it_passes": "derive.go:301: an empty chunk records input_chunk {bytes: 0} and consumes nothing, even in closed — encoded in the skeleton"
+    },
+    {
+      "scenario": "us005.pub.0044",
+      "shape": "initial open, 9-byte chunk against max_input_bytes 8",
+      "why_it_passes": "addBounded (derive.go:295-299): INPUT_LIMIT_EXCEEDED with the counter never partially updated — encoded in the skeleton"
+    },
+    {
+      "scenario": "us005.pub.0045",
+      "shape": "initial open, one EMPTY bytes chunk",
+      "why_it_passes": "same empty-chunk recording as 0017, in open"
+    },
+    {
+      "scenario": "us005.pub.0062",
+      "shape": "initial open, eof action",
+      "why_it_passes": "quirk Q20 (derive.go eof): 1006 transport close with the pinned reason, eof event, open->closed transition — encoded in the skeleton"
+    },
+    {
+      "scenario": "us005.pub.0068",
+      "shape": "initial closing, send_text action",
+      "why_it_passes": "CORE-PRODUCED as of re-review round 1: the constructible SendText command is delivered to the core, whose own handle_command runs the action prelude (the count in the failure envelope is the core's, taken at command receipt) and then the Q26 requireOpen gate (connection.rs), producing the STATE_VIOLATION itself; the adapter delivers, maps the core's typed failure 1:1, and adds no gate (provenance pinned by wired_send_in_closing_is_core_produced_not_adapter_synthesized)"
+    },
+    {
+      "scenario": "us005.pub.0070",
+      "shape": "initial closed, eof action",
+      "why_it_passes": "derive.go eof: transport EOF in closed refuses STATE_VIOLATION with the rejected action counted — encoded in the skeleton (TransportEof is delivered to the core; the count and refusal are the core's own)"
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "driver": "claude-fable-5 (US-009 wiring-round backend-dev worker, re-review round 1)"
+}

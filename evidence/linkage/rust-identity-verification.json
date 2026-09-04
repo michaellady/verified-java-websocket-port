@@ -1,0 +1,1112 @@
+{
+  "$schema": "../../schemas/rust-identity-verification-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "RustIdentityVerification",
+  "document_id": "rust-identity-verification.e2-linkage",
+  "map_ref": {
+    "path": "evidence/intake/semantic-id-migration-map.json",
+    "map_id": "semantic-id-migration-map.us003",
+    "map_version": "1.1.0",
+    "sha256": "sha256:63837479dad43b20c540daa6a99cb6ae3db1a22beedd8ba4a08fdff4de7e9517"
+  },
+  "frozen_map_disclosure": "The US-003 migration map is a frozen derived document: its 1.0.0 schema pins rust_identity_verified to const false, portplan's TestDeriveReproducesCommittedEvidence pins its bytes to the Java-only derivation pipeline, and assurance/formal/proof-targets.json digest-pins it. Its rows therefore still read rust_identity_verified=false BY CONSTRUCTION. This overlay is the resolver verification the map's blocker statement requires: every row's planned Rust identity is verified here against the real merged tree, with the truthful landed mapping and a rationale wherever the implementation landed an identity differently than the plan. Flipping the in-map bits would require an owner-authorized US-003 schema/derivation refreeze plus a US-006 proof-targets digest refreeze; this layer does not perform either.",
+  "resolver": {
+    "method": "deterministic declaration scan (internal/linkage resolveSymbol)",
+    "strength": "declaration-scan (reviewed-glancer class), not rust-analyzer semantic resolution",
+    "statement": "Each landed symbol is verified by scanning its declaring file for the exact declaration form (struct/enum/trait/type-alias/fn/method/enum-variant, with owner-impl presence checked for members) and recording the file, line, declaration text, and the file's sha256 at verification time. The migration map's planned_resolver names rust-analyzer; running it was not part of this layer, so this record claims reviewed-glancer strength, never semantic resolver strength. The companion Go tests re-run this scan on every test execution, so a moved or deleted symbol turns this artifact stale loudly."
+  },
+  "rows": [
+    {
+      "row_id": "migration.org-java-websocket-websocket",
+      "java_semantic_id": "org.java_websocket.WebSocket",
+      "planned_rust_semantic_id": "ws_core::connection::WebSocket",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::connection::ConnectionCore",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 280,
+          "declaration": "pub struct ConnectionCore {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        },
+        {
+          "rust_path": "ws_core::connection::LocalCommand",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 171,
+          "declaration": "pub enum LocalCommand {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        },
+        {
+          "rust_path": "ws_core::connection::CommandSender",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 1414,
+          "declaration": "pub struct CommandSender {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        }
+      ],
+      "rationale": "The WebSocket interface's command surface landed as the single owned ConnectionCore with the explicit LocalCommand vocabulary and CommandSender/CommandQueue owner seam — the collapse the map's own known_non_equivalent_cases declares (abstract class hierarchy -\u003e one owned core with explicit command and event types). No trait named WebSocket exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-websocketadapter",
+      "java_semantic_id": "org.java_websocket.WebSocketAdapter",
+      "planned_rust_semantic_id": "ws_core::connection::WebSocketAdapter",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::event::SemanticEvent",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/event.rs",
+          "line": 20,
+          "declaration": "pub struct SemanticEvent {",
+          "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+        },
+        {
+          "rust_path": "ws_core::event::SemanticEventKind",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/event.rs",
+          "line": 146,
+          "declaration": "pub enum SemanticEventKind {",
+          "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+        }
+      ],
+      "rationale": "The default-listener adapter landed as the semantic event stream: every callback WebSocketAdapter defaulted is observable as a SemanticEventKind value drained by the owner. Its default automatic pong does NOT exist in the core (quirk Q18, batch-C strip documented in ws-core/src/control.rs): auto-pong is adapter policy above the core, so no WebSocketAdapter symbol landed."
+    },
+    {
+      "row_id": "migration.org-java-websocket-websocketimpl",
+      "java_semantic_id": "org.java_websocket.WebSocketImpl",
+      "planned_rust_semantic_id": "ws_core::connection::WebSocketImpl",
+      "disposition": "exact",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::connection::WebSocketImpl",
+          "decl_kind": "type_alias",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 335,
+          "declaration": "pub type WebSocketImpl = ConnectionCore;",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        },
+        {
+          "rust_path": "ws_core::connection::ConnectionCore",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 280,
+          "declaration": "pub struct ConnectionCore {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        }
+      ],
+      "rationale": "The planned identity exists verbatim as the deliberate alias `pub type WebSocketImpl = ConnectionCore` in connection.rs; ConnectionCore is the landed connection state machine behind it."
+    },
+    {
+      "row_id": "migration.org-java-websocket-websocketlistener",
+      "java_semantic_id": "org.java_websocket.WebSocketListener",
+      "planned_rust_semantic_id": "ws_core::connection::WebSocketListener",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::event::SemanticEvent",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/event.rs",
+          "line": 20,
+          "declaration": "pub struct SemanticEvent {",
+          "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+        },
+        {
+          "rust_path": "ws_core::connection::TransportWrite",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 227,
+          "declaration": "pub struct TransportWrite {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        }
+      ],
+      "rationale": "The listener callback boundary landed as the two owner-drained output streams: SemanticEvent (semantic callbacks) and TransportWrite (onWriteDemand/wire writes). No WebSocketListener trait exists; the map's known_non_equivalent_cases predicted this serialization through the owner."
+    },
+    {
+      "row_id": "migration.org-java-websocket-drafts-draft",
+      "java_semantic_id": "org.java_websocket.drafts.Draft",
+      "planned_rust_semantic_id": "ws_core::connection::Draft",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::Draft6455",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 248,
+          "declaration": "pub struct Draft6455 {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        }
+      ],
+      "rationale": "The Draft strategy seam collapsed: this is a single-draft (RFC 6455 only) port, so the abstract Draft contract's touched behaviors (createHandshake/translate/createFrames/processFrame/continuousFrame state) landed directly on Draft6455 with no trait indirection. No Draft trait exists in ws_core::connection."
+    },
+    {
+      "row_id": "migration.org-java-websocket-drafts-draft-6455",
+      "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+      "planned_rust_semantic_id": "ws_core::framing::Draft6455",
+      "disposition": "exact",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::Draft6455",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 248,
+          "declaration": "pub struct Draft6455 {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        }
+      ],
+      "rationale": "Planned identity landed as declared."
+    },
+    {
+      "row_id": "migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+      "java_semantic_id": "org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData",
+      "planned_rust_semantic_id": "ws_core::framing::TranslatedPayloadMetaData",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::FrameHeader",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 130,
+          "declaration": "pub struct FrameHeader {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        },
+        {
+          "rust_path": "ws_core::framing::HeaderDecode",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 155,
+          "declaration": "pub enum HeaderDecode {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        }
+      ],
+      "rationale": "TranslatedPayloadMetaData's payload-length/realpacketsize metadata landed inside FrameHeader and the HeaderDecode outcome of Draft6455::decode_frame_header; no separate metadata struct was needed."
+    },
+    {
+      "row_id": "migration.org-java-websocket-enums-closehandshaketype",
+      "java_semantic_id": "org.java_websocket.enums.CloseHandshakeType",
+      "planned_rust_semantic_id": "ws_core::connection::CloseHandshakeType",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::connection::ConnectionCore::handle_command",
+          "decl_kind": "method",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 1139,
+          "declaration": "fn handle_command(\u0026mut self, command: \u0026LocalCommand) -\u003e Result\u003c(), TypedProtocolFailure\u003e {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        },
+        {
+          "rust_path": "ws_core::connection::ConnectionCore::process_inbound",
+          "decl_kind": "method",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 727,
+          "declaration": "fn process_inbound(\u0026mut self, frame: DecodedFrame) -\u003e Result\u003c(), TypedProtocolFailure\u003e {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        }
+      ],
+      "rationale": "CloseHandshakeType existed to let Draft implementations declare NONE/ONEWAY/TWOWAY closing. The single-draft port hardwires the RFC 6455 two-way close inside ConnectionCore's command/inbound close arms, so the capability enum was eliminated with the Draft seam; no CloseHandshakeType enum exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-enums-handshakestate",
+      "java_semantic_id": "org.java_websocket.enums.HandshakeState",
+      "planned_rust_semantic_id": "ws_core::handshake::client::HandshakeState",
+      "disposition": "relocated",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::server::HandshakeState",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/handshake/server.rs",
+          "line": 35,
+          "declaration": "pub enum HandshakeState {",
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
+        }
+      ],
+      "rationale": "The enum landed with its planned name but in the server handshake module (its only Java consumer is acceptHandshakeAsServer/asClient matching; the Rust home is the server-side acceptance predicate file), not the planned ws_core::handshake::client module."
+    },
+    {
+      "row_id": "migration.org-java-websocket-enums-opcode",
+      "java_semantic_id": "org.java_websocket.enums.Opcode",
+      "planned_rust_semantic_id": "ws_core::framing::Opcode",
+      "disposition": "exact",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::Opcode",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 60,
+          "declaration": "pub enum Opcode {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        }
+      ],
+      "rationale": "Planned identity landed as declared."
+    },
+    {
+      "row_id": "migration.org-java-websocket-enums-readystate",
+      "java_semantic_id": "org.java_websocket.enums.ReadyState",
+      "planned_rust_semantic_id": "ws_core::connection::ReadyState",
+      "disposition": "exact",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::connection::ReadyState",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 99,
+          "declaration": "pub enum ReadyState {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        }
+      ],
+      "rationale": "Planned identity landed as declared."
+    },
+    {
+      "row_id": "migration.org-java-websocket-enums-role",
+      "java_semantic_id": "org.java_websocket.enums.Role",
+      "planned_rust_semantic_id": "ws_core::connection::Role",
+      "disposition": "exact",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::connection::Role",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 73,
+          "declaration": "pub enum Role {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        }
+      ],
+      "rationale": "Planned identity landed as declared."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-incompleteexception",
+      "java_semantic_id": "org.java_websocket.exceptions.IncompleteException",
+      "planned_rust_semantic_id": "ws_core::framing::IncompleteException",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::HeaderDecode::Insufficient",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 160,
+          "declaration": "Insufficient,",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        }
+      ],
+      "rationale": "IncompleteException's control flow (frame needs more bytes) landed as the HeaderDecode::Insufficient outcome plus incomplete-frame buffering in the decode loop; exceptions-as-control-flow became typed outcomes (a declared known_non_equivalent_case)."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-incompletehandshakeexception",
+      "java_semantic_id": "org.java_websocket.exceptions.IncompleteHandshakeException",
+      "planned_rust_semantic_id": "ws_core::handshake::client::IncompleteHandshakeException",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::http::JavaHeadParse::Incomplete",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-core/src/handshake/http.rs",
+          "line": 96,
+          "declaration": "Incomplete,",
+          "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+        },
+        {
+          "rust_path": "ws_core::handshake::http::HeadAccumulator",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/http.rs",
+          "line": 180,
+          "declaration": "pub struct HeadAccumulator {",
+          "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+        }
+      ],
+      "rationale": "IncompleteHandshakeException's keep-buffering path landed as the JavaHeadParse::Incomplete outcome of the budget-gated HeadAccumulator; the variant's doc names the exception path explicitly."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidDataException",
+      "planned_rust_semantic_id": "ws_core::framing::InvalidDataException",
+      "disposition": "renamed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::error::FailureCode::JavaInvalidData",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-core/src/error.rs",
+          "line": 42,
+          "declaration": "JavaInvalidData,",
+          "sha256": "sha256:db28a1f3205d52d6b119411d68a09f166e3cc47512140a49ca1242c5a5f8f084"
+        },
+        {
+          "rust_path": "ws_core::error::TypedProtocolFailure",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/error.rs",
+          "line": 123,
+          "declaration": "pub struct TypedProtocolFailure {",
+          "sha256": "sha256:db28a1f3205d52d6b119411d68a09f166e3cc47512140a49ca1242c5a5f8f084"
+        }
+      ],
+      "rationale": "InvalidDataException landed one-to-one as the FailureCode::JavaInvalidData variant (wire code JAVA_INVALID_DATA), carried with its close code by TypedProtocolFailure — the typed-protocol-error rename the map's known_non_equivalent_cases declares."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-invalidencodingexception",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidEncodingException",
+      "planned_rust_semantic_id": "ws_core::message::InvalidEncodingException",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::message::Utf8DecodeError",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/message.rs",
+          "line": 155,
+          "declaration": "pub struct Utf8DecodeError;",
+          "sha256": "sha256:4ec3aa46e95f78c569b17bf8c5cc2c19de9afbc28a3b1151c98f25f641d2535c"
+        },
+        {
+          "rust_path": "ws_core::error::FailureCode::JavaInvalidData",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-core/src/error.rs",
+          "line": 42,
+          "declaration": "JavaInvalidData,",
+          "sha256": "sha256:db28a1f3205d52d6b119411d68a09f166e3cc47512140a49ca1242c5a5f8f084"
+        }
+      ],
+      "rationale": "InvalidEncodingException (the UTF-8 subtype of InvalidDataException) landed as Utf8DecodeError at the strict string_utf8 gate, surfacing as JavaInvalidData with close code 1007; no separate encoding-exception type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-invalidframeexception",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidFrameException",
+      "planned_rust_semantic_id": "ws_core::framing::InvalidFrameException",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::FrameReject",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 170,
+          "declaration": "pub struct FrameReject {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        },
+        {
+          "rust_path": "ws_core::error::FailureCode::JavaInvalidData",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-core/src/error.rs",
+          "line": 42,
+          "declaration": "JavaInvalidData,",
+          "sha256": "sha256:db28a1f3205d52d6b119411d68a09f166e3cc47512140a49ca1242c5a5f8f084"
+        }
+      ],
+      "rationale": "InvalidFrameException landed as the translate-stage FrameReject (typed failure plus the exact consumed-byte offset, quirk Q25) feeding the JavaInvalidData failure vocabulary; no frame-exception type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-invalidhandshakeexception",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidHandshakeException",
+      "planned_rust_semantic_id": "ws_core::handshake::client::InvalidHandshakeException",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::RejectChannel",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/handshake.rs",
+          "line": 73,
+          "declaration": "pub enum RejectChannel {",
+          "sha256": "sha256:b890865ba78d38104f7b0ec4d0267554ce529beebe65e30ddd3896f504255b93"
+        }
+      ],
+      "rationale": "InvalidHandshakeException landed as the typed RejectChannel handshake-rejection vocabulary (parse-level and validation-level channels) instead of an exception type."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-limitexceededexception",
+      "java_semantic_id": "org.java_websocket.exceptions.LimitExceededException",
+      "planned_rust_semantic_id": "ws_core::framing::LimitExceededException",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::error::FailureCode::InputLimitExceeded",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-core/src/error.rs",
+          "line": 58,
+          "declaration": "InputLimitExceeded,",
+          "sha256": "sha256:db28a1f3205d52d6b119411d68a09f166e3cc47512140a49ca1242c5a5f8f084"
+        },
+        {
+          "rust_path": "ws_core::error::FailureCode::BufferLimitExceeded",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-core/src/error.rs",
+          "line": 63,
+          "declaration": "BufferLimitExceeded,",
+          "sha256": "sha256:db28a1f3205d52d6b119411d68a09f166e3cc47512140a49ca1242c5a5f8f084"
+        },
+        {
+          "rust_path": "ws_core::framing::Draft6455::check_buffer_limit",
+          "decl_kind": "method",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 749,
+          "declaration": "pub fn check_buffer_limit(",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        }
+      ],
+      "rationale": "LimitExceededException (1009 family) landed as the typed limit failure codes plus the 1009 JavaInvalidData sites at the framing limit gates (check_buffer_limit and the length-limit checks in decode_frame_header); no exception type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-notsendableexception",
+      "java_semantic_id": "org.java_websocket.exceptions.NotSendableException",
+      "planned_rust_semantic_id": "ws_core::framing::NotSendableException",
+      "disposition": "renamed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::error::FailureCode::JavaNotSendable",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-core/src/error.rs",
+          "line": 49,
+          "declaration": "JavaNotSendable,",
+          "sha256": "sha256:db28a1f3205d52d6b119411d68a09f166e3cc47512140a49ca1242c5a5f8f084"
+        }
+      ],
+      "rationale": "NotSendableException landed one-to-one as the FailureCode::JavaNotSendable variant (wire code JAVA_NOT_SENDABLE, send-path DFA rejection, quirk Q16)."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-websocketnotconnectedexception",
+      "java_semantic_id": "org.java_websocket.exceptions.WebsocketNotConnectedException",
+      "planned_rust_semantic_id": "ws_core::close::WebsocketNotConnectedException",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::error::FailureCode::StateViolation",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-core/src/error.rs",
+          "line": 54,
+          "declaration": "StateViolation,",
+          "sha256": "sha256:db28a1f3205d52d6b119411d68a09f166e3cc47512140a49ca1242c5a5f8f084"
+        }
+      ],
+      "rationale": "WebsocketNotConnectedException (send while not OPEN) landed inside the StateViolation failure code (the requireOpen gate, quirk Q26), which also covers the other closed/closing-state refusals; no dedicated not-connected type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-exceptions-wrappedioexception",
+      "java_semantic_id": "org.java_websocket.exceptions.WrappedIOException",
+      "planned_rust_semantic_id": "ws_adapter::tcp::WrappedIOException",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_testee::io_loop::LoopOutcome::SocketError",
+          "decl_kind": "enum_variant",
+          "file": "rust/ws-testee/src/io_loop.rs",
+          "line": 71,
+          "declaration": "SocketError(String),",
+          "sha256": "sha256:8907b9acec8dc0f44457d0e362faaabebc2a3cebb7bf8d7fb2381fa1000e0933"
+        }
+      ],
+      "rationale": "The planned ws_adapter crate landed as the ws-testee adapter (with ws-driver as the deterministic owner loop). WrappedIOException's wrapped-transport-error role landed as the normalized LoopOutcome::SocketError adapter outcome; no wrapper exception type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-binaryframe",
+      "java_semantic_id": "org.java_websocket.framing.BinaryFrame",
+      "planned_rust_semantic_id": "ws_core::message::BinaryFrame",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::connection::DataOpcode",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 159,
+          "declaration": "pub enum DataOpcode {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        },
+        {
+          "rust_path": "ws_core::framing::DecodedFrame",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 185,
+          "declaration": "pub struct DecodedFrame {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        },
+        {
+          "rust_path": "ws_core::event::SemanticEventKind",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/event.rs",
+          "line": 146,
+          "declaration": "pub enum SemanticEventKind {",
+          "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+        }
+      ],
+      "rationale": "The per-opcode frame class hierarchy landed as data: BinaryFrame is DecodedFrame with Opcode::Binary, delivered as the SemanticEventKind Binary event and sent via DataOpcode::Binary; no per-opcode frame types exist."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-closeframe",
+      "java_semantic_id": "org.java_websocket.framing.CloseFrame",
+      "planned_rust_semantic_id": "ws_core::close::CloseFrame",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::close::CloseDetail",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/close.rs",
+          "line": 56,
+          "declaration": "pub struct CloseDetail {",
+          "sha256": "sha256:13523ae6d725dcb547d020b935788bdbb037c9bb6350e189f0d3d9f09d9aa238"
+        },
+        {
+          "rust_path": "ws_core::close::normalize_send_close_code",
+          "decl_kind": "fn",
+          "file": "rust/ws-core/src/close.rs",
+          "line": 78,
+          "declaration": "pub fn normalize_send_close_code(code: u16) -\u003e u16 {",
+          "sha256": "sha256:13523ae6d725dcb547d020b935788bdbb037c9bb6350e189f0d3d9f09d9aa238"
+        },
+        {
+          "rust_path": "ws_core::close::close_code_rejection",
+          "decl_kind": "fn",
+          "file": "rust/ws-core/src/close.rs",
+          "line": 96,
+          "declaration": "pub fn close_code_rejection(code: u16, reason: \u0026str) -\u003e Option\u003cu16\u003e {",
+          "sha256": "sha256:13523ae6d725dcb547d020b935788bdbb037c9bb6350e189f0d3d9f09d9aa238"
+        }
+      ],
+      "rationale": "CloseFrame's code/reason payload semantics landed as CloseDetail plus the US-009 owner-decision pure functions that mirror CloseFrame.setCode/isValid quirks exactly (Q13/Q14); no CloseFrame type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-continuousframe",
+      "java_semantic_id": "org.java_websocket.framing.ContinuousFrame",
+      "planned_rust_semantic_id": "ws_core::fragment::ContinuousFrame",
+      "disposition": "exact",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::fragment::ContinuousFrame",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/fragment.rs",
+          "line": 30,
+          "declaration": "pub struct ContinuousFrame {",
+          "sha256": "sha256:bbb3a4a44e0194a71d3ce79f0c1786317a89835d92e3089a1187415eec802fc8"
+        }
+      ],
+      "rationale": "Planned identity landed as declared (the inbound continuation accumulator)."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-controlframe",
+      "java_semantic_id": "org.java_websocket.framing.ControlFrame",
+      "planned_rust_semantic_id": "ws_core::framing::ControlFrame",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::Draft6455::process_frame",
+          "decl_kind": "method",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 646,
+          "declaration": "pub fn process_frame(",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        },
+        {
+          "rust_path": "ws_core::framing::Opcode",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 60,
+          "declaration": "pub enum Opcode {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        }
+      ],
+      "rationale": "ControlFrame's shared control-validity checks (fin, reserved bits) landed at the Draft6455 translate/process gates over Opcode's control values; the deliberate absence of a \u003e125 outbound preflight mirrors quirk Q17. No ControlFrame type exists (ws-core/src/control.rs is a documentation module that exports nothing by design)."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-dataframe",
+      "java_semantic_id": "org.java_websocket.framing.DataFrame",
+      "planned_rust_semantic_id": "ws_core::framing::DataFrame",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::DecodedFrame",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 185,
+          "declaration": "pub struct DecodedFrame {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        },
+        {
+          "rust_path": "ws_core::connection::DataOpcode",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 159,
+          "declaration": "pub enum DataOpcode {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        }
+      ],
+      "rationale": "DataFrame's data-opcode abstraction landed as DecodedFrame plus the DataOpcode send vocabulary; no DataFrame type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-framedata",
+      "java_semantic_id": "org.java_websocket.framing.Framedata",
+      "planned_rust_semantic_id": "ws_core::framing::Framedata",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::FrameHeader",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 130,
+          "declaration": "pub struct FrameHeader {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        },
+        {
+          "rust_path": "ws_core::framing::DecodedFrame",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 185,
+          "declaration": "pub struct DecodedFrame {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        }
+      ],
+      "rationale": "The Framedata interface (fin/rsv/opcode/payload accessors) landed as the plain data structs FrameHeader and DecodedFrame; no interface indirection exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-framedataimpl1",
+      "java_semantic_id": "org.java_websocket.framing.FramedataImpl1",
+      "planned_rust_semantic_id": "ws_core::framing::FramedataImpl1",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::DecodedFrame",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 185,
+          "declaration": "pub struct DecodedFrame {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        },
+        {
+          "rust_path": "ws_core::event::FrameRecord",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/event.rs",
+          "line": 112,
+          "declaration": "pub struct FrameRecord {",
+          "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+        }
+      ],
+      "rationale": "FramedataImpl1's mutable frame carrier landed as the owned DecodedFrame (wire side) and FrameRecord (observable frame event); no builder-style frame implementation exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-pingframe",
+      "java_semantic_id": "org.java_websocket.framing.PingFrame",
+      "planned_rust_semantic_id": "ws_core::control::PingFrame",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::Opcode",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 60,
+          "declaration": "pub enum Opcode {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        },
+        {
+          "rust_path": "ws_core::event::SemanticEventKind",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/event.rs",
+          "line": 146,
+          "declaration": "pub enum SemanticEventKind {",
+          "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+        }
+      ],
+      "rationale": "PingFrame landed as Opcode::Ping frames observed as the SemanticEventKind Ping event with the exact decoded payload; no PingFrame type exists (control dispatch lives in ConnectionCore::process_inbound, quirk Q18: no automatic pong)."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-pongframe",
+      "java_semantic_id": "org.java_websocket.framing.PongFrame",
+      "planned_rust_semantic_id": "ws_core::control::PongFrame",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::framing::Opcode",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/framing.rs",
+          "line": 60,
+          "declaration": "pub enum Opcode {",
+          "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+        },
+        {
+          "rust_path": "ws_core::event::SemanticEventKind",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/event.rs",
+          "line": 146,
+          "declaration": "pub enum SemanticEventKind {",
+          "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+        }
+      ],
+      "rationale": "PongFrame landed as Opcode::Pong frames observed as the SemanticEventKind Pong event; no PongFrame type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-framing-textframe",
+      "java_semantic_id": "org.java_websocket.framing.TextFrame",
+      "planned_rust_semantic_id": "ws_core::message::TextFrame",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::connection::DataOpcode",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 159,
+          "declaration": "pub enum DataOpcode {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        },
+        {
+          "rust_path": "ws_core::message::Charsetfunctions",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/message.rs",
+          "line": 162,
+          "declaration": "pub struct Charsetfunctions;",
+          "sha256": "sha256:4ec3aa46e95f78c569b17bf8c5cc2c19de9afbc28a3b1151c98f25f641d2535c"
+        },
+        {
+          "rust_path": "ws_core::event::SemanticEventKind",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/event.rs",
+          "line": 146,
+          "declaration": "pub enum SemanticEventKind {",
+          "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+        }
+      ],
+      "rationale": "TextFrame (whose isValid applies the UTF-8 DFA) landed as Opcode/DataOpcode Text values gated by Charsetfunctions' strict UTF-8 validation and delivered as the SemanticEventKind Text event; no TextFrame type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-handshake-clienthandshake",
+      "java_semantic_id": "org.java_websocket.handshake.ClientHandshake",
+      "planned_rust_semantic_id": "ws_core::handshake::client::ClientHandshake",
+      "disposition": "exact",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::client::ClientHandshake",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/client.rs",
+          "line": 172,
+          "declaration": "pub struct ClientHandshake {",
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
+        }
+      ],
+      "rationale": "Planned identity landed as declared (the client handshake driver)."
+    },
+    {
+      "row_id": "migration.org-java-websocket-handshake-clienthandshakebuilder",
+      "java_semantic_id": "org.java_websocket.handshake.ClientHandshakeBuilder",
+      "planned_rust_semantic_id": "ws_core::handshake::client::ClientHandshakeBuilder",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::client::ClientRequestDescriptor",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/client.rs",
+          "line": 48,
+          "declaration": "pub struct ClientRequestDescriptor {",
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
+        },
+        {
+          "rust_path": "ws_core::handshake::client::ClientHandshake",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/client.rs",
+          "line": 172,
+          "declaration": "pub struct ClientHandshake {",
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
+        }
+      ],
+      "rationale": "The mutable ClientHandshakeBuilder landed as owned immutable values: ClientRequestDescriptor (validated resource/host) consumed by ClientHandshake's deterministic request emission — the builder-to-owned-values collapse the map's known_non_equivalent_cases declares."
+    },
+    {
+      "row_id": "migration.org-java-websocket-handshake-handshakebuilder",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakeBuilder",
+      "planned_rust_semantic_id": "ws_core::handshake::client::HandshakeBuilder",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::http::JavaHeaders",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/http.rs",
+          "line": 47,
+          "declaration": "pub struct JavaHeaders {",
+          "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+        }
+      ],
+      "rationale": "The HandshakeBuilder mutable header-map surface landed as the owned JavaHeaders value (join-and-store multimap with Java's exact casing/duplicate semantics); no builder exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-handshake-handshakeimpl1client",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakeImpl1Client",
+      "planned_rust_semantic_id": "ws_core::handshake::client::HandshakeImpl1Client",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::client::ClientHandshake",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/client.rs",
+          "line": 172,
+          "declaration": "pub struct ClientHandshake {",
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
+        },
+        {
+          "rust_path": "ws_core::handshake::client::ClientHandshakeOutcome",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/handshake/client.rs",
+          "line": 139,
+          "declaration": "pub enum ClientHandshakeOutcome {",
+          "sha256": "sha256:63dcceca3a0b0064d680d66dcc1fc28eccd052d5d2e062c24fd232d7e3a4f0e3"
+        }
+      ],
+      "rationale": "The interface/impl split collapsed: HandshakeImpl1Client's concrete request state landed inside ClientHandshake and its outcome vocabulary; no separate impl type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-handshake-handshakeimpl1server",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakeImpl1Server",
+      "planned_rust_semantic_id": "ws_core::handshake::server::HandshakeImpl1Server",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::server::ServerHandshake",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/server.rs",
+          "line": 123,
+          "declaration": "pub struct ServerHandshake {",
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
+        },
+        {
+          "rust_path": "ws_core::handshake::server::ServerHandshakeOutcome",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/handshake/server.rs",
+          "line": 73,
+          "declaration": "pub enum ServerHandshakeOutcome {",
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
+        }
+      ],
+      "rationale": "HandshakeImpl1Server's concrete response state landed inside ServerHandshake and its outcome vocabulary; no separate impl type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-handshake-handshakedata",
+      "java_semantic_id": "org.java_websocket.handshake.Handshakedata",
+      "planned_rust_semantic_id": "ws_core::handshake::client::Handshakedata",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::http::JavaHead",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/http.rs",
+          "line": 81,
+          "declaration": "pub struct JavaHead {",
+          "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+        },
+        {
+          "rust_path": "ws_core::handshake::http::JavaHeaders",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/http.rs",
+          "line": 47,
+          "declaration": "pub struct JavaHeaders {",
+          "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+        }
+      ],
+      "rationale": "The Handshakedata read surface (iterateHttpFields/getFieldValue/getContent) landed as the owned JavaHead (parsed head) and JavaHeaders (field map) values; no interface exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-handshake-handshakedataimpl1",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakedataImpl1",
+      "planned_rust_semantic_id": "ws_core::handshake::client::HandshakedataImpl1",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::http::JavaHeaders",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/http.rs",
+          "line": 47,
+          "declaration": "pub struct JavaHeaders {",
+          "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+        }
+      ],
+      "rationale": "HandshakedataImpl1's LinkedHashMap storage semantics (lower-cased un-trimmed keys, duplicate join) landed inside JavaHeaders, whose module doc pins those exact semantics; no impl type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-handshake-serverhandshake",
+      "java_semantic_id": "org.java_websocket.handshake.ServerHandshake",
+      "planned_rust_semantic_id": "ws_core::handshake::server::ServerHandshake",
+      "disposition": "exact",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::server::ServerHandshake",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/server.rs",
+          "line": 123,
+          "declaration": "pub struct ServerHandshake {",
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
+        }
+      ],
+      "rationale": "Planned identity landed as declared (the server handshake driver)."
+    },
+    {
+      "row_id": "migration.org-java-websocket-handshake-serverhandshakebuilder",
+      "java_semantic_id": "org.java_websocket.handshake.ServerHandshakeBuilder",
+      "planned_rust_semantic_id": "ws_core::handshake::server::ServerHandshakeBuilder",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::server::ServerHandshake",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/handshake/server.rs",
+          "line": 123,
+          "declaration": "pub struct ServerHandshake {",
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
+        },
+        {
+          "rust_path": "ws_core::handshake::server::ServerHandshakeOutcome",
+          "decl_kind": "enum",
+          "file": "rust/ws-core/src/handshake/server.rs",
+          "line": 73,
+          "declaration": "pub enum ServerHandshakeOutcome {",
+          "sha256": "sha256:26802ce6ef41fc0215d0bd64953ade922b1e8d9efed7eb64d8e9e5ef9a1a42e5"
+        }
+      ],
+      "rationale": "The ServerHandshakeBuilder mutable response surface landed as ServerHandshake's owned deterministic 101-head emission (no Date/Server banner) and its outcome vocabulary; no builder exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-interfaces-isslchannel",
+      "java_semantic_id": "org.java_websocket.interfaces.ISSLChannel",
+      "planned_rust_semantic_id": "(no Rust counterpart: EXCLUDED_TLS_WSS)",
+      "disposition": "capability_excluded",
+      "rust_identity_verified": false,
+      "landed_symbols": [],
+      "rationale": "The map records no Rust counterpart (EXCLUDED_TLS_WSS). Confirmed against the tree: no ISSLChannel declaration exists anywhere in the Rust workspace."
+    },
+    {
+      "row_id": "migration.org-java-websocket-util-base64",
+      "java_semantic_id": "org.java_websocket.util.Base64",
+      "planned_rust_semantic_id": "ws_core::handshake::client::Base64",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::crypto::encode_base64",
+          "decl_kind": "fn",
+          "file": "rust/ws-core/src/handshake/crypto.rs",
+          "line": 70,
+          "declaration": "fn encode_base64(data: \u0026[u8]) -\u003e String {",
+          "sha256": "sha256:86bd5e2a7347bba8e201e2db34131623c6fee76799f12e993ca3b9eb273ff1cd"
+        },
+        {
+          "rust_path": "ws_core::handshake::crypto::encode_nonce",
+          "decl_kind": "fn",
+          "file": "rust/ws-core/src/handshake/crypto.rs",
+          "line": 49,
+          "declaration": "pub(crate) fn encode_nonce(nonce: [u8; 16]) -\u003e [u8; 24] {",
+          "sha256": "sha256:86bd5e2a7347bba8e201e2db34131623c6fee76799f12e993ca3b9eb273ff1cd"
+        }
+      ],
+      "rationale": "The vendored Base64 utility landed as the private zero-dependency base64 encoders in the handshake crypto module (accept-key digest encoding and the 24-byte nonce key); no public Base64 type exists and no decode surface was ported (Java only encodes)."
+    },
+    {
+      "row_id": "migration.org-java-websocket-util-base64-outputstream",
+      "java_semantic_id": "org.java_websocket.util.Base64$OutputStream",
+      "planned_rust_semantic_id": "ws_core::handshake::client::OutputStream",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::handshake::crypto::encode_base64",
+          "decl_kind": "fn",
+          "file": "rust/ws-core/src/handshake/crypto.rs",
+          "line": 70,
+          "declaration": "fn encode_base64(data: \u0026[u8]) -\u003e String {",
+          "sha256": "sha256:86bd5e2a7347bba8e201e2db34131623c6fee76799f12e993ca3b9eb273ff1cd"
+        }
+      ],
+      "rationale": "Base64.OutputStream existed only to serve the vendored encoder's streaming API; the port encodes whole small buffers (20-byte SHA-1 digest, 16-byte nonce) in one call, so no streaming type landed."
+    },
+    {
+      "row_id": "migration.org-java-websocket-util-bytebufferutils",
+      "java_semantic_id": "org.java_websocket.util.ByteBufferUtils",
+      "planned_rust_semantic_id": "ws_core::framing::ByteBufferUtils",
+      "disposition": "absorbed",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::connection::ConnectionCore",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/connection.rs",
+          "line": 280,
+          "declaration": "pub struct ConnectionCore {",
+          "sha256": "sha256:0efa6f6cb6b3383693f33ca3c0e2ff0539a231b1983032337efef10b3c46556a"
+        }
+      ],
+      "rationale": "ByteBufferUtils (transferByteBuffer/getEmptyByteBuffer) is a ByteBuffer-management shim with no Rust equivalent need: slice/Vec ownership subsumes it. Its remaining behavioral role (bounded wire-buffer accumulation across chunks) lives in ConnectionCore's pending-buffer accounting; no utility type exists."
+    },
+    {
+      "row_id": "migration.org-java-websocket-util-charsetfunctions",
+      "java_semantic_id": "org.java_websocket.util.Charsetfunctions",
+      "planned_rust_semantic_id": "ws_core::message::Charsetfunctions",
+      "disposition": "exact",
+      "rust_identity_verified": true,
+      "landed_symbols": [
+        {
+          "rust_path": "ws_core::message::Charsetfunctions",
+          "decl_kind": "struct",
+          "file": "rust/ws-core/src/message.rs",
+          "line": 162,
+          "declaration": "pub struct Charsetfunctions;",
+          "sha256": "sha256:4ec3aa46e95f78c569b17bf8c5cc2c19de9afbc28a3b1151c98f25f641d2535c"
+        }
+      ],
+      "rationale": "Planned identity landed as declared (both strict UTF-8 gates)."
+    },
+    {
+      "row_id": "migration.org-java-websocket-util-namedthreadfactory",
+      "java_semantic_id": "org.java_websocket.util.NamedThreadFactory",
+      "planned_rust_semantic_id": "(no Rust counterpart: EXCLUDED_JAVA_NIO_TOPOLOGY)",
+      "disposition": "capability_excluded",
+      "rust_identity_verified": false,
+      "landed_symbols": [],
+      "rationale": "The map records no Rust counterpart (EXCLUDED_JAVA_NIO_TOPOLOGY). Confirmed against the tree: no NamedThreadFactory declaration exists anywhere in the Rust workspace."
+    }
+  ],
+  "summary": {
+    "rows_total": 47,
+    "verified": 45,
+    "excluded_confirmed": 2,
+    "exact": 9,
+    "relocated": 1,
+    "renamed": 2,
+    "absorbed": 33
+  },
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  }
+}

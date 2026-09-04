@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0.0",
+  "amendment_version": "java-websocket-single-owner-1.0.0",
+  "company": "open-source-projects",
+  "parent_project": "verified-java-to-rust-port",
+  "child_project": "verified-java-websocket-port",
+  "laboratory_id": "lab-java-websocket",
+  "repository": "https://github.com/michaellady/verified-java-websocket-port",
+  "base_policy_version": "foundation-1.0.0",
+  "base_policy_digest": "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54",
+  "authority_model": "single-owner",
+  "owner_actor_id": "github:michaellady",
+  "decision": {
+    "decided_by": "Mike Lady",
+    "decided_at": "2026-08-24",
+    "source_text": "we can remove that requirement if we can't do it with just me",
+    "effect": "The repository owner may authorize every artifact-scoped action role. No action or review produced under this amendment is described as independent."
+  },
+  "supersedes": {
+    "role_incompatibility": "The same exact owner actor may hold method-schema-steward, port-implementer, oracle-held-out-custodian, and release-attestor action roles for this child only.",
+    "independent_approvals": 1,
+    "promotion_stage_name": "owner-promotion"
+  },
+  "preserves": [
+    "strict signature verification over the complete action",
+    "stage-specific role and sandbox authorization",
+    "release-attestor action role for any publication request",
+    "exact company, project, laboratory, repository, artifact, base-policy, and amendment binding",
+    "maximum 24-hour authorization lifetime",
+    "unused durable nonces and replay denial",
+    "authoritative role and revocation snapshots supplied outside candidate evidence",
+    "transactional content-addressed promotion",
+    "no publication or protected evaluator access in US-001"
+  ],
+  "vulnerability_disposition": {
+    "required": true,
+    "must_bind": [
+      "exact vulnerability snapshot digest",
+      "critical and high counts",
+      "allowed use",
+      "publication intent",
+      "expiration"
+    ],
+    "maximum_scope": "QUARANTINED_LABORATORY_QUALIFICATION_ONLY"
+  },
+  "assurance_ceiling": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "fail_closed": "Absent, mismatched, expired, revoked, replayed, or non-owner amendment actions deny promotion without state mutation."
+}

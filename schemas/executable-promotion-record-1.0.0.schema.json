@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "executable-promotion-record-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subject", "statements"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "subject": {"$ref": "#/$defs/subject"},
+    "statements": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {"$ref": "#/$defs/qualificationStatement"},
+        {"$ref": "#/$defs/promotionStatement"}
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "signature": {"type": "string", "pattern": "^[0-9a-f]{128}$"},
+    "nonce": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "kind", "artifact_digest", "subject_roles", "operation",
+        "company", "project", "laboratory_id", "policy_digest", "evidence_bindings",
+        "scope", "historical_key_id", "production_use_authorized",
+        "publication_authorized", "independent_review_claimed"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "kind": {"const": "CONTROLLED_CANARY_EXECUTABLE_PROMOTION"},
+        "artifact_digest": {"$ref": "#/$defs/digest"},
+        "subject_roles": {
+          "type": "array",
+          "prefixItems": [{"const": "SANDBOX_SUPERVISOR"}, {"const": "SECURITYCTL"}],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "operation": {"const": "CONTROLLED_CANARY"},
+        "company": {"const": "open-source-projects"},
+        "project": {"const": "verified-java-websocket-port"},
+        "laboratory_id": {"const": "lab-java-websocket"},
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "evidence_bindings": {
+          "type": "array",
+          "prefixItems": [
+            {"$ref": "#/$defs/securityEvidence"},
+            {"$ref": "#/$defs/acceptedRoot"},
+            {"$ref": "#/$defs/publicEvidenceRoot"}
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "scope": {"const": "QUARANTINED_LABORATORY_QUALIFICATION_ONLY"},
+        "historical_key_id": {"const": "java-websocket-us001-owner-ed25519-2026-08-24"},
+        "production_use_authorized": {"const": false},
+        "publication_authorized": {"const": false},
+        "independent_review_claimed": {"const": false}
+      }
+    },
+    "securityEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "digest"],
+      "properties": {"name": {"const": "security-evidence"}, "digest": {"$ref": "#/$defs/digest"}}
+    },
+    "acceptedRoot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "digest"],
+      "properties": {
+        "name": {"const": "us001-accepted-root"},
+        "digest": {"const": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8"}
+      }
+    },
+    "publicEvidenceRoot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "digest"],
+      "properties": {
+        "name": {"const": "us001-public-evidence"},
+        "digest": {"const": "sha256:d0fcc851c23233c645895a2fe862128ff576676da10d00c409165707ab0b482a"}
+      }
+    },
+    "statementBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "subject_digest", "stage", "action", "actor_id", "role",
+        "key_id", "authority_mode", "issued_at", "expires_at", "nonce",
+        "role_snapshot_digest", "revocation_snapshot_digest", "signature_ed25519_hex"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "subject_digest": {"$ref": "#/$defs/digest"},
+        "stage": {"type": "string"},
+        "action": {"type": "string"},
+        "actor_id": {"const": "github:michaellady"},
+        "role": {"type": "string"},
+        "key_id": {"const": "java-websocket-us001-owner-ed25519-2026-08-24"},
+        "authority_mode": {"const": "single-owner"},
+        "issued_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "nonce": {"$ref": "#/$defs/nonce"},
+        "role_snapshot_digest": {"$ref": "#/$defs/digest"},
+        "revocation_snapshot_digest": {"$ref": "#/$defs/digest"},
+        "signature_ed25519_hex": {"$ref": "#/$defs/signature"}
+      }
+    },
+    "qualificationStatement": {
+      "allOf": [
+        {"$ref": "#/$defs/statementBase"},
+        {
+          "properties": {
+            "stage": {"const": "qualification"},
+            "action": {"const": "authorize-controlled-canary"},
+            "role": {"const": "port-implementer"}
+          }
+        }
+      ]
+    },
+    "promotionStatement": {
+      "allOf": [
+        {"$ref": "#/$defs/statementBase"},
+        {
+          "properties": {
+            "stage": {"const": "owner-promotion"},
+            "action": {"const": "promote-controlled-canary-executable"},
+            "role": {"const": "release-attestor"}
+          }
+        }
+      ]
+    }
+  }
+}

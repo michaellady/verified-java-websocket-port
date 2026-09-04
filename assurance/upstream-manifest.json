@@ -1,0 +1,146 @@
+{
+  "accepted_snapshot_root": "sha256:3362b2e93e78dd10a739af3f474286a60a4ae487e93d1b24c91a029e5faeb14b",
+  "accepted_public_root": "sha256:7868eb6731d3703ff1cf5048b7e9c353444dd1ee5a41faff439862e274c4f487",
+  "entries": [
+    {
+      "source_path": "go.mod",
+      "target_path": "third_party/verified-java-to-rust-foundation/go.mod",
+      "sha256": "sha256:f2f360abf946bd2dbed13f01f4813759f9d3daf54beb40b4afaf4302a6981e63"
+    },
+    {
+      "source_path": "go.sum",
+      "target_path": "third_party/verified-java-to-rust-foundation/go.sum",
+      "sha256": "sha256:190d9eb7b0bf958a72cdfa38e70887ba644442b0389537f21fcf5eff3daf325f"
+    },
+    {
+      "source_path": "foundation/evidence.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/foundation/evidence.go",
+      "sha256": "sha256:5d3b66f7867199d9645007109a86590dbff8462f1718e0604624a5a7eee2ffe7"
+    },
+    {
+      "source_path": "foundation/evidence_schema.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/foundation/evidence_schema.go",
+      "sha256": "sha256:394b1f1047157cebf18d5115e4694c7a0928248847a722365c51ed43d236f92d"
+    },
+    {
+      "source_path": "foundation/validate.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/foundation/validate.go",
+      "sha256": "sha256:26733314351bb967e3dd3b7c84d34b208234c1dcbb67b68c68ba4a32fd3302a6"
+    },
+    {
+      "source_path": "protocol/canonical.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/protocol/canonical.go",
+      "sha256": "sha256:9deead477c7e58b3af00045cdb6e1e3aec98ca09226a49fe54f2c855b3616d49"
+    },
+    {
+      "source_path": "protocol/gateway.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/protocol/gateway.go",
+      "sha256": "sha256:3b69a055ce647808531e497978be37ec1251b10be1f3550c4cfdc10c00ef0ca1"
+    },
+    {
+      "source_path": "protocol/policy.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/protocol/policy.go",
+      "sha256": "sha256:908a0c721ad72fbc8f4995520648735635b45caa7686d5c36281a56a213b50e4"
+    },
+    {
+      "source_path": "protocol/promotion.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/protocol/promotion.go",
+      "sha256": "sha256:a9a23b78eeff1bfc257f858c6d0445d666eca2673d62ca699e230687117ccb73"
+    },
+    {
+      "source_path": "protocol/runner.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/protocol/runner.go",
+      "sha256": "sha256:b84d65160bec7968d369d36d8cd6494252fbaca18f29e20610333110b9469bc0"
+    },
+    {
+      "source_path": "protocol/types.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/protocol/types.go",
+      "sha256": "sha256:af5d4d3306ffe966d4bc5986070abc7018c55712067aed9ab48f20aeca3767bc"
+    },
+    {
+      "source_path": "validators/reference.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/validators/reference.go",
+      "sha256": "sha256:bb6697319cd9eea23ad474680d25ff5ef0e182188d353eee4ab05afd8e4d9b43"
+    },
+    {
+      "source_path": "validators/independent.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/validators/independent.go",
+      "sha256": "sha256:4f4cc4c95773ff8b6657c3bf553ec40ce45853b15bf9ea318bb8f6ae0b06c405"
+    },
+    {
+      "source_path": "validators/foundation_adapter.go",
+      "target_path": "third_party/verified-java-to-rust-foundation/validators/foundation_adapter.go",
+      "sha256": "sha256:5ceeb0d6e556efe2bfba927d677943eaf9f89a8fba0c04e4823465e3a5d76a56"
+    },
+    {
+      "source_path": "protocol/schemas/checkpoint-1.0.0.schema.json",
+      "target_path": "third_party/verified-java-to-rust-foundation/protocol/schemas/checkpoint-1.0.0.schema.json",
+      "sha256": "sha256:458c47c0e42ca440400a3638aa6f81b5056724b13add2cdbeb1248fbbb994d2b"
+    },
+    {
+      "source_path": "protocol/schemas/protocol-bundle-1.0.0.schema.json",
+      "target_path": "third_party/verified-java-to-rust-foundation/protocol/schemas/protocol-bundle-1.0.0.schema.json",
+      "sha256": "sha256:fd5b1be0266d7b4f922d39e74878a410b9bd69de9449d4cd083eb4af2751f40a"
+    },
+    {
+      "source_path": "schemas/evidence-model-1.0.0.schema.json",
+      "target_path": "assurance/schema/evidence-model-1.0.0.schema.json",
+      "sha256": "sha256:0e6c2a25c1bd3dd1d26818e6487baee7e5b4d5e58d411deddae40a1f01dcd5e0"
+    },
+    {
+      "source_path": "schemas/evidence-model-1.1.0.schema.json",
+      "target_path": "assurance/schema/evidence-model-1.1.0.schema.json",
+      "sha256": "sha256:6eb952861989ec129c364f1fd2d320fcc6b8db4823f3d9a73e85b69db92fd134"
+    },
+    {
+      "source_path": "schemas/evolution-1.1.0.schema.json",
+      "target_path": "assurance/schema/evolution-1.1.0.schema.json",
+      "sha256": "sha256:70896b77c1c3c20f6b697998db848927a27df196852c04ec590ee8a07d96159c"
+    },
+    {
+      "source_path": "schemas/developer-tool-run.schema.json",
+      "target_path": "assurance/schema/developer-tool-run.schema.json",
+      "sha256": "sha256:a77b5d1bd2101c837fcef044178441d29932065fe9b794dff8f62fd4b3cd26ac"
+    },
+    {
+      "source_path": "schemas/java-intake.schema.json",
+      "target_path": "assurance/schema/java-intake.schema.json",
+      "sha256": "sha256:cb9031a0b709ea11f4f3b5001bf06fe4cda99972e1418f528f8f7733e5dbf2af"
+    },
+    {
+      "source_path": "schemas/compatibility-surface.schema.json",
+      "target_path": "assurance/schema/compatibility-surface.schema.json",
+      "sha256": "sha256:5407e7330e4368d35c9792d9334256e237c3e559733f410b599e02665fba2e90"
+    },
+    {
+      "source_path": "schemas/cutover-contract.schema.json",
+      "target_path": "assurance/schema/cutover-contract.schema.json",
+      "sha256": "sha256:6a8a65a7efd83917a88c354e8f9bb96cb7e27a8a601600720b5fbeaa2e8d2176"
+    },
+    {
+      "source_path": "schemas/port-seam-dossier.schema.json",
+      "target_path": "assurance/schema/port-seam-dossier.schema.json",
+      "sha256": "sha256:41ebe1939fbcdfc544495f0f40ae30b0773b12825117fd2e9a365585c25ff0d1"
+    },
+    {
+      "source_path": "schemas/behavior-delta-ledger.schema.json",
+      "target_path": "assurance/schema/behavior-delta-ledger.schema.json",
+      "sha256": "sha256:06303bd6d2ac8c316dc065fbe35bcc13f50a4eb57fd0a8a83f09547f7091e0cc"
+    },
+    {
+      "source_path": "schemas/language-intelligence-profile.schema.json",
+      "target_path": "assurance/schema/language-intelligence-profile.schema.json",
+      "sha256": "sha256:41b2b0848155a21abd5dce21e4958ee135e5086efd91fd6e42f379459fe90741"
+    },
+    {
+      "source_path": "schemas/profile-switching.schema.json",
+      "target_path": "assurance/schema/profile-switching.schema.json",
+      "sha256": "sha256:5d176e257e036ca41e85cd801d1c41d0c6f4c72e2f7e6b9ec770267d19ab18f7"
+    },
+    {
+      "source_path": "schemas/navigation-corpus.schema.json",
+      "target_path": "assurance/schema/navigation-corpus.schema.json",
+      "sha256": "sha256:68c0e6be3ce62e4b0c8ad2362ab12e31beaa12b9e5b7236db344554f5ce20446"
+    }
+  ]
+}

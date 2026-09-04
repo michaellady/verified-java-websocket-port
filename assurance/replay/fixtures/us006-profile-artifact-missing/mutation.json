@@ -1,0 +1,12 @@
+{
+  "operations": [
+    {
+      "kind": "include",
+      "path": "assurance/replay/fixtures/us006-base/mutation.json"
+    },
+    {
+      "kind": "remove_file",
+      "target": "security/sandbox-policy.json"
+    }
+  ]
+}

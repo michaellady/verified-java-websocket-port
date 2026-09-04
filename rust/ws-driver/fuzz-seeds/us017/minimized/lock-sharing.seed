@@ -1,0 +1,7 @@
+id=minimized-lock-sharing
+property=single-owner
+mutation=mutate-protocol-through-producer
+event_queue_capacity=8
+schedule=enqueue-text-a
+counterexample=producer-protocol-mutation-visible
+found_index=0
