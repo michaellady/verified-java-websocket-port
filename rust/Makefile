@@ -175,7 +175,15 @@ ac1-gates:
 # committed digest mirror at evidence/governance/owner-decision-digests.json
 # against the workspace orchestrator's protected store, under the owner ruling
 # governance-mirroring-and-record-schema-owner-decision-2026-08-28.json (MIRROR
-# DIGESTS ONLY). Deleting or editing a governance record fails this target.
+# DIGESTS ONLY). Deleting or editing a MIRRORED governance record fails this
+# target. That is 7 of the 63 records in the store, and the other 56 were
+# measured on 2026-09-04: deleting one is exit 0, with this target still
+# reporting "7 governance record digest(s) recomputed ... and matched" --
+# true, and true of 7. The sentence here used to read "a governance record"
+# unqualified, which claimed the other 56 as well. Widening the mirror is an
+# owner decision (OA-governance-mirror-coverage), because the mirror is
+# DERIVED from the ledger's own digest citations, so widening it moves a
+# declared count and re-opens a disclosure question the owner already ruled.
 # An UNREACHABLE store is also a failure rather than a skip — skipping when
 # VJWP_PROTECTED_STORE was unset is exactly how deleting a load-bearing owner
 # decision used to leave this branch green. The store is discovered above the

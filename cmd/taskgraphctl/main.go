@@ -85,8 +85,19 @@ const CeilingText = "This gate checks the plan's INTERNAL consistency and that e
 	"broken here by perturbing that value. Rule 6 refuses evidence that CANNOT " +
 	"fail; it cannot refuse evidence that is merely weak. It does not discover " +
 	"work: a task nobody wrote down is invisible here, so the graph is a floor " +
-	"on what remains, never a total -- and nothing counts the nodes against " +
-	"anything, so deleting one is silent. And `command` evidence is recorded " +
+	"on what remains, never a total. Deleting a node is no longer silent -- rule 12 " +
+	"re-derives every id this plan ever COMMITTED from its own git history and " +
+	"refuses a disappearance no `retired` entry explains -- but that binds only ids " +
+	"git has seen. A node added and removed without ever being committed leaves no " +
+	"trace; during an uncommitted merge the incoming branch is not yet in HEAD's " +
+	"ancestry, so a node dropped in a merge resolution is caught on the next run " +
+	"rather than this one; a rewritten history erases the evidence along with the " +
+	"node; and a checkout whose shallow graft cuts off the plan's origin is REFUSED " +
+	"rather than guessed at, so CI running this gate needs fetch-depth 0. The " +
+	"`retired` escape is checked for staleness, fiction and a resolvable successor, " +
+	"but its `reason` is prose no program can verify: retiring a node with a " +
+	"plausible sentence is a bypass this gate cannot close, only make visible in " +
+	"the diff. And `command` evidence is recorded " +
 	"but never verified, deliberately, so it cannot masquerade as a checked " +
 	"claim."
 
@@ -124,6 +135,7 @@ type Graph struct {
 	Ceiling       string        `json:"ceiling"`
 	OwnerActions  []OwnerAction `json:"owner_actions"`
 	Nodes         []Node        `json:"nodes"`
+	Retired       []Retirement  `json:"retired,omitempty"`
 }
 
 const (
@@ -359,12 +371,14 @@ func Verify(root string, g *Graph) []Finding {
 	}
 
 	findings = append(findings, detectCycles(g, nodeByID)...)
+	findings = append(findings, checkHistory(root)...)
 	sort.SliceStable(findings, func(i, j int) bool {
 		if findings[i].Subject != findings[j].Subject {
 			return findings[i].Subject < findings[j].Subject
 		}
 		return findings[i].Code < findings[j].Code
 	})
+
 	return findings
 }
 

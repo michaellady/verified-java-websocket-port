@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "statement": "The work plan, as data with a gate, replacing the prose board's 'read it and pick one bounded unit'. Every done node cites evidence this gate RE-DERIVES on each run; a done node whose only evidence is a command nobody runs is UNVERIFIABLE_DONE and fails. Readiness and blockage are recomputed, never read: a node cannot be ready while a dependency is unfinished or an owner action it names is open, and it cannot stay blocked once every owner action it names is ruled. That last rule exists because a ruling arrives from OUTSIDE this file and nothing here would otherwise notice.",
-  "ceiling": "This gate checks the plan's INTERNAL consistency and that each done node's cited evidence still holds. It does NOT check that the evidence is SUFFICIENT for the claim -- a node may cite a weak-but-true fact and pass -- and that gap was MEASURED rather than assumed. Of the 13 done nodes at the time of the measurement, 5 stayed at exit 0 with the IMPLEMENTATION of the work they name destroyed, two of them with the scanner's source files deleted outright, because `path_exists` establishes only that the named file exists and a `grep` for an identifier is satisfied by any dead mention of it; a 6th stayed at exit 0 with a 1453-line detector replaced by a three-line comment carrying the identifier its grep looks for; the other 7 cite a value the work itself produced, and 6 of those 7 were broken here by perturbing that value. Rule 6 refuses evidence that CANNOT fail; it cannot refuse evidence that is merely weak. It does not discover work: a task nobody wrote down is invisible here, so the graph is a floor on what remains, never a total -- and nothing counts the nodes against anything, so deleting one is silent. And `command` evidence is recorded but never verified, deliberately, so it cannot masquerade as a checked claim.",
+  "ceiling": "This gate checks the plan's INTERNAL consistency and that each done node's cited evidence still holds. It does NOT check that the evidence is SUFFICIENT for the claim -- a node may cite a weak-but-true fact and pass -- and that gap was MEASURED rather than assumed. Of the 13 done nodes at the time of the measurement, 5 stayed at exit 0 with the IMPLEMENTATION of the work they name destroyed, two of them with the scanner's source files deleted outright, because `path_exists` establishes only that the named file exists and a `grep` for an identifier is satisfied by any dead mention of it; a 6th stayed at exit 0 with a 1453-line detector replaced by a three-line comment carrying the identifier its grep looks for; the other 7 cite a value the work itself produced, and 6 of those 7 were broken here by perturbing that value. Rule 6 refuses evidence that CANNOT fail; it cannot refuse evidence that is merely weak. It does not discover work: a task nobody wrote down is invisible here, so the graph is a floor on what remains, never a total. Deleting a node is no longer silent -- rule 12 re-derives every id this plan ever COMMITTED from its own git history and refuses a disappearance no `retired` entry explains -- but that binds only ids git has seen. A node added and removed without ever being committed leaves no trace; during an uncommitted merge the incoming branch is not yet in HEAD's ancestry, so a node dropped in a merge resolution is caught on the next run rather than this one; a rewritten history erases the evidence along with the node; and a checkout whose shallow graft cuts off the plan's origin is REFUSED rather than guessed at, so CI running this gate needs fetch-depth 0. The `retired` escape is checked for staleness, fiction and a resolvable successor, but its `reason` is prose no program can verify: retiring a node with a plausible sentence is a bypass this gate cannot close, only make visible in the diff. And `command` evidence is recorded but never verified, deliberately, so it cannot masquerade as a checked claim.",
   "owner_actions": [
     {
       "id": "OA-F010-AC2-banner",
@@ -96,6 +96,12 @@
       "state": "open",
       "what_is_needed": "Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
       "why_it_blocks": "Widening moves rows onto the formal denominator's declared basis, which is already DENOMINATOR, HARD STOP. It belongs with the plane-correspondence decision the three existing hard-stop allowances wait on, and should be decided together with it."
+    },
+    {
+      "id": "OA-governance-mirror-coverage",
+      "state": "open",
+      "what_is_needed": "Decide whether evidence/governance/owner-decision-digests.json should mirror more than the 7 records it covers today. The store holds 63. I measured the gap rather than inferring it: deleting evidence/governance/decisions/us007-attempt-0101-owner-authorization.json (uncovered) leaves `deltaledgerctl --check` at exit 0, still printing \"7 governance record digest(s) recomputed from the protected store and matched\" -- true, and true of 7. The current 7 are DERIVED, not chosen: the mirror's own statement says an entry is admitted when a ledger record cites that record's sha256, so a record nothing cites is deliberately absent. Widening it to all 63 replaces that derivation with an enumeration, moves a declared count, and re-opens the disclosure question settled by governance-publish-records-owner-decision-2026-08-29.json. Three options: leave it derived and keep the narrow claim; widen to all 63 and drop the citation derivation; or add a second, weaker arm that fails on the DELETION of any store record (a count and a name list) while leaving digest coverage derived.",
+      "why_it_blocks": "It is a denominator and a disclosure question at once, which is exactly the pair this project stops at. The rust/Makefile comment that claimed all 63 has been corrected to say 7 in the meantime, so nothing currently overclaims -- but the 56 uncovered records are unprotected against deletion and a reader should not have to measure that themselves."
     }
   ],
   "nodes": [
@@ -631,13 +637,38 @@
     {
       "id": "T-plan-guard-attacked",
       "title": "Adversarially attack plan-guard, which is new and unattacked",
-      "state": "in-progress",
+      "state": "done",
       "depends_on": [
         "T-task-graph"
       ],
       "blocked_by": [],
-      "evidence": [],
-      "note": "The adversarial round defeated all three gates it touched, each with the same flaw: checking that a DECLARATION was well formed rather than that its CLAIM was still true. plan-guard was built on the opposite principle and caught a real regression on its first run, but that is not evidence it is sound. Its own stated ceiling already admits it checks that evidence HOLDS, not that it is SUFFICIENT -- the attack should measure how bad that is rather than restate it."
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/gate-attack-round-2.md"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "EMPTY_PLAN"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "VACUOUS_EVIDENCE"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/fixtureguardctl/regions.go",
+          "pattern": "cfg\\(test\\)"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust gates",
+          "note": "round 2: plan-guard defeated 15 ways, fixture-guard 4; all 19 closed"
+        }
+      ],
+      "note": "The adversarial round defeated all three gates it touched, each with the same flaw: checking that a DECLARATION was well formed rather than that its CLAIM was still true. plan-guard was built on the opposite principle and caught a real regression on its first run, but that is not evidence it is sound. Its own stated ceiling already admits it checks that evidence HOLDS, not that it is SUFFICIENT -- the attack should measure how bad that is rather than restate it. | CLOSED: 15 plan-guard bypasses and 4 fixture-guard bypasses found and closed. I re-ran 7 of the plan-guard bypasses independently against the merged gate -- empty plan, path_exists \"\" and \".\", empty grep pattern, grep_absent without (?m), git_not_tracked \"\", and a path outside the tree -- all 7 REFUSED, control PASS. Two HARD STOPs were reported rather than fixed and are now owner actions."
     },
     {
       "id": "T-pin-path-corpus",
@@ -652,6 +683,72 @@
       ],
       "evidence": [],
       "note": "Measured both widenings rather than guessing: +662 path-shaped, +26 git-ever-tracked. Deliberately not fixed."
+    },
+    {
+      "id": "T-plan-node-deletion",
+      "title": "A plan that can be emptied of its obligations: bind node ids to the plan's own history",
+      "state": "done",
+      "depends_on": [
+        "T-plan-guard-attacked"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "cmd/taskgraphctl/history.go"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "cmd/taskgraphctl/history_test.go"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/history.go",
+          "pattern": "NODE_DISAPPEARED"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/history.go",
+          "pattern": "shallowBoundary"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/gosuitectl/main.go",
+          "pattern": "the pinned JDK is not on PATH"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/gosuitectl/main_test.go",
+          "pattern": "TestTheJavacRefusalNamesTheVersionAndNotTheProxyBanner"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "checkHistory\\(root\\)"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "nothing counts the nodes against"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./cmd/taskgraphctl/",
+          "note": "deleting all 11 blocked nodes was `nodes=20 result=PASS` before; now 11 NODE_DISAPPEARED findings at exit 1"
+        }
+      ],
+      "note": "Round 2 reported that nothing counts plan nodes. Measured here it was worse: deleting all 15 done nodes gave `nodes=16 done=0 result=PASS` with the detail still reading 'every done node's evidence re-derived', vacuously true of an empty set. Intent has no independent source in the tree -- the plan IS the record of intent -- but it has a HISTORY, so rule 12 re-derives every id ever committed from git and refuses an unexplained disappearance. The `retired` escape is checked for staleness, fiction, an unknown kind and a dangling successor. First implementation was FAIL-OPEN and its own test caught it: git presents a shallow graft point as a root commit, so `--diff-filter=A` reported the plan as freshly added and a depth-1 clone hiding a deletion passed; it now consults the graft points directly and refuses a truncated history. Also, met by walking into it: go-suite let a missing pinned JDK on PATH surface as a red internal/portplan (JAVAC_UNAVAILABLE, javac 21.0.10 vs pinned 17.0.19) rather than refusing, while its two sibling preconditions -- VJWP_PROTECTED_STORE and an unstaged .quarantine/ -- both refuse by name. Measured both ways on unmodified code: off PATH it fails in 0.2s, on PATH the same two tests pass in 6.9s. It refuses now, naming the export."
+    },
+    {
+      "id": "T-governance-mirror-coverage",
+      "title": "The governance mirror protects 7 of 63 store records",
+      "state": "blocked",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-governance-mirror-coverage"
+      ],
+      "evidence": [],
+      "note": "Found by the round-2 attack, measured independently here. The Makefile's unqualified claim that \"Deleting or editing a governance record fails this target\" was corrected to name the 7; the coverage question itself is the owner's."
     }
   ]
 }
