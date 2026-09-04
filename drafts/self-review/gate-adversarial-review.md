@@ -494,7 +494,28 @@ cmd/pinconsumerctl rust/Makefile` is EMPTY, so none of the three gates or the
 chain changed under me and no finding here is stale. The four new commits add
 findings and documents only.
 
-## 7. Files changed
+## 7. The chain, on the final tree
+
+`make -C rust gates` exit **0**, read from the process (an exit file written by the
+detached run, not a log line). No `result=FAIL`, no `*** Error`, no `FAIL` in 300
+lines of output. The three gates under review reported:
+
+```
+gate=record-content-precondition step=census records=55 unfinished=0 superseded=1 finished=54
+gate=record-content-precondition result=PASS
+gate=pin-dangling json_artifacts=1996 unparsable=0 candidates=0 explained=51 covered=23 allowed=11
+gate=pin-dangling result=PASS detail="no undeclared drift; 11 acknowledged finding(s) each naming an owner action"
+gate=go-suite packages=61 run=59 excluded=2 with_tests=44 no_test_files=15 unbuilt_test_files=5
+gate=go-suite result=PASS detail="59 package(s) run of which 44 carry a test file, 2 excluded by
+  name with a reason that was RUN and still fails, 5 test file(s) not compiled by this run"
+```
+
+The pin census is identical to its pre-review value on every field, which is the
+check that no fix moved a denominator. The go-suite line is the one that changed:
+the same `packages=61 run=59 excluded=2` it always printed, now followed by the
+three numbers that say what those 59 do not cover.
+
+## 8. Files changed
 
 - `cmd/recordguardctl/scan.go` — paragraph-scoped masking of closed spans only;
   status value read from the raw line.
