@@ -105,10 +105,23 @@ wreck the whole cross.** `internal/deltaledger/definitions.go:24-29` says why:
 the frozen 1.0.0 vocabulary admits only `unresolved` and `rfc-governs`, so
 *"records therefore carry disposition `unresolved` — the divergence is
 deliberately retained under the owner's JAVA_FAITHFUL_PLUS_SAFE decision, not
-resolved toward the RFC."* Sequences 1–49 are therefore all **adopted-from-Java
-behaviours that shipped**. F010's own subject, sequence 55, is `unresolved` while
-its fix is on mainline. So the correct denominator for step 3 is **all 58
-records**, not the 6 with a modern disposition.
+resolved toward the RFC."* Sequences 1–49 are therefore all **deliberately
+retained divergences that shipped**, not open questions. F010's own subject,
+sequence 55, is `unresolved` while its fix is on mainline. So the correct
+denominator for step 3 is **all 58 records**, not the 6 with a modern
+disposition.
+
+**But "retained" is not the same as "adopted from Java", and I first wrote it as
+if it were.** Sequences 14–16, 24 and 45–47 run the OTHER way: they are
+port-side strengthenings where the port is stricter than Java, and sequence 14
+says so in as many words — *"ws_core retains CONFIGURED handshake budgets as a
+hard safety ceiling (JAVA_FAITHFUL_PLUS_SAFE: **Java's unbounded growth is NOT
+emulated**)"*. Those are the amendment's *"Safety-critical bounds are NOT
+relaxed"* carve-out and US-009 AC3 being satisfied, and they are **outside this
+defect class by direction**: the class needs a criterion violated by FOLLOWING
+Java, and these follow the criterion by departing from Java. Roughly seven of
+the forty-nine are of that kind; the remainder are the adoptions the cross in
+§3 is about.
 
 Cross-checked against the DIV series in `internal/divergencesweep/classes.go`:
 DIV-01→seq 51, DIV-02→seq 52, DIV-03→seq 53, DIV-04→seq 34, DIV-05→seq 54,
