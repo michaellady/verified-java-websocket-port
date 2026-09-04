@@ -602,17 +602,114 @@
     },
     {
       "id": "T-us019-survivors-open",
-      "title": "Close the survivor-sweep residue that remains open",
-      "state": "ready",
+      "title": "Sweep the three site classes the 70-site survivor floor declared unswept",
+      "state": "done",
       "depends_on": [],
       "blocked_by": [],
       "evidence": [
         {
+          "kind": "path_exists",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "note": "the round record: three derived populations, per-site results, both denominators, every survivor's disposition, and the new ceiling"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "\\| \\*\\*sites enumerated\\*\\* \\| \\*\\*110\\*\\* \\| \\*\\*180\\*\\* \\|",
+          "note": "both site denominators printed side by side: round 4's 110 and this round's 180"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "\\| \\*\\*survivors at baseline \\(the FLOOR\\)\\*\\* \\| \\*\\*70\\*\\* \\| \\*\\*106\\*\\* \\|",
+          "note": "both survivor floors side by side: round 4's 70 and this round's 106; the new one is a strictly larger sweep, not a correction"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "internal/autobahnsuite/residue_closure_test.go",
+          "note": "30 Go probes that close 15 switch-arm and 31 conjunct survivors"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/autobahn-controls/tests/cli_residue.rs",
+          "note": "15 probes for cli.rs, which had no test at all before this branch"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/autobahn-controls/tests/inert_residue.rs",
+          "note": "4 probes for the negative control's drain loop"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/ws-testee/tests/agent_residue.rs",
+          "note": "6 probes for valid_agent_name's conjuncts and the agent entry-point guards"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/autobahnsuite/residue_closure_test.go",
+          "pattern": "func TestEveryDiscriminateSubjectArmIssuesItsOwnVerdict",
+          "note": "the probe for reconcile.go:377 -- disabling that arm made the literal AC3 verdict for the real port come back 'unknown subject' with nothing noticing"
+        },
+        {
+          "kind": "grep",
+          "path": "rust/autobahn-controls/tests/cli_residue.rs",
+          "pattern": "fn a_control_invoked_with_no_subcommand_reports_a_usage_error",
+          "note": "the first test cli.rs ever had"
+        },
+        {
           "kind": "command",
-          "cmd": "go test -timeout 40m ./internal/autobahnsuite/"
+          "cmd": "go test -timeout 40m ./internal/autobahnsuite/ ./cmd/autobahnsuitectl/ && (cd rust && cargo test -p autobahn-controls -p ws-testee)",
+          "note": "recorded, never verified by this gate"
         }
       ],
-      "note": "64 of 70 closed, 6 proved unreachable. 70 is a FLOOR: switch arms, all Rust-side checks, and conjuncts inside composite booleans were never swept."
+      "note": "SWEPT, and the residue it found is NOT all closed -- see T-us019-residue-open and T-us019-residue-live-suite. 180 new sites (29 switch arms, 84 Rust checks, 67 Go conjuncts), 7 of which admit no compiling mutant; 173 scored. Baseline 106 survivors: 75 closed by a named probe, 15 proved unreachable, 16 still open. Round 4's 110 sites / 70 survivors are a SEPARATE population and are never added to these. HARD STOP REPORTED, NOT RESOLVED: a go/ast enumeration of round 4's own four files finds 111 if-conditions, not 110; round 4's enumerator is gitignored and cannot be re-derived.",
+      "story": "US-019"
+    },
+    {
+      "id": "T-us019-residue-open",
+      "title": "Close the 10 Class-B survivors that need no owner gate",
+      "state": "ready",
+      "story": "US-019",
+      "depends_on": [
+        "T-us019-survivors-open"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "### 6.2 OPEN, no owner gate — 10 sites, each with the probe it needs",
+          "note": "the ten sites and the probe each one needs, named individually"
+        },
+        {
+          "kind": "grep",
+          "path": "rust/ws-testee/tests/process.rs",
+          "pattern": "Command",
+          "note": "the subprocess-probe shape four of the ten need already exists in this repository"
+        }
+      ],
+      "note": "cli.rs:57/66/110/195 need a subprocess probe that reads the control's stdout (rust/ws-testee/tests/process.rs already runs a built binary); mutant.rs:287/323 and agent.rs:204 need a report-equality assertion against a peer that never opens; mutant.rs:318 and agent.rs:199 need a handshake-start failure; inert.rs:130 needs a peer that forces ECONNRESET. None of these needs an owner action."
+    },
+    {
+      "id": "T-us019-residue-live-suite",
+      "title": "Close the 6 Class-B survivors past /getCaseCount",
+      "state": "blocked",
+      "story": "US-019",
+      "depends_on": [
+        "T-us019-survivors-open"
+      ],
+      "blocked_by": [
+        "OA-autobahn-reruns"
+      ],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "### 6.3 OPEN, blocked on a live suite — 6 sites",
+          "note": "cli.rs:237, 250, 259 and 276 with both its conjuncts"
+        }
+      ],
+      "note": "These sit past step 1 of the mutant client pipeline: reached only after a peer answers /getCaseCount with a usable count over a completed handshake. Route 1 is a live wstest run, which is OA-autobahn-reruns and an OWNER GATE the loop must not trigger. Route 2 needs NO owner action: a hand-built fake suite in the test (a ws_driver server with an EventPolicy that answers /getCaseCount with a text frame). It was not built this round."
     },
     {
       "id": "T-drive-until-open",
