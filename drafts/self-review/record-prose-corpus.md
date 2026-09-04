@@ -437,6 +437,43 @@ allowance is marked `DENOMINATOR, HARD STOP`, on the same shape
 sweep survives 59 records is a re-reading, and re-reading it is not this branch's
 work.
 
+### TP-5 — a gate's own census, recited stale inside the gate that prints it
+
+Found while checking my own §8 claim, reported, and **not fixed here**.
+
+`cmd/gosuitectl/main.go:160-163` says:
+
+> 15 of the run packages carry no test file at all, so `run=` was never a
+> coverage number; it is now printed beside `with_tests=`. **Measured on
+> 2026-09-04**, after `internal/portplan` was fixed and left the exclusion list:
+> `packages=61 run=60 excluded=1 with_tests=45 no_test_files=15
+> unbuilt_test_files=5`.
+
+The gates run below printed:
+
+```
+gate=go-suite packages=62 run=61 excluded=1 with_tests=46 no_test_files=15 unbuilt_test_files=5
+```
+
+Three of the six numbers have moved. **It is not this branch that moved them**,
+and that was checked rather than assumed: `git diff --name-status 6986e95 HEAD --
+'*.go'` adds two files to an existing package and no package directory, and the
+set of directories holding `.go` files is byte-identical between the base and
+this head. `packages=62` was already true at `6986e95`. The comment was stale
+before this work started.
+
+**This is a measurement denominator and it is REPORTED, not absorbed.** Editing
+another gate's recorded measurement to match today's tree is the move this
+project forbids, whatever the merits, and it is not mine to make on this branch.
+Owner action **OA-gosuite-census-prose**.
+
+It is also the sharpest thing this branch found about its own scope. The defect
+is *exactly* the one the whole mechanism exists for — a census recited in prose,
+drifted, with nothing re-deriving it — and it is sitting **inside the gate that
+prints the census**, four lines above the code that computes it. My corpus is
+`.md` under two trees plus six `statement` fields, so **a Go doc comment is out
+of it by construction** and `record-prose` cannot see this. §7 names that.
+
 ### TP-4 — a census recited as a present-tense measurement, in six records
 
 Found, reported, and deliberately **NOT bound**. `drafts/self-review/` has grown
@@ -528,7 +565,14 @@ and here is what they are rather than a shrug:
    (§1). A stale present-tense claim written inside a code fence is invisible to
    this gate.
 6. **TP-4's class is unbound by decision**, §5.
-7. **This binds prose to documents, not prose to truth.** A record can state
+7. **Prose in CODE is entirely outside the corpus.** The corpus is `.md` under
+   `drafts/self-review/` and `evidence/`, plus `statement` fields. A measured
+   census recited in a Go doc comment is invisible to this gate — and TP-5 is a
+   live instance of exactly the bound defect, inside `cmd/gosuitectl` itself.
+   Widening the corpus to doc comments is a real option and is not taken here,
+   because it would change this gate's own denominator in the same change that
+   introduced it.
+8. **This binds prose to documents, not prose to truth.** A record can state
    something false about the world in a sentence that cites nothing, and nothing
    here reaches it. `recordbounds`'s ceiling was "one record"; this one's is "the
    claims whose subject is a committed file this gate can count".
@@ -563,6 +607,44 @@ directory, and it is certainly not a thing to absorb by editing the quoted
 numbers to match. Verified: `go list ./...` reports the same package set before
 and after this branch.
 
+### The chain, read from the process
+
+Three runs. The exit code is written by the script to its own log as
+`GATES_EXIT=$?`, not inferred from the absence of complaints.
+
+| run | tree | reading |
+| --- | --- | --- |
+| 1 | the first commit | **exit 2** — `go-suite` FAIL, `cmd/securityctl` |
+| 2 | + two prose corrections | **exit 2** — `go-suite` FAIL, `internal/assurance` ×3 |
+| 3 | + the mirror fix | **exit 0** — every step, no failure marker anywhere |
+
+Runs 1 and 2 were the mirror defect above, and both are recorded rather than
+dropped: two red runs blaming two innocent packages is the whole evidence that
+the defect was real and that neither reading was contention.
+
+Run 3, the verdict lines:
+
+```
+gate=fixture-liveness-guard        result=PASS
+gate=record-content-precondition   result=PASS
+gate=record-prose                  result=PASS
+gate=pin-dangling                  result=PASS  (no undeclared drift; 15 acknowledged findings)
+gate=task-graph                    result=PASS
+gate=go-suite                      result=PASS  (packages=62 run=61 excluded=1 with_tests=46)
+GATES_EXIT=0
+```
+
+Both exports were set, and the second is not optional:
+`VJWP_PROTECTED_STORE=$PWD/evidence/governance/decisions` — without it the ledger
+gate REFUSES by design, and a refusal is not a pass — and the pinned JDK on
+`PATH`, without which `internal/portplan` fails `JAVAC_UNAVAILABLE` against this
+container's default `javac 21.0.10`, which reads like a broken pin and is not
+one. `javac 17.0.19` is echoed at the head of the log so the run can be told
+apart from one taken without it.
+
+**The go-suite line is TP-5**: `packages=62 run=61 … with_tests=46` against a
+comment recording 61/60/45. Reported above, not absorbed.
+
 ## 9. Owner actions, none taken
 
 1. **OA-governance-statement.** `evidence/governance/owner-decision-digests.json`
@@ -579,7 +661,12 @@ and after this branch.
 3. **TP-1 and TP-3 are corrections by supersession**, and the superseding
    documents are the owner's or their authors' to write. This branch declares them
    and re-checks the declarations; it does not rewrite anyone's measurement.
-4. **No AWS, benchmark or Autobahn run.** Owner gates, never triggered.
+4. **OA-gosuite-census-prose.** `cmd/gosuitectl/main.go` records a dated
+   measurement — `packages=61 run=60 excluded=1 with_tests=45` — that the gate
+   now prints as `packages=62 run=61 excluded=1 with_tests=46`. Not moved by this
+   branch, and REPORTED rather than re-baselined here. Node
+   `T-gosuite-census-prose` is blocked on it.
+5. **No AWS, benchmark or Autobahn run.** Owner gates, never triggered.
 
 ## 10. What I did not do
 

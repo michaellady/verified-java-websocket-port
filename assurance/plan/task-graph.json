@@ -108,6 +108,12 @@
       "state": "open",
       "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Ten sentences across six records recite that census; five are inside code fences and are honest transcripts, and five are in the records' own voice, reciting 41, 41, 55, 55 and 61 against a census that reads 66.",
       "why_it_blocks": "Binding it makes every future record fail record-guard against an unrelated older record until that record is restated -- a treadmill, and a gate that punishes writing records. Whether that cost is worth paying is a judgement about how this project wants its history to read, not a measurement."
+    },
+    {
+      "id": "OA-gosuite-census-prose",
+      "state": "open",
+      "what_is_needed": "Rule on the dated measurement in cmd/gosuitectl/main.go, which records 'packages=61 run=60 excluded=1 with_tests=45 no_test_files=15 unbuilt_test_files=5' as measured on 2026-09-04. The gate now prints packages=62 run=61 excluded=1 with_tests=46. Three of six numbers have moved.",
+      "why_it_blocks": "It is a measurement denominator recited in prose. Editing another gate's recorded measurement to match today's tree is re-baselining, so it is reported and left. Checked rather than assumed: the set of directories holding .go files is identical between 6986e95 and this head, so claude/record-prose-corpus did not move it; the comment was already stale at that base."
     }
   ],
   "nodes": [
@@ -741,6 +747,19 @@
       ],
       "evidence": [],
       "note": "Reported and deliberately NOT bound. record-content-precondition.md:470 says 'The census currently reads records=41' against a census of 66. See drafts/self-review/record-prose-corpus.md TP-4."
+    },
+    {
+      "id": "T-gosuite-census-prose",
+      "title": "Restate or re-derive cmd/gosuitectl's recorded package census",
+      "state": "blocked",
+      "depends_on": [
+        "T-other-record-prose"
+      ],
+      "blocked_by": [
+        "OA-gosuite-census-prose"
+      ],
+      "evidence": [],
+      "note": "record-prose cannot reach it: the corpus is .md under drafts/self-review and evidence plus evidence-JSON statement fields, so a Go doc comment is out of scope by construction. The bound defect sitting inside the gate that prints the census is the sharpest statement of that ceiling. See drafts/self-review/record-prose-corpus.md TP-5."
     }
   ]
 }
