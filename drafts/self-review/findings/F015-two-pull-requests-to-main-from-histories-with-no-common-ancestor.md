@@ -79,3 +79,22 @@ live until #5 was opened and said so.
 Recorded. PR #5 opened for the live line, with the ancestry, the gate state, the
 measured ceilings and the six blocking owner decisions in its body. PR #1's
 disposition is an owner action, named and not taken.
+
+## Disposition, 2026-09-04
+
+The owner ruled: **close PR #1, recording what supersedes it.** Done, with the
+symbol-set comparison in the closing comment and PR #5 named as the live line.
+
+The comparison is stated there the way it was made — all 8 `sbx` paths present
+on the live line, `sbx_adapter.go` declaring all 14 of the closed branch's
+exported symbols plus 11 more, `comm -23` over the two sets empty — and it is
+symbol sets rather than byte counts on purpose. A larger file is not proof of a
+superset; it is equally consistent with a rewrite that dropped something. The
+empty set difference is the evidence, and the file sizes are not.
+
+Nothing was deleted. The ref remains and the closing comment records why the
+branch stopped being the line to work on, which is the part that would
+otherwise have to be reconstructed from two PRs pointing at an empty `main`.
+
+This closes the half of F015 that was actionable. The finding itself stands as
+the record of how two PRs came to share no ancestor.

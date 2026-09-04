@@ -604,12 +604,33 @@
     {
       "id": "T-pr1",
       "title": "PR #1: decide the superseded parallel line",
-      "state": "ready",
+      "state": "done",
       "depends_on": [],
       "blocked_by": [
         "OA-pr1-disposition"
       ],
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/findings/F015-two-pull-requests-to-main-from-histories-with-no-common-ancestor.md"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/findings/F015-two-pull-requests-to-main-from-histories-with-no-common-ancestor.md",
+          "pattern": "Disposition, 2026-09-04"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/findings/F015-two-pull-requests-to-main-from-histories-with-no-common-ancestor.md",
+          "pattern": "symbol sets rather than byte counts"
+        },
+        {
+          "kind": "command",
+          "cmd": "gh pr view 1",
+          "note": "PR #1 closed with the symbol-set comparison in its closing comment; GitHub state is outside anything plan-guard can re-derive, which is why the disposition is written into the finding instead"
+        }
+      ],
+      "note": "| CLOSED 2026-09-04 on the owner's ruling, with the symbol-set comparison in the closing comment and PR #5 named as the live line. The evidence here is the finding record, NOT the GitHub state: plan-guard cannot re-derive whether a PR is closed, so citing that would be an unverifiable claim. What it can re-derive is that the disposition was written down."
     },
     {
       "id": "T-pin-c1-c2-c9",
