@@ -67,9 +67,11 @@ make every honest history a failure, so the scan reuses `maskOtherVoices` from
 `cmd/recordguardctl/scan.go` — the same discriminator, and the same reasoning
 `supersession-is-not-unfinished.md` gives for it. Fenced and quoted lines are
 skipped; the mask decides *voice* only, and the raw line is what gets matched,
-because the mask also blanks the inline code spans the citations live in. Without
-this, the raw count is 160 count-shaped lines in fences alone, almost all of them
-true statements about the past.
+because the mask also blanks the inline code spans the citations live in. The two
+measurements: a line scan that does not distinguish voice finds **270**
+cardinality lines in the same markdown records; the gate counts **241** in the
+records' own voice. The difference is transcripts, and almost every one of them
+is a true statement about the past.
 
 **Enumerable, and why that line is drawn by the document.** A sentence is a
 candidate only when this gate could *count* the population it names, and that is
@@ -253,6 +255,63 @@ mirrored records genuinely are **not** committed, and it returns TRUE; the same
 files are then added to the index with nothing else changed, and it returns
 FALSE. `TestTheTrackednessAssertionSwingsBothWays`.
 
+### The defect this work shipped, and the two red gate runs that found it
+
+**`make -C rust gates` went red twice on this branch, and both were mine.**
+
+Run 1 failed `cmd/securityctl`; run 2, on a tree differing only by two prose
+corrections, failed `internal/assurance` with three subtests. Neither reproduced
+standalone — `cmd/securityctl` passed three times in a row immediately after,
+and the three assurance tests passed on demand — and my first reading was that
+the host was contended. It was not.
+
+```
+--- FAIL: TestVerifyCanonicalLifecycle
+    adapter_test.go:21: verify canonical lifecycle: assurance/lifecycle.json is not an immutable single-link file
+```
+
+`internal/assurance/adapter.go:1214` refuses `assurance/lifecycle.json` unless
+`st_nlink == 1`, and `internal/securitygate/snapshot.go:296` reads the same
+field. **`mirrorTree` in this branch's own test file hard-linked its mirror from
+the live checkout**, so for as long as any mutation test held a mirror, every
+file in the tree had two links — and `go test` runs packages in PARALLEL, so two
+packages built to refuse exactly that saw exactly that. Which one went red
+depended only on which was scheduled inside the window, which is why each run
+blamed a different innocent package.
+
+**The lesson is not "use copies".** It is that a test helper mutated GLOBAL
+FILESYSTEM STATE that other packages read as evidence. Link count is part of a
+file's identity in this repository, deliberately, and a mirror is not read-only
+just because it never writes. I reached for hard links as an optimisation and
+did not ask what else reads the thing I was changing.
+
+The fix makes one byte COPY of the checkout per test binary and links the
+per-test mirrors from THAT: the copy's own link counts rise and nothing inspects
+those. `TestTheMirrorAddsNoLinkToTheCheckout` is the regression probe, and it is
+a test about the test helper, because that is where the defect was.
+
+**The race would not reproduce on demand, and the proof is therefore of the
+MECHANISM and not of the race.** `go test ./cmd/recordguardctl/
+./internal/assurance/` came back `ok` on both packages with the defective mirror
+in place: `cmd/recordguardctl` finishes in eight seconds and the window simply
+did not overlap the check. Saying "it passed, so it is fixed" from that run would
+have been the same reading error F017 records. So the polarity was taken
+deterministically instead, on the one thing that is not timing-dependent — the
+link count itself:
+
+```
+--- FAIL: TestTheMirrorAddsNoLinkToTheCheckout
+    the mirror raised assurance/lifecycle.json to 2 links. internal/assurance
+    refuses that file unless nlink==1, and go test runs packages in parallel, so
+    this makes an unrelated package fail from inside this one          exit 1
+```
+
+with the shipped form, and exit 0 with the fix. That plus the two red runs'
+verbatim message — `assurance/lifecycle.json is not an immutable single-link
+file` — is the whole chain: my mirror provably raises the count, and the failing
+package provably refuses a raised count. What is NOT established is a
+reproduction of the interleaving, and it is not claimed.
+
 ### A bug this work found in itself
 
 `mirrorTree` in the test file skipped `.git` by returning `filepath.SkipDir`.
@@ -378,6 +437,43 @@ allowance is marked `DENOMINATOR, HARD STOP`, on the same shape
 sweep survives 59 records is a re-reading, and re-reading it is not this branch's
 work.
 
+### TP-5 — a gate's own census, recited stale inside the gate that prints it
+
+Found while checking my own §8 claim, reported, and **not fixed here**.
+
+`cmd/gosuitectl/main.go:160-163` says:
+
+> 15 of the run packages carry no test file at all, so `run=` was never a
+> coverage number; it is now printed beside `with_tests=`. **Measured on
+> 2026-09-04**, after `internal/portplan` was fixed and left the exclusion list:
+> `packages=61 run=60 excluded=1 with_tests=45 no_test_files=15
+> unbuilt_test_files=5`.
+
+The gates run below printed:
+
+```
+gate=go-suite packages=62 run=61 excluded=1 with_tests=46 no_test_files=15 unbuilt_test_files=5
+```
+
+Three of the six numbers have moved. **It is not this branch that moved them**,
+and that was checked rather than assumed: `git diff --name-status 6986e95 HEAD --
+'*.go'` adds two files to an existing package and no package directory, and the
+set of directories holding `.go` files is byte-identical between the base and
+this head. `packages=62` was already true at `6986e95`. The comment was stale
+before this work started.
+
+**This is a measurement denominator and it is REPORTED, not absorbed.** Editing
+another gate's recorded measurement to match today's tree is the move this
+project forbids, whatever the merits, and it is not mine to make on this branch.
+Owner action **OA-gosuite-census-prose**.
+
+It is also the sharpest thing this branch found about its own scope. The defect
+is *exactly* the one the whole mechanism exists for — a census recited in prose,
+drifted, with nothing re-deriving it — and it is sitting **inside the gate that
+prints the census**, four lines above the code that computes it. My corpus is
+`.md` under two trees plus six `statement` fields, so **a Go doc comment is out
+of it by construction** and `record-prose` cannot see this. §7 names that.
+
 ### TP-4 — a census recited as a present-tense measurement, in six records
 
 Found, reported, and deliberately **NOT bound**. `drafts/self-review/` has grown
@@ -469,7 +565,14 @@ and here is what they are rather than a shrug:
    (§1). A stale present-tense claim written inside a code fence is invisible to
    this gate.
 6. **TP-4's class is unbound by decision**, §5.
-7. **This binds prose to documents, not prose to truth.** A record can state
+7. **Prose in CODE is entirely outside the corpus.** The corpus is `.md` under
+   `drafts/self-review/` and `evidence/`, plus `statement` fields. A measured
+   census recited in a Go doc comment is invisible to this gate — and TP-5 is a
+   live instance of exactly the bound defect, inside `cmd/gosuitectl` itself.
+   Widening the corpus to doc comments is a real option and is not taken here,
+   because it would change this gate's own denominator in the same change that
+   introduced it.
+8. **This binds prose to documents, not prose to truth.** A record can state
    something false about the world in a sentence that cites nothing, and nothing
    here reaches it. `recordbounds`'s ceiling was "one record"; this one's is "the
    claims whose subject is a committed file this gate can count".
@@ -504,6 +607,54 @@ directory, and it is certainly not a thing to absorb by editing the quoted
 numbers to match. Verified: `go list ./...` reports the same package set before
 and after this branch.
 
+### The chain, read from the process
+
+Three runs. The exit code is written by the script to its own log as
+`GATES_EXIT=$?`, not inferred from the absence of complaints.
+
+| run | tree | reading |
+| --- | --- | --- |
+| 1 | the first commit (`93990d6`, the merged one) | **exit 2** — `go-suite` FAIL, `cmd/securityctl` |
+| 2 | + two prose corrections | **exit 2** — `go-suite` FAIL, `internal/assurance` ×3 |
+| 3 | + the mirror fix | **exit 0** — every step, no failure marker anywhere |
+| 4 | + TP-5 and this table | **exit 0** — same, on `309cfb0` |
+
+Run 4 is the reading for this head. The only change after it is the row that
+records it, which is the regress this kind of table always has and is stated
+rather than hidden.
+
+**Run 4's strongest single line is not the exit code.** It is
+`ok internal/assurance 113.449s`, inside the full parallel `go-suite` — the
+package that went red in run 2, passing in situ under the same interleaving that
+broke it, rather than passing standalone where it always did.
+
+Runs 1 and 2 were the mirror defect above, and both are recorded rather than
+dropped: two red runs blaming two innocent packages is the whole evidence that
+the defect was real and that neither reading was contention.
+
+Run 3, the verdict lines:
+
+```
+gate=fixture-liveness-guard        result=PASS
+gate=record-content-precondition   result=PASS
+gate=record-prose                  result=PASS
+gate=pin-dangling                  result=PASS  (no undeclared drift; 15 acknowledged findings)
+gate=task-graph                    result=PASS
+gate=go-suite                      result=PASS  (packages=62 run=61 excluded=1 with_tests=46)
+GATES_EXIT=0
+```
+
+Both exports were set, and the second is not optional:
+`VJWP_PROTECTED_STORE=$PWD/evidence/governance/decisions` — without it the ledger
+gate REFUSES by design, and a refusal is not a pass — and the pinned JDK on
+`PATH`, without which `internal/portplan` fails `JAVAC_UNAVAILABLE` against this
+container's default `javac 21.0.10`, which reads like a broken pin and is not
+one. `javac 17.0.19` is echoed at the head of the log so the run can be told
+apart from one taken without it.
+
+**The go-suite line is TP-5**: `packages=62 run=61 … with_tests=46` against a
+comment recording 61/60/45. Reported above, not absorbed.
+
 ## 9. Owner actions, none taken
 
 1. **OA-governance-statement.** `evidence/governance/owner-decision-digests.json`
@@ -520,7 +671,12 @@ and after this branch.
 3. **TP-1 and TP-3 are corrections by supersession**, and the superseding
    documents are the owner's or their authors' to write. This branch declares them
    and re-checks the declarations; it does not rewrite anyone's measurement.
-4. **No AWS, benchmark or Autobahn run.** Owner gates, never triggered.
+4. **OA-gosuite-census-prose.** `cmd/gosuitectl/main.go` records a dated
+   measurement — `packages=61 run=60 excluded=1 with_tests=45` — that the gate
+   now prints as `packages=62 run=61 excluded=1 with_tests=46`. Not moved by this
+   branch, and REPORTED rather than re-baselined here. Node
+   `T-gosuite-census-prose` is blocked on it.
+5. **No AWS, benchmark or Autobahn run.** Owner gates, never triggered.
 
 ## 10. What I did not do
 

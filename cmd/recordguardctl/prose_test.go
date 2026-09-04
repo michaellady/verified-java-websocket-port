@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 )
@@ -31,29 +32,44 @@ func proseRepoRoot(t *testing.T) string {
 	}
 }
 
-// mirrorTree COPIES the checkout so a test can mutate one file without touching
-// the tree the rest of the suite reads. The copy carries the REAL records: a
-// synthetic fixture would prove the rule works on a fixture, which is the shape
-// this repository files as a defect.
+// baseCopy is a byte COPY of the checkout, made once per test binary, and it is
+// the only thing the per-test mirrors are hard-linked from.
 //
-// It hard-linked at first, for speed, and that leaked out of the test into other
-// PACKAGES. A hard link raises st_nlink on the SOURCE file, and
-// internal/assurance asserts that assurance/lifecycle.json is "an immutable
-// single-link file" (adapter.go: `beforeIdentity.nlink != 1`). `go test ./...`
-// runs packages concurrently, so while a mirror existed every file in the
-// checkout had two links and that assertion failed — as
-// `TestVerifyCanonicalLifecycle` in a gates run that had changed neither
-// package. It reads exactly like a flake, which is the danger: a gate whose
-// green is a coin flip is not a gate. Copying costs 36 MB over 3014 files, well
-// under a second, and the mirror's whole purpose is to keep mutations out of the
-// checkout — a mechanism that reaches back into it was the wrong shape anyway.
+// THE FIRST VERSION LINKED FROM THE CHECKOUT ITSELF AND THAT BROKE TWO OTHER
+// PACKAGES. `internal/assurance/adapter.go` refuses `assurance/lifecycle.json`
+// unless `st_nlink == 1` -- "is not an immutable single-link file" -- and
+// `internal/securitygate/snapshot.go` reads the same field. `go test` runs
+// packages in PARALLEL, so for as long as one of these tests held a hard-link
+// mirror, every file in the checkout had two links and those two packages saw a
+// tree they are built to refuse. It cost two red `make -C rust gates` runs, each
+// blaming a different innocent package depending on which one happened to be
+// scheduled inside the window, and neither reproduced standalone.
 //
-// A mutation still removes the file before writing, which writeMutated does;
-// nothing else in this file opens a mirrored path for writing.
-func mirrorTree(t *testing.T, src, dst string) {
-	t.Helper()
-	skip := map[string]bool{".git": true, ".quarantine": true, "target": true, "out": true}
-	err := filepath.WalkDir(src, func(p string, entry os.DirEntry, err error) error {
+// The lesson is not "use copies". It is that a TEST HELPER MUTATED GLOBAL
+// FILESYSTEM STATE that other packages read as evidence -- link count is part of
+// a file's identity here, deliberately, and a mirror is not read-only just
+// because it never writes.
+//
+// Linking from a private copy is invisible to the checkout: the copy's own link
+// counts rise and nothing inspects those.
+var (
+	baseCopyOnce sync.Once
+	baseCopyPath string
+	baseCopyErr  error
+)
+
+// mirrorSkip is what neither the copy nor a mirror carries.
+var mirrorSkip = map[string]bool{".git": true, ".quarantine": true, "target": true, "out": true}
+
+// walkCheckout applies visit to every entry under src, honouring mirrorSkip.
+//
+// SkipDir returned from a FILE callback skips the remaining entries of the
+// CONTAINING directory, not just that entry. In a `git worktree` checkout `.git`
+// is a file, not a directory, so the obvious version of this skipped the whole
+// repository root after five entries and every mutation test then failed on a
+// path that was never mirrored. Only a directory may answer SkipDir.
+func walkCheckout(src, dst string, visit func(from, to string) error) error {
+	return filepath.WalkDir(src, func(p string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -64,13 +80,7 @@ func mirrorTree(t *testing.T, src, dst string) {
 		if rel == "." {
 			return os.MkdirAll(dst, 0o755)
 		}
-		// SkipDir returned from a FILE callback skips the remaining entries of
-		// the CONTAINING directory, not just that entry. In a `git worktree`
-		// checkout `.git` is a file, not a directory, so the obvious version of
-		// this line skipped the whole repository root after five links and every
-		// mutation test then failed on a path that was never mirrored. Only a
-		// directory may answer SkipDir.
-		if skip[entry.Name()] {
+		if mirrorSkip[entry.Name()] {
 			if entry.IsDir() {
 				return filepath.SkipDir
 			}
@@ -83,13 +93,53 @@ func mirrorTree(t *testing.T, src, dst string) {
 		if entry.Type()&os.ModeSymlink != 0 {
 			return nil
 		}
-		data, readErr := os.ReadFile(p)
-		if readErr != nil {
-			return readErr
-		}
-		return os.WriteFile(target, data, 0o644)
+		return visit(p, target)
 	})
-	if err != nil {
+}
+
+// checkoutCopy returns the shared byte copy, making it on first use.
+func checkoutCopy(t *testing.T) string {
+	t.Helper()
+	baseCopyOnce.Do(func() {
+		baseCopyPath, baseCopyErr = os.MkdirTemp("", "recordguard-basecopy-*")
+		if baseCopyErr != nil {
+			return
+		}
+		baseCopyErr = walkCheckout(proseRepoRoot(t), baseCopyPath, func(from, to string) error {
+			data, err := os.ReadFile(from)
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(to, data, 0o644)
+		})
+	})
+	if baseCopyErr != nil {
+		t.Fatalf("copying the checkout: %v", baseCopyErr)
+	}
+	return baseCopyPath
+}
+
+// TestMain removes the shared copy. Without it the copy outlives the run.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if baseCopyPath != "" {
+		os.RemoveAll(baseCopyPath)
+	}
+	os.Exit(code)
+}
+
+// mirrorTree hard-links a per-test mirror FROM THE SHARED COPY, never from the
+// checkout. The point of these tests is to run the REAL rule over the REAL
+// records -- a synthetic fixture would prove the rule works on a fixture, which
+// is the shape this repository files as a defect -- so the mirror is the whole
+// tree and not a hand-built subset.
+//
+// A mutation still has to REMOVE the link before writing, or it would write
+// through into the shared copy and leak into the next test. writeMutated does
+// that; nothing else in this file opens a mirrored path for writing.
+func mirrorTree(t *testing.T, src, dst string) {
+	t.Helper()
+	if err := walkCheckout(src, dst, os.Link); err != nil {
 		t.Fatalf("mirroring %s: %v", src, err)
 	}
 }
@@ -137,7 +187,7 @@ func findingsFor(findings []proseFinding, field string) []proseFinding {
 func mirrored(t *testing.T, mutate func(root string)) []proseFinding {
 	t.Helper()
 	root := t.TempDir()
-	mirrorTree(t, proseRepoRoot(t), root)
+	mirrorTree(t, checkoutCopy(t), root)
 	mutate(root)
 	findings, _, _, err := checkProse(root)
 	if err != nil {
@@ -608,6 +658,46 @@ func TestAQuotedStaleClaimDoesNotBindTheRecordQuotingIt(t *testing.T) {
 	}
 }
 
+// TestTheMirrorAddsNoLinkToTheCheckout is the regression probe for the defect
+// the mirror itself caused, and it is a test about the TEST HELPER because that
+// is where the defect was.
+//
+// `internal/assurance` refuses assurance/lifecycle.json unless it has exactly
+// one link, and `go test` runs packages in parallel, so a mirror hard-linked
+// from the checkout made that package fail from inside a different package's
+// test. Neither failure reproduced standalone and each blamed whichever
+// innocent package was scheduled inside the window.
+func TestTheMirrorAddsNoLinkToTheCheckout(t *testing.T) {
+	const canonical = "assurance/lifecycle.json"
+	full := filepath.Join(proseRepoRoot(t), filepath.FromSlash(canonical))
+	links := func() uint64 {
+		info, err := os.Stat(full)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			t.Skip("no syscall.Stat_t on this platform")
+		}
+		return uint64(stat.Nlink)
+	}
+	before := links()
+	if before != 1 {
+		t.Fatalf("%s already has %d links before this test ran; something else in this "+
+			"process tree is holding one and the probe cannot measure the mirror", canonical, before)
+	}
+	root := t.TempDir()
+	mirrorTree(t, checkoutCopy(t), root)
+	if after := links(); after != 1 {
+		t.Fatalf("the mirror raised %s to %d links. internal/assurance refuses that file "+
+			"unless nlink==1, and go test runs packages in parallel, so this makes an "+
+			"unrelated package fail from inside this one", canonical, after)
+	}
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(canonical))); err != nil {
+		t.Fatalf("the mirror does not hold %s, so the probe measured nothing: %v", canonical, err)
+	}
+}
+
 // "beside this README" is a claim about the README's own directory, and a record
 // that QUOTES it is not making that claim about ITS directory. This gate's first
 // real customer was the record reporting the governance README's miscount, which
@@ -642,53 +732,5 @@ func TestAQuotedBesideThisREADMEDoesNotBindTheQuotingRecord(t *testing.T) {
 	}
 	if candidates[0].population != "evidence/governance/decisions/" {
 		t.Fatalf("the population must be the README's directory, got %q", candidates[0].population)
-	}
-}
-
-// mirrorTree must not change the CHECKOUT it mirrors. This is not a property of
-// the mirror's contents but of its side effects, and it is the one this helper
-// got wrong: it hard-linked, which raises st_nlink on every source file, and
-// internal/assurance asserts assurance/lifecycle.json is "an immutable
-// single-link file". Packages run concurrently under `go test ./...`, so a
-// mirror alive in this package failed a test in that one, in a gates run that
-// had changed neither. It presents as a flake, and a gate whose green is a coin
-// flip is not a gate.
-//
-// Sampling cannot establish the fix — four green runs against a one-in-three
-// failure rate is weak evidence. This asserts the mechanism directly.
-func TestMirroringDoesNotDisturbTheCheckout(t *testing.T) {
-	root := proseRepoRoot(t)
-	// The file another package asserts on, and one this mirror does copy: the
-	// skip set is only .git, .quarantine, target and out.
-	canonical := filepath.Join(root, "assurance", "lifecycle.json")
-	before, err := os.Stat(canonical)
-	if err != nil {
-		t.Skipf("no canonical lifecycle to check against: %v", err)
-	}
-	links := func(info os.FileInfo) uint64 {
-		stat, ok := info.Sys().(*syscall.Stat_t)
-		if !ok {
-			t.Skip("link counts are not observable on this platform")
-		}
-		return uint64(stat.Nlink)
-	}
-	if got := links(before); got != 1 {
-		t.Skipf("the checkout already carries %d links to %s; another mirror is live",
-			got, canonical)
-	}
-
-	mirror := t.TempDir()
-	mirrorTree(t, root, mirror)
-
-	if _, err := os.Stat(filepath.Join(mirror, "assurance", "lifecycle.json")); err != nil {
-		t.Fatalf("the mirror must actually contain the file this pins: %v", err)
-	}
-	after, err := os.Stat(canonical)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := links(after); got != 1 {
-		t.Fatalf("mirroring raised the checkout's link count on %s to %d; "+
-			"internal/assurance requires it to stay 1", canonical, got)
 	}
 }

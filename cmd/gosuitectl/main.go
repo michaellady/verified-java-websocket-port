@@ -180,9 +180,22 @@ func main() {
 	// 15 of the run packages carry no test file at all, so `run=` was never a
 	// coverage number; it is now printed beside with_tests=. Measured on
 	// 2026-09-04, after internal/portplan was fixed and left the exclusion list:
-	// packages=61 run=60 excluded=1 with_tests=45 no_test_files=15
+	// packages=62 run=61 excluded=1 with_tests=46 no_test_files=15
 	// unbuilt_test_files=5. The B2/B3 figures quoted above are what those reviews
 	// measured when run=59 excluded=2, and are left as the history they are.
+	//
+	// THAT LINE READ packages=61 run=60 with_tests=45 UNTIL THIS COMMIT, and how
+	// it went stale is the interesting part. It was measured on the jdk-vendor
+	// branch and it was CORRECT there. Its base predated the merge that added
+	// cmd/taskgraphctl, so the merge raised every one of the three by exactly one
+	// -- a new package, in the run set, carrying tests. Re-derived rather than
+	// argued: `git ls-tree` over the two commits gives 64 package directories at
+	// a7edbd4 and 65 at this merge, with `comm` naming cmd/taskgraphctl as the
+	// single addition and nothing removed. A branch measurement is true on its
+	// branch and unverified on the merge, which is the F011 class, and it is why
+	// a census belongs in the gate's OUTPUT (re-derived every run) rather than in
+	// its prose. This comment is dated for that reason and is not a claim about
+	// today.
 	//
 	// Refusing them would be wrong: they are deliberate opt-in lanes. Saying
 	// nothing is what this gate exists to stop, so they are counted and named.

@@ -112,7 +112,7 @@
     {
       "id": "OA-record-census-prose",
       "state": "open",
-      "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Six records recite 41, 55, 55, 61 and 41 against a census that reads 66.",
+      "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Ten sentences across six records recite that census; five are inside code fences and are honest transcripts, and five are in the records' own voice, reciting 41, 41, 55, 55 and 61 against a census that reads 66.",
       "why_it_blocks": "Binding it makes every future record fail record-guard against an unrelated older record until that record is restated -- a treadmill, and a gate that punishes writing records. Whether that cost is worth paying is a judgement about how this project wants its history to read, not a measurement."
     },
     {
@@ -132,6 +132,12 @@
       "state": "open",
       "what_is_needed": "Supply the seven master prd.json metadata keys that the PRD pack does not reproduce, or confirm none carries a criterion constraining port behaviour. docs/prd-pack/01-structure-and-index.md declares 'metadata | object (39 keys)' and lists 32 as reproduced; 06a/06b/06c carry exactly those 32.",
       "why_it_blocks": "The metadata half of the master-story sweep is a floor of 32/39. A criterion living in one of the seven unreproduced keys is invisible to any sweep run inside this repository, and prd.json is at HQ. This cannot be closed from here."
+    },
+    {
+      "id": "OA-gosuite-census-prose",
+      "state": "open",
+      "what_is_needed": "NARROWED at merge; the number itself is no longer wrong. cmd/gosuitectl/main.go's dated measurement read 'packages=61 run=60 excluded=1 with_tests=45' while the gate printed 62/61/46, and the integrator corrected it rather than leaving it. The reviewer who found it left it on the ground that editing another gate's recorded measurement is re-baselining, which is the right instinct and the wrong call here: re-baselining is moving a denominator a CLAIM RESTS ON so the claim passes, and nothing rests on this comment -- no gate reads it, and the gate's real census is re-derived and printed every run. What it was, was FALSE. The correction is not a swap: the cause is recorded beside it and was re-derived rather than argued -- `git ls-tree` gives 64 package directories at a7edbd4 and 65 at the merge, `comm` names cmd/taskgraphctl as the single addition with nothing removed, and that accounts for +1 to packages, run and with_tests exactly. The measurement was taken on the jdk-vendor branch, was CORRECT there, and became false when the merge brought in a package its base did not have. That is the F011 class. WHAT REMAINS FOR YOU is the smaller question: should a gate's prose carry dated censuses at all, when a branch measurement is true on its branch and unverified on the merge? Either bind them (they are in code, which is outside the prose corpus by construction -- widening to doc comments would move this gate's own denominator in the change that introduced it), or drop them and let the runtime census be the only census.",
+      "why_it_blocks": "Nothing is blocked on it now that the number is true. It is left open because the general question it raises -- prose in CODE is entirely outside the record-prose corpus, and TP-5 was a live instance of that ceiling -- is a scope decision that would move a denominator if taken from inside a gate fix."
     }
   ],
   "nodes": [
@@ -660,15 +666,15 @@
         {
           "kind": "grep",
           "path": "cmd/recordguardctl/prose_test.go",
-          "pattern": "TestMirroringDoesNotDisturbTheCheckout"
+          "pattern": "TestTheMirrorAddsNoLinkToTheCheckout"
         },
         {
-          "kind": "grep_absent",
+          "kind": "grep",
           "path": "cmd/recordguardctl/prose_test.go",
-          "pattern": "os\\.Link\\(p, target\\)"
+          "pattern": "baseCopy"
         }
       ],
-      "note": "Twelve records bound by twenty bindings, every value re-derived from the cited document on each run; no expected value anywhere in the table. The census (241 cardinality sentences, 11 with an enumerable population, all dispositioned) fails an UNDISPOSITIONED_CLAIM, so the binding table is a floor and not a hand-picked list. Four true positives declared, none fixed by edit. Ceiling: 230 sentences name a population this gate cannot enumerate. | On merge the gate caught its own first customer: a review record REPORTING the governance README's miscount necessarily quotes \"beside this README\", and the deictic rule bound that quotation to the quoting record's own directory, reporting an UNDISPOSITIONED_CLAIM about drafts/self-review/. maskOtherVoices does not reach it -- the quotation is inline, not a block. Fixed by requiring the source to BE a README for that phrase, which is exact rather than a heuristic about quoting. Verified both ways after the fix: correcting the README to 63 fires STALE_ALLOWANCE, making it wrong differently (61) fires PROSE_DISAGREES_WITH_DOCUMENT re-deriving 63 from the directory, and the unmodified tree is PASS. | Second defect at merge: mirrorTree HARD-LINKED the checkout, raising st_nlink on every source file, and internal/assurance requires assurance/lifecycle.json to be an immutable single-link file. Packages run concurrently, so a mirror alive here failed a test there -- go-suite red in two packages this branch does not touch, reading exactly like contention. Now a byte copy (36 MB, 3014 files, under a second), with the property asserted directly rather than sampled: the regression test was shown to FAIL on the old behaviour, naming nlink=2."
+      "note": "Twelve records bound by twenty bindings, every value re-derived from the cited document on each run; no expected value anywhere in the table. The census (241 cardinality sentences, 11 with an enumerable population, all dispositioned) fails an UNDISPOSITIONED_CLAIM, so the binding table is a floor and not a hand-picked list. Four true positives declared, none fixed by edit. Ceiling: 230 sentences name a population this gate cannot enumerate. | On merge the gate caught its own first customer: a review record REPORTING the governance README's miscount necessarily quotes \"beside this README\", and the deictic rule bound that quotation to the quoting record's own directory, reporting an UNDISPOSITIONED_CLAIM about drafts/self-review/. maskOtherVoices does not reach it -- the quotation is inline, not a block. Fixed by requiring the source to BE a README for that phrase, which is exact rather than a heuristic about quoting. Verified both ways after the fix: correcting the README to 63 fires STALE_ALLOWANCE, making it wrong differently (61) fires PROSE_DISAGREES_WITH_DOCUMENT re-deriving 63 from the directory, and the unmodified tree is PASS. | Second defect at merge: mirrorTree HARD-LINKED the checkout, raising st_nlink on every source file, and internal/assurance requires assurance/lifecycle.json to be an immutable single-link file. Packages run concurrently, so a mirror alive here failed a test there -- go-suite red in two packages this branch does not touch, reading exactly like contention. Now a byte copy (36 MB, 3014 files, under a second), with the property asserted directly rather than sampled: the regression test was shown to FAIL on the old behaviour, naming nlink=2. | Resolved on merge in favour of the author's design over mine: one byte copy of the checkout per test binary, with per-test mirrors hard-linked from THAT copy, so the checkout is never linked and mirrors stay cheap. My duplicate regression test was dropped for their TestTheMirrorAddsNoLinkToTheCheckout; my deictic-quotation test was kept, because they did not have it."
     },
     {
       "id": "T-sweep-master-stories",
@@ -933,6 +939,19 @@
       ],
       "evidence": [],
       "note": "Two in-tree definitions of the same token disagree (internal/lab/ledger.go:78-80 'the decision is owed' vs internal/deltaledger/definitions.go:23-29 'deliberately retained'). Whichever the owner picks, one of those comments needs correcting, and the frozen prefix means the 45 retained records cannot be re-spelled -- so the remedy is a published mapping or a gate, not an edit."
+    },
+    {
+      "id": "T-gosuite-census-prose",
+      "title": "Restate or re-derive cmd/gosuitectl's recorded package census",
+      "state": "blocked",
+      "depends_on": [
+        "T-other-record-prose"
+      ],
+      "blocked_by": [
+        "OA-gosuite-census-prose"
+      ],
+      "evidence": [],
+      "note": "record-prose cannot reach it: the corpus is .md under drafts/self-review and evidence plus evidence-JSON statement fields, so a Go doc comment is out of scope by construction. The bound defect sitting inside the gate that prints the census is the sharpest statement of that ceiling. See drafts/self-review/record-prose-corpus.md TP-5."
     }
   ]
 }
