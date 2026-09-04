@@ -1,11 +1,12 @@
-# Ledger sequence 58 becomes `adopt-java` — by supersession, and the two consumers the append knocked over
+# Ledger sequence 58 becomes `adopt-java` — by supersession, and the three consumers the append knocked over
 
 Branch `claude/ledger-58-adopt-java`, worktree `/home/user/vjwp-ledger58`,
 based on `origin/claude/feature/verified-java-websocket-port` at `6a155a3`.
 Every exit code below was READ FROM THE PROCESS that produced it, never
 inferred from the text it printed. No Autobahn run, no live Java process, no
 AWS run and no benchmark run was made. **No port byte changed** — this landing
-touches the ledger, its downstream bindings, and three records.
+touches the ledger, its downstream bindings, five `internal/deltaledger` tests
+my own append broke, and three records.
 
 Mainline moved by one commit while this ran (`8218815`, which removes the
 tracked `.quarantine` symlink that `6a155a3` still carries). This branch is
@@ -305,6 +306,65 @@ strikethrough rather than deleted**, on the same principle as the ledger's own.
 
 ---
 
+## 5b. A THIRD follow-on, found only because gates was run: five deltaledger tests
+
+`make -C rust gates` **exited 2** on the first run — read from the file the
+detached run wrote, not from its console text — failing at the `go-suite`
+target on `internal/deltaledger`. Four tests, and a fifth that only surfaced
+once the first four were fixed. The same class of breakage the 57/58 append
+caused at `1a27f92`, whose commit message is titled *"the append broke four"*.
+It is mine, and it is what makes running gates worth the fifty minutes: the
+ledger's own `--check` was exit 0 the whole time.
+
+**Four were pinned counts**, updated by NAMING the sequences rather than by
+bumping a number, which is the discipline the tests themselves ask for
+("adding a supersession fails here with the sequence named instead of with an
+arithmetic complaint"):
+
+| test | pin | now |
+| --- | --- | --- |
+| `TestSupersessionIsMachineVisible` | links = 5 | 6, and the wanted set names 14, 15, 16, 34, 55, **58** |
+| `TestSupersessionIsMachineVisible` | authoritative = `len-5` | `len-6`, with 58 added to the must-not-be-authoritative switch |
+| `TestAQuotedSupersedesTokenIsNotAWithdrawal` | links = 5 | 6 |
+| `TestASupersededRecordDoesNotCoverAnything` | stripped = 5 | 6 |
+
+The authoritative-count one is the fifth: it sits AFTER the link assertion in
+the same test and could not be seen until the link assertion passed. Four is
+what the gate could report; five is what was there.
+
+**The fifth is structural, and it had run out of candidates.**
+`TestUnledgeredCountReportsNonzeroAndTheReadinessGateRefuses` removes exactly
+one record so that its committed observation is orphaned and the count reads 1.
+A `Supersession` names its target **by SEQUENCE** as well as by delta id, so the
+removal must sit AFTER every superseded sequence — otherwise it renumbers the
+target and the link stops resolving, which is a loud but *different* refusal
+that masks the digest-arm failure under test. The previous landing's remedy was
+to name a later isolated record, and its comment said so:
+
+> *"If a future change makes it load-bearing, or appends a supersession of a
+> record after it, this test fails loudly and a different isolated record should
+> be named here."*
+
+**There is no such record any more.** Sequence 59 supersedes 58, so the last
+superseded sequence is 58, and the only record past it is 59 itself — a
+superseding correction that carries no committed observation, so removing it
+would orphan nothing and the expected count could not be 1. The comment
+predicted the failure without saying what to do once the candidate set emptied.
+
+So the companion removal is **computed** instead of the isolated record being
+moved: any definition declaring a supersession of a sequence AFTER the isolated
+one comes out with it, because its link is the only thing the renumbering can
+break. **Nothing is loosened.** Each companion is REQUIRED — checked against the
+committed observation set, not argued — to carry no committed observation, so it
+cannot contribute an orphan; the `exactly 1` assertion, the
+`subjects[0] == removed.Subject` assertion and every deliberate-failure polarity
+are unchanged. A companion that ever carries an observation now fails loudly and
+names the record to replace.
+
+`go test -count=1 -timeout 40m ./internal/deltaledger/` → **EXIT 0**.
+
+---
+
 ## 6. Every command, with the exit code read from the process
 
 | command | exit |
@@ -318,10 +378,20 @@ strikethrough rather than deleted**, on the same principle as the ledger's own.
 | `LINKAGE_REGENERATE=1 go test -count=1 ./internal/linkage/` | **1** (by design) |
 | `go test -count=1 ./internal/linkage/` | **0** |
 | `US006_REGENERATE=1 go test -count=1 -run TestUS006FixtureCatalogThroughRealCLI ./internal/formalplan/` | **0** |
-| `go test -count=1 ./internal/formalplan/` (full package, after both refreezes) | RESULT_FORMALPLAN |
+| `go test -count=1 ./internal/formalplan/` (full package, after both refreezes) | **0** — 409.4s; the same package inside gates reads ok at 391.5s |
 | `go run ./cmd/recordguardctl precondition drafts/self-review/findings/F010-…md` | **0** |
-| `go run ./cmd/recordguardctl precondition drafts/self-review/ledger-58-adopt-java.md` | RESULT_RECORDGUARD |
-| `make -C rust gates` | RESULT_GATES |
+| `go run ./cmd/recordguardctl precondition drafts/self-review/ledger-58-adopt-java.md` | **0** |
+| `go test -count=1 -timeout 40m ./internal/deltaledger/` (after the §5b fixes) | **0** |
+| `make -C rust gates` — FIRST run, before §5b | **2** — `go-suite` on `internal/deltaledger`; exit code read from the file the detached run wrote |
+| `make -C rust gates` — after §5b | **0** — same reading path: the runner writes `$?` to a file and the file was read |
+
+The passing gates run ends with the ledger gate itself, and its last four
+lines are quoted in §2. `ac1-gates verdict=PASS gates_passed=8/8`,
+`gate=go-suite result=PASS` over 59 packages (44 carrying a test file, 2
+excluded by name with a reason that was RUN and still fails), and
+`oraclerankctl` adjudicating 640 propositions with 39 Java/Rust agreements
+overridden by a higher oracle and every one enrolled. `grep -c "^FAIL"` over
+the whole run: **0**.
 
 `VJWP_PROTECTED_STORE` was exported to
 `$PWD/evidence/governance/decisions` for every ledger and gate run.
