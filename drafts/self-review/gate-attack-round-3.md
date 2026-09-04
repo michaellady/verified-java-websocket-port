@@ -544,7 +544,67 @@ gate=fixture-liveness-guard step=scan files=49 loops=310 violations=0 waivers=0 
 oraclerankctl: 640 propositions adjudicated; 589 Java/Rust agreements, 39 of them overridden by a higher oracle
 ```
 
-CHAIN-CENSUS-PLACEHOLDER
+`make -C rust gates` was run detached with both exports set, writing its exit
+code to a file inside my own worktree rather than printing it: **exit 0**, read
+from that file. No `result=FAIL`, no `verdict=FAIL`, no `*** Error` and no
+`FAIL` in its 1,884 lines.
+
+```
+gate=fixture-liveness-guard step=scan files=49 loops=310 violations=0 waivers=0
+    max_waivers=0 budget_waivers=0 max_budget_waivers=0 unscanned=0
+gate=record-content-precondition step=census records=72 unfinished=0 superseded=1 finished=71
+gate=record-prose result=PASS
+gate=pin-dangling json_artifacts=1997 unparsable=0 candidates=0 explained=53 covered=23
+    allowed=15 missing_targets=0
+gate=task-graph nodes=38 done=20 ready=1 in_progress=0 blocked=17 owner_actions=26 open=22
+gate=go-suite packages=62 run=61 excluded=1 with_tests=46 no_test_files=15 unbuilt_test_files=5
+gate=forbid-unsafe step=ungoverned-scan roots=32 with_attribute=7 unguarded=25 unsafe_found=0
+gate=forbid-unsafe verdict=PASS detail="10 first-party crate roots (lib+bin) all carry
+    #![forbid(unsafe_code)]; 32 ungoverned first-party root(s) (7 attributed, 25 unguarded)
+    contain no unsafe keyword"
+gate=lockfile verdict=PASS detail="cargo build --locked and cargo metadata --locked succeeded;
+    Cargo.lock byte-identical, git-tracked and equal to HEAD"
+gate=canaries step=bad-scaffold:clippy-lints count=2 names="bool_comparison,needless_bool"
+gate=canaries verdict=PASS detail="polarity proven: … bad-scaffold failed scan and clippy as
+    required (exits 1/101), compiles (cargo check exit 0) and clippy named 2 clippy lint(s),
+    so the refusal is the LINT"
+ac1-gates verdict=PASS gates_passed=8/8
+ok: ledger integrity verified (frozen prefix through sequence 35, ledger envelope, evidence
+    document schemas, …, unledgered_disagreements recomputed = 0,
+    records_without_mismatch_class recomputed = 49)
+ok: evidence/governance/owner-decision-digests.json equals the derivation and 7 governance
+    record digest(s) recomputed from the protected store and matched
+oraclerankctl: 640 propositions adjudicated; 589 Java/Rust agreements, 39 of them overridden
+    by a higher oracle and every one enrolled
+```
+
+**NO DENOMINATOR MOVED.** Every number this branch touches is the number it
+found. `files=49 loops=310`, `10 first-party crate roots (lib+bin)`,
+`gates_passed=8/8`, `59 records`, `7 governance record digest(s)` and
+`640 / 589 / 39` are all identical to the pre-change baselines above. Three
+numbers changed and none of them is a denominator this branch re-based:
+
+- `records=72` (from 71) is **this document joining the census**, which is what
+  every record does.
+- `nodes=38` is unchanged; `done` moved 19 to 20, `in_progress` 1 to 0 and
+  `ready` 2 to 1 because one node finished. `owner_actions` 22 to 26 and
+  `open` 18 to 22 are the four this round raises.
+- `step=ungoverned-scan roots=32 …` and `clippy-lints count=2` are NEW lines,
+  not moved ones. They add a measurement the gate did not previously report;
+  neither replaces a number the gate printed before.
+
+`json_artifacts=1997 explained=53 allowed=15` and `packages=62 run=61` are
+mainline's numbers at `6c85677`, not this branch's: it adds no JSON artifact and
+no Go package. The one number worth reading twice is `with_attribute=7`, which
+is §1a's correction of round 2's `9` and the first time this repository has
+measured that population with the function that decides it.
+
+The canary's lint count was `4` on the first full chain run, because clippy
+prints each lint in both its hyphen and its underscore spelling and the
+extractor deduplicated the strings rather than the lints. A count labelled
+"lints" that counts spellings is the same defect one size smaller, so it was
+normalised and the canary gate re-run: `count=2 names="bool_comparison,needless_bool"`,
+exit 0.
 
 ---
 

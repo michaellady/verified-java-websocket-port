@@ -380,8 +380,15 @@ func TestClippyLintNames(t *testing.T) {
 		"error: equality checks against true are unnecessary\n" +
 		"   = note: `-D clippy::bool-comparison` implied by `-D warnings`\n"
 	got := clippyLintNames(withLints)
-	if len(got) != 2 || got[0] != "bool-comparison" || got[1] != "needless-bool" {
+	if len(got) != 2 || got[0] != "bool_comparison" || got[1] != "needless_bool" {
 		t.Fatalf("want the two lint names sorted, got %v", got)
+	}
+	// clippy names the same lint both ways in one run; the count must be of
+	// LINTS, not of spellings.
+	bothSpellings := "`-D clippy::needless-bool` implied by `-D warnings`\n" +
+		"to override `-D warnings` add `#[allow(clippy::needless_bool)]`\n"
+	if got := clippyLintNames(bothSpellings); len(got) != 1 || got[0] != "needless_bool" {
+		t.Fatalf("the hyphen and underscore spellings are one lint, got %v", got)
 	}
 	// A6: a crate that does not compile fails clippy with no lint at all.
 	compileError := "error[E0425]: cannot find function `attack_a6_no_such_function` in this scope\n" +

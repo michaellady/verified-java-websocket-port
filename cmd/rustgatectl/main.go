@@ -1295,7 +1295,13 @@ func clippyLintNames(output string) []string {
 			output[j] >= '0' && output[j] <= '9') {
 			j++
 		}
-		if name := output[at:j]; name != "" && !seen[name] {
+		// clippy prints the same lint both ways in one run -- `clippy::needless-bool`
+		// in the `-D` note and `clippy::needless_bool` in the allow hint -- so the
+		// hyphen spelling is normalised to the underscore one before deduplication.
+		// Without this the count is a count of SPELLINGS, and a number that means
+		// something other than what it is labelled is the defect this round is about.
+		name := strings.ReplaceAll(output[at:j], "-", "_")
+		if name != "" && !seen[name] {
 			seen[name] = true
 			out = append(out, name)
 		}
