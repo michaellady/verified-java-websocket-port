@@ -314,3 +314,95 @@ the drift this project refuses.
   here depends on it: this landing changed no site count.
 
 ## 7. Whole-suite gates reading
+
+`make -C rust gates`, run with both required exports.
+
+One scope note, because a run cannot contain its own output: the suite was run
+on the tree as of the plan commit, and this section was appended afterwards. The
+three targets that READ records and the plan — `record-content-precondition`,
+`record-prose` and `plan-guard` — were therefore re-run against the finished
+file, and all three still pass, with the prose census unchanged at zero
+undispositioned. The compile-and-test targets are untouched by a markdown
+append.
+
+**`make -C rust gates` exits 0.** Twelve targets, no failure anywhere in the
+run: a search of the whole log for a failing verdict, a Go `--- FAIL`, or a
+bare `FAIL` line returns zero.
+
+The census each target printed:
+
+```
+gate=fixture-liveness-guard step=selfcheck cases=7 firing=4 silent=3 result=PASS
+gate=fixture-liveness-guard step=budget-anchors budgets=1 result=OK
+gate=fixture-liveness-guard result=PASS
+
+gate=record-content-precondition step=selfcheck cases=16 firing=8 silent=8 result=PASS
+gate=record-content-precondition census SUPERSEDED
+  record=drafts/self-review/normalization-collision-audit-WIP.md signals=2
+  superseded_by=drafts/self-review/normalization-collision-audit.md
+gate=record-content-precondition step=census records=80 unfinished=0 superseded=1 finished=79
+gate=record-content-precondition result=PASS
+
+gate=record-prose step=corpus records=91 markdown=85 statements=6 bindings=23
+gate=record-prose step=census cardinality_sentences=277 with_enumerable_population=14
+  no_enumerable_population=263 bound=14 covered=0 undispositioned=0
+gate=record-prose step=bindings agreeing=17 allowed=6 covered_records=1
+gate=record-prose result=PASS
+
+gate=pin-dangling json_artifacts=3500 unparsable=0 candidates=0 explained=53
+  covered=23 allowed=15 missing_targets=0
+gate=pin-dangling result=PASS detail="no undeclared drift; 15 acknowledged finding(s)
+  each naming an owner action"
+
+gate=task-graph nodes=45 done=24 ready=7 in_progress=0 blocked=14 owner_actions=29 open=19
+gate=task-graph result=PASS detail="every done node's evidence re-derived; 7 ready,
+  14 blocked on 19 open owner action(s)"
+
+gate=go-suite result=PASS detail="64 package(s) run of which 48 carry a test file,
+  1 excluded by name with a reason that was RUN and still fails, 5 test file(s) not
+  compiled by this run"
+
+gate=forbid-unsafe verdict=PASS
+gate=dependency-inventory verdict=PASS detail="workspace has 0 out-of-workspace
+  dependencies; inventory agrees (0 entries)"
+gate=msrv verdict=PASS detail="declarations consistent (channel=rust-version=intake=1.95.0);
+  workspace builds under MSRV toolchain 1.95.0-x86_64-unknown-linux-gnu"
+gate=license verdict=PASS
+gate=audit verdict=PASS detail="zero out-of-workspace dependencies (empty audit surface);
+  audit tools absent, execution pending availability"
+gate=lockfile verdict=PASS detail="cargo build --locked and cargo metadata --locked
+  succeeded; Cargo.lock byte-identical, git-tracked and equal to HEAD"
+gate=canaries verdict=PASS detail="polarity proven: good-scaffold passed scan/clippy/test
+  (exits 0/0/0); bad-scaffold failed scan and clippy as required (exits 1/101)"
+gate=adapter-linkage core_sources=16 governed_protocol_enums=27 seam_enums=1
+  branch_sites=4 declared_allowances=2 cfg_test_items_skipped=2
+gate=adapter-linkage verdict=PASS
+ac1-gates verdict=PASS gates_passed=8/8
+
+ok: evidence/java/behavior-delta-ledger.json equals the regeneration (59 records,
+  head sha256:f10dd526..., document schema 1.2.0)
+ok: ledger integrity verified (frozen prefix through sequence 35, ..., 
+  unledgered_disagreements recomputed = 0, records_without_mismatch_class recomputed = 49)
+ok: evidence/governance/owner-decision-digests.json equals the derivation and
+  7 governance record digest(s) recomputed from the protected store and matched
+
+oraclerankctl: 640 propositions adjudicated; 589 Java/Rust agreements, 39 of them
+  overridden by a higher oracle and every one enrolled in
+  evidence/oracle-hierarchy/adjudication-register.json
+```
+
+Two readings in that list are worth naming, because a green line can hide a
+refusal:
+
+- **ledger-gates did not refuse.** It recomputed governance digests out of the
+  protected store, which it can only do when `VJWP_PROTECTED_STORE` is set. A
+  refusal there prints as an error and is never a pass, so the fact that it
+  reports recomputed digests is what shows the export was in place.
+- **go-suite's excluded package was RUN and still fails.** `internal/lab` needs
+  a Darwin sandbox and cannot pass on this host. The gate does not skip it: it
+  runs it and requires it to fail, so an exclusion cannot outlive its reason.
+  That is a property of the base and not of this branch, and it was checked
+  before the run rather than explained after it.
+
+No owner gate was triggered to produce this reading: no AWS host, no benchmark,
+no Autobahn re-run, and `internal/lab`'s execution path was not entered.
