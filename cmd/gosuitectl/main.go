@@ -8,11 +8,21 @@
 // repeatedly. A chain that does not cover something must say so where it is read,
 // not in a file someone might consult.
 //
-// Two packages genuinely cannot pass on this host. They are named here with the
+// One package genuinely cannot pass on this host. It is named here with the
 // reason, and the reason is CHECKED: an exclusion naming a package that no longer
 // exists fails the gate, so the list cannot quietly outlive the problem it
 // describes. Everything not excluded is run; a package added tomorrow is covered
 // without anyone remembering to add it.
+//
+// It was two until `internal/portplan` was FIXED rather than re-excused. Its
+// exclusion said the reproduction check byte-compared a regenerated semantic-id
+// oracle against a committed one recording jdk_vendor "Homebrew", and that a
+// Linux Temurin regeneration differed in that ONE line with all 969 declarations
+// identical. The owner ruled the check vendor-agnostic; the comparison now
+// excludes that single field by name and the package passes here, so the
+// exclusion went with it. That is the only way an entry leaves this list: the
+// EXCLUSION_NO_LONGER_FAILS finding exists so a fixed package cannot keep its
+// exemption.
 //
 //	gosuitectl -root . [-timeout 40m]
 package main
@@ -33,11 +43,6 @@ import (
 var excluded = map[string]string{
 	"internal/lab": "CONTROLLED_CANARY requires Darwin sandbox-exec; " +
 		"PLATFORM_EXECUTOR_UNSUPPORTED on Linux. Owner gate: a macOS host.",
-	"internal/portplan": "TestDeriveReproducesCommittedEvidence byte-compares the " +
-		"regenerated semantic-id oracle against the committed one, which records " +
-		"jdk_vendor \"Homebrew\"; a Linux Temurin regeneration differs in that ONE " +
-		"line, all 969 declarations identical. Owner decision: make the check " +
-		"vendor-agnostic, or pin the vendor as a host requirement.",
 }
 
 func main() {
@@ -108,10 +113,10 @@ func main() {
 	//
 	// The observed first failing line is PRINTED beside the declared reason so a
 	// reader can see whether they still describe the same thing. They do not
-	// always: with the pinned JDK absent from PATH `internal/portplan` fails
-	// JAVAC_UNAVAILABLE, not the jdk_vendor mismatch its reason names, and a
-	// second test fails that the reason does not mention at all. This gate does
-	// not judge that -- it makes it readable.
+	// always: while `internal/portplan` was excluded for a jdk_vendor mismatch it
+	// failed JAVAC_UNAVAILABLE instead whenever the pinned JDK was off PATH, which
+	// is a different problem wearing the exclusion's name. This gate does not
+	// judge that -- it makes it readable.
 	var passing []string
 	for _, name := range sortedKeys(excluded) {
 		if !present[name] {
@@ -147,12 +152,16 @@ func main() {
 	// _test.go files in the run set sit behind javabinde2e, diffregress,
 	// normcollide and formalcovere2e, none of which this gate satisfies, and two
 	// more sit inside the excluded internal/lab. Those are UNDECLARED exclusions
-	// inside a gate whose founding claim is that exclusions are declared -- two
-	// named packages get an 80-byte reason, an owner action and a staleness check,
+	// inside a gate whose founding claim is that exclusions are declared -- the
+	// named package gets an 80-byte reason, an owner action and a staleness check,
 	// and seven test files get silence.
 	//
-	// 15 of the 59 run packages carry no test file at all, so `run=59` was never a
-	// coverage number; it is now printed beside with_tests=44.
+	// 15 of the run packages carry no test file at all, so `run=` was never a
+	// coverage number; it is now printed beside with_tests=. Measured on
+	// 2026-09-04, after internal/portplan was fixed and left the exclusion list:
+	// packages=61 run=60 excluded=1 with_tests=45 no_test_files=15
+	// unbuilt_test_files=5. The B2/B3 figures quoted above are what those reviews
+	// measured when run=59 excluded=2, and are left as the history they are.
 	//
 	// Refusing them would be wrong: they are deliberate opt-in lanes. Saying
 	// nothing is what this gate exists to stop, so they are counted and named.

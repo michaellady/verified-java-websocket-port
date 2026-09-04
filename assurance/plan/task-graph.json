@@ -336,7 +336,7 @@
     {
       "id": "T-jdk-vendor-agnostic",
       "title": "Make the jdk_vendor comparison vendor-agnostic and drop portplan's exclusion",
-      "state": "in-progress",
+      "state": "done",
       "story": "US-018",
       "depends_on": [],
       "blocked_by": [
@@ -344,11 +344,26 @@
       ],
       "evidence": [
         {
+          "kind": "path_exists",
+          "path": "internal/portplan/vendor_agnostic_test.go"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/portplan/reproduce.go",
+          "pattern": "ORACLE_VENDOR_FIELD_UNREADABLE"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/gosuitectl/main.go",
+          "pattern": "\"internal/portplan\":"
+        },
+        {
           "kind": "command",
           "cmd": "go test -timeout 40m ./internal/portplan/",
-          "note": "must pass on a vendor-only difference and still fail on any other single line"
+          "note": "vendor-only difference exits 0; one character in one of the 969 declarations exits 1 with differing_lines=1 of committed_lines=1071"
         }
-      ]
+      ],
+      "note": "Neutralises exactly ONE field in BOTH reports and compares every other byte; a count other than exactly 1 in either is refused as ORACLE_VENDOR_FIELD_UNREADABLE. No file under evidence/ was touched -- the committed report was never regenerated. portplan's go-suite exclusion removed in the same commit, so run=60 excluded=1."
     },
     {
       "id": "T-F016-gate",
