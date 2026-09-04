@@ -74,6 +74,10 @@ type result struct {
 	files      int
 	loops      int
 	violations []Violation
+	// unscanned names each fixture region the rule was NOT applied to, with the
+	// reason. It is a failure channel, not a note: a scanner that skipped the
+	// file in silence is the same theatre as a scanner that matched nothing.
+	unscanned []string
 }
 
 func main() {
@@ -145,12 +149,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "    %s\n", explain(v))
 	}
 
-	fmt.Fprintf(stdout, "gate=%s step=scan files=%d loops=%d violations=%d waivers=%d max_waivers=%d budget_waivers=%d max_budget_waivers=%d\n",
-		gateName, res.files, res.loops, len(live), len(waived), *maxWaivers, len(budgetWaived), *maxBudgetWaivers)
+	for _, gap := range res.unscanned {
+		fmt.Fprintf(stdout, "gate=%s UNSCANNED %s\n", gateName, gap)
+	}
+	fmt.Fprintf(stdout, "gate=%s step=scan files=%d loops=%d violations=%d waivers=%d max_waivers=%d budget_waivers=%d max_budget_waivers=%d unscanned=%d\n",
+		gateName, res.files, res.loops, len(live), len(waived), *maxWaivers, len(budgetWaived), *maxBudgetWaivers, len(res.unscanned))
 
 	if res.files == 0 || res.loops == 0 {
 		fmt.Fprintf(stderr, "gate=%s result=FAIL reason=%q\n", gateName,
 			"the scan matched no fixture files or no loops: a detector that looked at nothing is not evidence")
+		ok = false
+	}
+	if len(res.unscanned) > 0 {
+		fmt.Fprintf(stderr, "gate=%s result=FAIL reason=%q\n", gateName,
+			fmt.Sprintf("%d fixture region(s) the rule was not applied to; see the UNSCANNED "+
+				"line(s). A #[cfg(test)] whose body this scan cannot reach is a hole in the "+
+				"scan surface, not an absence of findings", len(res.unscanned)))
 		ok = false
 	}
 	if len(live) > 0 {
@@ -227,7 +241,11 @@ func scanTree(root string) (result, error) {
 		src := string(data)
 		var regions []region
 		if !isTestsTreeFile(rel) {
-			regions = cfgTestRegions(maskSource(src))
+			var gaps []string
+			regions, gaps = cfgTestRegions(maskSource(src))
+			for _, gap := range gaps {
+				res.unscanned = append(res.unscanned, rel+": "+gap)
+			}
 			if len(regions) == 0 {
 				return nil
 			}
@@ -293,7 +311,7 @@ func selfcheck(root string, stdout, stderr io.Writer) bool {
 		}
 		var regions []region
 		if !isTestsTreeFile(c.Path) && strings.Contains(string(src), "#[cfg(test)]") {
-			regions = cfgTestRegions(maskSource(string(src)))
+			regions, _ = cfgTestRegions(maskSource(string(src)))
 		}
 		vs, loops := scanFile(c.Path, string(src), regions)
 		if c.mustFire() {
