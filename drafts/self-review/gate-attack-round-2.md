@@ -534,11 +534,47 @@ means integrating, and integrating is not this task.**
 
 ## 11. The chain
 
+`make -C rust gates` was run detached, writing its own exit code to a file rather
+than printing it: **exit 0**, read from that file. No `result=FAIL`, no
+`verdict=FAIL`, no `*** Error` and no `FAIL` anywhere in its 1,864 lines. (`bad-scaffold` fails clippy on
+purpose; that is the canary's declared polarity and the gate reports
+`gates_passed=8/8` for it.)
 
-`make -C rust gates` was run on the final tree, detached, writing its own exit
-code to a file rather than reporting a log line. The numbers below are
-transcribed from that run; the transcription of this section is the only edit
-made to the tree after it, and `record-guard` and `plan-guard` were re-run
-afterwards to confirm the edit changes neither verdict.
+```
+gate=fixture-liveness-guard step=scan files=49 loops=310 violations=0 waivers=0
+    max_waivers=0 budget_waivers=0 max_budget_waivers=0 unscanned=0
+gate=fixture-liveness-guard result=PASS
+gate=record-content-precondition step=census records=64 unfinished=0 superseded=1 finished=63
+gate=record-content-precondition result=PASS
+gate=pin-dangling json_artifacts=1997 unparsable=0 candidates=0 explained=51 covered=23 allowed=11
+gate=pin-dangling result=PASS
+gate=task-graph nodes=29 done=13 ready=5 in_progress=1 blocked=10 owner_actions=14 open=10
+gate=task-graph result=PASS detail="every done node's evidence re-derived; 5 ready,
+    10 blocked on 10 open owner action(s)"
+gate=go-suite packages=62 run=60 excluded=2 with_tests=45 no_test_files=15 unbuilt_test_files=5
+gate=go-suite result=PASS
+ac1-gates verdict=PASS gates_passed=8/8
+```
 
-RESULT_PLACEHOLDER
+The two gates this review changed print exactly what they printed before it:
+`files=49 loops=310 violations=0` with `unscanned=0` newly beside it, and
+`nodes=29 done=13 ready=5 in_progress=1 blocked=10 owner_actions=14 open=10`.
+**No denominator moved.** `records=64` is this document joining the census, and
+`json_artifacts=1997`, `packages=62 run=60` are mainline's numbers at `8e6007d`,
+not mine — this branch adds no JSON artifact and no Go package.
+
+The chain ran on the working tree at commit `130dd44`. Three later commits touch
+only this document's prose, and one of them landed while the chain was still in
+`cargo test` — after `record-guard`, the one gate that reads it, had already read
+it. So rather than assert that a prose edit cannot change a verdict, I re-ran the
+gates that read this document and the plan, on the final tree, and read their
+exit codes from the processes:
+
+```
+go test -count=1 ./cmd/recordguardctl/                     exit 0
+go run ./cmd/recordguardctl gate -root .                   exit 0   records=64
+go run ./cmd/recordguardctl precondition <this record>     exit 0   READS-FINISHED
+go test -count=1 ./cmd/taskgraphctl/                       exit 0
+go run ./cmd/taskgraphctl -root .                          exit 0   nodes=29 done=13
+```
+
