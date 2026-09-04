@@ -691,8 +691,18 @@ result, in either direction, and is not reported as one here.
   **empty output**.
 - `go run ./cmd/recordguardctl precondition drafts/self-review/story-criterion-sweep.md`:
   recorded in the landing note below.
-- `make -C rust gates` with `VJWP_PROTECTED_STORE` exported: recorded in the
-  landing note below.
+- `make -C rust gates` with `VJWP_PROTECTED_STORE` exported: **exit 0**, read
+  from the process via the run's own exit file, not from its text. 89
+  `test result: ok` blocks and **0 failed**; zero `FAIL` lines and zero
+  `make: ***` lines in the whole log. `ac1-gates verdict=PASS gates_passed=8/8`;
+  `adapter-linkage verdict=PASS` over 5 production sources with
+  *"no protocol surface or parser branch"* — which is the gate passing while
+  `server_closes_transport` stands, and is the measured form of the blind spot
+  in §4 rather than an argument about it. `record-guard` census: 55 records,
+  `unfinished=0`, `superseded=1`, `finished=54`. `pin-guard`
+  `gate=pin-dangling result=PASS`. `go-suite` `packages=61 run=59 excluded=2`.
+  The run took roughly 75 minutes wall-clock under the contention described
+  above.
 
 ## 8. Readings behind this sweep
 
