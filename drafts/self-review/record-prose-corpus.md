@@ -290,6 +290,28 @@ per-test mirrors from THAT: the copy's own link counts rise and nothing inspects
 those. `TestTheMirrorAddsNoLinkToTheCheckout` is the regression probe, and it is
 a test about the test helper, because that is where the defect was.
 
+**The race would not reproduce on demand, and the proof is therefore of the
+MECHANISM and not of the race.** `go test ./cmd/recordguardctl/
+./internal/assurance/` came back `ok` on both packages with the defective mirror
+in place: `cmd/recordguardctl` finishes in eight seconds and the window simply
+did not overlap the check. Saying "it passed, so it is fixed" from that run would
+have been the same reading error F017 records. So the polarity was taken
+deterministically instead, on the one thing that is not timing-dependent — the
+link count itself:
+
+```
+--- FAIL: TestTheMirrorAddsNoLinkToTheCheckout
+    the mirror raised assurance/lifecycle.json to 2 links. internal/assurance
+    refuses that file unless nlink==1, and go test runs packages in parallel, so
+    this makes an unrelated package fail from inside this one          exit 1
+```
+
+with the shipped form, and exit 0 with the fix. That plus the two red runs'
+verbatim message — `assurance/lifecycle.json is not an immutable single-link
+file` — is the whole chain: my mirror provably raises the count, and the failing
+package provably refuses a raised count. What is NOT established is a
+reproduction of the interleaving, and it is not claimed.
+
 ### A bug this work found in itself
 
 `mirrorTree` in the test file skipped `.git` by returning `filepath.SkipDir`.
