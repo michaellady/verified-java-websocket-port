@@ -158,6 +158,18 @@
       "id": "OA-round2-forbid-count",
       "state": "open",
       "what_is_needed": "Rule on how to correct a cardinality in a landed record. drafts/self-review/gate-attack-round-2.md states that 9 of the 32 tests/ crate roots carry #![forbid(unsafe_code)], measured with `grep -l`. rustgatectl's tokenizer-grade hasForbidUnsafe -- which exists precisely to reject mentions inside comments and string literals -- says 7: the other two are a doc comment in rust/ws-core/tests/scaffold_smoke.rs and a string literal in rust/ws-oracle-harness/tests/protocol.rs. Round 2's sentence also says 23 roots are outside the scan surface when all 32 are. This is not edited here: the repository's convention, recorded in cmd/recordguardctl/prose.go, is SUPERSEDE, do not edit."
+    },
+    {
+      "id": "OA-held-draft-legacy-13",
+      "state": "open",
+      "what_is_needed": "Decide the disposition of drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json, then let the rule derive its own population. The file is a record proposal of exactly the shape VerifyProposalDraftsAreLedgered reads: it rebuilds from its own digest preimages, its declared delta_id equals the identity those preimages produce, and NO record in the committed chain carries it. deltaledger.ProposalDraftPaths() is a hardcoded list that does not name it, so the rule that exists to refuse a held draft that never became a record cannot see it, and ledger-gates prints 'held proposal drafts' as verified at exit 0.",
+      "why_it_blocks": "Deriving the population from drafts/ledger-proposals/ by SHAPE rather than from the list takes ledger-gates RED on the committed tree, and the only way back to green is appending the record -- which moves the chain head, the sequence after the frozen prefix, and the unledgered_disagreements recomputation. An agent may not move a ledger. Owner rules one of: append the record and then derive the population; or record the draft as withdrawn, with the reason, and derive the population with that disposition visible."
+    },
+    {
+      "id": "OA-rust-lint-suppression-ceiling",
+      "state": "open",
+      "what_is_needed": "Decide whether the Rust lint gates get a suppression rule, and which kind. `make -C rust fmt-check` is defeated by #[rustfmt::skip] on a mis-formatted item and `make -C rust clippy` by #[allow(clippy::<lint>)] on an item that trips it -- both demonstrated at exit 0 with the mutant compiling. Neither target has a waiver ceiling, a suppression scan or a census, while fixture-guard four lines above them in the same Makefile has all three and calls raising its ceiling 'a decision, not a formality'.",
+      "why_it_blocks": "The two options are not the same decision. The granular per-lint allow attributes already occur in first-party crates, so a ceiling over that population is a measurement denominator an agent may not invent. The BLANKET forms -- allow(warnings), allow(clippy::all), allow(clippy::pedantic), a [lints] table and rustfmt::skip -- do not occur anywhere in the Rust tree today, so refusing those outright is an absolute like forbid-unsafe and creates no denominator. Owner rules which of the two is built."
     }
   ],
   "nodes": [
@@ -1087,14 +1099,112 @@
     },
     {
       "id": "T-gates-residue-attacked",
-      "title": "The gate surface three rounds left unattacked, named by the rounds themselves",
-      "state": "ready",
+      "title": "The gate surface three rounds left unattacked: oracle-hierarchy defeated three ways and fixed, fmt-check and clippy defeated and reported",
+      "state": "done",
       "depends_on": [
         "T-remaining-gates-attacked"
       ],
       "blocked_by": [],
-      "evidence": [],
-      "note": "Not blocked by anything and not invented: every item is quoted from round 3's own section 8. (1) oracle-hierarchy-gates is the ONLY gate nobody has defeated, and the reason is that nobody has really tried -- 'one evidence probe in two polarities and a reading of four files'. Untouched: the join-degeneracy and collision analyses, the independence probe, the neutral derivation, and the 488 rank-two propositions. Given that every gate anyone has attacked in three rounds has fallen, 'undefeated' here means 'unexamined', and the record says so. (2) Eight ledger-gates rules were never attacked: observation provenance, the handshake mapping census, the protocol-rejection class, the supersession rules, VerifyAdjudication, the held proposal drafts, the corpora re-derivation, and the live-mapping source binding. (3) fmt-check and clippy were run, not attacked. A fourth item is recorded as UNREACHABLE rather than unattacked and should not be re-attempted blindly: the unsafe_usage prose has zero inventory entries, and creating one needs either network egress or the vendored path dependency that A7's fix now refuses first -- so a reviewed entry claiming 'no unsafe' for a crate full of it would still pass, and nothing here can demonstrate it."
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/gate-attack-round-4.md"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "internal/oraclerank/adversarial_round4_test.go"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/document.go",
+          "pattern": "func checkArtifactGroupPartition\\(f Family\\) error \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/document.go",
+          "pattern": "a group split no path split supports"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/document.go",
+          "pattern": "a group merge no path merge supports"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/document.go",
+          "pattern": "if err := checkArtifactGroupPartition\\(f\\); err != nil \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/joindegeneracy.go",
+          "pattern": "DegenerateOverJoinedKeys bool"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/findings.go",
+          "pattern": "if !jd.DegenerateOverJoinedKeys \\{"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "internal/oraclerank/findings.go",
+          "pattern": "if !jd.Degenerate \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/binding.go",
+          "pattern": "func checkBindingStrengthAgainstFamilies\\(bindings \\[\\]Binding, families \\[\\]Family\\) error \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/binding.go",
+          "pattern": "a rank may not claim one strength while its own families record a weaker one"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "internal/oraclerank/binding.go",
+          "pattern": "Rank four is bound to observations of the pinned Java-WebSocket 1.6.0 process: the two Java legs"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/adversarial_round4_test.go",
+          "pattern": "func TestASplitArtifactGroupWithNoPathSplitIsRefused\\(t \\*testing.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/adversarial_round4_test.go",
+          "pattern": "func TestAMergedArtifactGroupWithNoPathMergeIsRefused\\(t \\*testing.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/adversarial_round4_test.go",
+          "pattern": "func TestTheJoinAnalysisIgnoresAKeyNoCaseReaches\\(t \\*testing.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/oraclerank/adversarial_round4_test.go",
+          "pattern": "func TestABindingMayNotClaimContentWhileItsFamiliesRecordLess\\(t \\*testing.T\\) \\{"
+        },
+        {
+          "kind": "grep",
+          "path": "schemas/oracle-hierarchy-adjudication-register-1.0.0.schema.json",
+          "pattern": "disagreement_structurally_impossible_over_the_keys_this_census_joins_on"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/oracle-hierarchy/adjudication-register.json",
+          "pattern": "ORACLE-RANK-BINDING-4"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/oracle-hierarchy/adjudication-register.json",
+          "pattern": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust gates"
+        }
+      ],
+      "note": "Round 4. Three attacks got a bad tree past oracle-hierarchy-gates at exit 0, and all three left the printed census byte-identical -- 640 propositions, 589 Java/Rust agreements, 39 overridden -- which is what makes them the dangerous kind. All three are on the ANALYSES around the adjudication rather than on the adjudication, which held: (1) the artifact group that decides whether the independence probe scores a rank pair was a free string, so splitting it manufactured a measurement between two ranks that read one document (co-votes 18 -> 50) and merging it deleted a BLOCKING finding; (2) the join-degeneracy analysis ran over the whole lookup table, so changing one row NO committed case reaches deleted both join-degeneracy disclosures and left a BLOCKING finding claiming 49 co-votes could have come out either way when every one was still forced; (3) a rank's binding strength was a literal, and rank four claimed CONTENT_BOUND -- the one value that suppresses both the 'not bound to' obligation and the ORACLE-RANK-BINDING disclosure -- while the census's own families record its handshake opinions as a RECORDED_READING and its public opinions as AGGREGATE_DERIVED. All three are fixed in the PRODUCTION path so oracle-hierarchy-gates itself refuses them, each with a test that asserts the refusal TEXT and fails when the fix is removed. Round 3's claim that nothing asserts 640 is corrected: the proposition count is fixed by four Go corpus-size constants the census refuses to run without; the agreement and override counts are still unanchored and OA-oracle-census-anchor stands untouched. | fmt-check and clippy both fell to a single in-source suppression, control run first in each case; NOT fixed, because a ceiling needs a count and the granular allow population is not empty -- OA-rust-lint-suppression-ceiling. | ledger-gates: the held-proposal-drafts rule is strong about every draft it reads and its POPULATION is a hardcoded list that has drifted; a rebuildable record proposal sits in the drafts directory carried by no record and outside the list, so the rule that exists to catch exactly that cannot see it. NOT fixed: deriving the population takes ledger-gates red and the way back is appending to the ledger -- OA-held-draft-legacy-13. The live-mapping source binding was probed in both polarities and HELD. | HONEST RESIDUE, and the reason this node exists at all: of the eight ledger rules named in the brief, six were attacked or read closely and two -- VerifyAdjudication and the corpora re-derivation -- were READ AND NOT ATTACKED. internal/rfcneutral was not attacked. The unsafe_usage prose remains UNREACHABLE as briefed and was not re-litigated."
     }
   ]
 }

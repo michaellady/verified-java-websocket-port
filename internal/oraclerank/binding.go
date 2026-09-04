@@ -191,7 +191,7 @@ func RFCTextPresent(root string, pin RFCPin) (bool, error) {
 // one's strength is decided by whether the pinned RFC bytes are actually
 // present, and rank three's honesty note is decided by the corpus's own
 // recorded expectation status.
-func Bindings(root string) ([]Binding, error) {
+func Bindings(root string, families []Family) ([]Binding, error) {
 	var out []Binding
 
 	rfc, err := bindRFC(root)
@@ -232,7 +232,54 @@ func Bindings(root string) ([]Binding, error) {
 			return nil, fmt.Errorf("%s names no artifact; a rank with no artifact exists in name only", b.Rank)
 		}
 	}
+	if err := checkBindingStrengthAgainstFamilies(out, families); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// checkBindingStrengthAgainstFamilies re-derives the one field of a Binding
+// that used to be a literal.
+//
+// Rank one's strength has always been COMPUTED -- it turns on whether the
+// pinned RFC bytes are present. The other four were written into the source
+// beside the rank. That mattered for more than tidiness: Bindings requires a
+// binding weaker than CONTENT_BOUND to say what it is NOT bound to, and
+// Findings emits ORACLE-RANK-BINDING-n for exactly those, so writing
+// CONTENT_BOUND suppressed both the obligation and the disclosure. Nothing
+// compared the literal with the census's own per-family SourceStrength, which
+// is the finer statement of the same fact and is derived from where each
+// opinion is actually read.
+//
+// The rule is the honest direction of the two: a rank may call itself
+// CONTENT_BOUND only where EVERY family it speaks in reads it out of a record
+// of the oracle itself. One family reading it out of a recorded human reading,
+// or deducing it from an aggregate, is enough to make the single label
+// flattering -- which is the fault census.go's SourceStrength doc names in its
+// own words: averaging a rank's attachments into one label "is how a rank comes
+// to look better attached than it is".
+func checkBindingStrengthAgainstFamilies(bindings []Binding, families []Family) error {
+	weaker := map[Rank][]string{}
+	for _, f := range families {
+		for _, rs := range f.RankSources {
+			if rs.Strength == SourceAbsent || rs.Strength == SourceContent {
+				continue
+			}
+			weaker[rs.Rank] = append(weaker[rs.Rank], fmt.Sprintf("%s=%s", f.ID, rs.Strength))
+		}
+	}
+	for _, b := range bindings {
+		if b.Strength != BoundToContent {
+			continue
+		}
+		if names := weaker[b.Rank]; len(names) > 0 {
+			sort.Strings(names)
+			return fmt.Errorf(
+				"%s is bound %s and the census declares its opinions in %v as something other than %s; a rank may not claim one strength while its own families record a weaker one, and %s is the strength that carries the NOT bound to obligation and the ORACLE-RANK-BINDING disclosure",
+				b.Rank, b.Strength, names, SourceContent, BoundToContent)
+		}
+	}
+	return nil
 }
 
 func bindRFC(root string) (Binding, error) {
@@ -350,11 +397,17 @@ func bindJava(root string) (Binding, error) {
 	return Binding{
 		Rank:     RankJavaObservation,
 		RankName: RankJavaObservation.String(),
-		Strength: BoundToContent,
+		Strength: BoundToRecordedReading,
 		Statement: fmt.Sprintf(
-			"Rank four is bound to observations of the pinned Java-WebSocket 1.6.0 process: the two Java legs of the native x86_64 Autobahn run (per-case report bytes under %s, digest-manifest verified) and the recorded Java arm at %s.",
-			AutobahnEvidenceRoot, JavaArmPath),
+			"Rank four is bound to three things and this binding does not average them. On the AUTOBAHN family and the DIFFERENTIAL family it is an observation of the pinned Java-WebSocket 1.6.0 PROCESS: the two Java legs of the native x86_64 Autobahn run (per-case report bytes under %s, digest-manifest verified) and the recorded Java arm at %s. On the HANDSHAKE family it is not: the opinions there are the java_observable field of %s, which that family's own rank_sources record as a %s and whose basis cites Draft_6455.java and WebSocketImpl.java BY LINE rather than any transcript. On the PUBLIC family it is not an observation either: no per-scenario Java transcript is committed and the opinions are %s from a clean-sweep aggregate plus the corpus expectation.",
+			AutobahnEvidenceRoot, JavaArmPath, HandshakeLiveMappingPath, SourceRecordedReading, SourceAggregateDerived),
 		Artifacts: arts,
+		NotBoundTo: fmt.Sprintf(
+			"the Java PROCESS, on the handshake and public families. %s of the 49 handshake propositions is a human reading of the pinned Java sources and a misreading of a cited line would pass this gate unchanged; the 74 public propositions are a DEDUCTION from two aggregates that record a clean sweep, and a per-scenario Java observation that differed from its recorded expectation while the aggregate still read 74/74/0 would be invisible here. This binding was CONTENT_BOUND until an adversarial pass compared the label with the census's own per-family strengths; it carried no NOT bound to text and emitted no ORACLE-RANK-BINDING disclosure while two of the four families it speaks in read it from something other than the oracle.",
+			HandshakeLiveMappingPath),
+		OwnerActionRequired: fmt.Sprintf(
+			"commit a per-case transcript of the pinned Java process for the handshake corpus and a per-scenario transcript for the public corpus. With either present, that family's rank_sources becomes %s and this binding's strength rises on its own -- the strength is computed from the families, not written here.",
+			SourceContent),
 	}, nil
 }
 

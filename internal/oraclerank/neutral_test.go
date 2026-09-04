@@ -251,7 +251,7 @@ func TestHandshakeJoinIsDegenerateOnTheCommittedMapping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	jds, err := handshakeJoinDegeneracies(mapping)
+	jds, err := handshakeJoinDegeneracies(mapping, everyMappingKey(mapping))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestJoinDegeneracyDetectsANonDegenerateJoin(t *testing.T) {
 	entry.JavaObservable = "accept"
 	mapping[key] = entry
 
-	jds, err := handshakeJoinDegeneracies(mapping)
+	jds, err := handshakeJoinDegeneracies(mapping, everyMappingKey(mapping))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,6 +317,9 @@ func TestJoinDegeneracyDetectsANonDegenerateJoin(t *testing.T) {
 		checked = true
 		if jd.Degenerate {
 			t.Fatal("a mapping that carries a reject key with java_observable=accept was still reported as join-degenerate")
+		}
+		if jd.DegenerateOverJoinedKeys {
+			t.Fatal("the counterexample key IS joined on here, so the joined-key analysis must not report degeneracy either")
 		}
 		if !strings.Contains(jd.Statement, "reject->accept") {
 			t.Fatalf("the statement does not name the counterexample: %s", jd.Statement)
@@ -423,7 +426,8 @@ func TestRegisterCarriesTheDerivationsShape(t *testing.T) {
 func TestHollowCoVoteQualifierCountsRatherThanAsserts(t *testing.T) {
 	families := []Family{
 		{ID: "joined", VerdictSpace: []string{"a", "b"}, JoinDegeneracy: []JoinDegeneracy{{
-			Family: "joined", Higher: RankRFC6455, Lower: RankNeutralExpectation, Degenerate: true,
+			Family: "joined", Higher: RankRFC6455, Lower: RankNeutralExpectation,
+			Degenerate: true, DegenerateOverJoinedKeys: true,
 		}}},
 		{ID: "collapsed", VerdictSpace: []string{"a", "b"}},
 		{ID: "informative", VerdictSpace: []string{"a", "b"}},
@@ -460,4 +464,16 @@ func TestHollowCoVoteQualifierCountsRatherThanAsserts(t *testing.T) {
 	if q := hollowCoVoteQualifier(clean, families); q != "" {
 		t.Fatalf("a pair with no hollow co-votes got a qualifier: %q", q)
 	}
+}
+
+// everyMappingKey is the joined-key set these tests hand the analysis: they ask
+// about the whole committed table, which is what the whole-table half of
+// joinDegeneracy answers. TestTheJoinAnalysisIgnoresAKeyNoCaseReaches, in
+// adversarial_round4_test.go, is the one that hands it a narrower set.
+func everyMappingKey(mapping map[[2]string]handshakeMappingEntry) map[[2]string]bool {
+	out := make(map[[2]string]bool, len(mapping))
+	for k := range mapping {
+		out[k] = true
+	}
+	return out
 }

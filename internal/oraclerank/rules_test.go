@@ -21,7 +21,14 @@ func fabricatedFamily(id string, sources []RankSource, props ...Proposition) Fam
 }
 
 func source(r Rank, strength SourceStrength, group string) RankSource {
-	return RankSource{Rank: r, RankName: r.String(), Strength: strength, ArtifactGroup: group, Note: "test"}
+	rs := RankSource{Rank: r, RankName: r.String(), Strength: strength, ArtifactGroup: group, Note: "test"}
+	if group != "" {
+		// checkArtifactGroupPartition requires the groups to partition the
+		// speaking ranks exactly as the declared paths do, so a fabricated
+		// family needs a path per group to be well formed at all.
+		rs.Paths = []string{"test/" + group}
+	}
+	return rs
 }
 
 // TestCheckFamilyRulesRefusesAnOverrideInThePolarityControlFamily calls the

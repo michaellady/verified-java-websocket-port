@@ -76,8 +76,8 @@
     {
       "rank": 4,
       "rank_name": "rank4-java-observation",
-      "strength": "CONTENT_BOUND",
-      "statement": "Rank four is bound to observations of the pinned Java-WebSocket 1.6.0 process: the two Java legs of the native x86_64 Autobahn run (per-case report bytes under evidence/autobahn/native-x86_64-provenance, digest-manifest verified) and the recorded Java arm at evidence/differential-regression/java-arm.jsonl.",
+      "strength": "CONTENT_BOUND_TO_RECORDED_READING",
+      "statement": "Rank four is bound to three things and this binding does not average them. On the AUTOBAHN family and the DIFFERENTIAL family it is an observation of the pinned Java-WebSocket 1.6.0 PROCESS: the two Java legs of the native x86_64 Autobahn run (per-case report bytes under evidence/autobahn/native-x86_64-provenance, digest-manifest verified) and the recorded Java arm at evidence/differential-regression/java-arm.jsonl. On the HANDSHAKE family it is not: the opinions there are the java_observable field of evidence/us005-handshake-live-mapping.json, which that family's own rank_sources record as a RECORDED_READING and whose basis cites Draft_6455.java and WebSocketImpl.java BY LINE rather than any transcript. On the PUBLIC family it is not an observation either: no per-scenario Java transcript is committed and the opinions are AGGREGATE_DERIVED from a clean-sweep aggregate plus the corpus expectation.",
       "artifacts": [
         {
           "path": "evidence/autobahn/native-digest-manifest.json",
@@ -94,7 +94,9 @@
           "sha256": "sha256:842b2791690c810e3e10e962d438214f3e5dac85be5c64a23b6f01e45e36399a",
           "bytes": 23702
         }
-      ]
+      ],
+      "not_bound_to": "the Java PROCESS, on the handshake and public families. evidence/us005-handshake-live-mapping.json of the 49 handshake propositions is a human reading of the pinned Java sources and a misreading of a cited line would pass this gate unchanged; the 74 public propositions are a DEDUCTION from two aggregates that record a clean sweep, and a per-scenario Java observation that differed from its recorded expectation while the aggregate still read 74/74/0 would be invisible here. This binding was CONTENT_BOUND until an adversarial pass compared the label with the census's own per-family strengths; it carried no NOT bound to text and emitted no ORACLE-RANK-BINDING disclosure while two of the four families it speaks in read it from something other than the oracle.",
+      "owner_action_required": "commit a per-case transcript of the pinned Java process for the handshake corpus and a per-scenario transcript for the public corpus. With either present, that family's rank_sources becomes CONTENT and this binding's strength rises on its own -- the strength is computed from the families, not written here."
     },
     {
       "rank": 5,
@@ -255,8 +257,8 @@
         "every one of the 49 handshake cases resolved to an outcome key present in evidence/us005-handshake-live-mapping.json; an unmapped key is an error",
         "the mapping's rfc_verdict and java_observable were read as separate opinions and never reconciled by the census",
         "the 19 outcome keys the mapping marks divergent are EXACTLY the 19 whose java_observable it records as `conditional`, asserted in both directions; rank four abstains on all of them, so this family cannot exhibit a rank-one-overrides-rank-four adjudication at all",
-        "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank1-rfc6455 and rank3-neutral-expectation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's rfc_verdict either v or `conditional`, and rank1-rfc6455 abstains on `conditional` (0 of the 42 keys). rank1-rfc6455's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles.",
-        "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank3-neutral-expectation and rank4-java-observation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's java_observable either v or `conditional`, and rank4-java-observation abstains on `conditional` (19 of the 42 keys). rank4-java-observation's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles."
+        "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank1-rfc6455 and rank3-neutral-expectation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's rfc_verdict either v or `conditional`, and rank1-rfc6455 abstains on `conditional` (0 of the 42 keys). rank1-rfc6455's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The 27 of those keys the committed corpus actually joins on carry the same property. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles.",
+        "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank3-neutral-expectation and rank4-java-observation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's java_observable either v or `conditional`, and rank4-java-observation abstains on `conditional` (19 of the 42 keys). rank4-java-observation's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The 27 of those keys the committed corpus actually joins on carry the same property. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles."
       ],
       "join_degeneracy": [
         {
@@ -280,7 +282,20 @@
           },
           "lookup_keys_considered": 42,
           "lookup_keys_that_make_the_lower_rank_abstain": 0,
-          "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank1-rfc6455 and rank3-neutral-expectation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's rfc_verdict either v or `conditional`, and rank1-rfc6455 abstains on `conditional` (0 of the 42 keys). rank1-rfc6455's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles."
+          "disagreement_structurally_impossible_over_the_keys_this_census_joins_on": true,
+          "lookup_keys_the_census_joins_on": 27,
+          "lower_rank_verdicts_reachable_over_the_keys_this_census_joins_on": {
+            "accept": [
+              "accept"
+            ],
+            "incomplete": [
+              "incomplete"
+            ],
+            "reject": [
+              "reject"
+            ]
+          },
+          "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank1-rfc6455 and rank3-neutral-expectation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's rfc_verdict either v or `conditional`, and rank1-rfc6455 abstains on `conditional` (0 of the 42 keys). rank1-rfc6455's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The 27 of those keys the committed corpus actually joins on carry the same property. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles."
         },
         {
           "family_id": "handshake-verdict",
@@ -303,7 +318,20 @@
           },
           "lookup_keys_considered": 42,
           "lookup_keys_that_make_the_lower_rank_abstain": 19,
-          "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank3-neutral-expectation and rank4-java-observation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's java_observable either v or `conditional`, and rank4-java-observation abstains on `conditional` (19 of the 42 keys). rank4-java-observation's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles."
+          "disagreement_structurally_impossible_over_the_keys_this_census_joins_on": true,
+          "lookup_keys_the_census_joins_on": 27,
+          "lower_rank_verdicts_reachable_over_the_keys_this_census_joins_on": {
+            "accept": [
+              "accept"
+            ],
+            "incomplete": [
+              "incomplete"
+            ],
+            "reject": [
+              "reject"
+            ]
+          },
+          "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank3-neutral-expectation and rank4-java-observation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's java_observable either v or `conditional`, and rank4-java-observation abstains on `conditional` (19 of the 42 keys). rank4-java-observation's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The 27 of those keys the committed corpus actually joins on carry the same property. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles."
         }
       ],
       "proposition_count": 49,
@@ -1134,6 +1162,16 @@
       "owner_action_required": "check the readings in internal/rfcneutral/rules.go clause by clause against https://www.rfc-editor.org/rfc/rfc6455.txt once those bytes are in the tree; each rule records the sentence it rests on for that purpose. On the handshake tier, supply a per-case observation of the pinned Java process so rank four is not looked up by a key computed from this rank's own verdict -- see the ORACLE-RANK-JOIN-DEGENERATE finding."
     },
     {
+      "id": "ORACLE-RANK-BINDING-4",
+      "severity": "DISCLOSURE",
+      "statement": "rank4-java-observation is CONTENT_BOUND_TO_RECORDED_READING, not CONTENT_BOUND. the Java PROCESS, on the handshake and public families. evidence/us005-handshake-live-mapping.json of the 49 handshake propositions is a human reading of the pinned Java sources and a misreading of a cited line would pass this gate unchanged; the 74 public propositions are a DEDUCTION from two aggregates that record a clean sweep, and a per-scenario Java observation that differed from its recorded expectation while the aggregate still read 74/74/0 would be invisible here. This binding was CONTENT_BOUND until an adversarial pass compared the label with the census's own per-family strengths; it carried no NOT bound to text and emitted no ORACLE-RANK-BINDING disclosure while two of the four families it speaks in read it from something other than the oracle.",
+      "basis": [
+        "rank_bindings[rank4-java-observation].strength = CONTENT_BOUND_TO_RECORDED_READING",
+        "rank_bindings[rank4-java-observation] hashes 3 committed artifact(s) on every run"
+      ],
+      "owner_action_required": "commit a per-case transcript of the pinned Java process for the handshake corpus and a per-scenario transcript for the public corpus. With either present, that family's rank_sources becomes CONTENT and this binding's strength rises on its own -- the strength is computed from the families, not written here."
+    },
+    {
       "id": "ORACLE-RANK-COVOTE-COLLISION-1-3-public-corpus-ready-state",
       "severity": "DISCLOSURE",
       "statement": "The 17 co-votes rank1-rfc6455 and rank3-neutral-expectation share in public-corpus-ready-state carry ONE distinct answer: rank1-rfc6455 said \"closed\" and rank3-neutral-expectation said \"closed\" on every one of them. Those 17 propositions are 1 question asked 17 times under this family's 3-value verdict space, so the probe's NOT_DISTINGUISHED verdict there rests on a collision of the projection rather than on 17 independent measurements. internal/normcollide measures the same collapse one layer down.",
@@ -1180,9 +1218,9 @@
     {
       "id": "ORACLE-RANK-JOIN-DEGENERATE-1-3",
       "severity": "DISCLOSURE",
-      "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank1-rfc6455 and rank3-neutral-expectation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's rfc_verdict either v or `conditional`, and rank1-rfc6455 abstains on `conditional` (0 of the 42 keys). rank1-rfc6455's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles. The independence probe scores this pair in this family because the two ranks are read from different documents, and it reports 49 co-votes and 0 disagreements there. Those 49 co-votes carry no information about whether rank1-rfc6455 is a separate oracle from rank3-neutral-expectation: 0 was the only number the join could produce.",
+      "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank1-rfc6455 and rank3-neutral-expectation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's rfc_verdict either v or `conditional`, and rank1-rfc6455 abstains on `conditional` (0 of the 42 keys). rank1-rfc6455's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The 27 of those keys the committed corpus actually joins on carry the same property. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles. The independence probe scores this pair in this family because the two ranks are read from different documents, and it reports 49 co-votes and 0 disagreements there. Those 49 co-votes carry no information about whether rank1-rfc6455 is a separate oracle from rank3-neutral-expectation: 0 was the only number the join could produce.",
       "basis": [
-        "families[handshake-verdict].join_degeneracy[0].disagreement_structurally_impossible = true",
+        "families[handshake-verdict].join_degeneracy[0].disagreement_structurally_impossible_over_the_keys_this_census_joins_on = true over 27 joined keys (whole 42-key table: true)",
         "families[handshake-verdict].join_degeneracy[0].lower_rank_verdicts_reachable_from_each_higher_verdict = map[accept:[accept] incomplete:[incomplete] reject:[reject]]",
         "independence_probe[rank1-rfc6455 vs rank3-neutral-expectation].by_family[handshake-verdict] = co_votes 49, disagreements 0"
       ],
@@ -1191,9 +1229,9 @@
     {
       "id": "ORACLE-RANK-JOIN-DEGENERATE-3-4",
       "severity": "DISCLOSURE",
-      "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank3-neutral-expectation and rank4-java-observation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's java_observable either v or `conditional`, and rank4-java-observation abstains on `conditional` (19 of the 42 keys). rank4-java-observation's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles. The independence probe scores this pair in this family because the two ranks are read from different documents, and it reports 32 co-votes and 0 disagreements there. Those 32 co-votes carry no information about whether rank3-neutral-expectation is a separate oracle from rank4-java-observation: 0 was the only number the join could produce.",
+      "statement": "DISAGREEMENT IS STRUCTURALLY IMPOSSIBLE in handshake-verdict between rank3-neutral-expectation and rank4-java-observation. Over all 42 keys of evidence/us005-handshake-live-mapping.json, every key reachable from a rank3-neutral-expectation verdict v records the mapping's java_observable either v or `conditional`, and rank4-java-observation abstains on `conditional` (19 of the 42 keys). rank4-java-observation's non-abstaining verdict is therefore always exactly rank3-neutral-expectation's, whatever the corpus holds. The 27 of those keys the committed corpus actually joins on carry the same property. The co-votes the independence probe reports for this pair in this family are a property of the census's own join, not a measurement of two oracles. The independence probe scores this pair in this family because the two ranks are read from different documents, and it reports 32 co-votes and 0 disagreements there. Those 32 co-votes carry no information about whether rank3-neutral-expectation is a separate oracle from rank4-java-observation: 0 was the only number the join could produce.",
       "basis": [
-        "families[handshake-verdict].join_degeneracy[0].disagreement_structurally_impossible = true",
+        "families[handshake-verdict].join_degeneracy[0].disagreement_structurally_impossible_over_the_keys_this_census_joins_on = true over 27 joined keys (whole 42-key table: true)",
         "families[handshake-verdict].join_degeneracy[0].lower_rank_verdicts_reachable_from_each_higher_verdict = map[accept:[accept] incomplete:[incomplete] reject:[reject]]",
         "independence_probe[rank3-neutral-expectation vs rank4-java-observation].by_family[handshake-verdict] = co_votes 32, disagreements 0"
       ],

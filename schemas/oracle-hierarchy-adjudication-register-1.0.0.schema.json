@@ -191,9 +191,12 @@
         "lower_rank_name",
         "key_derivation",
         "disagreement_structurally_impossible",
+        "disagreement_structurally_impossible_over_the_keys_this_census_joins_on",
         "lower_rank_verdicts_reachable_from_each_higher_verdict",
+        "lower_rank_verdicts_reachable_over_the_keys_this_census_joins_on",
         "lookup_keys_considered",
         "lookup_keys_that_make_the_lower_rank_abstain",
+        "lookup_keys_the_census_joins_on",
         "statement"
       ],
       "properties": {
@@ -204,7 +207,18 @@
         "lower_rank_name": { "$ref": "#/$defs/rankName" },
         "key_derivation": { "type": "string", "minLength": 1, "maxLength": 8192 },
         "disagreement_structurally_impossible": { "type": "boolean" },
+        "disagreement_structurally_impossible_over_the_keys_this_census_joins_on": {
+          "type": "boolean",
+          "description": "The same property computed over ONLY the lookup keys the committed corpus actually joins on. The whole-table field above is deliberately the wider of the two, so a corpus that grew a case could not create degeneracy; that width was also a way past the gate, because a row NO case reaches could carry a counterexample and delete the disclosure. This is the field the ORACLE-RANK-JOIN-DEGENERATE finding fires on."
+        },
         "lower_rank_verdicts_reachable_from_each_higher_verdict": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "lower_rank_verdicts_reachable_over_the_keys_this_census_joins_on": {
           "type": "object",
           "additionalProperties": {
             "type": "array",
@@ -213,6 +227,7 @@
         },
         "lookup_keys_considered": { "type": "integer", "minimum": 1 },
         "lookup_keys_that_make_the_lower_rank_abstain": { "type": "integer", "minimum": 0 },
+        "lookup_keys_the_census_joins_on": { "type": "integer", "minimum": 1 },
         "statement": { "type": "string", "minLength": 1, "maxLength": 8192 }
       }
     },

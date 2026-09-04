@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 // RegisterPath is the committed adjudication register this package emits and
@@ -100,7 +101,7 @@ func Recompute(root string) (Register, []Family, error) {
 	if err != nil {
 		return Register{}, nil, err
 	}
-	bindings, err := Bindings(root)
+	bindings, err := Bindings(root, families)
 	if err != nil {
 		return Register{}, nil, err
 	}
@@ -338,6 +339,10 @@ func readCommittedOverrides(root string) (map[string]OverrideEntry, error) {
 //
 // It returns the overridden Java/Rust agreements the family exhibits.
 func CheckFamilyRules(f Family) (map[string]OverrideEntry, error) {
+	if err := checkArtifactGroupPartition(f); err != nil {
+		return nil, err
+	}
+
 	exhibited := map[string]OverrideEntry{}
 	voted := map[Rank]int{}
 
@@ -401,4 +406,89 @@ func CheckFamilyRules(f Family) (map[string]OverrideEntry, error) {
 		}
 	}
 	return exhibited, nil
+}
+
+// checkArtifactGroupPartition re-derives the independence probe's own input
+// instead of accepting it.
+//
+// ArtifactGroup is the single field that decides whether IndependenceProbe
+// SCORES a rank pair inside a family or refuses to score it, and until this
+// check nothing derived it from anything: it was a free string written beside
+// the rank. Two edits of one word each were enough, and neither moved a number
+// the gate prints.
+//
+//   - Give rank one in the handshake family a group of its own and the probe
+//     scores it against rank four, which is read out of the SAME document --
+//     the pair's co-vote count went from 18 to 50 and the register said
+//     "18 of 50 independently sourced shared propositions", of which 32 were
+//     one file's rfc_verdict against the same file's java_observable.
+//   - Give rank three the group of rank one in both families it speaks in and
+//     the pair stops being scored at all -- the BLOCKING finding
+//     ORACLE-RANK-INDISTINGUISHABLE-1-3 left the register and a DISCLOSURE
+//     took its place.
+//
+// Both regenerated to exit 0 with "640 propositions adjudicated; 589 Java/Rust
+// agreements, 39 of them overridden" byte-identical.
+//
+// The rule: inside one family the artifact groups must partition the
+// non-abstaining ranks EXACTLY as the declared paths do, in both directions.
+// Two ranks read from the same declared artifacts may not be split into two
+// groups, and two ranks read from different declared artifacts may not be
+// merged into one. A group split now costs a path split, and the paths are the
+// files the rank bindings hash on every run.
+func checkArtifactGroupPartition(f Family) error {
+	type decl struct {
+		rank  Rank
+		group string
+		paths string
+	}
+	var speaking []decl
+	for _, rs := range f.RankSources {
+		if rs.Strength == SourceAbsent {
+			if rs.ArtifactGroup != "" {
+				return fmt.Errorf("%s: %s is declared ABSENT and still names the artifact group %q; an abstaining rank names no body of evidence",
+					f.ID, rs.Rank, rs.ArtifactGroup)
+			}
+			if len(rs.Paths) != 0 {
+				return fmt.Errorf("%s: %s is declared ABSENT and still names %d path(s); an abstaining rank reads nothing",
+					f.ID, rs.Rank, len(rs.Paths))
+			}
+			continue
+		}
+		if rs.ArtifactGroup == "" {
+			return fmt.Errorf("%s: %s is declared with strength %s and names no artifact group; the independence probe would score it against every other rank without knowing what its verdicts vary with",
+				f.ID, rs.Rank, rs.Strength)
+		}
+		if len(rs.Paths) == 0 {
+			return fmt.Errorf("%s: %s is declared with strength %s and names no path; its artifact group would rest on nothing",
+				f.ID, rs.Rank, rs.Strength)
+		}
+		speaking = append(speaking, decl{rank: rs.Rank, group: rs.ArtifactGroup, paths: canonicalPathKey(rs.Paths)})
+	}
+
+	for i, a := range speaking {
+		for _, b := range speaking[i+1:] {
+			samePaths := a.paths == b.paths
+			sameGroup := a.group == b.group
+			if samePaths && !sameGroup {
+				return fmt.Errorf(
+					"%s: %s and %s declare the same paths [%s] and two artifact groups (%q and %q); a group split no path split supports lets the independence probe score two ranks that read one body of evidence",
+					f.ID, a.rank, b.rank, a.paths, a.group, b.group)
+			}
+			if !samePaths && sameGroup {
+				return fmt.Errorf(
+					"%s: %s and %s declare the artifact group %q and different paths ([%s] and [%s]); a group merge no path merge supports makes the independence probe refuse to score two ranks that read different bodies of evidence",
+					f.ID, a.rank, b.rank, a.group, a.paths, b.paths)
+			}
+		}
+	}
+	return nil
+}
+
+// canonicalPathKey renders a rank's declared paths order-independently, so two
+// ranks that name the same artifacts in a different order are one group.
+func canonicalPathKey(paths []string) string {
+	sorted := append([]string(nil), paths...)
+	sort.Strings(sorted)
+	return strings.Join(sorted, "|")
 }

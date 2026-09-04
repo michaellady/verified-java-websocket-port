@@ -497,7 +497,20 @@ func censusHandshake(root string) (Family, error) {
 		}
 	}
 
-	jds, err := handshakeJoinDegeneracies(mapping)
+	// The keys this census actually joins on, computed from the committed
+	// corpus by the SAME function the propositions below are built with, so
+	// the join analysis and the propositions cannot rest on two different
+	// readings of the corpus.
+	joinedKeys := map[[2]string]bool{}
+	for _, c := range cases {
+		key, err := handshakeOutcomeKey(c)
+		if err != nil {
+			return Family{}, err
+		}
+		joinedKeys[[2]string{c.Direction, key}] = true
+	}
+
+	jds, err := handshakeJoinDegeneracies(mapping, joinedKeys)
 	if err != nil {
 		return Family{}, err
 	}
