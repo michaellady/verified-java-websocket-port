@@ -1186,15 +1186,35 @@ var protocolBranchAllowance = []allowedProtocolBranch{
 	{
 		Path:        "ws-testee/src/io_loop.rs",
 		Enclosing:   "drive_until_open",
-		Fingerprint: "2c05c5aeae1c8921428d807f0163f30e1ad804c4d3477ff403de0c407b3e11e4",
-		Reason: "NOT RULED ON. Found by this detector on its first run over the real tree, " +
-			"not by the F016 probe: drive_until_open decides from ReadyState::NotYetConnected " +
-			"(`if driver.state() != ReadyState::NotYetConnected { return true; }`) to know when " +
-			"the handshake has completed and its message script may start. It is a readiness " +
-			"poll rather than a protocol decision, which is an argument for it and not a " +
-			"ruling. OWNER ACTION: rule on it as server_closes_transport was ruled on, or " +
-			"replace the state comparison with a driver-side readiness predicate so the " +
-			"adapter stops naming a ReadyState variant at all.",
+		Fingerprint: "40a62857c4563017c89aabf7d31b48d1f37ce8d0f719213a2348ab4297299ef7",
+		Reason: "OWNER RULING (OA-drive-until-open-branch, 2026-09-04): KEEP the branch " +
+			"where it is and declare it. drive_until_open takes the SAME DISPOSITION as " +
+			"server_closes_transport above -- the branch stays in the adapter, and this " +
+			"entry now records that ruling instead of NOT RULED ON. The decision is a " +
+			"readiness poll, not a protocol decision: it reads ReadyState only to learn " +
+			"that the handshake has completed and the fixture's message script may start. " +
+			"RE-PINNED, AND WHY. The owner ruled against io_loop.rs:745 on mainline, where " +
+			"this function's fingerprint was 2c05c5aeae1c8921. Landing the US-019 line " +
+			"rewrote io_loop.rs and moved the ruled branch to line 831, so the whole-" +
+			"function fingerprint moved to 40a62857c4563017 and the mainline pin went " +
+			"STALE_PROTOCOL_BRANCH_ALLOWANCE. The branch was re-located BY ITS CODE, not " +
+			"by its line number: `if driver.state() != ReadyState::NotYetConnected` is the " +
+			"same decision the ruling quotes, now returning a HandshakeOutcome carrying the " +
+			"straddle carryover rather than a bare `true`. " +
+			"DISCLOSED, BECAUSE THE RULING DID NOT SEE IT. This fingerprint is the sha256 " +
+			"of the ENCLOSING FUNCTION's token stream, so one entry covers every branch " +
+			"site in drive_until_open, and the merged function now holds TWO rather than " +
+			"one: the ruled site at :831, and a second at :950, `while cursor < rest.len() " +
+			"&& driver.state() == ReadyState::NotYetConnected`, which claude/us019-native-" +
+			"run added and which did not exist on the tree the owner ruled against. It is " +
+			"the same readiness character -- it feeds the handshake one byte at a time so a " +
+			"chunk cannot straddle the 101/first-frame boundary, and the adapter still " +
+			"parses nothing -- but it is a site the ruling's text does not name. It cannot " +
+			"be declared separately from :831 because the two share one fingerprint by " +
+			"design. Declaring it here is therefore reported to the owner rather than " +
+			"treated as covered, in OA-drive-until-open-second-site. " +
+			"Delete this entry only if the function is deleted; re-pin it only on a fresh " +
+			"ruling, because any edit to the decision moves the fingerprint by design.",
 	},
 }
 
