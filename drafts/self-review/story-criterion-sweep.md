@@ -580,9 +580,16 @@ bullets and found no instance of.
 7. **The 49 pre-vocabulary records were read as a class, not individually.** I
    read the rationales of sequences 18, 23, 25, 26, 27, 48, 49, 50, 51, 52, 54,
    55, 56, 57 and 58 in full, and sequences 1–16, 36–41 and 45–47 by subject and
-   RFC anchor plus a sample of four rationales. A criterion conflict hiding in
+   RFC anchor plus a sample of five rationales. A criterion conflict hiding in
    the prose of one of the ~30 rationales I did not read in full would have been
-   missed.
+   missed. **This is not a theoretical risk and I have a demonstrated instance of
+   it: my own.** I classified sequences 14–16 and 45–47 as Java adoptions from
+   their subject lines, and only reading sequence 14's rationale in full showed
+   they are the reverse — *"Java's unbounded growth is NOT emulated"*. That error
+   was in the harmless direction (it inflated the pool I searched rather than
+   shrinking it), but the same shortcut in the other direction is exactly how a
+   member of this class would be missed, and there are ~30 rationales where I
+   took it.
 
 **Mainline moved under this sweep, and it does not touch the swept surface.**
 Base `4cf3f8f`; while the sweep ran, mainline advanced three commits to
