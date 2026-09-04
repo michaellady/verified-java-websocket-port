@@ -476,7 +476,7 @@
         }
       ],
       "story": "US-019",
-      "note": "DONE ON claude/us019-landing, NOT ON MAINLINE, and the difference is the point. OA-pr4-fast-forward ruled the US-019 line lands; origin/claude/us019-survivor-residue at caa44e5 is merged here, carrying us019-survivor-closure-2 at f9b9520 and us019-native-run beneath it. The one conflict, this plan, was resolved as a union by id with nothing dropped from either side. The three gate failures the ruling names are fixed as three separate commits, each with the failing gate quoted before and after and never a bulk regeneration. WHAT REMAINS IS NOT MINE: the merge of this branch into claude/feature/verified-java-websocket-port is the coordinator's, and this node's evidence is deliberately shaped so that it CANNOT hold on a mainline where that merge did not happen -- the two git_tracked items name packages absent from mainline, so plan-guard goes red there rather than quietly reading done."
+      "note": "DONE ON claude/us019-landing, NOT ON MAINLINE, and the difference is the point. OA-pr4-fast-forward ruled the US-019 line lands; origin/claude/us019-survivor-residue at caa44e5 is merged here, carrying us019-survivor-closure-2 at f9b9520 and us019-native-run beneath it. The one conflict, this plan, was resolved as a union by id with nothing dropped from either side. The three gate failures the ruling names are fixed as three separate commits, each with the failing gate quoted before and after and never a bulk regeneration. WHAT REMAINS IS NOT MINE: the merge of this branch into claude/feature/verified-java-websocket-port is the coordinator's, and this node's evidence is deliberately shaped so that it CANNOT hold on a mainline where that merge did not happen -- the two git_tracked items name packages absent from mainline, so plan-guard goes red there rather than quietly reading done. | OUTCOME 2026-09-04T13:40Z: GitHub closed PR #4 as MERGED. Verified rather than assumed, because a merge nobody performed is worth checking: PR #4's base was claude/feature/verified-java-websocket-port (NOT main -- I had that wrong and corrected it against the API), its head 6416805 is an ancestor of this branch's HEAD, local and remote are identical with no third-party merge commit, and main is still 45f0fa3. So landing the US-019 line made the PR's head reachable from its base and GitHub closed it as merged. The closure is the RESULT of executing the ruling, not a competing action."
     },
     {
       "id": "T-pr1",
@@ -790,7 +790,7 @@
         {
           "kind": "grep",
           "path": "drafts/self-review/us019-survivor-residue.md",
-          "pattern": "\\*\\*`make -C rust gates` → EXIT 2\\.\\*\\*",
+          "pattern": "\\*\\*`make -C rust gates` \u2192 EXIT 2\\.\\*\\*",
           "note": "the gates exit code this round measured, and the per-target table behind it: three failures, all three traced by git log and a digest recomputation to claude/us019-native-run, none of them this branch's"
         },
         {
@@ -1042,7 +1042,7 @@
         {
           "kind": "grep",
           "path": "drafts/self-review/us019-survivor-residue.md",
-          "pattern": "### 6.2 OPEN, no owner gate — 10 sites, each with the probe it needs",
+          "pattern": "### 6.2 OPEN, no owner gate \u2014 10 sites, each with the probe it needs",
           "note": "the ten sites and the probe each one needs, named individually"
         },
         {
@@ -1069,7 +1069,7 @@
         {
           "kind": "grep",
           "path": "drafts/self-review/us019-survivor-residue.md",
-          "pattern": "### 6.3 OPEN, blocked on a live suite — 6 sites",
+          "pattern": "### 6.3 OPEN, blocked on a live suite \u2014 6 sites",
           "note": "cli.rs:237, 250, 259 and 276 with both its conjuncts"
         }
       ],
