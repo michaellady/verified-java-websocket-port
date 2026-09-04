@@ -422,6 +422,34 @@ exists to catch"*). So DIV-01's placement was checked twice, by an owner and by 
 gate. `server_closes_transport` names neither symbol, so the gate does not see
 it, and no owner decision covers it.
 
+**And the gap in the gate is exact, not vague.** `cmd/rustgatectl/adapter_linkage.go:46-49`
+states the gate's purpose in its own words — *"core protocol symbols and modules
+adapter production code must never name: **naming them means protocol logic (or
+a bypass of the driver seam) moved into networking code**"* — which is US-018
+AC3's clause restated. Its `forbiddenProtocolSurface` list (`:49-65`) includes
+`ConnectionCore`, `Draft6455`, `apply_mask`, `ws_core::framing`,
+`ws_core::handshake` and **`ws_core::close`**; its `forbiddenProtocolBranch`
+list (`:70-84`) catches opcode and length bitmasks and the wire literals
+`Sec-WebSocket`, `HTTP/1.1` and `101 Switching`.
+
+**`ReadyState` and `Role` are on neither list** — `grep -n "ReadyState" cmd/rustgatectl/adapter_linkage.go`
+returns nothing. They reach the adapter as root-level re-exports
+(`io_loop.rs:14`, `use ws_core::{… ReadyState, Role …}`), so a branch on
+`Role::Server && state == ReadyState::Closing` names no forbidden module and
+matches no forbidden pattern. **The gate forbids naming the close MODULE and does
+not forbid branching on the protocol STATE the close decision actually turns
+on**, and `server_closes_transport` sits precisely in that gap.
+
+That gives the owner a third option neither the ledger record nor F010's framing
+offers, and it is the cheapest: **leave the placement where it is and close the
+gap**, by adding the protocol-state types to `forbiddenProtocolSurface` with
+`server_closes_transport` as a declared, reasoned exemption. That converts an
+unnoticed carve-out into a visible one — which is what US-018 AC3 asks a gate to
+do — without moving a byte of behaviour. I did not implement or measure it, and
+I do not claim it is free: `Role` is a required parameter of `drive_connection`,
+so the exemption would have to be written with care and its blast radius
+measured before anyone relied on it.
+
 **Measured cost of each resolution. Nothing estimated; the source was patched,
 run, and restored.**
 
@@ -624,7 +652,12 @@ no Autobahn run.
 2. **Rule on US-018 AC1's placement clause** for `server_closes_transport`:
    (a) placement stands, 0 tests move; (b) relocate to `ws-driver`, with the 5
    tests above as its acceptance set and the corpus-invisibility of the new seam
-   to be MEASURED, not argued, as the C6 lane's hard stop requires.
+   to be MEASURED, not argued, as the C6 lane's hard stop requires; or
+   (c) **placement stands AND the architecture gate's blind spot is closed** —
+   `ReadyState` and `Role` added to `forbiddenProtocolSurface` with this call
+   site as a declared exemption, so the carve-out is visible instead of
+   accidental. (c) is the cheapest and is the only one of the three that leaves
+   US-018 AC3's gate able to catch the NEXT adapter-side protocol branch.
 3. **The Autobahn re-run**, which
    `us017-c6-layer-split-owner-decision-2026-08-28.json` requirement 3 asks for
    in as many words (*"Re-run Autobahn to MEASURE the improvement rather than
