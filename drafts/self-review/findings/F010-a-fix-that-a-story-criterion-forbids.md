@@ -292,3 +292,60 @@ ledger the same finding discusses.
 
 Reading the criterion more carefully cannot find a decision that overrides it.
 The check that would have is cheap and was never run.
+
+## Addendum 4, 2026-09-04: settled twice over, and the second one has no enumeration to argue about
+
+Addendum 3 left one honest doubt: the amendment's `context` names five
+conflicting families and AC2's banner is not among them, so "every AC clause"
+might be read narrowly. A second standing decision removes that doubt, because it
+has no enumeration at all.
+
+`evidence/governance/decisions/us009-us008-owner-decisions-2026-08-27.json`, key
+`us009_normativity`, choice **`JAVA_FAITHFUL_PLUS_SAFE`**, verbatim:
+
+> The port mirrors shipped Java-WebSocket 1.6.0 observable behavior **exactly** —
+> including RFC divergences (permissive handshake predicate, close-code quirks) —
+> but refuses to copy shipped unsafety: bounded memory (per-append fragment
+> caps), checked arithmetic, exactly-once terminal callbacks. … **The handshake
+> verdict-mapping doc's RFC-normative closing statement is superseded for port
+> semantics**; RFC remains the vocabulary authority for corpus expectations.
+
+This is a plane-wide stance, not a per-clause amendment:
+
+- **"mirrors … observable behavior exactly."** The `Date` and `Server` headers
+  are observable behavior of the pinned jar. Emitting them is the stance,
+  executed.
+- **The only carve-out is shipped UNSAFETY**, and it is enumerated: bounded
+  memory, checked arithmetic, exactly-once terminal callbacks. A vendor banner is
+  none of those. There is no third category for "clauses we would rather were
+  stricter".
+- **It reaches the handshake by name.** The sentence superseding "the handshake
+  verdict-mapping doc's RFC-normative closing statement … for port semantics" is
+  about precisely this surface.
+
+So F010's conflict is resolved by TWO independent standing decisions of the same
+date: the US-010..016 amendment (which reaches AC2 on its operative sentence) and
+the plane normativity stance (which reaches it without needing that sentence).
+Addendum 3's doubt applied only to the first.
+
+The sweep that found these also reports that **every one of ledger sequences 1–49
+cites the amendment by digest in its own rationale**. The adoption is not an
+accident anywhere in that range; it is an owner ruling being executed.
+
+### What is left for the owner
+
+Nothing to decide. One thing to *overrule*, if they want to: US-011 AC2's banner
+clause is stricter than RFC 6455 — which requires only `Upgrade`, `Connection`
+and `Sec-WebSocket-Accept`, and forbids nothing — and it is inoperative under both
+decisions above. If the intent was that this one clause survive
+`JAVA_FAITHFUL_PLUS_SAFE`, that is a new decision to make, not a reading to
+confirm.
+
+### And the method failure gets worse, not better
+
+Addendum 3 said one grep of `evidence/governance/decisions/` would have found the
+answer. It would have found **two**, in the same directory, dated the same day,
+one of them the plane-wide stance that governs every behavioral question this
+port asks. Four passes over F010 — the finding, two addenda, and a blast-radius
+measurement pricing an amendment that already existed — and the directory of
+answers went unread until an agent swept it.
