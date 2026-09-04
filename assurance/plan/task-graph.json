@@ -75,9 +75,11 @@
     },
     {
       "id": "OA-pr4-fast-forward",
-      "state": "open",
+      "state": "ruled",
       "what_is_needed": "RESTATED 2026-09-04 and materially larger than 'fast-forward PR #4'. The whole US-019 line is unreachable from mainline: `internal/autobahnsuite` and `rust/autobahn-controls` DO NOT EXIST here (`git ls-tree HEAD internal/autobahnsuite/` is empty), so every test written against them can only live on that line. A completed survivor sweep now sits on it -- 180 newly enumerated sites, a 106-survivor floor, 75 closed -- and cannot land. Merging the line as it stands breaks THREE gates, each traced rather than guessed: pin-guard on a digest that reads afc0ef4f on mainline and 31a625e2 after claude/us019-native-run regenerated it; go-suite on internal/formalcoverage, because that branch adds the autobahn-controls crate without refreshing denominator-reconciliation.json (byte-identical to mainline on the survivor branch, so the drift is the crate, not the file); and ac1-gates adapter-linkage on io_loop.rs, which differs from mainline by 167/38 lines with every commit touching it belonging to us019-native-run. Decide the integration: fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520 and resolve those three as part of it, or say the US-019 line stays separate and mainline's plan should stop carrying nodes whose evidence can never be re-derived here.",
-      "why_it_blocks": "Three gate failures are the cost of merging and re-pointing a digest or re-fingerprinting an allowance from inside a survivor sweep is the re-baselining this project forbids, so the sweep correctly refused to fix them. Until this is decided, finished US-019 work accumulates on a branch nobody can land, and mainline's plan carries nodes it cannot verify."
+      "why_it_blocks": "Three gate failures are the cost of merging and re-pointing a digest or re-fingerprinting an allowance from inside a survivor sweep is the re-baselining this project forbids, so the sweep correctly refused to fix them. Until this is decided, finished US-019 work accumulates on a branch nobody can land, and mainline's plan carries nodes it cannot verify.",
+      "ruled_at": "2026-09-04",
+      "ruling": "Fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520 and LAND the US-019 line on mainline, resolving the three gate failures as part of that work: the drifted pin target (afc0ef4f on mainline, 31a625e2 after us019-native-run regenerated it), internal/formalcoverage's denominator-reconciliation.json not refreshed for the added autobahn-controls crate, and ac1-gates adapter-linkage on the merged io_loop.rs. Each is to be resolved as its own verified step, never a bulk regeneration."
     },
     {
       "id": "OA-pr1-disposition",
@@ -87,9 +89,11 @@
     },
     {
       "id": "OA-drive-until-open-branch",
-      "state": "open",
+      "state": "ruled",
       "what_is_needed": "Rule on a SECOND adapter-side protocol branch, found by the new detector on its first real run and ruled on by nobody: `drive_until_open` at rust/ws-testee/src/io_loop.rs:745 branches on core ReadyState -- `if driver.state() != ReadyState::NotYetConnected { return true; }`. Same shape as server_closes_transport, which you ruled stays. Keep it and declare it, or move it into the core.",
-      "why_it_blocks": "It is declared in the gate's allowance list only so the gate can pass, with its entry stating that it is UNRULED. That is an honest placeholder, not a decision, and it should not sit there indefinitely."
+      "why_it_blocks": "It is declared in the gate's allowance list only so the gate can pass, with its entry stating that it is UNRULED. That is an honest placeholder, not a decision, and it should not sit there indefinitely.",
+      "ruled_at": "2026-09-04",
+      "ruling": "KEEP the branch where it is and declare it. drive_until_open at rust/ws-testee/src/io_loop.rs:745 takes the same disposition as server_closes_transport: the branch stays in the adapter and its allowance records this ruling instead of NOT RULED ON."
     },
     {
       "id": "OA-pin-path-corpus",
@@ -123,9 +127,11 @@
     },
     {
       "id": "OA-F019-master-us020-ac5",
-      "state": "open",
+      "state": "ruled",
       "what_is_needed": "Rule on docs/prd-pack/03-master-stories-intake-lsp-protocol-labzero.md:13, master US-020 AC5. (a) Do the 52 'unresolved' dispositions count as AC5's 'unresolved' on their face, or does internal/deltaledger/definitions.go's account govern and make 45 of them AC5's 'preserve'? (b) Should AC5's 'unresolved deltas block completion' have a mechanism? It has none. (c) Sequence 53 is the only live unresolved delta citing no owner decision at all.",
-      "why_it_blocks": "The published count 52 is the criterion's number under neither reading. internal/lab/ledger.go:78-80 and internal/deltaledger/definitions.go:23-29 define the same token opposite ways. The blocking half is NOT breached on this plane (9/27, not the canonical child's 27/27), but no gate implements it, so it could not fire if this plane declared completion."
+      "why_it_blocks": "The published count 52 is the criterion's number under neither reading. internal/lab/ledger.go:78-80 and internal/deltaledger/definitions.go:23-29 define the same token opposite ways. The blocking half is NOT breached on this plane (9/27, not the canonical child's 27/27), but no gate implements it, so it could not fire if this plane declared completion.",
+      "ruled_at": "2026-09-04",
+      "ruling": "The CHILD's reading governs. docs/prd-pack/01-structure-and-index.md:121 records this repository as the Claude-runtime sibling at 9/27, not the canonical child at 27/27, so master US-020 AC5's blocking half is not breached here. Close F019 narrowed, and RENAME internal/ac5class so it stops being named for a criterion it does not implement."
     },
     {
       "id": "OA-master-prd-metadata-gap",
@@ -161,9 +167,11 @@
     },
     {
       "id": "OA-held-draft-legacy-13",
-      "state": "open",
+      "state": "ruled",
       "what_is_needed": "Decide the disposition of drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json, then let the rule derive its own population. The file is a record proposal of exactly the shape VerifyProposalDraftsAreLedgered reads: it rebuilds from its own digest preimages, its declared delta_id equals the identity those preimages produce, and NO record in the committed chain carries it. deltaledger.ProposalDraftPaths() is a hardcoded list that does not name it, so the rule that exists to refuse a held draft that never became a record cannot see it, and ledger-gates prints 'held proposal drafts' as verified at exit 0.",
-      "why_it_blocks": "Deriving the population from drafts/ledger-proposals/ by SHAPE rather than from the list takes ledger-gates RED on the committed tree, and the only way back to green is appending the record -- which moves the chain head, the sequence after the frozen prefix, and the unledgered_disagreements recomputation. An agent may not move a ledger. Owner rules one of: append the record and then derive the population; or record the draft as withdrawn, with the reason, and derive the population with that disposition visible."
+      "why_it_blocks": "Deriving the population from drafts/ledger-proposals/ by SHAPE rather than from the list takes ledger-gates RED on the committed tree, and the only way back to green is appending the record -- which moves the chain head, the sequence after the frozen prefix, and the unledgered_disagreements recomputation. An agent may not move a ledger. Owner rules one of: append the record and then derive the population; or record the draft as withdrawn, with the reason, and derive the population with that disposition visible.",
+      "ruled_at": "2026-09-04",
+      "ruling": "DERIVE the population from the directory rather than the hardcoded list of seven, and carry legacy-13-bare-lf-server-basis-correction.json as a DECLARED EXEMPTION with a staleness check, in the shape this repository already uses four times. Do NOT append to the ledger to make it green. The exemption must fail the moment it stops being needed."
     },
     {
       "id": "OA-rust-lint-suppression-ceiling",
@@ -582,7 +590,7 @@
     {
       "id": "T-pr4",
       "title": "PR #4: fast-forward to the completed survivor round",
-      "state": "blocked",
+      "state": "ready",
       "depends_on": [],
       "blocked_by": [
         "OA-pr4-fast-forward"
@@ -856,7 +864,7 @@
     {
       "id": "T-us019-survivors-open",
       "title": "US-019 survivor residue: three unswept classes swept, complete on a branch that cannot land",
-      "state": "blocked",
+      "state": "ready",
       "depends_on": [],
       "blocked_by": [
         "OA-pr4-fast-forward"
@@ -867,7 +875,7 @@
     {
       "id": "T-drive-until-open",
       "title": "Rule on the second adapter-side protocol branch the detector found",
-      "state": "blocked",
+      "state": "ready",
       "story": "US-018",
       "depends_on": [
         "T-F016-gate"
@@ -1036,7 +1044,7 @@
     {
       "id": "T-f019-ac5-vocabulary-and-mechanism",
       "title": "Reconcile the ledger's 'unresolved' with master US-020 AC5, and decide whether its blocking rule gets a gate",
-      "state": "blocked",
+      "state": "ready",
       "depends_on": [
         "T-sweep-master-stories"
       ],
@@ -1089,7 +1097,7 @@
     {
       "id": "T-us019-site-count-underivable",
       "title": "A published site count of 110 that re-derives as 111, from an enumerator that was deleted",
-      "state": "blocked",
+      "state": "ready",
       "depends_on": [],
       "blocked_by": [
         "OA-pr4-fast-forward"
