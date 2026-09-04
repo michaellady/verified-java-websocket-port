@@ -614,9 +614,19 @@ Three runs. The exit code is written by the script to its own log as
 
 | run | tree | reading |
 | --- | --- | --- |
-| 1 | the first commit | **exit 2** — `go-suite` FAIL, `cmd/securityctl` |
+| 1 | the first commit (`93990d6`, the merged one) | **exit 2** — `go-suite` FAIL, `cmd/securityctl` |
 | 2 | + two prose corrections | **exit 2** — `go-suite` FAIL, `internal/assurance` ×3 |
 | 3 | + the mirror fix | **exit 0** — every step, no failure marker anywhere |
+| 4 | + TP-5 and this table | **exit 0** — same, on `309cfb0` |
+
+Run 4 is the reading for this head. The only change after it is the row that
+records it, which is the regress this kind of table always has and is stated
+rather than hidden.
+
+**Run 4's strongest single line is not the exit code.** It is
+`ok internal/assurance 113.449s`, inside the full parallel `go-suite` — the
+package that went red in run 2, passing in situ under the same interleaving that
+broke it, rather than passing standalone where it always did.
 
 Runs 1 and 2 were the mirror defect above, and both are recorded rather than
 dropped: two red runs blaming two innocent packages is the whole evidence that
