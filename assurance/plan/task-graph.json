@@ -76,8 +76,8 @@
     {
       "id": "OA-pr4-fast-forward",
       "state": "open",
-      "what_is_needed": "Fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520, which is strictly ahead of its head.",
-      "why_it_blocks": "PR #4 is not landable on its own terms and its base is stale."
+      "what_is_needed": "RESTATED 2026-09-04 and materially larger than 'fast-forward PR #4'. The whole US-019 line is unreachable from mainline: `internal/autobahnsuite` and `rust/autobahn-controls` DO NOT EXIST here (`git ls-tree HEAD internal/autobahnsuite/` is empty), so every test written against them can only live on that line. A completed survivor sweep now sits on it -- 180 newly enumerated sites, a 106-survivor floor, 75 closed -- and cannot land. Merging the line as it stands breaks THREE gates, each traced rather than guessed: pin-guard on a digest that reads afc0ef4f on mainline and 31a625e2 after claude/us019-native-run regenerated it; go-suite on internal/formalcoverage, because that branch adds the autobahn-controls crate without refreshing denominator-reconciliation.json (byte-identical to mainline on the survivor branch, so the drift is the crate, not the file); and ac1-gates adapter-linkage on io_loop.rs, which differs from mainline by 167/38 lines with every commit touching it belonging to us019-native-run. Decide the integration: fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520 and resolve those three as part of it, or say the US-019 line stays separate and mainline's plan should stop carrying nodes whose evidence can never be re-derived here.",
+      "why_it_blocks": "Three gate failures are the cost of merging and re-pointing a digest or re-fingerprinting an allowance from inside a survivor sweep is the re-baselining this project forbids, so the sweep correctly refused to fix them. Until this is decided, finished US-019 work accumulates on a branch nobody can land, and mainline's plan carries nodes it cannot verify."
     },
     {
       "id": "OA-pr1-disposition",
@@ -746,17 +746,14 @@
     },
     {
       "id": "T-us019-survivors-open",
-      "title": "Close the survivor-sweep residue that remains open",
-      "state": "in-progress",
+      "title": "US-019 survivor residue: three unswept classes swept, complete on a branch that cannot land",
+      "state": "blocked",
       "depends_on": [],
-      "blocked_by": [],
-      "evidence": [
-        {
-          "kind": "command",
-          "cmd": "go test -timeout 40m ./internal/autobahnsuite/"
-        }
+      "blocked_by": [
+        "OA-pr4-fast-forward"
       ],
-      "note": "64 of 70 closed, 6 proved unreachable. 70 is a FLOOR: switch arms, all Rust-side checks, and conjuncts inside composite booleans were never swept. | IN FLIGHT on claude/us019-survivor-residue, based at fe69b2c (a merge of claude/us019-survivor-closure-2, the head where the 70-site floor was measured, so the sweep strictly extends it rather than re-baselining). Marked in-progress so a heartbeat firing does not pick it up twice: `ready` means available, and it is not."
+      "evidence": [],
+      "note": "DONE ON claude/us019-survivor-residue AT caa44e5, and blocked here only by integration. The three classes round 4 named as its ceiling were derived rather than estimated: 29 switch arms and 67 conjuncts by go/ast over the four Go files, 84 Rust-side decision points by a comment-aware scan then read and classified (17 if, 1 while, 2 if-let, 6 let-else, 48 match arms, 10 conjuncts). 180 sites, 7 admitting no compiling mutation and recorded as NON-MUTANTS rather than kills, 173 scored: 106 survivors at baseline, 75 closed, 15 unreachable with proof, 16 open. BOTH DENOMINATORS STAND SIDE BY SIDE -- round 4's 110 sites / 70-survivor floor and this round's 180 / 106 -- and are never added: this strictly extends a floor, it does not correct it. Headline: rust/autobahn-controls/src/cli.rs, the two-role entry point every control binary runs and the only crate code the Autobahn harness invokes, HAD NO TEST AT ALL and 33 of its 33 scored sites survived. Two probes that HUNG rather than failed were found and fixed; the runner now scores a timeout as TIMEOUT, never SURVIVED. Its evidence cannot be cited here because the package it tests is absent from mainline, which is exactly what OA-pr4-fast-forward has to decide."
     },
     {
       "id": "T-drive-until-open",
@@ -952,6 +949,44 @@
       ],
       "evidence": [],
       "note": "record-prose cannot reach it: the corpus is .md under drafts/self-review and evidence plus evidence-JSON statement fields, so a Go doc comment is out of scope by construction. The bound defect sitting inside the gate that prints the census is the sharpest statement of that ceiling. See drafts/self-review/record-prose-corpus.md TP-5."
+    },
+    {
+      "id": "T-us019-residue-open",
+      "title": "Ten US-019 residue survivors with no owner gate between them and closure",
+      "state": "blocked",
+      "depends_on": [
+        "T-us019-survivors-open"
+      ],
+      "blocked_by": [
+        "OA-pr4-fast-forward"
+      ],
+      "evidence": [],
+      "note": "Of the 16 still open, 10 need no owner action -- each has the probe it needs named (a subprocess/stdout probe for 4, report-equality against a never-opening peer for 3, handshake-start failure for 2, a forced ECONNRESET for 1). Blocked here only because the code they test is not on mainline."
+    },
+    {
+      "id": "T-us019-residue-live-suite",
+      "title": "Six US-019 residue survivors past /getCaseCount",
+      "state": "blocked",
+      "depends_on": [
+        "T-us019-survivors-open"
+      ],
+      "blocked_by": [
+        "OA-autobahn-reruns",
+        "OA-pr4-fast-forward"
+      ],
+      "evidence": [],
+      "note": "A live wstest run is an owner gate and was NOT triggered. A hand-built fake-suite fixture would need no owner action and was deliberately not built, which is stated as a choice rather than a limit."
+    },
+    {
+      "id": "T-us019-site-count-underivable",
+      "title": "A published site count of 110 that re-derives as 111, from an enumerator that was deleted",
+      "state": "blocked",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-pr4-fast-forward"
+      ],
+      "evidence": [],
+      "note": "Round 4 reported 110 `if` conditions across its four files. A go/ast enumeration of those same files returns 111 -- baseline.go 43, independence.go 16, reconcile.go 27, suite.go 25 -- which I re-derived independently of the report that raised it, getting the same total and the same per-file split. Round 4's enumerator was .sweep/mutate.py, which f9b9520 GITIGNORED, so its 110 cannot be re-derived by anyone. Round 4's numbers are left exactly as recorded and nothing was re-baselined. The lesson is the deleted derivation, not the off-by-one: a measurement whose enumerator is gone is a number no one can check, and this repository's own graph note still recites 70 of 110 on mainline."
     }
   ]
 }
