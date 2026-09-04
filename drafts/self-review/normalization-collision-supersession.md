@@ -291,9 +291,10 @@ agents share this machine.
   `git add -A` stages it — it did here (`59fb547`) and at `f1b98a4` before. My
   first removal did not hold: the next commit ran `git add -A` and re-staged it,
   which is the trap demonstrating itself, so the symlink is now in this worktree's
-  `.git/info/exclude` rather than removed once and hoped about. A committed symlink to an absolute path gives every other
-  checkout a dangling link, and `cmd/gosuitectl`'s precondition would then read a
-  broken link as a staged quarantine and stop refusing. The one-character fix is
+  `.git/info/exclude` rather than removed once and hoped about. A committed
+  symlink to an absolute path gives every other checkout a dangling link, and
+  `cmd/gosuitectl`'s precondition would then read a broken link as a staged
+  quarantine and stop refusing. The one-character fix is
   in a shared file and is not mine to make on this branch; reported, not applied.
 - **`internal/ac5class` still carries two collisions where this audit found
   seven.** Unchanged from the landing record's own §9; it is a US-020 acceptance
