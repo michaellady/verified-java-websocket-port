@@ -325,7 +325,18 @@ verdict rests on the zero-dependency assertion and says so.
 An earlier run of the same chain was TERMINATED by me at the go-suite step, at
 exit 143, when I found the basis-pin polarity check of section 7 while it was in
 flight. A SIGTERM is not a reading and that run is not quoted anywhere; the run
-above is a complete one on the final tree.
+above is a complete one.
+
+A paragraph reporting a gate run is always one commit later than the tree that
+run read, and no record can contain the reading of a run over itself. The
+regress is disclosed rather than hidden: the chain was run twice, at `47c783a`,
+the tree carrying every substantive change, and again at `7a0423b`, the tree
+carrying the census above. Both exit 0, both with `json_artifacts=3501
+candidates=0 allowed=15`, `nodes=47 done=27`, `packages=64 run=63`, and every
+`result=`/`verdict=` line PASS. The commit adding THIS paragraph changes one
+markdown file under the self-review tree and nothing else; the three gate steps
+that read that tree — record-guard's two and plan-guard's `path_exists` — were
+re-run against it and are recorded in the commit message.
 
 ## 9. What could not be resolved
 
