@@ -8,7 +8,7 @@ use ws_core::{CommandSender, ConnectionConfig, LocalCommand, Role, SemanticEvent
 use ws_driver::connection_driver;
 
 use crate::io_loop::{
-    ConnectionReport, EventPolicy, IoBounds, drive_connection, drive_until_open, empty_report,
+    ConnectionReport, EventPolicy, IoBounds, drive_connection_from, drive_until_open, empty_report,
 };
 use crate::{SetupOutcome, loopback_only};
 
@@ -92,7 +92,8 @@ pub fn run_client_once(fixture: &ClientFixture<'_>) -> Result<ConnectionReport, 
         report.outcome = crate::io_loop::LoopOutcome::ProtocolFailure(failure);
         return Ok(report);
     }
-    if !drive_until_open(&mut driver, &mut stream, &fixture.bounds, &mut report) {
+    let handshake = drive_until_open(&mut driver, &mut stream, &fixture.bounds, &mut report);
+    if !handshake.opened {
         return Ok(report);
     }
     // Scripted sends through the SAME bounded producer handle any thread
@@ -110,7 +111,7 @@ pub fn run_client_once(fixture: &ClientFixture<'_>) -> Result<ConnectionReport, 
         pong_seen: false,
         close_sent: false,
     };
-    drive_connection(
+    drive_connection_from(
         &mut driver,
         &sender,
         &mut stream,
@@ -118,6 +119,7 @@ pub fn run_client_once(fixture: &ClientFixture<'_>) -> Result<ConnectionReport, 
         Role::Client,
         &mut policy,
         &mut report,
+        handshake.carryover,
     );
     Ok(report)
 }

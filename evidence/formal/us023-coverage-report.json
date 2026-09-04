@@ -35,8 +35,8 @@
     },
     {
       "path": "evidence/linkage/rust-identity-verification.json",
-      "sha256": "sha256:afc0ef4fd6231d66ad9d80d871b110a2b27682f26bcf0d7c146b99a9fbaddb49",
-      "git_blob": "0dc9e438aba7a7fa4be0062afd44268734c38d63"
+      "sha256": "sha256:31a625e269c28858675302575ab3ec0b6763ca16947455ac64ea40619c730924",
+      "git_blob": "91dc655f24e34aa0a2ea5c84caaf503137d27c51"
     },
     {
       "path": "assurance/formal/catalog-correction-proposal.json",
@@ -50,8 +50,8 @@
     },
     {
       "path": "assurance/formal/denominator-reconciliation.json",
-      "sha256": "sha256:da0e6f39e0b7272655d5665083a7cebba921a49e630328192b3fb582ccd17952",
-      "git_blob": "38ca431a59d76f4df8e94d4040b30526df3d07e2"
+      "sha256": "sha256:98ecba530834c1b69a409e7c8aec1dab27c296b48089f8abd81476d200fd7775",
+      "git_blob": "fb795464ce80523a1aca2a9708507b70dab8582a"
     }
   ],
   "denominator": {
@@ -89,8 +89,8 @@
     },
     "reconciliation": {
       "path": "assurance/formal/denominator-reconciliation.json",
-      "sha256": "sha256:da0e6f39e0b7272655d5665083a7cebba921a49e630328192b3fb582ccd17952",
-      "git_blob": "38ca431a59d76f4df8e94d4040b30526df3d07e2"
+      "sha256": "sha256:98ecba530834c1b69a409e7c8aec1dab27c296b48089f8abd81476d200fd7775",
+      "git_blob": "fb795464ce80523a1aca2a9708507b70dab8582a"
     }
   },
   "axes": [
@@ -2565,7 +2565,7 @@
       "namespace_state_on_this_plane": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "path_correspondence_state": "SHARED_ANCESTRY_ONLY",
       "namespace_correspondence_state": "SHARED_ANCESTRY_ONLY",
-      "detail": "the catalog names \"rust/connection-core/src/connection.rs\" in namespace \"websocket_core\"; this plane ships the crate namespaces candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence SHARED_ANCESTRY_ONLY, namespace correspondence SHARED_ANCESTRY_ONLY. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 10 obligations are not measurable here."
+      "detail": "the catalog names \"rust/connection-core/src/connection.rs\" in namespace \"websocket_core\"; this plane ships the crate namespaces autobahn_controls, candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence SHARED_ANCESTRY_ONLY, namespace correspondence SHARED_ANCESTRY_ONLY. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 10 obligations are not measurable here."
     },
     {
       "obligation_count": 9,
@@ -2575,7 +2575,7 @@
       "namespace_state_on_this_plane": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "path_correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
       "namespace_correspondence_state": "SHARED_ANCESTRY_ONLY",
-      "detail": "the catalog names \"rust/connection-core/src/frame/decode.rs\" in namespace \"websocket_core\"; this plane ships the crate namespaces candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION, namespace correspondence SHARED_ANCESTRY_ONLY. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 9 obligations are not measurable here."
+      "detail": "the catalog names \"rust/connection-core/src/frame/decode.rs\" in namespace \"websocket_core\"; this plane ships the crate namespaces autobahn_controls, candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION, namespace correspondence SHARED_ANCESTRY_ONLY. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 9 obligations are not measurable here."
     },
     {
       "obligation_count": 3,
@@ -2585,7 +2585,7 @@
       "namespace_state_on_this_plane": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "path_correspondence_state": "NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE",
       "namespace_correspondence_state": "SHARED_ANCESTRY_ONLY",
-      "detail": "the catalog names \"rust/connection-core/src/frame/mask.rs\" in namespace \"websocket_core\"; this plane ships the crate namespaces candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE, namespace correspondence SHARED_ANCESTRY_ONLY. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 3 obligations are not measurable here."
+      "detail": "the catalog names \"rust/connection-core/src/frame/mask.rs\" in namespace \"websocket_core\"; this plane ships the crate namespaces autobahn_controls, candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence NO_RECORDED_CORRESPONDENCE_ON_THIS_PLANE, namespace correspondence SHARED_ANCESTRY_ONLY. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 3 obligations are not measurable here."
     },
     {
       "obligation_count": 2,
@@ -2595,7 +2595,7 @@
       "namespace_state_on_this_plane": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "path_correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
       "namespace_correspondence_state": "BORROW_RECEIPT_RECORDS_AN_ADAPTATION",
-      "detail": "the catalog names \"rust/websocket-driver/src/lib.rs\" in namespace \"websocket_driver\"; this plane ships the crate namespaces candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION, namespace correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 2 obligations are not measurable here."
+      "detail": "the catalog names \"rust/websocket-driver/src/lib.rs\" in namespace \"websocket_driver\"; this plane ships the crate namespaces autobahn_controls, candidate_stub, ws_core, ws_driver, ws_oracle_harness, ws_testee and does not hold that path. assurance/formal/plane-correspondence.json records what is known about the two planes: path correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION, namespace correspondence BORROW_RECEIPT_RECORDS_AN_ADAPTATION. Neither is ESTABLISHED_BY_OWNER_DECISION, so these 2 obligations are not measurable here."
     }
   ],
   "freeze": {

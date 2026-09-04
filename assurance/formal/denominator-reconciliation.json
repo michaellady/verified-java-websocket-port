@@ -656,6 +656,7 @@
       "namespace_root": "websocket_core",
       "namespace_state": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "shipped_crate_namespaces": [
+        "autobahn_controls",
         "candidate_stub",
         "ws_core",
         "ws_driver",
@@ -676,6 +677,7 @@
       "namespace_root": "websocket_core",
       "namespace_state": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "shipped_crate_namespaces": [
+        "autobahn_controls",
         "candidate_stub",
         "ws_core",
         "ws_driver",
@@ -696,6 +698,7 @@
       "namespace_root": "websocket_core",
       "namespace_state": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "shipped_crate_namespaces": [
+        "autobahn_controls",
         "candidate_stub",
         "ws_core",
         "ws_driver",
@@ -716,6 +719,7 @@
       "namespace_root": "websocket_driver",
       "namespace_state": "NAMESPACE_NAMES_NO_CRATE_SHIPPED_BY_THIS_PLANE",
       "shipped_crate_namespaces": [
+        "autobahn_controls",
         "candidate_stub",
         "ws_core",
         "ws_driver",

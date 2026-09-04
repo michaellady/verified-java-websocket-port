@@ -1,0 +1,446 @@
+{
+   "agent": "us019-mutant-opcode-swap",
+   "behavior": "NON-STRICT",
+   "behaviorClose": "OK",
+   "case": 31,
+   "closedByMe": false,
+   "createStats": true,
+   "createWirelog": true,
+   "description": "Send small text message, then send again with <b>RSV = 4</b>, then send Ping. Octets are sent in octet-wise chops.",
+   "droppedByMe": false,
+   "duration": 11,
+   "expectation": "Echo for first message is received, but then connection is failed immediately, since RSV must be 0, when no extension defining RSV meaning has been negotiated. The Pong is not received.",
+   "expected": {
+      "NON-STRICT": [],
+      "OK": [
+         [
+            "message",
+            "Hello, world!",
+            false
+         ]
+      ]
+   },
+   "expectedClose": {
+      "closeCode": [
+         1002
+      ],
+      "closedByMe": false,
+      "requireClean": false
+   },
+   "failedByMe": false,
+   "httpRequest": "GET / HTTP/1.1\r\nUser-Agent: AutobahnTestSuite/25.10.1-0.10.9\r\nHost: host.docker.internal:9010\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nSec-WebSocket-Key: 0waFY+BAHgOxd1VGht3c8A==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+   "httpResponse": "HTTP/1.1 101 Web Socket Protocol Handshake\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: VDd5LiemJDhIeDGSlbz0Udm2ILw=\r\n\r\n",
+   "id": "3.4",
+   "isServer": false,
+   "localCloseCode": null,
+   "localCloseReason": null,
+   "received": [],
+   "remoteCloseCode": null,
+   "remoteCloseReason": null,
+   "reportCompressionRatio": false,
+   "reportTime": false,
+   "result": "Actual events match at least one expected.",
+   "resultClose": "Connection was properly closed",
+   "rxFrameStats": {},
+   "rxOctetStats": {
+      "139": 1
+   },
+   "started": "2026-08-28T03:06:13.147Z",
+   "trafficStats": null,
+   "txFrameStats": {
+      "1": 2,
+      "9": 1
+   },
+   "txOctetStats": {
+      "1": 40,
+      "253": 1
+   },
+   "wasClean": false,
+   "wasCloseHandshakeTimeout": false,
+   "wasNotCleanReason": "peer dropped the TCP connection without previous WebSocket closing handshake",
+   "wasOpenHandshakeTimeout": false,
+   "wasServerConnectionDropTimeout": false,
+   "wirelog": [
+      [
+         "TO",
+         [
+            253,
+            "474554202f20485454502f312e310d0a557365722d4167656e743a204175746f6261686e5465737453756974652f32352e31302e312d302e31302e390d0a486f ..."
+         ],
+         false
+      ],
+      [
+         "RO",
+         [
+            139,
+            "485454502f312e31203130312057656220536f636b65742050726f746f636f6c2048616e647368616b650d0a557067726164653a20776562736f636b65740d0a ..."
+         ]
+      ],
+      [
+         "TF",
+         [
+            13,
+            "Hello, world!"
+         ],
+         1,
+         true,
+         0,
+         "d0138798",
+         null,
+         1,
+         false
+      ],
+      [
+         "TO",
+         [
+            1,
+            "81"
+         ],
+         true
+      ],
+      [
+         "TF",
+         [
+            13,
+            "Hello, world!"
+         ],
+         1,
+         true,
+         4,
+         "59716cca",
+         null,
+         1,
+         false
+      ],
+      [
+         "TF",
+         [
+            0,
+            ""
+         ],
+         9,
+         true,
+         0,
+         "f496d66e",
+         null,
+         1,
+         false
+      ],
+      [
+         "KL",
+         1
+      ],
+      [
+         "TO",
+         [
+            1,
+            "8d"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "d0"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "13"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "87"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "98"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "98"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "76"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "eb"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "f4"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "bf"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "3f"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "a7"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "ef"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "bf"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "61"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "eb"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "fc"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "f1"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "c1"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "8d"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "59"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "71"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "6c"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "ca"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "11"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "14"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "00"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "a6"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "36"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "5d"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "4c"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "bd"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "36"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "03"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "00"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "ae"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "78"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "89"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            1,
+            "80"
+         ],
+         true
+      ]
+   ]
+}

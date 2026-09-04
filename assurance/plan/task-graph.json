@@ -2,188 +2,6 @@
   "schema_version": "1.0.0",
   "statement": "The work plan, as data with a gate, replacing the prose board's 'read it and pick one bounded unit'. Every done node cites evidence this gate RE-DERIVES on each run; a done node whose only evidence is a command nobody runs is UNVERIFIABLE_DONE and fails. Readiness and blockage are recomputed, never read: a node cannot be ready while a dependency is unfinished or an owner action it names is open, and it cannot stay blocked once every owner action it names is ruled. That last rule exists because a ruling arrives from OUTSIDE this file and nothing here would otherwise notice.",
   "ceiling": "This gate checks the plan's INTERNAL consistency and that each done node's cited evidence still holds. It does NOT check that the evidence is SUFFICIENT for the claim -- a node may cite a weak-but-true fact and pass -- and that gap was MEASURED rather than assumed. Of the 13 done nodes at the time of the measurement, 5 stayed at exit 0 with the IMPLEMENTATION of the work they name destroyed, two of them with the scanner's source files deleted outright, because `path_exists` establishes only that the named file exists and a `grep` for an identifier is satisfied by any dead mention of it; a 6th stayed at exit 0 with a 1453-line detector replaced by a three-line comment carrying the identifier its grep looks for; the other 7 cite a value the work itself produced, and 6 of those 7 were broken here by perturbing that value. Rule 6 refuses evidence that CANNOT fail; it cannot refuse evidence that is merely weak. It does not discover work: a task nobody wrote down is invisible here, so the graph is a floor on what remains, never a total. Deleting a node is no longer silent -- rule 12 re-derives every id this plan ever COMMITTED from its own git history and refuses a disappearance no `retired` entry explains -- but that binds only ids git has seen. A node added and removed without ever being committed leaves no trace; during an uncommitted merge the incoming branch is not yet in HEAD's ancestry, so a node dropped in a merge resolution is caught on the next run rather than this one; a rewritten history erases the evidence along with the node; and a checkout whose shallow graft cuts off the plan's origin is REFUSED rather than guessed at, so CI running this gate needs fetch-depth 0. The `retired` escape is checked for staleness, fiction and a resolvable successor, but its `reason` is prose no program can verify: retiring a node with a plausible sentence is a bypass this gate cannot close, only make visible in the diff. And `command` evidence is recorded but never verified, deliberately, so it cannot masquerade as a checked claim.",
-  "owner_actions": [
-    {
-      "id": "OA-F010-AC2-banner",
-      "state": "ruled",
-      "what_is_needed": "Confirm the 2026-08-27 amendment's 'every AC clause' reaches US-011 AC2's banner clause.",
-      "ruled_at": "2026-09-04",
-      "ruling": "CONFIRMED: it reaches it. DIV-06 emitting Date and Server: TooTallNate Java-WebSocket is compliance, not violation. Grounded in us010-016-ac-amendment-owner-decision-2026-08-27.json (sha256 26849b5e...) and us009-us008-owner-decisions-2026-08-27.json key us009_normativity (JAVA_FAITHFUL_PLUS_SAFE)."
-    },
-    {
-      "id": "OA-F016-placement",
-      "state": "ruled",
-      "what_is_needed": "Decide whether server_closes_transport(role, state) belongs in the adapter.",
-      "ruled_at": "2026-09-04",
-      "ruling": "KEEP THE PLACEMENT, FIX THE GATE. io_loop.rs argues the transport/protocol split explicitly and cites Java's own structure; the defect is that the architecture gate cannot see the shape."
-    },
-    {
-      "id": "OA-jdk-vendor",
-      "state": "ruled",
-      "what_is_needed": "internal/portplan byte-compares a regenerated oracle report against one recording jdk_vendor 'Homebrew'; a Linux Temurin regeneration differs in that one line, all 969 declarations identical.",
-      "ruled_at": "2026-09-04",
-      "ruling": "MAKE THE CHECK VENDOR-AGNOSTIC."
-    },
-    {
-      "id": "OA-ledger-58-disposition",
-      "state": "ruled",
-      "what_is_needed": "Ledger sequence 58 reads disposition=unresolved, appended as 'facts decided, disposition owed'.",
-      "ruled_at": "2026-09-04",
-      "ruling": "adopt-java, with mismatch_class staying underspecified-behavior."
-    },
-    {
-      "id": "OA-autobahn-archive",
-      "state": "open",
-      "what_is_needed": "The pinned Autobahn source archive. Its GitHub URL 403s through this proxy; place the file where the session can reach it.",
-      "why_it_blocks": "US-019 finding 7 cannot close and the AC4 discrimination runs cannot be prepared without it."
-    },
-    {
-      "id": "OA-autobahn-reruns",
-      "state": "open",
-      "what_is_needed": "Autobahn re-runs of the 247-case manifest. The loop never triggers these.",
-      "why_it_blocks": "Closes ledger 51/52, settles DIV-02/03/05/07, completes US-019 AC4."
-    },
-    {
-      "id": "OA-macos-arm64-host",
-      "state": "open",
-      "what_is_needed": "A macOS arm64 host. internal/lab's CONTROLLED_CANARY needs Darwin sandbox-exec; it is PLATFORM_EXECUTOR_UNSUPPORTED on Linux.",
-      "why_it_blocks": "One of the two Go-suite exclusions, and US-018 AC2's macOS leg."
-    },
-    {
-      "id": "OA-aws-benchmark-host",
-      "state": "open",
-      "what_is_needed": "The AWS benchmark run for US-008/US-009. Triggered ONLY by adding a label to a PR, which provisions a host at roughly $4/hour. The loop never labels.",
-      "why_it_blocks": "US-008's confirmation numbers do not exist without it."
-    },
-    {
-      "id": "OA-docker-sbx-replay",
-      "state": "open",
-      "what_is_needed": "The Docker sbx replay for child US-009 AC1.",
-      "why_it_blocks": "US-009 AC1 cannot close."
-    },
-    {
-      "id": "OA-F014-code-binding",
-      "state": "open",
-      "what_is_needed": "test-manifest.json's execution_code_binding pins two internal/lab sources whose bytes have moved: re-run the authoritative run, or stop calling it a binding.",
-      "why_it_blocks": "Two of pin-guard's eleven declared allowances are this finding."
-    },
-    {
-      "id": "OA-catalog-plane-denominator",
-      "state": "ruled",
-      "what_is_needed": "The catalog plane-correspondence decision. Three denominator_basis pins name anchor 1ff89fa, which is not an ancestor of HEAD -- it exists only on read-only codex/race-catchup.",
-      "why_it_blocks": "A DENOMINATOR. A hard stop: never re-baselined from inside the loop.",
-      "ruled_at": "2026-09-04",
-      "ruling": "BRING THE BASIS ARTIFACTS ONTO THIS LINE. Copy the artifacts anchored at 1ff89fa into this plane and re-anchor the three denominator_basis pins to a commit that IS an ancestor of HEAD. This moves the formal denominator's declared basis, so the before/after must be REPORTED side by side and never absorbed silently."
-    },
-    {
-      "id": "OA-pr4-fast-forward",
-      "state": "ruled",
-      "what_is_needed": "RESTATED 2026-09-04 and materially larger than 'fast-forward PR #4'. The whole US-019 line is unreachable from mainline: `internal/autobahnsuite` and `rust/autobahn-controls` DO NOT EXIST here (`git ls-tree HEAD internal/autobahnsuite/` is empty), so every test written against them can only live on that line. A completed survivor sweep now sits on it -- 180 newly enumerated sites, a 106-survivor floor, 75 closed -- and cannot land. Merging the line as it stands breaks THREE gates, each traced rather than guessed: pin-guard on a digest that reads afc0ef4f on mainline and 31a625e2 after claude/us019-native-run regenerated it; go-suite on internal/formalcoverage, because that branch adds the autobahn-controls crate without refreshing denominator-reconciliation.json (byte-identical to mainline on the survivor branch, so the drift is the crate, not the file); and ac1-gates adapter-linkage on io_loop.rs, which differs from mainline by 167/38 lines with every commit touching it belonging to us019-native-run. Decide the integration: fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520 and resolve those three as part of it, or say the US-019 line stays separate and mainline's plan should stop carrying nodes whose evidence can never be re-derived here.",
-      "why_it_blocks": "Three gate failures are the cost of merging and re-pointing a digest or re-fingerprinting an allowance from inside a survivor sweep is the re-baselining this project forbids, so the sweep correctly refused to fix them. Until this is decided, finished US-019 work accumulates on a branch nobody can land, and mainline's plan carries nodes it cannot verify.",
-      "ruled_at": "2026-09-04",
-      "ruling": "Fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520 and LAND the US-019 line on mainline, resolving the three gate failures as part of that work: the drifted pin target (afc0ef4f on mainline, 31a625e2 after us019-native-run regenerated it), internal/formalcoverage's denominator-reconciliation.json not refreshed for the added autobahn-controls crate, and ac1-gates adapter-linkage on the merged io_loop.rs. Each is to be resolved as its own verified step, never a bulk regeneration."
-    },
-    {
-      "id": "OA-pr1-disposition",
-      "state": "ruled",
-      "what_is_needed": "Decide PR #1's fate. Its head shares no common ancestor with the live line and is superseded, not stranded (F015).",
-      "why_it_blocks": "Two draft PRs into an empty main with nothing saying which line is live.",
-      "ruled_at": "2026-09-04",
-      "ruling": "CLOSE PR #1 with a comment recording why: the symbol-set comparison (all 8 sbx paths present here; sbx_adapter.go declares all 14 of its exported symbols plus 11 more; comm -23 empty), and PR #5 named as the live line. Superseded, not stranded."
-    },
-    {
-      "id": "OA-drive-until-open-branch",
-      "state": "ruled",
-      "what_is_needed": "Rule on a SECOND adapter-side protocol branch, found by the new detector on its first real run and ruled on by nobody: `drive_until_open` at rust/ws-testee/src/io_loop.rs:745 branches on core ReadyState -- `if driver.state() != ReadyState::NotYetConnected { return true; }`. Same shape as server_closes_transport, which you ruled stays. Keep it and declare it, or move it into the core.",
-      "why_it_blocks": "It is declared in the gate's allowance list only so the gate can pass, with its entry stating that it is UNRULED. That is an honest placeholder, not a decision, and it should not sit there indefinitely.",
-      "ruled_at": "2026-09-04",
-      "ruling": "KEEP the branch where it is and declare it. drive_until_open at rust/ws-testee/src/io_loop.rs:745 takes the same disposition as server_closes_transport: the branch stays in the adapter and its allowance records this ruling instead of NOT RULED ON."
-    },
-    {
-      "id": "OA-pin-path-corpus",
-      "state": "open",
-      "what_is_needed": "DEFERRED BY THE OWNER on 2026-09-04, deliberately and not by neglect: decide this WITH OA-catalog-plane-denominator, not separately. Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
-      "why_it_blocks": "Held until OA-catalog-plane-denominator is executed. The +26 widening's 24 rows land on the formal denominator's declared basis, and that decision MOVES that basis -- so measuring the widening now would measure it against a basis about to change. Re-measure both widenings after the basis moves, against the new one."
-    },
-    {
-      "id": "OA-governance-mirror-coverage",
-      "state": "open",
-      "what_is_needed": "Decide whether evidence/governance/owner-decision-digests.json should mirror more than the 7 records it covers today. The store holds 63. I measured the gap rather than inferring it: deleting evidence/governance/decisions/us007-attempt-0101-owner-authorization.json (uncovered) leaves `deltaledgerctl --check` at exit 0, still printing \"7 governance record digest(s) recomputed from the protected store and matched\" -- true, and true of 7. The current 7 are DERIVED, not chosen: the mirror's own statement says an entry is admitted when a ledger record cites that record's sha256, so a record nothing cites is deliberately absent. Widening it to all 63 replaces that derivation with an enumeration, moves a declared count, and re-opens the disclosure question settled by governance-publish-records-owner-decision-2026-08-29.json. Three options: leave it derived and keep the narrow claim; widen to all 63 and drop the citation derivation; or add a second, weaker arm that fails on the DELETION of any store record (a count and a name list) while leaving digest coverage derived.",
-      "why_it_blocks": "It is a denominator and a disclosure question at once, which is exactly the pair this project stops at. The rust/Makefile comment that claimed all 63 has been corrected to say 7 in the meantime, so nothing currently overclaims -- but the 56 uncovered records are unprotected against deletion and a reader should not have to measure that themselves."
-    },
-    {
-      "id": "OA-governance-statement",
-      "state": "open",
-      "what_is_needed": "Rule on evidence/governance/owner-decision-digests.json $.statement, which asserts the owner-decision records are 'deliberately NOT committed' while git tracks all seven it mirrors, byte-identical to the digests. The publication was ruled at governance-publish-records-owner-decision-2026-08-29.json; this is stale prose, not a disclosure incident.",
-      "why_it_blocks": "It cannot be corrected by editing the file: internal/deltaledger.VerifyGovernance requires the document to equal BuildOwnerDecisionManifest's output, whose Statement is the Go constant OwnerDecisionManifestStatement, so the statement is verified against a copy of itself. The correction is a change to that constant plus a regeneration, and it restates a governance posture."
-    },
-    {
-      "id": "OA-record-census-prose",
-      "state": "open",
-      "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Ten sentences across six records recite that census; five are inside code fences and are honest transcripts, and five are in the records' own voice, reciting 41, 41, 55, 55 and 61 against a census that reads 66.",
-      "why_it_blocks": "Binding it makes every future record fail record-guard against an unrelated older record until that record is restated -- a treadmill, and a gate that punishes writing records. Whether that cost is worth paying is a judgement about how this project wants its history to read, not a measurement."
-    },
-    {
-      "id": "OA-F018-master-nongoal",
-      "state": "open",
-      "what_is_needed": "Rule on docs/prd-pack/06a-prd-metadata-goal-through-sandbox.md:91, the master PRD nonGoal 'Do not preserve undocumented Java quirks when a declared standard or neutral suite has higher oracle priority'. Does it reach the 39 propositions evidence/oracle-hierarchy/adjudication-register.json enrols (20 governed by rank-2 Autobahn, 18 by rank-1 RFC 6455, 1 by rank-3)? If not, say whether that is because of what 'undocumented' modifies, or because a child-plane decision may amend a master-plane nonGoal.",
-      "why_it_blocks": "No owner decision in the store names the master PRD, its nonGoals or any master story (grep exits 1). The 2026-08-27 amendment is scoped to AC clauses of US-010..US-016 and a nonGoal is not an AC clause; JAVA_FAITHFUL_PLUS_SAFE carries plane 'verified-java-websocket-port-claude'. So the port's whole Java-faithful stance is compliant on one reading and forbidden on another, and nothing in the tree settles it. No port change is implied by either answer."
-    },
-    {
-      "id": "OA-F019-master-us020-ac5",
-      "state": "ruled",
-      "what_is_needed": "Rule on docs/prd-pack/03-master-stories-intake-lsp-protocol-labzero.md:13, master US-020 AC5. (a) Do the 52 'unresolved' dispositions count as AC5's 'unresolved' on their face, or does internal/deltaledger/definitions.go's account govern and make 45 of them AC5's 'preserve'? (b) Should AC5's 'unresolved deltas block completion' have a mechanism? It has none. (c) Sequence 53 is the only live unresolved delta citing no owner decision at all.",
-      "why_it_blocks": "The published count 52 is the criterion's number under neither reading. internal/lab/ledger.go:78-80 and internal/deltaledger/definitions.go:23-29 define the same token opposite ways. The blocking half is NOT breached on this plane (9/27, not the canonical child's 27/27), but no gate implements it, so it could not fire if this plane declared completion.",
-      "ruled_at": "2026-09-04",
-      "ruling": "The CHILD's reading governs. docs/prd-pack/01-structure-and-index.md:121 records this repository as the Claude-runtime sibling at 9/27, not the canonical child at 27/27, so master US-020 AC5's blocking half is not breached here. Close F019 narrowed, and RENAME internal/ac5class so it stops being named for a criterion it does not implement."
-    },
-    {
-      "id": "OA-master-prd-metadata-gap",
-      "state": "open",
-      "what_is_needed": "Supply the seven master prd.json metadata keys that the PRD pack does not reproduce, or confirm none carries a criterion constraining port behaviour. docs/prd-pack/01-structure-and-index.md declares 'metadata | object (39 keys)' and lists 32 as reproduced; 06a/06b/06c carry exactly those 32.",
-      "why_it_blocks": "The metadata half of the master-story sweep is a floor of 32/39. A criterion living in one of the seven unreproduced keys is invisible to any sweep run inside this repository, and prd.json is at HQ. This cannot be closed from here."
-    },
-    {
-      "id": "OA-gosuite-census-prose",
-      "state": "open",
-      "what_is_needed": "NARROWED at merge; the number itself is no longer wrong. cmd/gosuitectl/main.go's dated measurement read 'packages=61 run=60 excluded=1 with_tests=45' while the gate printed 62/61/46, and the integrator corrected it rather than leaving it. The reviewer who found it left it on the ground that editing another gate's recorded measurement is re-baselining, which is the right instinct and the wrong call here: re-baselining is moving a denominator a CLAIM RESTS ON so the claim passes, and nothing rests on this comment -- no gate reads it, and the gate's real census is re-derived and printed every run. What it was, was FALSE. The correction is not a swap: the cause is recorded beside it and was re-derived rather than argued -- `git ls-tree` gives 64 package directories at a7edbd4 and 65 at the merge, `comm` names cmd/taskgraphctl as the single addition with nothing removed, and that accounts for +1 to packages, run and with_tests exactly. The measurement was taken on the jdk-vendor branch, was CORRECT there, and became false when the merge brought in a package its base did not have. That is the F011 class. WHAT REMAINS FOR YOU is the smaller question: should a gate's prose carry dated censuses at all, when a branch measurement is true on its branch and unverified on the merge? Either bind them (they are in code, which is outside the prose corpus by construction -- widening to doc comments would move this gate's own denominator in the change that introduced it), or drop them and let the runtime census be the only census.",
-      "why_it_blocks": "Nothing is blocked on it now that the number is true. It is left open because the general question it raises -- prose in CODE is entirely outside the record-prose corpus, and TP-5 was a live instance of that ceiling -- is a scope decision that would move a denominator if taken from inside a gate fix."
-    },
-    {
-      "id": "OA-forbid-unsafe-scan-surface",
-      "state": "open",
-      "what_is_needed": "Decide whether the 32 first-party crate roots of kind `test` must carry #![forbid(unsafe_code)] themselves. rustgatectl's forbid-unsafe gate requires the attribute on member lib+bin roots only, and prints `10 first-party crate roots (lib+bin)`. Round 3 put `unsafe { std::ptr::read(raw) }` into rust/ws-core/tests/messages.rs and into a rust/ws-core/build.rs that runs at build time; both compiled and both left that line byte-identical at exit 0. The unsafe itself is now caught by an ungoverned-root keyword scan, which moves no count. Requiring the ATTRIBUTE moves the printed 10 to 42 and needs the attribute added to the 25 roots that lack it, so it is not taken here. Measured 2026-09-04: 32 test crate roots, 7 carry a real crate-root attribute, 25 do not."
-    },
-    {
-      "id": "OA-oracle-census-anchor",
-      "state": "open",
-      "what_is_needed": "Decide whether anything should bind oracle-hierarchy-gates' printed census. `oraclerankctl --check` prints '640 propositions adjudicated; 589 Java/Rust agreements, 39 of them overridden'. The register is DERIVED and is never an input to its own recomputation, which is why it refuses an un-regenerated edit; but flipping one rfc_strict_expectation in evidence/us005-public-rfc-divergence-census.json from `closed` to `open` -- a higher oracle made to agree with the Java/Rust pair -- and regenerating the register exits 0 with the count at 38. Nothing asserts 640, 589 or 39. Binding them needs an anchor outside the gate and creates a denominator the gate is then measured against, which is round 2's ruling on the same shape at plan-guard's nodes=29."
-    },
-    {
-      "id": "OA-below-msrv-differential",
-      "state": "open",
-      "what_is_needed": "Decide whether the msrv gate should EXECUTE the below-MSRV differential on a host that has an older toolchain. rustgatectl declares that checks outside its claim are recorded as explicit pending= notes and never silently passed; that held only when NO older toolchain existed. On this host `stable` resolves to rustc 1.94.1 against an MSRV of 1.95.0, so the differential could run -- and it was neither run nor noted. Round 3 made both branches print. Running it is left open because a below-MSRV build that SUCCEEDED would be a finding about the MSRV declaration, not a failure of this gate."
-    },
-    {
-      "id": "OA-round2-forbid-count",
-      "state": "open",
-      "what_is_needed": "Rule on how to correct a cardinality in a landed record. drafts/self-review/gate-attack-round-2.md states that 9 of the 32 tests/ crate roots carry #![forbid(unsafe_code)], measured with `grep -l`. rustgatectl's tokenizer-grade hasForbidUnsafe -- which exists precisely to reject mentions inside comments and string literals -- says 7: the other two are a doc comment in rust/ws-core/tests/scaffold_smoke.rs and a string literal in rust/ws-oracle-harness/tests/protocol.rs. Round 2's sentence also says 23 roots are outside the scan surface when all 32 are. This is not edited here: the repository's convention, recorded in cmd/recordguardctl/prose.go, is SUPERSEDE, do not edit."
-    },
-    {
-      "id": "OA-held-draft-legacy-13",
-      "state": "ruled",
-      "what_is_needed": "Decide the disposition of drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json, then let the rule derive its own population. The file is a record proposal of exactly the shape VerifyProposalDraftsAreLedgered reads: it rebuilds from its own digest preimages, its declared delta_id equals the identity those preimages produce, and NO record in the committed chain carries it. deltaledger.ProposalDraftPaths() is a hardcoded list that does not name it, so the rule that exists to refuse a held draft that never became a record cannot see it, and ledger-gates prints 'held proposal drafts' as verified at exit 0.",
-      "why_it_blocks": "Deriving the population from drafts/ledger-proposals/ by SHAPE rather than from the list takes ledger-gates RED on the committed tree, and the only way back to green is appending the record -- which moves the chain head, the sequence after the frozen prefix, and the unledgered_disagreements recomputation. An agent may not move a ledger. Owner rules one of: append the record and then derive the population; or record the draft as withdrawn, with the reason, and derive the population with that disposition visible.",
-      "ruled_at": "2026-09-04",
-      "ruling": "DERIVE the population from the directory rather than the hardcoded list of seven, and carry legacy-13-bare-lf-server-basis-correction.json as a DECLARED EXEMPTION with a staleness check, in the shape this repository already uses four times. Do NOT append to the ledger to make it green. The exemption must fail the moment it stops being needed."
-    },
-    {
-      "id": "OA-rust-lint-suppression-ceiling",
-      "state": "open",
-      "what_is_needed": "Decide whether the Rust lint gates get a suppression rule, and which kind. `make -C rust fmt-check` is defeated by #[rustfmt::skip] on a mis-formatted item and `make -C rust clippy` by #[allow(clippy::<lint>)] on an item that trips it -- both demonstrated at exit 0 with the mutant compiling. Neither target has a waiver ceiling, a suppression scan or a census, while fixture-guard four lines above them in the same Makefile has all three and calls raising its ceiling 'a decision, not a formality'.",
-      "why_it_blocks": "The two options are not the same decision. The granular per-lint allow attributes already occur in first-party crates, so a ceiling over that population is a measurement denominator an agent may not invent. The BLANKET forms -- allow(warnings), allow(clippy::all), allow(clippy::pedantic), a [lints] table and rustfmt::skip -- do not occur anywhere in the Rust tree today, so refusing those outright is an absolute like forbid-unsafe and creates no denominator. Owner rules which of the two is built."
-    }
-  ],
   "nodes": [
     {
       "id": "T-record-guard",
@@ -593,13 +411,72 @@
     },
     {
       "id": "T-pr4",
-      "title": "PR #4: fast-forward to the completed survivor round",
-      "state": "ready",
+      "title": "PR #4: the US-019 line landed, and the three gate failures it cost resolved",
+      "state": "done",
       "depends_on": [],
       "blocked_by": [
         "OA-pr4-fast-forward"
       ],
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "internal/autobahnsuite/reconcile.go",
+          "note": "the package that DID NOT EXIST on mainline (`git ls-tree HEAD internal/autobahnsuite/` was empty), which is why nothing on the US-019 line could land; git tracks it here"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/autobahn-controls/src/cli.rs",
+          "note": "the other absent package, and the file the survivor sweep found untested; on this tree it is tracked, so the sweep's evidence is re-derivable at last"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/formal/us023-coverage-report.json",
+          "pattern": "31a625e269c28858",
+          "note": "fix 1: the drifted pin re-pointed from afc0ef4f to the current bytes of evidence/linkage/rust-identity-verification.json"
+        },
+        {
+          "kind": "grep",
+          "path": "assurance/formal/denominator-reconciliation.json",
+          "pattern": "autobahn_controls",
+          "note": "fix 2: the reconciliation refreshed for the added crate. It moved NO denominator -- catalog_obligations, proof_targets and both unmapped counts are what mainline states"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "40a62857c4563017",
+          "note": "fix 3: drive_until_open's allowance re-pinned to the merged function's fingerprint, so adapter-linkage stops reporting ADAPTER_PROTOCOL_BRANCH"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "Fingerprint:\\s+\"2c05c5aeae1c8921",
+          "note": "and the mainline fingerprint it replaced is no longer DECLARED by any allowance, so STALE_PROTOCOL_BRANCH_ALLOWANCE cannot be satisfied by a leftover entry. The pattern binds the Fingerprint FIELD rather than the bare digest on purpose: the digest itself still appears in that entry's reason, which discloses what the allowance was re-pinned FROM, and a grep_absent on the bare string would force that disclosure to be deleted to stay green."
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "OWNER RULING \\(OA-drive-until-open-branch, 2026-09-04\\)",
+          "note": "OA-drive-until-open-branch applied: the allowance records the ruling where it read NOT RULED ON"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "native_digest_manifest_files",
+          "note": "fix 4, which the ruling could not have named: the prose claim that only this merge made visible, because the gate is mainline's and the record it reads is the US-019 line's. BOUND, not allowed -- the stated count and the document agree, and the binding re-derives it"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/us019-landing.md",
+          "note": "the landing record: what merged, each fix with its before/after gate output, the denominator question answered, and what is left"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust gates",
+          "note": "recorded, never verified by this gate"
+        }
+      ],
+      "story": "US-019",
+      "note": "DONE ON claude/us019-landing, NOT ON MAINLINE, and the difference is the point. OA-pr4-fast-forward ruled the US-019 line lands; origin/claude/us019-survivor-residue at caa44e5 is merged here, carrying us019-survivor-closure-2 at f9b9520 and us019-native-run beneath it. The one conflict, this plan, was resolved as a union by id with nothing dropped from either side. The three gate failures the ruling names are fixed as three separate commits, each with the failing gate quoted before and after and never a bulk regeneration. WHAT REMAINS IS NOT MINE: the merge of this branch into claude/feature/verified-java-websocket-port is the coordinator's, and this node's evidence is deliberately shaped so that it CANNOT hold on a mainline where that merge did not happen -- the two git_tracked items name packages absent from mainline, so plan-guard goes red there rather than quietly reading done."
     },
     {
       "id": "T-pr1",
@@ -888,14 +765,74 @@
     },
     {
       "id": "T-us019-survivors-open",
-      "title": "US-019 survivor residue: three unswept classes swept, complete on a branch that cannot land",
-      "state": "ready",
+      "title": "Sweep the three site classes the 70-site survivor floor declared unswept",
+      "state": "done",
       "depends_on": [],
-      "blocked_by": [
-        "OA-pr4-fast-forward"
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "note": "the round record: three derived populations, per-site results, both denominators, every survivor's disposition, and the new ceiling"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "\\| \\*\\*sites enumerated\\*\\* \\| \\*\\*110\\*\\* \\| \\*\\*180\\*\\* \\|",
+          "note": "both site denominators printed side by side: round 4's 110 and this round's 180"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "\\| \\*\\*survivors at baseline \\(the FLOOR\\)\\*\\* \\| \\*\\*70\\*\\* \\| \\*\\*106\\*\\* \\|",
+          "note": "both survivor floors side by side: round 4's 70 and this round's 106; the new one is a strictly larger sweep, not a correction"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "\\*\\*`make -C rust gates` → EXIT 2\\.\\*\\*",
+          "note": "the gates exit code this round measured, and the per-target table behind it: three failures, all three traced by git log and a digest recomputation to claude/us019-native-run, none of them this branch's"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "internal/autobahnsuite/residue_closure_test.go",
+          "note": "30 Go probes that close 15 switch-arm and 31 conjunct survivors"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/autobahn-controls/tests/cli_residue.rs",
+          "note": "15 probes for cli.rs, which had no test at all before this branch"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/autobahn-controls/tests/inert_residue.rs",
+          "note": "4 probes for the negative control's drain loop"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/ws-testee/tests/agent_residue.rs",
+          "note": "6 probes for valid_agent_name's conjuncts and the agent entry-point guards"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/autobahnsuite/residue_closure_test.go",
+          "pattern": "func TestEveryDiscriminateSubjectArmIssuesItsOwnVerdict",
+          "note": "the probe for reconcile.go:377 -- disabling that arm made the literal AC3 verdict for the real port come back 'unknown subject' with nothing noticing"
+        },
+        {
+          "kind": "grep",
+          "path": "rust/autobahn-controls/tests/cli_residue.rs",
+          "pattern": "fn a_control_invoked_with_no_subcommand_reports_a_usage_error",
+          "note": "the first test cli.rs ever had"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test -timeout 40m ./internal/autobahnsuite/ ./cmd/autobahnsuitectl/ && (cd rust && cargo test -p autobahn-controls -p ws-testee)",
+          "note": "recorded, never verified by this gate"
+        }
       ],
-      "evidence": [],
-      "note": "DONE ON claude/us019-survivor-residue AT caa44e5, and blocked here only by integration. The three classes round 4 named as its ceiling were derived rather than estimated: 29 switch arms and 67 conjuncts by go/ast over the four Go files, 84 Rust-side decision points by a comment-aware scan then read and classified (17 if, 1 while, 2 if-let, 6 let-else, 48 match arms, 10 conjuncts). 180 sites, 7 admitting no compiling mutation and recorded as NON-MUTANTS rather than kills, 173 scored: 106 survivors at baseline, 75 closed, 15 unreachable with proof, 16 open. BOTH DENOMINATORS STAND SIDE BY SIDE -- round 4's 110 sites / 70-survivor floor and this round's 180 / 106 -- and are never added: this strictly extends a floor, it does not correct it. Headline: rust/autobahn-controls/src/cli.rs, the two-role entry point every control binary runs and the only crate code the Autobahn harness invokes, HAD NO TEST AT ALL and 33 of its 33 scored sites survived. Two probes that HUNG rather than failed were found and fixed; the runner now scores a timeout as TIMEOUT, never SURVIVED. Its evidence cannot be cited here because the package it tests is absent from mainline, which is exactly what OA-pr4-fast-forward has to decide."
+      "note": "SWEPT, and the residue it found is NOT all closed -- see T-us019-residue-open and T-us019-residue-live-suite. 180 new sites (29 switch arms, 84 Rust checks, 67 Go conjuncts), 7 of which admit no compiling mutant; 173 scored. Baseline 106 survivors: 75 closed by a named probe, 15 proved unreachable, 16 still open. Round 4's 110 sites / 70 survivors are a SEPARATE population and are never added to these. HARD STOP REPORTED, NOT RESOLVED: a go/ast enumeration of round 4's own four files finds 111 if-conditions, not 110; round 4's enumerator is gitignored and cannot be re-derived. make -C rust gates exited 2 on the tree that round measured, and its record still reads EXIT 2 because that reading was true of that branch: pin-guard, go-suite/internal/formalcoverage and ac1-gates/adapter-linkage all failed, all three inherited from claude/us019-native-run and none fixed there. ALL THREE ARE FIXED HERE, under T-pr4, which quotes each gate before and after.",
+      "story": "US-019"
     },
     {
       "id": "T-drive-until-open",
@@ -1094,30 +1031,49 @@
     },
     {
       "id": "T-us019-residue-open",
-      "title": "Ten US-019 residue survivors with no owner gate between them and closure",
-      "state": "blocked",
+      "title": "Close the 10 Class-B survivors that need no owner gate",
+      "state": "ready",
+      "story": "US-019",
       "depends_on": [
         "T-us019-survivors-open"
       ],
-      "blocked_by": [
-        "OA-pr4-fast-forward"
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "### 6.2 OPEN, no owner gate — 10 sites, each with the probe it needs",
+          "note": "the ten sites and the probe each one needs, named individually"
+        },
+        {
+          "kind": "grep",
+          "path": "rust/ws-testee/tests/process.rs",
+          "pattern": "Command",
+          "note": "the subprocess-probe shape four of the ten need already exists in this repository"
+        }
       ],
-      "evidence": [],
-      "note": "Of the 16 still open, 10 need no owner action -- each has the probe it needs named (a subprocess/stdout probe for 4, report-equality against a never-opening peer for 3, handshake-start failure for 2, a forced ECONNRESET for 1). Blocked here only because the code they test is not on mainline."
+      "note": "cli.rs:57/66/110/195 need a subprocess probe that reads the control's stdout (rust/ws-testee/tests/process.rs already runs a built binary); mutant.rs:287/323 and agent.rs:204 need a report-equality assertion against a peer that never opens; mutant.rs:318 and agent.rs:199 need a handshake-start failure; inert.rs:130 needs a peer that forces ECONNRESET. None of these needs an owner action."
     },
     {
       "id": "T-us019-residue-live-suite",
-      "title": "Six US-019 residue survivors past /getCaseCount",
+      "title": "Close the 6 Class-B survivors past /getCaseCount",
       "state": "blocked",
+      "story": "US-019",
       "depends_on": [
         "T-us019-survivors-open"
       ],
       "blocked_by": [
-        "OA-autobahn-reruns",
-        "OA-pr4-fast-forward"
+        "OA-autobahn-reruns"
       ],
-      "evidence": [],
-      "note": "A live wstest run is an owner gate and was NOT triggered. A hand-built fake-suite fixture would need no owner action and was deliberately not built, which is stated as a choice rather than a limit."
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "### 6.3 OPEN, blocked on a live suite — 6 sites",
+          "note": "cli.rs:237, 250, 259 and 276 with both its conjuncts"
+        }
+      ],
+      "note": "These sit past step 1 of the mutant client pipeline: reached only after a peer answers /getCaseCount with a usable count over a completed handshake. Route 1 is a live wstest run, which is OA-autobahn-reruns and an OWNER GATE the loop must not trigger. Route 2 needs NO owner action: a hand-built fake suite in the test (a ws_driver server with an EventPolicy that answers /getCaseCount with a text frame). It was not built this round."
     },
     {
       "id": "T-us019-site-count-underivable",
@@ -1359,6 +1315,219 @@
         }
       ],
       "note": "Round 5's A1 fix is right and it leaves a foreseeable trap, so this carries it out of a done node's prose where it would be lost. retentionStatements[0] is VERBATIM a sentence inside the shared `ownerDecision` constant in definitions.go -- the citation the comment says is 'appended to every rationale'. So carrying the standing US-010..US-016 authority now ASSERTS RETENTION, whether the author meant it or not, and contradictsRetention then forbids rfc-governs, fix-in-port and intentional-correction on that record. MEASURED BEFORE BEING CALLED A PROBLEM, and the measurement exonerates the fix: 45 of the 59 committed records carry the sentence and ALL 45 declare `unresolved`, which retention agrees with; the 14 that do not include every fix-in-port (3), the intentional-correction (1) and every adopt-java (3). Zero false positives on the chain as it stands. The hazard is entirely forward-looking: the next record that legitimately IS a fix-in-port and cites the same owner decision the ordinary way will be refused, and its author has to work out that a citation is carrying a disposition claim. THE CONSTRAINT THAT SHAPES ANY FIX: rationales are HASHED into record digests and the frozen prefix runs through sequence 35, so the constant cannot be reworded for existing records -- that would rewrite sealed history. A fix can only be a second citation variant without the retention clause, for records that are not retentions, plus a note telling an author which to use. Small, but it must be written before someone hits it rather than after. | LEFT READY DELIBERATELY, NOT BUILT, and the reason is the same standard the rest of this work is held to. The fix is a second citation constant without the retention clause. Adding it today means shipping a constant no record uses, with no test that could fail and no caller to bind it -- an unverifiable declaration, which is the exact shape five adversarial rounds have spent themselves finding. The trap has ZERO false positives on the chain as it stands (45 of 45 retention-asserting records declare `unresolved`), so nothing is broken and nothing is waiting. The requirement becomes concrete the moment someone writes a non-retention record citing that owner decision, and the variant should be written then, by them, with the record that needs it. A future heartbeat should NOT pick this up and build it speculatively -- it is recorded so the next author is not ambushed, which is the whole job."
+    },
+    {
+      "id": "T-drive-until-open-second-site",
+      "title": "The second ReadyState branch in drive_until_open, declared on a shared fingerprint",
+      "state": "blocked",
+      "story": "US-019",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-drive-until-open-second-site"
+      ],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "rust/ws-testee/src/io_loop.rs",
+          "pattern": "while cursor < rest\\.len\\(\\) && driver\\.state\\(\\) == ReadyState::NotYetConnected",
+          "note": "the second site itself, located by its code rather than its line number"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "OA-drive-until-open-second-site",
+          "note": "the allowance discloses that it covers a site the ruling did not name, instead of passing silently"
+        }
+      ],
+      "note": "Reported, not absorbed. Both sites live in one function and adapter-linkage pins an allowance to the function's normalized token stream, so declaring the ruled site declares this one too. That is the gate's design, not a widening chosen here, and it is written into the allowance's own reason."
+    }
+  ],
+  "owner_actions": [
+    {
+      "id": "OA-F010-AC2-banner",
+      "state": "ruled",
+      "what_is_needed": "Confirm the 2026-08-27 amendment's 'every AC clause' reaches US-011 AC2's banner clause.",
+      "ruled_at": "2026-09-04",
+      "ruling": "CONFIRMED: it reaches it. DIV-06 emitting Date and Server: TooTallNate Java-WebSocket is compliance, not violation. Grounded in us010-016-ac-amendment-owner-decision-2026-08-27.json (sha256 26849b5e...) and us009-us008-owner-decisions-2026-08-27.json key us009_normativity (JAVA_FAITHFUL_PLUS_SAFE)."
+    },
+    {
+      "id": "OA-F016-placement",
+      "state": "ruled",
+      "what_is_needed": "Decide whether server_closes_transport(role, state) belongs in the adapter.",
+      "ruled_at": "2026-09-04",
+      "ruling": "KEEP THE PLACEMENT, FIX THE GATE. io_loop.rs argues the transport/protocol split explicitly and cites Java's own structure; the defect is that the architecture gate cannot see the shape."
+    },
+    {
+      "id": "OA-jdk-vendor",
+      "state": "ruled",
+      "what_is_needed": "internal/portplan byte-compares a regenerated oracle report against one recording jdk_vendor 'Homebrew'; a Linux Temurin regeneration differs in that one line, all 969 declarations identical.",
+      "ruled_at": "2026-09-04",
+      "ruling": "MAKE THE CHECK VENDOR-AGNOSTIC."
+    },
+    {
+      "id": "OA-ledger-58-disposition",
+      "state": "ruled",
+      "what_is_needed": "Ledger sequence 58 reads disposition=unresolved, appended as 'facts decided, disposition owed'.",
+      "ruled_at": "2026-09-04",
+      "ruling": "adopt-java, with mismatch_class staying underspecified-behavior."
+    },
+    {
+      "id": "OA-autobahn-archive",
+      "state": "open",
+      "what_is_needed": "The pinned Autobahn source archive. Its GitHub URL 403s through this proxy; place the file where the session can reach it.",
+      "why_it_blocks": "US-019 finding 7 cannot close and the AC4 discrimination runs cannot be prepared without it."
+    },
+    {
+      "id": "OA-autobahn-reruns",
+      "state": "open",
+      "what_is_needed": "Autobahn re-runs of the 247-case manifest. The loop never triggers these.",
+      "why_it_blocks": "Closes ledger 51/52, settles DIV-02/03/05/07, completes US-019 AC4."
+    },
+    {
+      "id": "OA-macos-arm64-host",
+      "state": "open",
+      "what_is_needed": "A macOS arm64 host. internal/lab's CONTROLLED_CANARY needs Darwin sandbox-exec; it is PLATFORM_EXECUTOR_UNSUPPORTED on Linux.",
+      "why_it_blocks": "One of the two Go-suite exclusions, and US-018 AC2's macOS leg."
+    },
+    {
+      "id": "OA-aws-benchmark-host",
+      "state": "open",
+      "what_is_needed": "The AWS benchmark run for US-008/US-009. Triggered ONLY by adding a label to a PR, which provisions a host at roughly $4/hour. The loop never labels.",
+      "why_it_blocks": "US-008's confirmation numbers do not exist without it."
+    },
+    {
+      "id": "OA-docker-sbx-replay",
+      "state": "open",
+      "what_is_needed": "The Docker sbx replay for child US-009 AC1.",
+      "why_it_blocks": "US-009 AC1 cannot close."
+    },
+    {
+      "id": "OA-F014-code-binding",
+      "state": "open",
+      "what_is_needed": "test-manifest.json's execution_code_binding pins two internal/lab sources whose bytes have moved: re-run the authoritative run, or stop calling it a binding.",
+      "why_it_blocks": "Two of pin-guard's eleven declared allowances are this finding."
+    },
+    {
+      "id": "OA-catalog-plane-denominator",
+      "state": "ruled",
+      "what_is_needed": "The catalog plane-correspondence decision. Three denominator_basis pins name anchor 1ff89fa, which is not an ancestor of HEAD -- it exists only on read-only codex/race-catchup.",
+      "why_it_blocks": "A DENOMINATOR. A hard stop: never re-baselined from inside the loop.",
+      "ruled_at": "2026-09-04",
+      "ruling": "BRING THE BASIS ARTIFACTS ONTO THIS LINE. Copy the artifacts anchored at 1ff89fa into this plane and re-anchor the three denominator_basis pins to a commit that IS an ancestor of HEAD. This moves the formal denominator's declared basis, so the before/after must be REPORTED side by side and never absorbed silently."
+    },
+    {
+      "id": "OA-pr4-fast-forward",
+      "state": "ruled",
+      "what_is_needed": "RESTATED 2026-09-04 and materially larger than 'fast-forward PR #4'. The whole US-019 line is unreachable from mainline: `internal/autobahnsuite` and `rust/autobahn-controls` DO NOT EXIST here (`git ls-tree HEAD internal/autobahnsuite/` is empty), so every test written against them can only live on that line. A completed survivor sweep now sits on it -- 180 newly enumerated sites, a 106-survivor floor, 75 closed -- and cannot land. Merging the line as it stands breaks THREE gates, each traced rather than guessed: pin-guard on a digest that reads afc0ef4f on mainline and 31a625e2 after claude/us019-native-run regenerated it; go-suite on internal/formalcoverage, because that branch adds the autobahn-controls crate without refreshing denominator-reconciliation.json (byte-identical to mainline on the survivor branch, so the drift is the crate, not the file); and ac1-gates adapter-linkage on io_loop.rs, which differs from mainline by 167/38 lines with every commit touching it belonging to us019-native-run. Decide the integration: fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520 and resolve those three as part of it, or say the US-019 line stays separate and mainline's plan should stop carrying nodes whose evidence can never be re-derived here.",
+      "why_it_blocks": "Three gate failures are the cost of merging and re-pointing a digest or re-fingerprinting an allowance from inside a survivor sweep is the re-baselining this project forbids, so the sweep correctly refused to fix them. Until this is decided, finished US-019 work accumulates on a branch nobody can land, and mainline's plan carries nodes it cannot verify.",
+      "ruled_at": "2026-09-04",
+      "ruling": "Fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520 and LAND the US-019 line on mainline, resolving the three gate failures as part of that work: the drifted pin target (afc0ef4f on mainline, 31a625e2 after us019-native-run regenerated it), internal/formalcoverage's denominator-reconciliation.json not refreshed for the added autobahn-controls crate, and ac1-gates adapter-linkage on the merged io_loop.rs. Each is to be resolved as its own verified step, never a bulk regeneration."
+    },
+    {
+      "id": "OA-pr1-disposition",
+      "state": "ruled",
+      "what_is_needed": "Decide PR #1's fate. Its head shares no common ancestor with the live line and is superseded, not stranded (F015).",
+      "why_it_blocks": "Two draft PRs into an empty main with nothing saying which line is live.",
+      "ruled_at": "2026-09-04",
+      "ruling": "CLOSE PR #1 with a comment recording why: the symbol-set comparison (all 8 sbx paths present here; sbx_adapter.go declares all 14 of its exported symbols plus 11 more; comm -23 empty), and PR #5 named as the live line. Superseded, not stranded."
+    },
+    {
+      "id": "OA-drive-until-open-branch",
+      "state": "ruled",
+      "what_is_needed": "Rule on a SECOND adapter-side protocol branch, found by the new detector on its first real run and ruled on by nobody: `drive_until_open` at rust/ws-testee/src/io_loop.rs:745 branches on core ReadyState -- `if driver.state() != ReadyState::NotYetConnected { return true; }`. Same shape as server_closes_transport, which you ruled stays. Keep it and declare it, or move it into the core.",
+      "why_it_blocks": "It is declared in the gate's allowance list only so the gate can pass, with its entry stating that it is UNRULED. That is an honest placeholder, not a decision, and it should not sit there indefinitely.",
+      "ruled_at": "2026-09-04",
+      "ruling": "KEEP the branch where it is and declare it. drive_until_open at rust/ws-testee/src/io_loop.rs:745 takes the same disposition as server_closes_transport: the branch stays in the adapter and its allowance records this ruling instead of NOT RULED ON."
+    },
+    {
+      "id": "OA-pin-path-corpus",
+      "state": "open",
+      "what_is_needed": "DEFERRED BY THE OWNER on 2026-09-04, deliberately and not by neglect: decide this WITH OA-catalog-plane-denominator, not separately. Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
+      "why_it_blocks": "Held until OA-catalog-plane-denominator is executed. The +26 widening's 24 rows land on the formal denominator's declared basis, and that decision MOVES that basis -- so measuring the widening now would measure it against a basis about to change. Re-measure both widenings after the basis moves, against the new one."
+    },
+    {
+      "id": "OA-governance-mirror-coverage",
+      "state": "open",
+      "what_is_needed": "Decide whether evidence/governance/owner-decision-digests.json should mirror more than the 7 records it covers today. The store holds 63. I measured the gap rather than inferring it: deleting evidence/governance/decisions/us007-attempt-0101-owner-authorization.json (uncovered) leaves `deltaledgerctl --check` at exit 0, still printing \"7 governance record digest(s) recomputed from the protected store and matched\" -- true, and true of 7. The current 7 are DERIVED, not chosen: the mirror's own statement says an entry is admitted when a ledger record cites that record's sha256, so a record nothing cites is deliberately absent. Widening it to all 63 replaces that derivation with an enumeration, moves a declared count, and re-opens the disclosure question settled by governance-publish-records-owner-decision-2026-08-29.json. Three options: leave it derived and keep the narrow claim; widen to all 63 and drop the citation derivation; or add a second, weaker arm that fails on the DELETION of any store record (a count and a name list) while leaving digest coverage derived.",
+      "why_it_blocks": "It is a denominator and a disclosure question at once, which is exactly the pair this project stops at. The rust/Makefile comment that claimed all 63 has been corrected to say 7 in the meantime, so nothing currently overclaims -- but the 56 uncovered records are unprotected against deletion and a reader should not have to measure that themselves."
+    },
+    {
+      "id": "OA-governance-statement",
+      "state": "open",
+      "what_is_needed": "Rule on evidence/governance/owner-decision-digests.json $.statement, which asserts the owner-decision records are 'deliberately NOT committed' while git tracks all seven it mirrors, byte-identical to the digests. The publication was ruled at governance-publish-records-owner-decision-2026-08-29.json; this is stale prose, not a disclosure incident.",
+      "why_it_blocks": "It cannot be corrected by editing the file: internal/deltaledger.VerifyGovernance requires the document to equal BuildOwnerDecisionManifest's output, whose Statement is the Go constant OwnerDecisionManifestStatement, so the statement is verified against a copy of itself. The correction is a change to that constant plus a regeneration, and it restates a governance posture."
+    },
+    {
+      "id": "OA-record-census-prose",
+      "state": "open",
+      "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Ten sentences across six records recite that census; five are inside code fences and are honest transcripts, and five are in the records' own voice, reciting 41, 41, 55, 55 and 61 against a census that reads 66.",
+      "why_it_blocks": "Binding it makes every future record fail record-guard against an unrelated older record until that record is restated -- a treadmill, and a gate that punishes writing records. Whether that cost is worth paying is a judgement about how this project wants its history to read, not a measurement."
+    },
+    {
+      "id": "OA-F018-master-nongoal",
+      "state": "open",
+      "what_is_needed": "Rule on docs/prd-pack/06a-prd-metadata-goal-through-sandbox.md:91, the master PRD nonGoal 'Do not preserve undocumented Java quirks when a declared standard or neutral suite has higher oracle priority'. Does it reach the 39 propositions evidence/oracle-hierarchy/adjudication-register.json enrols (20 governed by rank-2 Autobahn, 18 by rank-1 RFC 6455, 1 by rank-3)? If not, say whether that is because of what 'undocumented' modifies, or because a child-plane decision may amend a master-plane nonGoal.",
+      "why_it_blocks": "No owner decision in the store names the master PRD, its nonGoals or any master story (grep exits 1). The 2026-08-27 amendment is scoped to AC clauses of US-010..US-016 and a nonGoal is not an AC clause; JAVA_FAITHFUL_PLUS_SAFE carries plane 'verified-java-websocket-port-claude'. So the port's whole Java-faithful stance is compliant on one reading and forbidden on another, and nothing in the tree settles it. No port change is implied by either answer."
+    },
+    {
+      "id": "OA-F019-master-us020-ac5",
+      "state": "ruled",
+      "what_is_needed": "Rule on docs/prd-pack/03-master-stories-intake-lsp-protocol-labzero.md:13, master US-020 AC5. (a) Do the 52 'unresolved' dispositions count as AC5's 'unresolved' on their face, or does internal/deltaledger/definitions.go's account govern and make 45 of them AC5's 'preserve'? (b) Should AC5's 'unresolved deltas block completion' have a mechanism? It has none. (c) Sequence 53 is the only live unresolved delta citing no owner decision at all.",
+      "why_it_blocks": "The published count 52 is the criterion's number under neither reading. internal/lab/ledger.go:78-80 and internal/deltaledger/definitions.go:23-29 define the same token opposite ways. The blocking half is NOT breached on this plane (9/27, not the canonical child's 27/27), but no gate implements it, so it could not fire if this plane declared completion.",
+      "ruled_at": "2026-09-04",
+      "ruling": "The CHILD's reading governs. docs/prd-pack/01-structure-and-index.md:121 records this repository as the Claude-runtime sibling at 9/27, not the canonical child at 27/27, so master US-020 AC5's blocking half is not breached here. Close F019 narrowed, and RENAME internal/ac5class so it stops being named for a criterion it does not implement."
+    },
+    {
+      "id": "OA-master-prd-metadata-gap",
+      "state": "open",
+      "what_is_needed": "Supply the seven master prd.json metadata keys that the PRD pack does not reproduce, or confirm none carries a criterion constraining port behaviour. docs/prd-pack/01-structure-and-index.md declares 'metadata | object (39 keys)' and lists 32 as reproduced; 06a/06b/06c carry exactly those 32.",
+      "why_it_blocks": "The metadata half of the master-story sweep is a floor of 32/39. A criterion living in one of the seven unreproduced keys is invisible to any sweep run inside this repository, and prd.json is at HQ. This cannot be closed from here."
+    },
+    {
+      "id": "OA-gosuite-census-prose",
+      "state": "open",
+      "what_is_needed": "NARROWED at merge; the number itself is no longer wrong. cmd/gosuitectl/main.go's dated measurement read 'packages=61 run=60 excluded=1 with_tests=45' while the gate printed 62/61/46, and the integrator corrected it rather than leaving it. The reviewer who found it left it on the ground that editing another gate's recorded measurement is re-baselining, which is the right instinct and the wrong call here: re-baselining is moving a denominator a CLAIM RESTS ON so the claim passes, and nothing rests on this comment -- no gate reads it, and the gate's real census is re-derived and printed every run. What it was, was FALSE. The correction is not a swap: the cause is recorded beside it and was re-derived rather than argued -- `git ls-tree` gives 64 package directories at a7edbd4 and 65 at the merge, `comm` names cmd/taskgraphctl as the single addition with nothing removed, and that accounts for +1 to packages, run and with_tests exactly. The measurement was taken on the jdk-vendor branch, was CORRECT there, and became false when the merge brought in a package its base did not have. That is the F011 class. WHAT REMAINS FOR YOU is the smaller question: should a gate's prose carry dated censuses at all, when a branch measurement is true on its branch and unverified on the merge? Either bind them (they are in code, which is outside the prose corpus by construction -- widening to doc comments would move this gate's own denominator in the change that introduced it), or drop them and let the runtime census be the only census.",
+      "why_it_blocks": "Nothing is blocked on it now that the number is true. It is left open because the general question it raises -- prose in CODE is entirely outside the record-prose corpus, and TP-5 was a live instance of that ceiling -- is a scope decision that would move a denominator if taken from inside a gate fix."
+    },
+    {
+      "id": "OA-forbid-unsafe-scan-surface",
+      "state": "open",
+      "what_is_needed": "Decide whether the 32 first-party crate roots of kind `test` must carry #![forbid(unsafe_code)] themselves. rustgatectl's forbid-unsafe gate requires the attribute on member lib+bin roots only, and prints `10 first-party crate roots (lib+bin)`. Round 3 put `unsafe { std::ptr::read(raw) }` into rust/ws-core/tests/messages.rs and into a rust/ws-core/build.rs that runs at build time; both compiled and both left that line byte-identical at exit 0. The unsafe itself is now caught by an ungoverned-root keyword scan, which moves no count. Requiring the ATTRIBUTE moves the printed 10 to 42 and needs the attribute added to the 25 roots that lack it, so it is not taken here. Measured 2026-09-04: 32 test crate roots, 7 carry a real crate-root attribute, 25 do not."
+    },
+    {
+      "id": "OA-oracle-census-anchor",
+      "state": "open",
+      "what_is_needed": "Decide whether anything should bind oracle-hierarchy-gates' printed census. `oraclerankctl --check` prints '640 propositions adjudicated; 589 Java/Rust agreements, 39 of them overridden'. The register is DERIVED and is never an input to its own recomputation, which is why it refuses an un-regenerated edit; but flipping one rfc_strict_expectation in evidence/us005-public-rfc-divergence-census.json from `closed` to `open` -- a higher oracle made to agree with the Java/Rust pair -- and regenerating the register exits 0 with the count at 38. Nothing asserts 640, 589 or 39. Binding them needs an anchor outside the gate and creates a denominator the gate is then measured against, which is round 2's ruling on the same shape at plan-guard's nodes=29."
+    },
+    {
+      "id": "OA-below-msrv-differential",
+      "state": "open",
+      "what_is_needed": "Decide whether the msrv gate should EXECUTE the below-MSRV differential on a host that has an older toolchain. rustgatectl declares that checks outside its claim are recorded as explicit pending= notes and never silently passed; that held only when NO older toolchain existed. On this host `stable` resolves to rustc 1.94.1 against an MSRV of 1.95.0, so the differential could run -- and it was neither run nor noted. Round 3 made both branches print. Running it is left open because a below-MSRV build that SUCCEEDED would be a finding about the MSRV declaration, not a failure of this gate."
+    },
+    {
+      "id": "OA-round2-forbid-count",
+      "state": "open",
+      "what_is_needed": "Rule on how to correct a cardinality in a landed record. drafts/self-review/gate-attack-round-2.md states that 9 of the 32 tests/ crate roots carry #![forbid(unsafe_code)], measured with `grep -l`. rustgatectl's tokenizer-grade hasForbidUnsafe -- which exists precisely to reject mentions inside comments and string literals -- says 7: the other two are a doc comment in rust/ws-core/tests/scaffold_smoke.rs and a string literal in rust/ws-oracle-harness/tests/protocol.rs. Round 2's sentence also says 23 roots are outside the scan surface when all 32 are. This is not edited here: the repository's convention, recorded in cmd/recordguardctl/prose.go, is SUPERSEDE, do not edit."
+    },
+    {
+      "id": "OA-held-draft-legacy-13",
+      "state": "ruled",
+      "what_is_needed": "Decide the disposition of drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json, then let the rule derive its own population. The file is a record proposal of exactly the shape VerifyProposalDraftsAreLedgered reads: it rebuilds from its own digest preimages, its declared delta_id equals the identity those preimages produce, and NO record in the committed chain carries it. deltaledger.ProposalDraftPaths() is a hardcoded list that does not name it, so the rule that exists to refuse a held draft that never became a record cannot see it, and ledger-gates prints 'held proposal drafts' as verified at exit 0.",
+      "why_it_blocks": "Deriving the population from drafts/ledger-proposals/ by SHAPE rather than from the list takes ledger-gates RED on the committed tree, and the only way back to green is appending the record -- which moves the chain head, the sequence after the frozen prefix, and the unledgered_disagreements recomputation. An agent may not move a ledger. Owner rules one of: append the record and then derive the population; or record the draft as withdrawn, with the reason, and derive the population with that disposition visible.",
+      "ruled_at": "2026-09-04",
+      "ruling": "DERIVE the population from the directory rather than the hardcoded list of seven, and carry legacy-13-bare-lf-server-basis-correction.json as a DECLARED EXEMPTION with a staleness check, in the shape this repository already uses four times. Do NOT append to the ledger to make it green. The exemption must fail the moment it stops being needed."
+    },
+    {
+      "id": "OA-rust-lint-suppression-ceiling",
+      "state": "open",
+      "what_is_needed": "Decide whether the Rust lint gates get a suppression rule, and which kind. `make -C rust fmt-check` is defeated by #[rustfmt::skip] on a mis-formatted item and `make -C rust clippy` by #[allow(clippy::<lint>)] on an item that trips it -- both demonstrated at exit 0 with the mutant compiling. Neither target has a waiver ceiling, a suppression scan or a census, while fixture-guard four lines above them in the same Makefile has all three and calls raising its ceiling 'a decision, not a formality'.",
+      "why_it_blocks": "The two options are not the same decision. The granular per-lint allow attributes already occur in first-party crates, so a ceiling over that population is a measurement denominator an agent may not invent. The BLANKET forms -- allow(warnings), allow(clippy::all), allow(clippy::pedantic), a [lints] table and rustfmt::skip -- do not occur anywhere in the Rust tree today, so refusing those outright is an absolute like forbid-unsafe and creates no denominator. Owner rules which of the two is built."
+    },
+    {
+      "id": "OA-drive-until-open-second-site",
+      "state": "open",
+      "what_is_needed": "Confirm or refuse an extension of OA-drive-until-open-branch that landing the US-019 line forced. That ruling was made against mainline's drive_until_open, where the function held ONE branch on core ReadyState. The merged function holds two: the ruled site at rust/ws-testee/src/io_loop.rs:831 (`if driver.state() != ReadyState::NotYetConnected`), and a second at :950 (`while cursor < rest.len() && driver.state() == ReadyState::NotYetConnected`) added by claude/us019-native-run, which feeds the handshake one byte at a time so a read cannot straddle the 101/first-frame boundary. adapter-linkage fingerprints the ENCLOSING FUNCTION, so one allowance covers both and the second site cannot be declared or refused apart from the first. It is declared on that mechanical ground and reported here rather than counted as ruled on.",
+      "why_it_blocks": "The gate is green either way, so nothing stops on this. What is at stake is whether the owner's ruling is being read wider than it was written: either :950 is the same readiness poll and the ruling covers it, or it is a protocol decision and belongs in the core, in which case the allowance as re-pinned is too broad."
     }
   ]
 }

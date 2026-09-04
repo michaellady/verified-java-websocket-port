@@ -266,6 +266,39 @@ func deriveJSONArrayLen(document, key string) func(string) (string, string, erro
 	}
 }
 
+// deriveGrouped renders another derivation's value with the thousands separator
+// the prose uses. checkProse compares the captured text to the derived text as
+// STRINGS, so a record that writes a four-digit count as "1,048" cannot be bound
+// by a derivation that renders it "1048": the two are the same number and
+// different strings, and the binding would fail on the formatting rather than on
+// the fact.
+//
+// This is the corpus's FIRST grouped numeral -- it arrived with the US-019 line,
+// which is why the need shows up here rather than having been designed for. It
+// re-derives exactly what it wraps and stores no expected value; only the
+// RENDERING is adjusted, and only to the convention the bound sentence uses.
+func deriveGrouped(inner func(string) (string, string, error)) func(string) (string, string, error) {
+	return func(root string) (string, string, error) {
+		value, from, err := inner(root)
+		if err != nil {
+			return "", "", err
+		}
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return "", "", fmt.Errorf("grouping %q: %w", value, err)
+		}
+		digits := strconv.Itoa(n)
+		var grouped strings.Builder
+		for i, r := range digits {
+			if i > 0 && (len(digits)-i)%3 == 0 {
+				grouped.WriteByte(',')
+			}
+			grouped.WriteRune(r)
+		}
+		return grouped.String(), from, nil
+	}
+}
+
 // deriveJSONLRows counts the non-blank rows of a .jsonl corpus.
 func deriveJSONLRows(document string) func(string) (string, string, error) {
 	return func(root string) (string, string, error) {
@@ -522,6 +555,20 @@ func proseClaims() []proseClaim {
 			why: "control, and the axis internal/normcollide does NOT bind: recordbounds " +
 				"pins the 29 and leaves the 49 — the corpus denominator — as a literal in " +
 				"its own pattern. This binds the denominator to the corpus file",
+		},
+		{
+			record: "drafts/self-review/us019-native-run-round-1.md",
+			field:  "native_digest_manifest_files",
+			pattern: regexp.MustCompile(
+				`pins the ([\d,]+) files of the`),
+			derive: deriveGrouped(deriveJSONArrayLen(
+				"evidence/autobahn/native-digest-manifest.json", "files")),
+			why: "the first claim the US-019 line brought that neither parent could " +
+				"see: this record lives only on that line and this gate lives only on " +
+				"mainline, so the merge is the first tree holding both. The sentence " +
+				"names the document and the population in one breath and the count is " +
+				"correct, so it is BOUND rather than allowed -- an allowance is for a " +
+				"number that disagrees, and this one does not",
 		},
 	}
 }
