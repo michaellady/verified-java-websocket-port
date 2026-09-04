@@ -136,9 +136,48 @@ go-suite:
 	cd .. && go test -count=1 ./cmd/gosuitectl/
 	cd .. && go run ./cmd/gosuitectl -root . -timeout 40m
 
+# THE THIRD STEP IS NEW AND IT IS A DIFFERENT CLAIM FROM THE FIRST TWO. `gate`
+# reads whether a record says it is finished; `prose` reads whether what a
+# record SAYS is still TRUE of the documents it cites.
+#
+# Nothing read the prose until internal/normcollide/recordbounds.go, and that
+# binds exactly one record -- its own author said so: "the prose of every OTHER
+# record in the tree is still pinned to nothing". The failure it was built for
+# had already happened twice over. `d90308a` moved the handshake bounds from
+# 26/27/11 to 29/23/10 and the landing record went on stating the old three in
+# the present tense with every gate green (F017). And in this tree today:
+# evidence/governance/decisions/README.md states a 62-record denominator for a
+# security assertion over a store that held 63 on the day the README was
+# written; drafts/self-review/story-criterion-sweep.md states a 58-record ledger
+# three times, one of them a DENOMINATOR, over a ledger that reached 59 at
+# 9946dae; and evidence/governance/owner-decision-digests.json's `statement`
+# asserts that the owner-decision records are "deliberately NOT committed" while
+# git tracks all seven of the ones it mirrors.
+#
+# `prose` re-derives every compared value FROM THE CITED DOCUMENT on every run --
+# a directory listing, a JSON array length, a .jsonl row count, `git ls-files` --
+# and carries no expected value anywhere. The three findings above are DECLARED
+# allowances, each pinned to the value the prose states today and named with the
+# owner action that would let it be deleted, on the shape pin-guard already uses:
+# restate the sentence and the acknowledgement stops matching and FAILS; fix the
+# document and the allowance orphans as STALE_ALLOWANCE. A NEW drift fails on the
+# run it appears.
+#
+# It runs BOTH halves for the reason the targets above do:
+#   * `go test` executes the polarity the tree scan cannot reach -- that moving
+#     the PROSE goes red (F017's mistake was a test that moved only the
+#     artifact), that moving the DOCUMENT also goes red so the compared value is
+#     provably re-derived rather than authored, that a DELETED sentence is a
+#     failure and not a pass, that an allowance cannot survive the value it pins
+#     being edited, and that the tracked-ness predicate returns TRUE against a
+#     repository where the records really are uncommitted.
+#   * `go run ... prose` applies the rule to the live tree and prints the census
+#     the binding table is measured against, so a claim left unbound is a number
+#     rather than a silence.
 record-guard:
 	cd .. && go test ./cmd/recordguardctl/
 	cd .. && go run ./cmd/recordguardctl gate -root .
+	cd .. && go run ./cmd/recordguardctl prose -root .
 
 test:
 	cargo test --workspace --all-targets --all-features

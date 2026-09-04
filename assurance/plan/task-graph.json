@@ -96,6 +96,18 @@
       "state": "open",
       "what_is_needed": "Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
       "why_it_blocks": "Widening moves rows onto the formal denominator's declared basis, which is already DENOMINATOR, HARD STOP. It belongs with the plane-correspondence decision the three existing hard-stop allowances wait on, and should be decided together with it."
+    },
+    {
+      "id": "OA-governance-statement",
+      "state": "open",
+      "what_is_needed": "Rule on evidence/governance/owner-decision-digests.json $.statement, which asserts the owner-decision records are 'deliberately NOT committed' while git tracks all seven it mirrors, byte-identical to the digests. The publication was ruled at governance-publish-records-owner-decision-2026-08-29.json; this is stale prose, not a disclosure incident.",
+      "why_it_blocks": "It cannot be corrected by editing the file: internal/deltaledger.VerifyGovernance requires the document to equal BuildOwnerDecisionManifest's output, whose Statement is the Go constant OwnerDecisionManifestStatement, so the statement is verified against a copy of itself. The correction is a change to that constant plus a regeneration, and it restates a governance posture."
+    },
+    {
+      "id": "OA-record-census-prose",
+      "state": "open",
+      "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Six records recite 41, 55, 55, 61 and 41 against a census that reads 66.",
+      "why_it_blocks": "Binding it makes every future record fail record-guard against an unrelated older record until that record is restated -- a treadmill, and a gate that punishes writing records. Whether that cost is worth paying is a judgement about how this project wants its history to read, not a measurement."
     }
   ],
   "nodes": [
@@ -555,18 +567,69 @@
     {
       "id": "T-other-record-prose",
       "title": "Bind the remaining records' prose to the documents they cite",
-      "state": "ready",
+      "state": "done",
       "depends_on": [
         "T-record-prose-bound"
       ],
       "blocked_by": [],
       "evidence": [
         {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/prose.go"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/prose_test.go"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/record-prose-corpus.md"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/record-prose-corpus.md"
+        },
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "(?m)^\\tcd \\.\\. && go run \\./cmd/recordguardctl prose -root \\.$"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/main.go",
+          "pattern": "(?m)^\\tcase \"prose\":$"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "UNDISPOSITIONED_CLAIM"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "STALE_ALLOWANCE"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "STALE_COVERAGE_CLAIM"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "func TestMutatingTheProseGoesRedAndNamesTheField"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "func TestMutatingTheDocumentAlsoGoesRed"
+        },
+        {
           "kind": "command",
-          "cmd": "go test ./internal/normcollide/"
+          "cmd": "go run ./cmd/recordguardctl prose -root ."
         }
       ],
-      "note": "recordbounds binds ONE record. Every other record's prose in the tree is pinned to nothing -- stated as that work's own ceiling."
+      "note": "Twelve records bound by twenty bindings, every value re-derived from the cited document on each run; no expected value anywhere in the table. The census (241 cardinality sentences, 11 with an enumerable population, all dispositioned) fails an UNDISPOSITIONED_CLAIM, so the binding table is a floor and not a hand-picked list. Four true positives declared, none fixed by edit. Ceiling: 230 sentences name a population this gate cannot enumerate."
     },
     {
       "id": "T-sweep-master-stories",
@@ -652,6 +715,32 @@
       ],
       "evidence": [],
       "note": "Measured both widenings rather than guessing: +662 path-shaped, +26 git-ever-tracked. Deliberately not fixed."
+    },
+    {
+      "id": "T-governance-statement-supersession",
+      "title": "Supersede the digests-only statement in owner-decision-digests.json",
+      "state": "blocked",
+      "depends_on": [
+        "T-other-record-prose"
+      ],
+      "blocked_by": [
+        "OA-governance-statement"
+      ],
+      "evidence": [],
+      "note": "record-prose declares it as an allowance today: the finding is TRUE, re-derived on every run (7 of 7 mirrored records git-tracked), and the allowance fails the moment the statement stops asserting it. See drafts/self-review/record-prose-corpus.md TP-2."
+    },
+    {
+      "id": "T-record-census-prose",
+      "title": "Decide whether a recited record-census count is bindable prose",
+      "state": "blocked",
+      "depends_on": [
+        "T-other-record-prose"
+      ],
+      "blocked_by": [
+        "OA-record-census-prose"
+      ],
+      "evidence": [],
+      "note": "Reported and deliberately NOT bound. record-content-precondition.md:470 says 'The census currently reads records=41' against a census of 66. See drafts/self-review/record-prose-corpus.md TP-4."
     }
   ]
 }

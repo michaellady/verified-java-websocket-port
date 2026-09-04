@@ -73,6 +73,12 @@ func usage(stderr io.Writer) int {
       Replays the discriminator over the committed historical records in
       cmd/recordguardctl/testdata and exits 1 if any came out other than
       declared, then prints a census of `+recordsRel+` without failing on it.
+
+  recordguardctl prose [-root DIR] [-strict-census]
+      Binds each bound record's PROSE to the document that record cites,
+      re-deriving every value from the tree on every run, and exits 1 when the
+      two disagree. Prints a census of the cardinality claims the corpus makes
+      so that a claim left unbound is visible as a number rather than absent.
 `)
 	return 2
 }
@@ -86,6 +92,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runPrecondition(args[1:], stdout, stderr)
 	case "gate":
 		return runGate(args[1:], stdout, stderr)
+	case "prose":
+		return runProse(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "recordguardctl: unknown mode %q\n", args[0])
 		return usage(stderr)
