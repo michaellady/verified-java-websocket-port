@@ -256,13 +256,36 @@ that false, so the ceiling was rewritten in the same commit; the test that
 requires the disclosure to keep naming the path and the untracked-path rule
 still passes.
 
-## 7. Gates
+## 7. The check that had pinned the absence, and where its polarity went
+
+`internal/formalcoverage/coverage_test.go` asserted that at least one declared
+basis pin reads `BASIS_PIN_PATH_IS_ABSENT_FROM_THIS_PLANE`, with the reason
+written into the failure message: reporting an absent path as drift would be
+absence standing in for defect. That assertion was true of the tree and is a
+test that fails when the tree gets better, so it was not left to fire.
+
+The rule it protects is real and was not weakened. The polarity moved into
+`TestARemovedBasisFileIsReportedAbsentAndNotDrifted`, which makes the absence on
+purpose: it takes a sandbox, picks a pin that agrees, removes that file, and
+requires the agreement to become the absent code and the on-disk identity to
+become `PATH_ABSENT` with an empty blob, with a control that refuses to run if
+no pin agreed in the first place. It was verified to FAIL rather than assumed
+to: with the `errors.Is(err, fs.ErrNotExist)` branch of `reconcile.go` removed,
+it reports `was removed and is reported as
+"BASIS_PIN_DOES_NOT_MATCH_FILE_ON_DISK"` and exits 1. `reconcile.go` was
+restored byte-identically afterwards.
+
+The same file's sandbox list, which the file itself says is written out so that
+a new input cannot be added without a test author noticing, gained
+`corpora/frame/codec.json`, because the derivation now opens it.
+
+## 8. Gates
 
 Run from a committed tree, with `VJWP_PROTECTED_STORE` set to
 `evidence/governance/decisions` and the quarantined JDK first on PATH. The exit
 code and the full census are in section 8.
 
-## 8. What could not be resolved
+## 9. What could not be resolved
 
 * The second clause of the ruling, for all five pins. It is an owner question
   now, with the measurement attached.
