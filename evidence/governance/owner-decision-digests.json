@@ -19,7 +19,16 @@
         46,
         47,
         57,
-        58
+        58,
+        59
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    },
+    {
+      "name": "us009-us008-owner-decisions-2026-08-27.json",
+      "sha256": "3a9b24c4b7ee607d981f52e6881ad2476cf03cff01da89bb29461b97f2f99593",
+      "cited_by_sequences": [
+        59
       ],
       "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
     },
@@ -73,7 +82,8 @@
         45,
         46,
         47,
-        48
+        48,
+        59
       ],
       "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
     },

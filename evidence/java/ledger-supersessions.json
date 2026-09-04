@@ -44,6 +44,14 @@
       "superseding_sequence": 58,
       "superseding_delta_id": "delta-b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55",
       "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 58,
+      "superseded_delta_id": "delta-b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.corrected:provisional-v1",
+      "superseding_sequence": 59,
+      "superseding_delta_id": "delta-19de2302e80753564b622f718692411fd251a704bcd0f6c739d93f1e4d5612ca",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.adopted:provisional-v1"
     }
   ]
 }

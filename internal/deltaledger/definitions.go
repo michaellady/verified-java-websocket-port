@@ -243,6 +243,12 @@ func Definitions() []Definition {
 	// and DIV-06's response fields). Appending them last is what leaves every
 	// earlier record's sequence, previous_digest and record_digest untouched.
 	definitions = append(definitions, staleOrderingCorrectionDefinitions()...)
+	// Appended LAST of all at THIS landing, sequence 59: the superseding
+	// adjudication for sequence 58, whose disposition held an open question the
+	// owner had already answered on 2026-08-27 and confirmed on 2026-09-04.
+	// Appending it last is what leaves every earlier record's sequence,
+	// previous_digest and record_digest untouched.
+	definitions = append(definitions, ac2BannerRulingDefinitions()...)
 	return definitions
 }
 
