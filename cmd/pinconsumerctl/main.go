@@ -470,6 +470,11 @@ type danglingCensus struct {
 	explained  []pin
 	artifacts  int
 	unparsable int
+	// unparsablePaths names them. A tracked .json the index cannot parse is a
+	// SILENT subtraction of every pin it holds: adversarial review C8 hid a real
+	// drifted pin behind one trailing comma, and the census moved only from
+	// `unparsable=0` to `unparsable=1` with no file named and result=PASS.
+	unparsablePaths []string
 }
 
 func runDangling(root string) int {
@@ -481,6 +486,14 @@ func runDangling(root string) int {
 	stale := verifyCoverage(root)
 	for _, problem := range stale {
 		fmt.Printf("gate=pin-dangling finding=STALE_COVERAGE_CLAIM detail=%q\n", problem)
+	}
+	// A tracked .json that does not parse takes every pin it holds out of the
+	// census. Naming it and refusing is the only honest reading: the alternative
+	// is a number moving by one with nothing said, which is what C8 exploited.
+	for _, path := range census.unparsablePaths {
+		fmt.Printf("gate=pin-dangling finding=UNPARSABLE_ARTIFACT artifact=%s detail=%q\n",
+			path, "this tracked .json does not parse, so every pin inside it is absent "+
+				"from the census rather than clean; fix the file or the census is short")
 	}
 
 	remaining := 0
@@ -540,6 +553,12 @@ func runDangling(root string) int {
 				"outlived the check and every row it covered is unverified")
 		return 1
 	}
+	if len(census.unparsablePaths) > 0 {
+		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
+			fmt.Sprintf("%d tracked .json artifact(s) do not parse, so this census is "+
+				"SHORT by however many pins they hold", len(census.unparsablePaths)))
+		return 1
+	}
 	if len(orphaned) > 0 {
 		fmt.Printf("gate=pin-dangling result=FAIL reason=%q\n",
 			"an allowance outlived the finding it acknowledged; delete it, or it will "+
@@ -569,8 +588,18 @@ const danglingCeiling = "candidates are objects where a tracked path and a sha25
 	" file carries (assurance/concurrency/plan.json's `observed_head` is the" +
 	" behaviour-delta ledger's own head, not the ledger file's sha256), a" +
 	" one-file tree envelope, a sibling line-array, a field this object names," +
-	" or a mutation operand. Every such rule reads a drifting input, so none can" +
-	" go quiet when a real pin goes stale, and a field pin that has itself" +
+	" or a mutation operand. FOUR of the five rules read a drifting input and were" +
+	" VERIFIED to by perturbing it: tree-envelope, sibling-lines, field-provenance" +
+	" and field-inside-file each return their rows as candidates when the value" +
+	" they recompute changes. THE MUTATION-OPERAND RULE DOES NOT AND CANNOT: a" +
+	" mutation operand is a value deliberately absent from the tree, so its 4 rows" +
+	" rest on a STRUCTURAL check -- the object is a json_set whose declared target" +
+	" is this file and whose own `value` is this digest -- and must be read as" +
+	" declared, never as measured. field-inside-file is also weaker than the" +
+	" sentence it prints: the decision is whether the digest occurs ANYWHERE as a" +
+	" string in the named file, not at the location the message names, so a file" +
+	" that records its own former whole-file digest launders every stale pin of" +
+	" itself. A field pin that has itself" +
 	" drifted is reported like any other. What is NOT proven and so still counts:" +
 	" digests of things this tool cannot recompute -- a realized fixture tree, a" +
 	" ledger record beside an unrelated path, a frozen historical receipt --" +
@@ -610,6 +639,7 @@ func analyseDangling(root string) (danglingCensus, error) {
 	}
 
 	var candidates, explained []pin
+	var unparsablePaths []string
 	artifacts := 0
 	unparsable := 0
 
@@ -624,6 +654,7 @@ func analyseDangling(root string) (danglingCensus, error) {
 		var document any
 		if err := json.Unmarshal(content, &document); err != nil {
 			unparsable++
+			unparsablePaths = append(unparsablePaths, relative)
 			continue
 		}
 		artifacts++
@@ -689,11 +720,13 @@ func analyseDangling(root string) (danglingCensus, error) {
 	sort.Slice(candidates, byLocation(candidates))
 	sort.Slice(explained, byLocation(explained))
 
+	sort.Strings(unparsablePaths)
 	return danglingCensus{
-		candidates: candidates,
-		explained:  explained,
-		artifacts:  artifacts,
-		unparsable: unparsable,
+		candidates:      candidates,
+		explained:       explained,
+		artifacts:       artifacts,
+		unparsable:      unparsable,
+		unparsablePaths: unparsablePaths,
 	}, nil
 }
 
@@ -834,10 +867,31 @@ func explainPin(root string, object map[string]any, named, declared string) stri
 	// R5 -- a mutation operand. A JSON-patch-shaped instruction carries the value
 	// it will WRITE into `target`; a deliberately wrong digest is the payload of
 	// a seeded defect, not a pin that drifted.
+	//
+	// THIS RULE IS NOT A RECOMPUTATION AND CANNOT BE ONE. A mutation operand is by
+	// definition a value that is NOT in the tree -- two of the four live rows write
+	// a key the target does not have yet -- so there is nothing to read back and
+	// nothing that drifts. It is a STRUCTURAL claim, and the printed ceiling now
+	// says so instead of counting it among the recomputed rules.
+	//
+	// As first written it asked only for the key name `kind == "json_set"` and the
+	// PRESENCE of a `pointer` key, which adversarial review C5 turned into a
+	// universal laundering primitive: adding those two keys to any object made
+	// every digest in it explained forever, a fresh random digest included. It now
+	// requires the object to BE the operation it claims to be -- an RFC 6901
+	// pointer, a `target` naming THIS file, and the declared digest being that
+	// operation's own `value` -- so it can no longer be borrowed by an object that
+	// merely sits beside a path.
 	if kind, ok := object["kind"].(string); ok && kind == "json_set" {
-		if _, hasPointer := object["pointer"]; hasPointer {
-			return "mutation-operand: the value a json_set operation writes into " +
-				named + " at the pointer it names, not a pin of it"
+		pointer, hasPointer := object["pointer"].(string)
+		target, hasTarget := object["target"].(string)
+		value, hasValue := object["value"].(string)
+		if hasPointer && strings.HasPrefix(pointer, "/") &&
+			hasTarget && strings.TrimPrefix(target, "./") == named &&
+			hasValue && normaliseDigest(value) == declared {
+			return "mutation-operand: STRUCTURAL, not recomputed -- the value this " +
+				"json_set operation writes into its declared target " + named +
+				" at " + pointer + ", not a pin of it"
 		}
 	}
 

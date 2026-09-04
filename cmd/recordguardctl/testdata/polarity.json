@@ -111,6 +111,25 @@
       "provenance": "hand-written; the only fixture here that is not a real record. Added after deletion attack A7 (word-boundary check removed) SURVIVED the twelve real fixtures.",
       "why": "WORD-BOUNDARY CONTROL. A finished record in which six words each contain a lexicon term as a substring — `drafts` holds `draft`, `restarted` holds `started`, `stubbed` holds `stub`, `wiped` holds `wip`, `appending` holds `pending`, `incompleteness` holds `incomplete` — placed in the title and in the status VALUE, where the title and status signals read. No real record in the corpus happens to do this, so nothing else in the manifest can catch a discriminator that matches the lexicon without word boundaries.",
       "expect": []
+    },
+    {
+      "path": "synthetic/unpaired-delimiter.md",
+      "provenance": "hand-written; adversarial review A5. The div05 stub of the first fixture, unchanged in substance, with ONE stray unpaired double quote added to its title line and one backticked path added. Against the masker as first written this record passed `precondition` at exit 0 with verdict READS-FINISHED.",
+      "why": "UNPAIRED-DELIMITER CONTROL. The masker carried an unclosed delimiter forward and masked to end of line on the way, so a single stray `\"` silenced the status declaration, the void self-report and the open checklist of every following line in its paragraph — and `cites-nothing`, the only signal left, is satisfied by one backticked path. The whole content of a stub fits in one paragraph, so this silenced the tool completely on the exact instance it was built for. Every other quote fixture pairs its delimiters, so nothing else in this manifest can see it. A delimiter that never closes must mask nothing.",
+      "expect": [
+        "2|declared-status|in progress",
+        "2|declared-status|stub",
+        "6|void-self-report|nothing verified",
+        "7|open-checklist|run the differential"
+      ]
+    },
+    {
+      "path": "synthetic/backticked-status.md",
+      "provenance": "hand-written; adversarial review A2b. An honest author's stub written in idiomatic markdown: the status VALUE inside an inline code span. Against the scanner as first written this record passed `precondition` at exit 0 with verdict READS-FINISHED.",
+      "why": "BACKTICKED-STATUS CONTROL. One matched backtick pair defeated TWO signals at once: the mask hid the status value from `declared-status`, and the same pair satisfied `cites-nothing`. The gate was therefore ANTI-correlated with honesty here — `STATUS: IN PROGRESS` was refused and `STATUS: `IN PROGRESS`` was not. The status value is now read from the RAW line, since a declaration anchored at the start of a line is the record's own voice; F009-quotes-the-stub and wrapped-quotation both quote that same sentence mid-sentence and must stay silent, which is what bounds the change.",
+      "expect": [
+        "3|declared-status|in progress"
+      ]
     }
   ]
 }
