@@ -8,11 +8,21 @@
 // repeatedly. A chain that does not cover something must say so where it is read,
 // not in a file someone might consult.
 //
-// Two packages genuinely cannot pass on this host. They are named here with the
+// One package genuinely cannot pass on this host. It is named here with the
 // reason, and the reason is CHECKED: an exclusion naming a package that no longer
 // exists fails the gate, so the list cannot quietly outlive the problem it
 // describes. Everything not excluded is run; a package added tomorrow is covered
 // without anyone remembering to add it.
+//
+// It was two until `internal/portplan` was FIXED rather than re-excused. Its
+// exclusion said the reproduction check byte-compared a regenerated semantic-id
+// oracle against a committed one recording jdk_vendor "Homebrew", and that a
+// Linux Temurin regeneration differed in that ONE line with all 969 declarations
+// identical. The owner ruled the check vendor-agnostic; the comparison now
+// excludes that single field by name and the package passes here, so the
+// exclusion went with it. That is the only way an entry leaves this list: the
+// EXCLUSION_NO_LONGER_FAILS finding exists so a fixed package cannot keep its
+// exemption.
 //
 //	gosuitectl -root . [-timeout 40m]
 package main
@@ -33,11 +43,6 @@ import (
 var excluded = map[string]string{
 	"internal/lab": "CONTROLLED_CANARY requires Darwin sandbox-exec; " +
 		"PLATFORM_EXECUTOR_UNSUPPORTED on Linux. Owner gate: a macOS host.",
-	"internal/portplan": "TestDeriveReproducesCommittedEvidence byte-compares the " +
-		"regenerated semantic-id oracle against the committed one, which records " +
-		"jdk_vendor \"Homebrew\"; a Linux Temurin regeneration differs in that ONE " +
-		"line, all 969 declarations identical. Owner decision: make the check " +
-		"vendor-agnostic, or pin the vendor as a host requirement.",
 }
 
 func main() {
@@ -108,10 +113,10 @@ func main() {
 	//
 	// The observed first failing line is PRINTED beside the declared reason so a
 	// reader can see whether they still describe the same thing. They do not
-	// always: with the pinned JDK absent from PATH `internal/portplan` fails
-	// JAVAC_UNAVAILABLE, not the jdk_vendor mismatch its reason names, and a
-	// second test fails that the reason does not mention at all. This gate does
-	// not judge that -- it makes it readable.
+	// always: while `internal/portplan` was excluded for a jdk_vendor mismatch it
+	// failed JAVAC_UNAVAILABLE instead whenever the pinned JDK was off PATH, which
+	// is a different problem wearing the exclusion's name. This gate does not
+	// judge that -- it makes it readable.
 	var passing []string
 	for _, name := range sortedKeys(excluded) {
 		if !present[name] {

@@ -115,14 +115,26 @@ record exactly which owner or independent step remains.
    go build ./... && go test -count=1 ./...
    ```
 
-   `go test` has two packages that fail on Linux for environment reasons
-   (`internal/lab` needs Darwin `sandbox-exec`; `internal/portplan`'s
-   derive-reproduction test is vendor-bound, see the owner decision under P0).
-   Read results per package: every other package must pass, and those two must
-   fail with exactly those typed findings and nothing else.
+   `go test` has ONE package that fails on Linux for environment reasons
+   (`internal/lab` needs Darwin `sandbox-exec`). Read results per package: every
+   other package must pass, and that one must fail with exactly that typed
+   finding and nothing else.
 
-   **THIS TWO-PACKAGE STATEMENT WAS FALSE FOR MOST OF 2026-09-03 AND IS TRUE
-   AGAIN AS OF `fb72adb`, MEASURED: 41 ok, and the only failures are those two.**
+   It was TWO until the owner's `jdk_vendor` ruling was IMPLEMENTED rather than
+   re-excused. `internal/portplan`'s derive-reproduction check compared the
+   regenerated semantic-id oracle to the committed one byte for byte, and the
+   committed report records `jdk_vendor "Homebrew"` while a Linux Temurin
+   regeneration says `"Eclipse Adoptium"` — measured `differing_lines=1 of
+   committed_lines=1071`, all 969 declarations identical. The comparison now
+   excludes that ONE field by name (`internal/portplan/reproduce.go`,
+   `neutralizeJDKVendor`); everything else, `jdk_version` included, is still
+   compared byte for byte, and a report with NO `jdk_vendor` line is refused as
+   `ORACLE_VENDOR_FIELD_UNREADABLE` rather than quietly tolerated. The package
+   passes here (measured, exit 0, 70 tests), so its `cmd/gosuitectl` exclusion
+   was removed in the same commit. The committed oracle was NOT regenerated.
+
+   **THIS PACKAGE-COUNT STATEMENT WAS FALSE FOR MOST OF 2026-09-03 AND IS TRUE
+   AGAIN AS OF `fb72adb`, MEASURED: 41 ok, and the only failures were those two.**
    It drifted to five without anyone noticing, because a firing that reads a
    short list counts real failures as noise. What restored it was FIXING the
    three extras, never amending the list: `internal/formalcoverage` and
@@ -140,13 +152,15 @@ record exactly which owner or independent step remains.
    should never have been the only way.
 
    `cmd/gosuitectl` runs everything `go list ./...` reports EXCEPT a named list
-   carrying a reason per entry (`internal/lab`, Darwin `sandbox-exec`;
-   `internal/portplan`, the `jdk_vendor` decision). The run set is the
+   carrying a reason per entry (now just `internal/lab`, Darwin `sandbox-exec`).
+   The run set is the
    COMPLEMENT of the exclusions, so a package added tomorrow is covered without
    anyone remembering; a STALE exclusion — one naming a package that no longer
    exists — FAILS the gate, so the list cannot outlive the problem it describes;
-   and each reason must clear an 80-byte floor and name the owner action that
-   would lift it, so the list is not somewhere to park a failure.
+   an exclusion whose package PASSES is `EXCLUSION_NO_LONGER_FAILS`, so a FIXED
+   package cannot keep its exemption (that is how `internal/portplan` left the
+   list); and each reason must clear an 80-byte floor and name the owner action
+   that would lift it, so the list is not somewhere to park a failure.
 
    It REFUSES with exit 2, not a skip, when `.quarantine/` is unstaged, printing
    the `ln -s` that fixes it — the same shape as `ledger-gates` refusing without
@@ -156,7 +170,7 @@ record exactly which owner or independent step remains.
    The chain is now several minutes longer, because `internal/formalplan` alone
    runs 390-409s. That is the price of the chain meaning what everyone reads it
    to mean. Still run `go build ./... && go test -count=1 ./...` as step 4 says —
-   it is the one thing that also exercises the two excluded packages.
+   it is the one thing that also exercises the excluded package.
 
    **A `git worktree` DOES NOT GET `.quarantine/`, AND THAT HAS NOW MIS-LED TWO
    AGENTS INTO REPORTING A THIRD ENVIRONMENTAL FAILURE.** `.quarantine/` is
@@ -170,9 +184,9 @@ record exactly which owner or independent step remains.
    ```
 
    With it, `internal/formalplan` passes (measured, 391-409s, so use
-   `-timeout 40m`) and `portplan` fails only for its declared `jdk_vendor`
-   reason. Before adding any package to the environment-failure list, check
-   whether the tree you are in was ever staged.
+   `-timeout 40m`) and `internal/portplan` passes (measured, exit 0) now that
+   the comparison is vendor-agnostic. Before adding any package to the
+   environment-failure list, check whether the tree you are in was ever staged.
 
    **A LABEL ON A PULL REQUEST SPENDS MONEY. NEVER ADD ONE.**
    `.github/workflows/benchmark.yml` triggers on `pull_request: types:
@@ -249,9 +263,10 @@ record exactly which owner or independent step remains.
    document this file's own P0 entry names. Corrected rather than deleted,
    because the wrong claim was pushed and a firing may have read it.)
    With it first on `PATH`, `internal/portplan` stops failing at
-   `JAVAC_UNAVAILABLE` and reaches the documented owner decision on the
-   `jdk_vendor` line; WITHOUT it, `portplan`'s declaration-level oracle-tamper
-   test is UNREACHABLE, so a green neighbourhood says nothing about it.
+   `JAVAC_UNAVAILABLE` and now PASSES (the `jdk_vendor` ruling is implemented);
+   WITHOUT it, `portplan`'s declaration-level oracle-tamper test is UNREACHABLE
+   and the package fails `JAVAC_UNAVAILABLE`, so a green neighbourhood says
+   nothing about it and a red one says nothing about the vendor.
    The remaining asymmetry is still worth knowing: `portplan` enforces the pin
    and fails closed, while the differential and the handshake exam run to
    completion on whatever JDK is present. Two paths consume a live Java oracle
@@ -341,14 +356,23 @@ PR-to-open in the log; never block the work on it.
   and the handshake digest equal to the batch-B record; java-oracle self-test
   18 pass. The quarantined source archive is reproduced byte-exactly from an
   anonymous clone and the pinned Temurin JDK 17.0.19+10 is digest-verified and
-  staged; with both, `internal/formalplan` passes and `internal/portplan`
-  reaches its last check. Recipe and results in `CLOUD-ENVIRONMENT.md`.
-  **Owner decision outstanding:** `TestDeriveReproducesCommittedEvidence`
-  byte-compares the regenerated semantic-id oracle report with the committed
-  one, which embeds `"jdk_vendor": "Homebrew"`; the Linux regeneration differs
-  in that line alone (969 declarations identical). Decide whether the check
-  becomes vendor-agnostic or the vendor is pinned as a host requirement. Until
-  then that one test fails on Linux by construction.
+  staged; with both, `internal/formalplan` and `internal/portplan` pass.
+  Recipe and results in `CLOUD-ENVIRONMENT.md`.
+  **Owner decision RULED AND IMPLEMENTED (2026-09-04):**
+  `TestDeriveReproducesCommittedEvidence` byte-compared the regenerated
+  semantic-id oracle report with the committed one, which embeds
+  `"jdk_vendor": "Homebrew"`; the Linux Temurin regeneration differed in that
+  line alone (measured `differing_lines=1 of committed_lines=1071`, 969
+  declarations identical). The owner ruled the check VENDOR-AGNOSTIC and it now
+  is: `neutralizeJDKVendor` in `internal/portplan/reproduce.go` replaces that
+  ONE field's value with a placeholder in BOTH reports and compares every other
+  byte, and an absent or duplicated `jdk_vendor` line is refused as
+  `ORACLE_VENDOR_FIELD_UNREADABLE` rather than tolerated. Proven both ways on
+  Linux: vendor-only difference → exit 0; one of the 969 declarations altered →
+  exit 1 naming line 219, with `differing_lines=1` (the vendor line is NOT
+  counted). The committed oracle was NOT regenerated, and the
+  `cmd/gosuitectl` exclusion for `internal/portplan` was removed in the same
+  commit. Record: `drafts/self-review/jdk-vendor-agnostic.md`.
 - **P1 Land the merge queue**, strictly one branch per firing, in the
   handoff's order: `claude/us008-restart` (PASS r5) LANDED e7a66a0 in
   iteration 2 → `claude/ledger-integrity` (PASS r4) LANDED 2fbad99 on
@@ -483,7 +507,7 @@ owner-attested scope and Codex's README states its maximum result is
 | --- | --- | --- | --- | --- |
 | US-001 | Promote every immutable laboratory input | passes | PRD done (owner-attested); complete (README) | none |
 | US-002 | Establish the fresh Java authority and Autobahn baseline | passes | PRD done (owner-attested); qualified; attempt budget consumed | none |
-| US-003 | Freeze intake, compatibility, semantic IDs, and port seams | passes; semantic-id oracle reproduced on Linux with pinned JDK 17.0.19 on 2026-09-02, 969 declarations identical, only `jdk_vendor` differs | PRD done (owner-attested); referenced | owner: vendor-agnostic reproduction check |
+| US-003 | Freeze intake, compatibility, semantic IDs, and port seams | passes; semantic-id oracle reproduced on Linux with pinned JDK 17.0.19 on 2026-09-02, 969 declarations identical, only `jdk_vendor` differs | PRD done (owner-attested); referenced | none — owner ruled vendor-agnostic, implemented 2026-09-04 |
 | US-004 | Instantiate the inherited evidence lifecycle | passes | PRD done (owner-attested); 6 files | none |
 | US-005 | Calibrate public, hidden, sealed, and handshake corpora | passes | PRD done (owner-attested); 2 files | none |
 | US-006 | Qualify implementation-linked proof and concurrency seams | passes | PRD done (owner-attested); TLA+ model + Kani backend qualification | none |

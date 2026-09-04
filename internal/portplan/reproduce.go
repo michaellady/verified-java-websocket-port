@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -132,10 +133,87 @@ func VerifyOracleReproduction(root, oraclePath string) error {
 	if err != nil {
 		return fmt.Errorf("ORACLE_REPRODUCTION_MISMATCH: cannot read %s: %w", oraclePath, err)
 	}
-	if !bytes.Equal(regenerated, committed) {
-		return errors.New(describeOracleMismatch(regenerated, committed, oraclePath))
+
+	// THE ONE FIELD THIS COMPARISON DOES NOT BIND, and why. `jdk_vendor` is
+	// `System.getProperty("java.vendor")` of whichever build of the pinned JDK
+	// ran the oracle: "Homebrew" for the macOS bottle the report was committed
+	// from, "Eclipse Adoptium" for the byte-identical Temurin 17.0.19+10 build on
+	// Linux. It is host provenance, not semantic identity -- the compiler's
+	// symbol table is the same either way, and the measured difference was
+	// differing_lines=1 of committed_lines=1071 with all 969 declarations equal.
+	// Owner decision: make the check vendor-agnostic.
+	//
+	// The neutralization is deliberately the narrowest thing that works: ONE
+	// line, matched only in the exact shape the oracle emits it, with its value
+	// replaced by a fixed placeholder in BOTH reports and everything else --
+	// including `jdk_version`, every file hash and every declaration -- still
+	// compared byte for byte. It is line-count preserving, so a report that
+	// gained or lost a line still fails and still reports true line numbers.
+	//
+	// AND THE FIELD STAYS BOUND AS A FIELD. Ignoring a value is not the same as
+	// tolerating its absence: a report with no `jdk_vendor` line at all, or with
+	// more than one, is a report this comparison can no longer reason about, so
+	// it is refused by name rather than silently compared as if normalized.
+	regeneratedNormalized, regeneratedVendor, regeneratedCount := neutralizeJDKVendor(regenerated)
+	committedNormalized, committedVendor, committedCount := neutralizeJDKVendor(committed)
+	if committedCount != 1 || regeneratedCount != 1 {
+		return fmt.Errorf("ORACLE_VENDOR_FIELD_UNREADABLE: the vendor-agnostic comparison"+
+			" requires exactly one %q line in each report so that it knows what it is"+
+			" excluding; committed %s has %d, the regenerated report has %d",
+			jdkVendorFieldName, oraclePath, committedCount, regeneratedCount)
+	}
+	if !bytes.Equal(regeneratedNormalized, committedNormalized) {
+		message := describeOracleMismatch(regeneratedNormalized, committedNormalized, oraclePath)
+		if regeneratedVendor != committedVendor {
+			message += fmt.Sprintf("; (%s is excluded from this comparison by owner decision"+
+				" and is not among the differences above: committed %q, regenerated %q)",
+				jdkVendorFieldName, committedVendor, regeneratedVendor)
+		}
+		return errors.New(message)
 	}
 	return nil
+}
+
+// jdkVendorFieldName is the single host-provenance field the reproduction check
+// excludes. Naming it once keeps the exclusion greppable and keeps the refusal
+// message and the matcher from drifting apart.
+const jdkVendorFieldName = "jdk_vendor"
+
+// jdkVendorPlaceholder is what the excluded value is rewritten to in BOTH
+// reports. It is not a valid vendor string, so a report that literally contains
+// it cannot be mistaken for one that was normalized.
+const jdkVendorPlaceholder = `"<jdk_vendor excluded from reproduction comparison>"`
+
+// jdkVendorLinePattern matches exactly the line SemanticIdOracle.java emits for
+// the vendor -- leading indentation, the quoted field name, a colon, one JSON
+// string, an optional trailing comma, nothing else. A `jdk_vendor` appearing
+// anywhere else (inside a declaration name, say) is not on a line of this shape
+// and is therefore still compared byte for byte.
+var jdkVendorLinePattern = regexp.MustCompile(
+	`^([ \t]*"` + jdkVendorFieldName + `"[ \t]*:[ \t]*)"(?:[^"\\]|\\.)*"(,?)[ \t]*$`)
+
+// neutralizeJDKVendor rewrites the value of the vendor line to a fixed
+// placeholder and returns the rewritten report, the value it replaced, and how
+// many such lines it found. A count other than 1 means the caller must not treat
+// the result as a normalized report: with 0 the field is absent and with 2 or
+// more it is ambiguous, and in neither case does the caller know what it excluded.
+func neutralizeJDKVendor(content []byte) ([]byte, string, int) {
+	lines := strings.Split(string(content), "\n")
+	vendor := ""
+	count := 0
+	for index, line := range lines {
+		groups := jdkVendorLinePattern.FindStringSubmatch(line)
+		if groups == nil {
+			continue
+		}
+		count++
+		if count == 1 {
+			vendor = strings.TrimSuffix(strings.TrimPrefix(
+				strings.TrimSuffix(strings.TrimSpace(line[len(groups[1]):]), ","), `"`), `"`)
+		}
+		lines[index] = groups[1] + jdkVendorPlaceholder + groups[2]
+	}
+	return []byte(strings.Join(lines, "\n")), vendor, count
 }
 
 // describeOracleMismatch reports WHAT differs between the regenerated report and
