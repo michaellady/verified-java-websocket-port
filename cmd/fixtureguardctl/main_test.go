@@ -271,3 +271,61 @@ func TestThisRepositoryIsClean(t *testing.T) {
 		t.Fatalf("expected a PASS verdict:\n%s", out)
 	}
 }
+
+// A `#[cfg(test)]` whose module body this scan cannot reach is a hole in the
+// scan surface, and the scan used to drop the whole file for it in silence --
+// `files=` did not even move. Three ways in, all reached by attack:
+// `#[cfg(test)] mod tests;` (ordinary Rust, fixture in its own file), more than
+// braceSearchLimit bytes before the `{`, and a masked-away closing brace.
+func TestACfgTestModuleThisScanCannotReachIsReported(t *testing.T) {
+	guard := "\n    let mut polls: usize = 0;\n    loop {\n        polls += 1;\n" +
+		"        assert!(polls < 4096, \"the peer never answered\");\n" +
+		"        if done() { break; }\n    }\n"
+	padding := strings.Repeat("    // "+strings.Repeat("x", 40)+"\n", 12)
+
+	for name, body := range map[string]string{
+		"body in another file": "pub fn f() {}\n\n#[cfg(test)]\nmod tests;\n",
+		// The dangerous form of the same thing: a later brace that is NOT the
+		// module's. Without the bodyless-module rule the scan silently adopts
+		// `helper`'s body as the fixture region -- production code scanned as a
+		// fixture, and the real fixture file still never opened -- and because
+		// that region holds no loop the gate reports PASS.
+		"a later brace stands in for the module": "pub fn f() {}\n\n#[cfg(test)]\n" +
+			"mod tests;\n\nfn helper() { let _x = 1; }\n",
+		"brace beyond the search bound": "pub fn f() {}\n\n#[cfg(test)]\n" + padding +
+			"mod tests {\n    #[test]\n    fn t() {" + guard + "    }\n}\n",
+		"closing brace masked away": "pub fn f() {}\n\n#[cfg(test)]\nmod tests {\n" +
+			"    #[test]\n    fn t() {\n        let s = \"unterminated;\n" + guard + "    }\n}\n",
+	} {
+		root := fakeRoot(t, map[string]string{
+			"rust/ws-x/src/lib.rs":     body,
+			"rust/ws-x/tests/clean.rs": cleanFixture,
+		})
+		code, out := invoke(t, "-root", root)
+		if code == 0 {
+			t.Errorf("%s: an unreachable #[cfg(test)] body must fail the gate\n%s", name, out)
+		}
+		if !strings.Contains(out, "UNSCANNED") {
+			t.Errorf("%s: the gate must NAME what it did not scan\n%s", name, out)
+		}
+	}
+}
+
+// The other polarity: an ordinary inline `#[cfg(test)] mod tests { }` is reached
+// and reports nothing extra, so the new failure channel cannot fire on the shape
+// every crate in this workspace actually uses.
+func TestAnInlineCfgTestModuleIsScannedAndSilent(t *testing.T) {
+	root := fakeRoot(t, map[string]string{
+		"rust/ws-x/src/lib.rs": "pub fn f() {}\n\n#[cfg(test)]\nmod tests {\n" +
+			"    #[test]\n    fn t() {\n        let deadline = now() + SECOND;\n" +
+			"        while !done() && now() < deadline {}\n    }\n}\n",
+		"rust/ws-x/tests/clean.rs": cleanFixture,
+	})
+	code, out := invoke(t, "-root", root)
+	if code != 0 {
+		t.Fatalf("an inline cfg(test) module must pass; got exit %d\n%s", code, out)
+	}
+	if !strings.Contains(out, "unscanned=0") {
+		t.Fatalf("the scan must report nothing unscanned:\n%s", out)
+	}
+}

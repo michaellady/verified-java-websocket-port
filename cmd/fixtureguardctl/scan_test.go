@@ -22,7 +22,7 @@ func summary(t *testing.T, path string) []string {
 	src := string(data)
 	var regions []region
 	if !isTestsTreeFile(path) && strings.Contains(src, "#[cfg(test)]") {
-		regions = cfgTestRegions(maskSource(src))
+		regions, _ = cfgTestRegions(maskSource(src))
 	}
 	vs, loops := scanFile(path, src, regions)
 	if loops == 0 && !mentionsAProductionBudget(src) {
@@ -258,7 +258,7 @@ mod tests {
     }
 }
 `
-	regions := cfgTestRegions(maskSource(src))
+	regions, _ := cfgTestRegions(maskSource(src))
 	if len(regions) != 1 {
 		t.Fatalf("expected exactly one #[cfg(test)] region, got %d", len(regions))
 	}
