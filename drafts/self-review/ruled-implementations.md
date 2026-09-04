@@ -309,6 +309,98 @@ part and implements the child's clause, so it carries the same ambiguity, but
 the ruling named one package and renaming a command moves gate invocations and
 evidence prose with it. Recorded as a residual rather than fixed.
 
+## Gates
+
+Run detached on the COMMITTED tree at `c7c3b310e7b8392d635a167b69482e53f2167d41`,
+with both required exports set, and the exit code written to a file inside this
+worktree rather than read off a log line:
+
+```
+$ head -1 .gates-run.log
+START 2026-09-04T14:28:26Z HEAD=c7c3b310e7b8392d635a167b69482e53f2167d41 status=0
+$ cat .sweep/gates-exit-code
+0
+$ grep -cE "^--- FAIL|^FAIL" .gates-run.log
+0
+```
+
+`status=0` is `git status --porcelain | wc -l` at the moment the run began: the
+tree was clean and committed, which is what makes the lockfile arm readable —
+`gate=lockfile step=git-diff-cargo-lock-head ... exit=0`.
+
+Every census line the chain printed:
+
+```
+gate=fixture-liveness-guard step=scan files=59 loops=344 violations=0 waivers=0 max_waivers=0 budget_waivers=0 max_budget_waivers=0 unscanned=0
+gate=fixture-liveness-guard result=PASS
+gate=record-content-precondition step=selfcheck cases=16 firing=8 silent=8 result=PASS
+gate=record-content-precondition step=census records=81 unfinished=0 superseded=1 finished=80
+gate=record-content-precondition result=PASS
+gate=record-prose step=corpus records=92 markdown=86 statements=6 bindings=23
+gate=record-prose step=census cardinality_sentences=277 with_enumerable_population=14 no_enumerable_population=263 bound=14 covered=0 undispositioned=0
+gate=record-prose step=bindings agreeing=17 allowed=6 covered_records=1
+gate=record-prose result=PASS
+gate=pin-dangling json_artifacts=3500 unparsable=0 candidates=0 explained=53 covered=23 allowed=15 missing_targets=0
+gate=pin-dangling result=PASS
+gate=task-graph nodes=46 done=28 ready=4 in_progress=0 blocked=14 owner_actions=29 open=19
+gate=task-graph result=PASS detail="every done node's evidence re-derived; 4 ready, 14 blocked on 19 open owner action(s)"
+gate=go-suite packages=64 run=63 excluded=1 with_tests=48 no_test_files=15 unbuilt_test_files=5
+gate=go-suite result=PASS
+gate=forbid-unsafe step=ungoverned-scan roots=39 with_attribute=7 unguarded=32 unsafe_found=0
+gate=dependency-inventory externals=0 inventory_entries=0
+gate=msrv verdict=PASS
+gate=license verdict=PASS
+gate=audit verdict=PASS
+gate=lockfile verdict=PASS
+gate=canaries verdict=PASS
+gate=adapter-linkage verdict=PASS
+```
+
+### The `go-suite` package census, before and after the rename
+
+Renaming a Go package can move this gate's denominator, so both numbers were
+MEASURED rather than reasoned about. The BEFORE number is a real `gosuitectl`
+run in a throwaway worktree at the pre-rename base commit `15566c5`:
+
+```
+base 15566c5 (internal/ac5class present):
+gate=go-suite packages=64 run=63 excluded=1 with_tests=48 no_test_files=15 unbuilt_test_files=5
+
+c7c3b31 (internal/defectclass):
+gate=go-suite packages=64 run=63 excluded=1 with_tests=48 no_test_files=15 unbuilt_test_files=5
+```
+
+Byte-identical. The rename moved a NAME and no number: the package it renamed
+carried a test file before and carries the same test file after, so
+`with_tests` does not move either, and `go list ./...` differs by exactly the
+one line quoted earlier. **No corpus or measurement denominator shifted.**
+
+Two counts DID move, both accounted for and both this record's own doing:
+`record-content-precondition` census from eighty to eighty-one records and
+`record-prose` corpus from ninety-one to ninety-two, because this file is a new
+record in that corpus. `cardinality_sentences` is unchanged at two hundred and
+seventy-seven, and `undispositioned` is zero.
+
+### Two runs, and why the second is the one reported
+
+An earlier full run of the same chain on the same commit also exited 0. It is
+not the one quoted above, because during its `go-suite` step this author ran a
+`git checkout HEAD -- .` that rewrote every tracked file in place. The content
+was identical and Go's build cache is content-addressed, so the result was
+almost certainly unaffected — but "almost certainly" is not how a gate result
+should be read, so the chain was re-run from a quiescent, committed, untouched
+tree and THAT run is what this section reports. Both exited 0 with zero `FAIL`
+lines; the first is disclosed rather than discarded silently.
+
+### `internal/lab`, expected red, and why it is not a regression
+
+`gate=go-suite excluded=internal/lab still_fails=yes observed="--- FAIL:
+TestControlledCanaryRequestIsClosedAndRequiresAuthenticatedPromotions"`. That is
+the declared exclusion doing its job: the canary needs Darwin `sandbox-exec` and
+this host is Linux. It fails identically on the untouched base commit, it is a
+package neither ruling touches, and the gate's own staleness arm requires it to
+keep failing or the exclusion would be removed.
+
 ## What was not done
 
 - No ledger record was appended, and the exemption exists precisely so that
