@@ -255,6 +255,41 @@ mirrored records genuinely are **not** committed, and it returns TRUE; the same
 files are then added to the index with nothing else changed, and it returns
 FALSE. `TestTheTrackednessAssertionSwingsBothWays`.
 
+### The defect this work shipped, and the two red gate runs that found it
+
+**`make -C rust gates` went red twice on this branch, and both were mine.**
+
+Run 1 failed `cmd/securityctl`; run 2, on a tree differing only by two prose
+corrections, failed `internal/assurance` with three subtests. Neither reproduced
+standalone — `cmd/securityctl` passed three times in a row immediately after,
+and the three assurance tests passed on demand — and my first reading was that
+the host was contended. It was not.
+
+```
+--- FAIL: TestVerifyCanonicalLifecycle
+    adapter_test.go:21: verify canonical lifecycle: assurance/lifecycle.json is not an immutable single-link file
+```
+
+`internal/assurance/adapter.go:1214` refuses `assurance/lifecycle.json` unless
+`st_nlink == 1`, and `internal/securitygate/snapshot.go:296` reads the same
+field. **`mirrorTree` in this branch's own test file hard-linked its mirror from
+the live checkout**, so for as long as any mutation test held a mirror, every
+file in the tree had two links — and `go test` runs packages in PARALLEL, so two
+packages built to refuse exactly that saw exactly that. Which one went red
+depended only on which was scheduled inside the window, which is why each run
+blamed a different innocent package.
+
+**The lesson is not "use copies".** It is that a test helper mutated GLOBAL
+FILESYSTEM STATE that other packages read as evidence. Link count is part of a
+file's identity in this repository, deliberately, and a mirror is not read-only
+just because it never writes. I reached for hard links as an optimisation and
+did not ask what else reads the thing I was changing.
+
+The fix makes one byte COPY of the checkout per test binary and links the
+per-test mirrors from THAT: the copy's own link counts rise and nothing inspects
+those. `TestTheMirrorAddsNoLinkToTheCheckout` is the regression probe, and it is
+a test about the test helper, because that is where the defect was.
+
 ### A bug this work found in itself
 
 `mirrorTree` in the test file skipped `.git` by returning `filepath.SkipDir`.
