@@ -78,14 +78,27 @@ correction proposal points, which is a real result and not a coincidence: correc
 ### 3.1 The catalog's own declared basis has drifted
 
 The catalog declares five `denominator_basis` entries with sha256 and git blob ids — the documents
-its denominator was derived from. The reconciliation compares each against the file on disk. **Four
-of the five no longer match**, including `assurance/formal/proof-targets.json` itself
-(declared `sha256:fa75348c…`, on disk `sha256:bad1e069…`) and `corpora/frame/codec.json`, which
-exists in no tree. The one that matches, `assurance/developer-tools/port-seam-dossier.json`, is a
-705-byte placeholder declaring a single seam; the substantive dossier lives at
-`evidence/intake/port-seam-dossier.json` and is not what the catalog pins.
+its denominator was derived from. Every one of the five names Codex commit `1ff89fa`, which is not
+an ancestor of this line's HEAD. The reconciliation compares each against the file on disk and
+publishes both digests per entry, so the live comparison is
+`assurance/formal/denominator-reconciliation.json` rather than any number frozen into this page.
 
-A pin nothing compares is decoration. These four were never compared before, and are now.
+**Three of the five no longer match**: `assurance/formal/proof-targets.json`,
+`evidence/intake/compatibility-surface.json` and `evidence/intake/semantic-id-migration-map.json`.
+The other two agree. `assurance/developer-tools/port-seam-dossier.json` agrees because that file has
+not diverged since the fork — it is a 705-byte placeholder declaring a single seam, and the
+substantive dossier lives at `evidence/intake/port-seam-dossier.json`, which is not what the catalog
+pins. `corpora/frame/codec.json` agrees since 2026-09-04, when the artifact the pin declares was
+brought onto this line byte-identically to that blob under owner action
+`OA-catalog-plane-denominator`; before that it existed in no tree here and the reconciliation
+reported it as `BASIS_PIN_PATH_IS_ABSENT_FROM_THIS_PLANE`, which is a statement about which tree the
+pin is about and never a drift.
+
+None of the five has been re-anchored. The commit each names is Codex provenance, and rewriting it
+to a commit on this line would edit the byte-immutable vendored catalog; see
+`drafts/self-review/plane-basis.md` for what that costs and why it was not done here.
+
+A pin nothing compares is decoration. All five are compared on every run, and were not before.
 
 ## 4. The catalog's Rust column
 

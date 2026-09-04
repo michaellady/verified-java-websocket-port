@@ -62,9 +62,9 @@
       "path": "corpora/frame/codec.json",
       "catalog_declared_sha256": "sha256:984e59e8533d909bd50c9042bfc1a7503cdc098e5be4e32f287be140b1b4d606",
       "catalog_declared_git_blob": "da9a7d0734b9db12a44e123ff1c33df2849fdef6",
-      "on_disk_sha256": "PATH_ABSENT",
-      "on_disk_git_blob": "",
-      "agreement": "BASIS_PIN_PATH_IS_ABSENT_FROM_THIS_PLANE"
+      "on_disk_sha256": "sha256:984e59e8533d909bd50c9042bfc1a7503cdc098e5be4e32f287be140b1b4d606",
+      "on_disk_git_blob": "da9a7d0734b9db12a44e123ff1c33df2849fdef6",
+      "agreement": "BASIS_PIN_MATCHES_FILE_ON_DISK"
     },
     {
       "path": "evidence/intake/compatibility-surface.json",

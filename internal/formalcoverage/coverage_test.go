@@ -46,6 +46,12 @@ var filesTheDerivationReads = []string{
 	"assurance/developer-tools/port-seam-dossier.json",
 	"evidence/intake/compatibility-surface.json",
 	"evidence/intake/semantic-id-migration-map.json",
+	// Added when the artifact this pin declares was brought onto this line
+	// under OA-catalog-plane-denominator. Reconcile opens every declared basis
+	// path, so this one is now an input; leaving it out would give the sandbox
+	// a basis pin the repository does not have and make every sandbox test
+	// read a tree that differs from the one the gate reads.
+	"corpora/frame/codec.json",
 	// The plane-correspondence verifier reads back every file:line citation it
 	// makes about THIS plane, so the sandbox needs the cited files themselves.
 	// A citation nobody reads back is a name; these four are what make the
@@ -477,8 +483,67 @@ func TestCatalogBasisPinsAreComparedAgainstTheFilesOnDisk(t *testing.T) {
 	if drifted == 0 {
 		t.Fatal("every declared basis pin matches the file on disk; that is not what this tree contains and the check is therefore not reading the tree")
 	}
-	if absent == 0 {
-		t.Fatal("no basis pin is reported as absent from this plane; corpora/frame/codec.json is not in this tree and reporting it as drift would be absence standing in for defect")
+	// `absent` is deliberately NOT required to be non-zero any more, and the
+	// change is a fact about the tree rather than a weakening of the rule.
+	// corpora/frame/codec.json was the one basis path this plane did not hold,
+	// and it was brought onto this line under OA-catalog-plane-denominator, so
+	// no declared basis path is absent here today. Requiring one would be a
+	// test that fails when the tree gets BETTER. What must not be lost is the
+	// discrimination the old assertion was really about -- that an absent path
+	// is reported as absent and never as drift -- so that polarity moved to
+	// TestARemovedBasisFileIsReportedAbsentAndNotDrifted, where the absence is
+	// created on purpose instead of being borrowed from whatever the tree
+	// happens to be missing.
+	if absent > 0 {
+		t.Logf("%d basis pin(s) name a path absent from this plane", absent)
+	}
+}
+
+// TestARemovedBasisFileIsReportedAbsentAndNotDrifted is the polarity the live
+// tree used to supply by accident: absence and drift are different findings and
+// must not share a code. Reading them as one is absence standing in for defect.
+//
+// The absence is MADE here rather than found, so the check keeps working
+// whatever the repository happens to hold. The control is the same pin before
+// the removal: it must not already be absent, or the test would prove nothing.
+func TestARemovedBasisFileIsReportedAbsentAndNotDrifted(t *testing.T) {
+	root := sandbox(t)
+	before, err := Reconcile(root)
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	var subject string
+	for _, pin := range before.BasisPins {
+		if pin.Agreement == BasisAgreementExact {
+			subject = pin.Path
+			break
+		}
+	}
+	if subject == "" {
+		t.Fatal("no basis pin matches its file in the sandbox, so removing one would not distinguish absence from drift")
+	}
+	if err := os.Remove(filepath.Join(root, filepath.FromSlash(subject))); err != nil {
+		t.Fatalf("remove %s: %v", subject, err)
+	}
+	after, err := Reconcile(root)
+	if err != nil {
+		t.Fatalf("reconcile after removal: %v", err)
+	}
+	found := false
+	for _, pin := range after.BasisPins {
+		if pin.Path != subject {
+			continue
+		}
+		found = true
+		if pin.Agreement != BasisAgreementPathAbsent {
+			t.Fatalf("%s was removed and is reported as %q, not %q", subject, pin.Agreement, BasisAgreementPathAbsent)
+		}
+		if pin.OnDiskSHA != "PATH_ABSENT" || pin.OnDiskBlob != "" {
+			t.Fatalf("%s is absent but carries an on-disk identity %q/%q", subject, pin.OnDiskSHA, pin.OnDiskBlob)
+		}
+	}
+	if !found {
+		t.Fatalf("%s disappeared from the basis pins entirely; an absent path is still a declared pin", subject)
 	}
 }
 
