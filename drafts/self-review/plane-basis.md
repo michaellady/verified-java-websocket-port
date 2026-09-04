@@ -281,9 +281,51 @@ a new input cannot be added without a test author noticing, gained
 
 ## 8. Gates
 
-Run from a committed tree, with `VJWP_PROTECTED_STORE` set to
-`evidence/governance/decisions` and the quarantined JDK first on PATH. The exit
-code and the full census are in section 8.
+`make -C rust gates`, detached, from the committed tree at `47c783a`, with
+`VJWP_PROTECTED_STORE` set to `evidence/governance/decisions` and the
+quarantined JDK first on PATH. Started 14:16:32Z, ended 14:28:10Z.
+
+**Exit code 0**, written to `out/gates-plane-basis/gates.exit` inside this
+worktree, with the whole transcript beside it.
+
+Every census line the chain printed:
+
+```
+gate=fixture-liveness-guard result=PASS
+gate=record-content-precondition step=census records=81 unfinished=0 superseded=1 finished=80
+gate=record-content-precondition result=PASS
+gate=record-prose step=corpus records=92 markdown=86 statements=6 bindings=23
+gate=record-prose step=census cardinality_sentences=278 with_enumerable_population=14 no_enumerable_population=264 bound=14 covered=0 undispositioned=0
+gate=record-prose step=bindings agreeing=17 allowed=6 covered_records=1
+gate=record-prose result=PASS
+gate=pin-dangling json_artifacts=3501 unparsable=0 candidates=0 explained=53 covered=23 allowed=15 missing_targets=0
+gate=pin-dangling result=PASS
+gate=task-graph nodes=47 done=27 ready=5 in_progress=0 blocked=15 owner_actions=30 open=20
+gate=task-graph result=PASS
+gate=go-suite excluded=internal/lab reason="CONTROLLED_CANARY requires Darwin sandbox-exec; PLATFORM_EXECUTOR_UNSUPPORTED on Linux. Owner gate: a macOS host."
+gate=go-suite packages=64 run=63 excluded=1 with_tests=48 no_test_files=15 unbuilt_test_files=5
+gate=go-suite result=PASS
+gate=lockfile verdict=PASS detail="cargo build --locked and cargo metadata --locked succeeded; Cargo.lock byte-identical, git-tracked and equal to HEAD"
+gate=license verdict=PASS detail="root LICENSE is Apache-2.0 and all 6 members declare license=Apache-2.0"
+gate=audit verdict=PASS detail="zero out-of-workspace dependencies (empty audit surface); audit tools absent, execution pending availability"
+ok: evidence/governance/owner-decision-digests.json equals the derivation and 7 governance record digest(s) recomputed from the protected store and matched
+oraclerankctl: 640 propositions adjudicated; 589 Java/Rust agreements, 39 of them overridden by a higher oracle and every one enrolled
+```
+
+Read as a reading, not as a pass: `internal/lab` is excluded by name because its
+CONTROLLED_CANARY needs a Darwin sandbox and this host is Linux, and
+`unbuilt_test_files=5` names five build-tagged test files this run does not
+compile. Both are the chain's own standing disclosures, both were there before
+this change, and none of the five is in a file this change touched — the only
+file this change edited in any of those four packages is
+`internal/formalcoverage/coverage_test.go`, which has no build tag and did run.
+`cargo-audit` and `cargo-deny` are absent from this host, so the audit gate's
+verdict rests on the zero-dependency assertion and says so.
+
+An earlier run of the same chain was TERMINATED by me at the go-suite step, at
+exit 143, when I found the basis-pin polarity check of section 7 while it was in
+flight. A SIGTERM is not a reading and that run is not quoted anywhere; the run
+above is a complete one on the final tree.
 
 ## 9. What could not be resolved
 
