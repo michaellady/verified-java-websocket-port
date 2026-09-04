@@ -7,7 +7,7 @@
 // where the wire differs. Three were known before this package, and the
 // project's own record says all three were found by accident:
 //
-//   - DIV-02 (server leaves TCP open) — registered in internal/ac5class as
+//   - DIV-02 (server leaves TCP open) — registered in internal/defectclass as
 //     "DIV-02-server-leaves-tcp-open"; the vocabulary has no transport
 //     dimension, so it had to be measured out of band from Autobahn bytes.
 //   - The US-013 AC5 event-order seed — moves nothing because Events[] and

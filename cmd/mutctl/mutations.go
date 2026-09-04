@@ -428,7 +428,7 @@ func CuratedMutations() []Mutation {
 		//
 		// THIS COMMENT CANNOT FAIL, AND US-020's OWN AC5 CLAUSE WAS NEVER GIVEN
 		// THE SAME TREATMENT. Both halves of that are closed in
-		// internal/ac5class: the seven classes US-020 AC5 names are PARSED out
+		// internal/defectclass: the seven classes US-020 AC5 names are PARSED out
 		// of the PRD, every one binds to a seeded variant that must resolve in
 		// the shipped tree, and `ac5ctl run` executes each variant's named
 		// detector and MEASURES which normalized observation fields it moves.

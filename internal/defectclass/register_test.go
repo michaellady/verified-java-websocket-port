@@ -1,4 +1,4 @@
-package ac5class
+package defectclass
 
 import (
 	"os"

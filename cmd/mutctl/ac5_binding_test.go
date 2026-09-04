@@ -3,11 +3,11 @@ package main
 import (
 	"testing"
 
-	"github.com/michaellady/verified-java-websocket-port/internal/ac5class"
+	"github.com/michaellady/verified-java-websocket-port/internal/defectclass"
 )
 
 // TestAC5RegisterCampaignBindingHolds keeps the US-020 AC5 class register
-// (internal/ac5class) and this campaign's curated table honest about each
+// (internal/defectclass) and this campaign's curated table honest about each
 // other.
 //
 // The register marks each seeded variant with InE1Campaign: true when the
@@ -30,7 +30,7 @@ func TestAC5RegisterCampaignBindingHolds(t *testing.T) {
 		curated[m.ID] = m
 	}
 	claimed, unclaimed := 0, 0
-	for _, v := range ac5class.Register() {
+	for _, v := range defectclass.Register() {
 		m, present := curated[v.ID]
 		if v.InE1Campaign {
 			claimed++

@@ -1,8 +1,31 @@
-// Package ac5class makes the US-020 AC5 defect-class list CHECKABLE rather
-// than asserted.
+// Package defectclass makes the CHILD PRD's seeded defect-class list CHECKABLE
+// rather than asserted.
 //
-// US-020 AC5 (docs/prd-pack/07c-child-prd-us020-us027.md) names seven defect
-// classes by hand:
+// IT WAS CALLED ac5class UNTIL 2026-09-04, AND THE NAME WAS THE DEFECT. Two
+// documents in this corpus number their stories the same way, so "US-020 AC5"
+// names two different clauses:
+//
+//   - docs/prd-pack/07c-child-prd-us020-us027.md — the CHILD's US-020 AC5, a
+//     list of seven seeded defect classes. That is the clause this package
+//     implements, and the only one it has ever read: PRDPath below pins the
+//     child part and nothing here can reach the other.
+//   - docs/prd-pack/03-master-stories-intake-lsp-protocol-labzero.md:13 — the
+//     MASTER's US-020 AC5, about a Behavior Delta Ledger classifying every
+//     disagreement as preserve / intentionally-correct / unresolved, with
+//     unresolved deltas blocking completion. A different subject entirely.
+//
+// F019 (drafts/self-review/findings/F019-a-criterion-hidden-behind-its-own-namesake.md)
+// measured the cost: four passes over the ledger asked "is US-020 AC5 covered?",
+// found a Go package carrying the criterion's name, a self-review record and a
+// passing gate — all three about the child — and stopped. A package named for a
+// criterion number makes the OTHER criterion of that number look implemented.
+// So this package is now named for what it does, and the criterion it
+// implements is cited by document rather than by number alone. Renaming it
+// removes the false hit; it does not implement the master's clause and does not
+// claim to. OA-F019-master-us020-ac5, ruled 2026-09-04.
+//
+// The child's US-020 AC5 (docs/prd-pack/07c-child-prd-us020-us027.md) names
+// seven defect classes by hand:
 //
 //	Seeded Java-quirk emulation, Rust semantic defect, event-order,
 //	error-class, close-initiator, consumed-byte, and normalization-collision
@@ -38,7 +61,7 @@
 //
 // A variant with no Discriminates and no Collision is a class that no longer
 // discriminates and no longer admits it. That combination fails.
-package ac5class
+package defectclass
 
 import (
 	"fmt"

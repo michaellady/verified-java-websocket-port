@@ -241,3 +241,120 @@ Filed, with one self-correction recorded above rather than deleted. No ledger
 record edited, no disposition changed, no denominator re-baselined. Corpus
 derivation, the robustness table this came out of, and the ceiling:
 `drafts/self-review/master-story-sweep.md`.
+
+---
+
+## Addendum — closed NARROWED by owner ruling, 2026-09-04
+
+Appended, not merged into the text above. Nothing before this line is edited:
+the original claim, the self-correction it already carried, and the three
+questions it put to the owner all stand as written. This section records what
+was ruled, what was NOT adopted, and what changed in the tree because of it.
+
+### The ruling, verbatim
+
+`OA-F019-master-us020-ac5`, state `ruled`, `ruled_at` 2026-09-04:
+
+> The CHILD's reading governs. docs/prd-pack/01-structure-and-index.md:121
+> records this repository as the Claude-runtime sibling at 9/27, not the
+> canonical child at 27/27, so master US-020 AC5's blocking half is not breached
+> here. Close F019 narrowed, and RENAME internal/ac5class so it stops being
+> named for a criterion it does not implement.
+
+### The load-bearing fact, re-verified rather than inherited
+
+The ruling rests on one sentence, and this finding is the reason to distrust a
+sentence that arrives from a sweep. It was re-read at its cited line before
+anything was built on it:
+
+```
+$ awk 'NR==121' docs/prd-pack/01-structure-and-index.md
+Location: the verified-java-websocket-port project folder next to the parent,
+... A sibling verified-java-websocket-port-claude (branch
+claude/feature/verified-java-websocket-port, updated 2026-08-25) has the same 27
+stories with 9 marked done; it is the Claude-runtime variant and is not the
+canonical child.
+```
+
+The line number is exact and the sentence says what the ruling says it says. It
+is corroborated a second time at
+`docs/prd-pack/07a-child-prd-header-index-us001-008.md:16`, in the same words.
+And the identification of *this* repository as that sibling is the one the
+finding already made above on three independent grounds — the mainline branch
+name, the `plane` field every owner decision carries, and `.claude/GOAL-LOOP.md`.
+Those were not re-litigated; the branch name was re-checked and is
+`claude/feature/verified-java-websocket-port`.
+
+### What was NOT adopted, said plainly
+
+**The master's reading of US-020 AC5 was not adopted, and this repository does
+not implement it.** The finding put two readings of the ledger's `unresolved`
+dispositions to the owner and asked which binds. Neither was chosen, because the
+ruling declines the premise: master US-020 AC5's blocking half governs the
+CANONICAL child's completion declaration, and this plane has made no such
+declaration to block. The consequences, stated so nobody has to reconstruct them:
+
+- **No mechanism was built for the blocking half.** Question (b) of the owner
+  action asked whether it should have one. The answer here is that it is not
+  breached on this plane, which is not the same as "it is implemented". If this
+  plane ever declares completion, nothing in the tree will fire. That is
+  unchanged by this ruling and is now recorded in the plan node rather than only
+  in this file.
+- **No disposition was changed and no record was re-spelled.** The count the
+  ledger publishes is untouched. The two in-tree definitions of `unresolved`
+  that this finding measured as contradictory —
+  `internal/lab/ledger.go:78-80` versus
+  `internal/deltaledger/definitions.go:23-29` — still contradict each other. The
+  ruling settles which PLANE's reading governs; it does not settle the
+  vocabulary question, and neither comment was edited on the strength of it.
+- **Sequence 53 is still the one live delta citing no owner decision.** That was
+  question (c). It is not answered by this ruling and is not closed here.
+
+**What IS closed** is the narrow claim this finding actually made after its own
+self-correction: that a criterion was hidden behind a package named for a
+different criterion of the same number. That is closed by the rename below.
+
+### The rename
+
+`internal/ac5class` is now `internal/defectclass`. It reads
+`docs/prd-pack/07c-child-prd-us020-us027.md` and it always did; `PRDPath` still
+pins that file and nothing in the package can reach the master part. What
+changed is that its NAME no longer answers a search for the master's criterion.
+The package header now states both clauses, says which one it implements, and
+says which one it does not.
+
+The mechanical consequences, measured rather than assumed:
+
+- `go list ./...` reports the same package total before and after — sixty-four
+  either way. One name moved; nothing was added or removed. `go-suite`'s census
+  is reported with the gates run in `drafts/self-review/ruled-implementations.md`.
+- Every Go import, identifier and code comment naming the old package was
+  updated, and `go build ./...`, `go test ./internal/defectclass/`,
+  `go test ./cmd/mutctl/` and `go run ./cmd/ac5ctl verify -root .` were run
+  afterwards.
+- **Two references to the old name were deliberately left**, and leaving them is
+  a decision rather than an oversight:
+  - `internal/normcollide/probes.go:433` carries it inside a `Why:` FIELD VALUE,
+    not a comment. `evidence/normalization-collisions/audit.json` reproduces that
+    string byte-for-byte and is re-derived only by
+    `normcollidectl … write`, which needs the oracle harness. Changing the string
+    without re-deriving the document would leave a byte comparison that fails for
+    whoever next runs it. The remedy is one harness run, and it is named here
+    rather than performed.
+  - `evidence/ac5-class-completeness/java-arm-parity.json` names it in the
+    `purpose` prose of a dated measurement record of a pinned-JVM run. This
+    repository supersedes records; it does not edit them.
+  - The dated self-review records and findings that name `internal/ac5class` —
+    including the paragraphs above this addendum — are also left as written, for
+    the same reason.
+- `cmd/ac5ctl` keeps its name. It reads the child part and implements the
+  child's clause, so it carries the same ambiguity this finding is about; the
+  ruling named one package and renaming a command moves gate invocations and
+  evidence prose with it. Recorded as a residual, not fixed.
+
+### Status of this finding
+
+**CLOSED NARROWED.** The naming collision is fixed. The vocabulary question and
+the missing blocking mechanism are NOT fixed and are NOT breaches on this plane;
+they are recorded as standing consequences above. No ledger record was edited, no
+disposition changed, no denominator re-baselined.

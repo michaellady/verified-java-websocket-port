@@ -1,5 +1,5 @@
 // Command ac5ctl executes the US-020 AC5 class register
-// (internal/ac5class): it applies every seeded class variant to an isolated
+// (internal/defectclass): it applies every seeded class variant to an isolated
 // scratch copy of the rust/ workspace, runs the named evidence that must
 // detect it, MEASURES which normalized differential observation fields the
 // variant moves, and compares all of that against what the register declares.
@@ -53,7 +53,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/michaellady/verified-java-websocket-port/internal/ac5class"
+	"github.com/michaellady/verified-java-websocket-port/internal/defectclass"
 	"github.com/michaellady/verified-java-websocket-port/internal/diffregress"
 )
 
@@ -92,12 +92,12 @@ func runVerify(args []string, stdout, stderr io.Writer) int {
 		usage(stderr)
 		return 2
 	}
-	classes, err := ac5class.ClassesFromPRD(*root)
+	classes, err := defectclass.ClassesFromPRD(*root)
 	if err != nil {
 		fmt.Fprintln(stderr, "verify:", err)
 		return 1
 	}
-	problems := ac5class.Verify(*root)
+	problems := defectclass.Verify(*root)
 	for _, p := range problems {
 		fmt.Fprintln(stderr, "verify: US-020 AC5 class register:", p)
 	}
@@ -105,9 +105,9 @@ func runVerify(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	fmt.Fprintf(stdout, "ac5ctl: %d US-020 AC5 classes from %s, %d seeded variants, every site resolved\n",
-		len(classes), ac5class.PRDPath, len(ac5class.Register()))
-	for _, v := range ac5class.Register() {
-		line, _ := ac5class.ResolveSite(*root, v)
+		len(classes), defectclass.PRDPath, len(defectclass.Register()))
+	for _, v := range defectclass.Register() {
+		line, _ := defectclass.ResolveSite(*root, v)
 		kind := "discriminates " + strings.Join(v.Discriminates, " ")
 		if v.Collision != nil {
 			kind = "COLLISION " + v.Collision.DivergenceID
@@ -184,7 +184,7 @@ func runCampaign(args []string, stdout, stderr io.Writer) int {
 	if len(requests) == 0 {
 		requests = stringList{filepath.Join(absRoot, "evidence/differential-regression/probes.jsonl")}
 	}
-	if problems := ac5class.Verify(absRoot); len(problems) > 0 {
+	if problems := defectclass.Verify(absRoot); len(problems) > 0 {
 		for _, p := range problems {
 			fmt.Fprintln(stderr, "run: register refused before any process ran:", p)
 		}
@@ -238,13 +238,13 @@ func runCampaign(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	register := ac5class.Register()
+	register := defectclass.Register()
 	if *only != "" {
 		keep := map[string]bool{}
 		for _, id := range strings.Split(*only, ",") {
 			keep[strings.TrimSpace(id)] = true
 		}
-		var filtered []ac5class.Variant
+		var filtered []defectclass.Variant
 		for _, v := range register {
 			if keep[v.ID] {
 				filtered = append(filtered, v)
@@ -305,7 +305,7 @@ func runCampaign(args []string, stdout, stderr io.Writer) int {
 	problems := 0
 	for _, v := range register {
 		started := time.Now()
-		line, err := ac5class.ResolveSite(absRoot, v)
+		line, err := defectclass.ResolveSite(absRoot, v)
 		if err != nil {
 			fmt.Fprintf(stderr, "run: %s: %v\n", v.ID, err)
 			return 1
@@ -473,7 +473,7 @@ func runCampaign(args []string, stdout, stderr io.Writer) int {
 		"schema_version": "1.0.0",
 		"kind":           "us020-ac5-class-completeness-receipt",
 		"generated_at":   time.Now().UTC().Format(time.RFC3339),
-		"prd_clause_source": ac5class.PRDPath +
+		"prd_clause_source": defectclass.PRDPath +
 			" (US-020 AC5, parsed — never retyped)",
 		"classes_from_prd": mustClasses(absRoot),
 		"judged_tree_digest": map[string]any{
@@ -497,7 +497,7 @@ func runCampaign(args []string, stdout, stderr io.Writer) int {
 		"exit_discipline":        "every exit code in this receipt was read from the command's real ProcessState; none is inferred from output text",
 		"witness_skipped":        *skipWitness,
 		"variants":               results,
-		"rejected_bindings":      ac5class.RejectedBindings(),
+		"rejected_bindings":      defectclass.RejectedBindings(),
 		"rejected_bindings_note": "operators this repository could have claimed for a class and which MEASUREMENT says do not discriminate it",
 	}
 	rendered, err := json.MarshalIndent(receipt, "", "  ")
@@ -526,14 +526,14 @@ func runCampaign(args []string, stdout, stderr io.Writer) int {
 }
 
 func mustClasses(root string) []string {
-	classes, err := ac5class.ClassesFromPRD(root)
+	classes, err := defectclass.ClassesFromPRD(root)
 	if err != nil {
 		return []string{"UNREADABLE: " + err.Error()}
 	}
 	return classes
 }
 
-func cargoArgs(d ac5class.Detector) []string {
+func cargoArgs(d defectclass.Detector) []string {
 	args := []string{"test", "-p", d.Package}
 	args = append(args, d.Args...)
 	return args
@@ -620,13 +620,13 @@ func harnessRun(scratchRust string, requests []byte, transcriptPath string) (int
 	return buildExit, harnessExit, transcriptPath, nil
 }
 
-func applyVariant(scratchRust string, v ac5class.Variant) ([]byte, error) {
+func applyVariant(scratchRust string, v defectclass.Variant) ([]byte, error) {
 	path := filepath.Join(scratchRust, strings.TrimPrefix(v.File, "rust/"))
 	pristine, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	offset, err := ac5class.OccurrenceOffset(string(pristine), v.Match, v.Occurrence)
+	offset, err := defectclass.OccurrenceOffset(string(pristine), v.Match, v.Occurrence)
 	if err != nil {
 		return nil, err
 	}
@@ -637,7 +637,7 @@ func applyVariant(scratchRust string, v ac5class.Variant) ([]byte, error) {
 	return pristine, nil
 }
 
-func restoreVariant(scratchRust string, v ac5class.Variant, pristine []byte, stderr io.Writer) {
+func restoreVariant(scratchRust string, v defectclass.Variant, pristine []byte, stderr io.Writer) {
 	path := filepath.Join(scratchRust, strings.TrimPrefix(v.File, "rust/"))
 	if err := os.WriteFile(path, pristine, 0o644); err != nil {
 		fmt.Fprintf(stderr, "run: FATAL restore failure for %s: %v\n", v.ID, err)

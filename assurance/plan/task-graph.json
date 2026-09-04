@@ -1026,15 +1026,58 @@
     {
       "id": "T-f019-ac5-vocabulary-and-mechanism",
       "title": "Reconcile the ledger's 'unresolved' with master US-020 AC5, and decide whether its blocking rule gets a gate",
-      "state": "ready",
+      "state": "done",
       "depends_on": [
         "T-sweep-master-stories"
       ],
       "blocked_by": [
         "OA-F019-master-us020-ac5"
       ],
-      "evidence": [],
-      "note": "Two in-tree definitions of the same token disagree (internal/lab/ledger.go:78-80 'the decision is owed' vs internal/deltaledger/definitions.go:23-29 'deliberately retained'). Whichever the owner picks, one of those comments needs correcting, and the frozen prefix means the 45 retained records cannot be re-spelled -- so the remedy is a published mapping or a gate, not an edit."
+      "evidence": [
+        {
+          "kind": "git_not_tracked",
+          "path": "internal/ac5class/register.go"
+        },
+        {
+          "kind": "path_exists",
+          "path": "internal/defectclass/register.go"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/defectclass/register.go",
+          "pattern": "Package defectclass makes the CHILD PRD's seeded defect-class list CHECKABLE"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/ac5ctl/main.go",
+          "pattern": "internal/ac5class"
+        },
+        {
+          "kind": "grep",
+          "path": "docs/prd-pack/01-structure-and-index.md",
+          "pattern": "has the same 27 stories with 9 marked done; it is the Claude-runtime variant and is not the canonical child"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/findings/F019-a-criterion-hidden-behind-its-own-namesake.md",
+          "pattern": "## Addendum . closed NARROWED by owner ruling, 2026-09-04"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/findings/F019-a-criterion-hidden-behind-its-own-namesake.md",
+          "pattern": "The master's reading of US-020 AC5 was not adopted"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/ruled-implementations.md",
+          "pattern": "< github\\.com/michaellady/verified-java-websocket-port/internal/ac5class"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/ac5ctl verify -root ."
+        }
+      ],
+      "note": "DONE NARROWED under OA-F019-master-us020-ac5. The child's reading governs: this repository is the Claude-runtime sibling recorded at docs/prd-pack/01-structure-and-index.md:121, re-read at that line before anything was built on it and corroborated at 07a-child-prd-header-index-us001-008.md:16, so the master clause's blocking half is not breached here. internal/ac5class is renamed internal/defectclass and its header now names both clauses of that number, says which it implements and which it does not. WHAT IS NOT CLOSED, recorded because closing narrowed is not closing: the blocking half still has NO mechanism and would not fire if this plane ever declared completion; the two in-tree definitions of 'unresolved' (internal/lab/ledger.go:78-80 vs internal/deltaledger/definitions.go:23-29) still contradict each other and neither was edited; sequence 53 remains the one live delta citing no owner decision. No disposition changed, no record re-spelled. Two references to the old package name are deliberately retained and named in the F019 addendum: a Why: field value that a byte-compared evidence document reproduces and that only an oracle-harness run can re-derive, and the purpose prose of a dated pinned-JVM measurement record. cmd/ac5ctl keeps its name and is recorded as a residual."
     },
     {
       "id": "T-gosuite-census-prose",
@@ -1401,6 +1444,11 @@
         {
           "kind": "path_exists",
           "path": "drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/ruled-implementations.md",
+          "pattern": "STALE_EXEMPTION drafts/ledger-proposals/server-close-parity\\.json"
         },
         {
           "kind": "command",
