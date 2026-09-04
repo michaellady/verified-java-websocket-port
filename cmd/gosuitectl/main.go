@@ -152,12 +152,16 @@ func main() {
 	// _test.go files in the run set sit behind javabinde2e, diffregress,
 	// normcollide and formalcovere2e, none of which this gate satisfies, and two
 	// more sit inside the excluded internal/lab. Those are UNDECLARED exclusions
-	// inside a gate whose founding claim is that exclusions are declared -- two
-	// named packages get an 80-byte reason, an owner action and a staleness check,
+	// inside a gate whose founding claim is that exclusions are declared -- the
+	// named package gets an 80-byte reason, an owner action and a staleness check,
 	// and seven test files get silence.
 	//
-	// 15 of the 59 run packages carry no test file at all, so `run=59` was never a
-	// coverage number; it is now printed beside with_tests=44.
+	// 15 of the run packages carry no test file at all, so `run=` was never a
+	// coverage number; it is now printed beside with_tests=. Measured on
+	// 2026-09-04, after internal/portplan was fixed and left the exclusion list:
+	// packages=61 run=60 excluded=1 with_tests=45 no_test_files=15
+	// unbuilt_test_files=5. The B2/B3 figures quoted above are what those reviews
+	// measured when run=59 excluded=2, and are left as the history they are.
 	//
 	// Refusing them would be wrong: they are deliberate opt-in lanes. Saying
 	// nothing is what this gate exists to stop, so they are counted and named.

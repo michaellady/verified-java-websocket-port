@@ -161,8 +161,12 @@ regenerated at any point; the fix is entirely in the comparison.
 - `TestNeutralizationPreservesLineCount` — the newline count is unchanged.
 
 `TestReproductionMismatchNamesWhatActuallyDiffers` and the other two
-`describeOracleMismatch` tests are unchanged and still pass; that helper was not
-modified, only what is fed to it.
+`describeOracleMismatch` tests are unchanged and still pass. That helper's LOGIC
+is untouched — only what is fed to it changed — but its doc comment claimed "the
+check above is a whole-file byte compare ... including a single host-provenance
+line", which my change made false. It now says what is actually true of both its
+callers, because a stale comment beside a corrected check is the same defect in a
+quieter place.
 
 ## The exclusion, removed in the same commit
 
@@ -205,6 +209,26 @@ explained rather than deleted.
 
 ## Gates
 
-`make -C rust gates` result is recorded at the end of this record's commit
-message and in the log line; the reading is taken from a file the detached run
-writes, never from a pipe.
+Run detached, exit code read from a file the run itself writes, never from a pipe
+and never from a terminal scroll.
+
+**Run 1, commit `ba0dac9`** (the fix, the tests and the exclusion removal):
+`make -C rust gates` exit **0**, 02:19:42Z to 02:28:24Z. Inside it,
+`gate=go-suite result=PASS detail="60 package(s) run of which 45 carry a test
+file, 1 excluded by name with a reason that was RUN and still fails, 5 test
+file(s) not compiled by this run"` — the census moved from
+`packages=61 run=59 excluded=2 with_tests=44` to
+`packages=61 run=60 excluded=1 with_tests=45`, with
+`ok github.com/michaellady/verified-java-websocket-port/internal/portplan 21.298s`
+in the run set and NO `EXCLUSION_NO_LONGER_FAILS` and no `STALE_EXCLUSION`
+finding. `ac1-gates verdict=PASS gates_passed=8/8`, ledger-gates ok,
+`go test ./cmd/gosuitectl/` ok.
+
+**Run 2, the tree that ships**, adds three comment-only corrections found by
+re-reading my own change: `describeOracleMismatch`'s doc comment (it claimed the
+check above was a whole-file byte compare "including a single host-provenance
+line", which my change made false), the `run=59 excluded=2`/`with_tests=44`
+census sentence in `cmd/gosuitectl/main.go` (now stated as measured on
+2026-09-04, with the B2/B3 figures left as the history they are), and one
+sentence of this record. No executable line differs between run 1 and run 2.
+Its reading is in the commit message of the commit that carries it.

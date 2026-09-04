@@ -217,11 +217,18 @@ func neutralizeJDKVendor(content []byte) ([]byte, string, int) {
 }
 
 // describeOracleMismatch reports WHAT differs between the regenerated report and
-// the committed one. The check above is a whole-file byte compare, so it fires on
-// any difference at all -- including a single host-provenance line that leaves
-// every declaration byte-identical. Naming "the declarations" unconditionally
-// made the message assert a cause it had not measured, which is how a documented
-// one-line vendor difference reads as declaration drift to whoever runs it next.
+// the committed one. It compares LINES and names them; it does not know which of
+// them the caller considers meaningful, and it must not guess. Naming "the
+// declarations" unconditionally made the message assert a cause it had not
+// measured, which is how a documented one-line vendor difference read as
+// declaration drift to whoever ran it next.
+//
+// Its caller in VerifyOracleReproduction now hands it reports whose `jdk_vendor`
+// value has been neutralized in BOTH, so that one line can no longer appear here
+// -- everything else, added and removed lines included, still can. Called
+// directly with raw reports (as its own tests do) it still names a vendor
+// difference like any other, which is the correct behaviour for a helper that
+// reports what differs rather than deciding what matters.
 func describeOracleMismatch(regenerated, committed []byte, oraclePath string) string {
 	const maxNamed = 6
 
