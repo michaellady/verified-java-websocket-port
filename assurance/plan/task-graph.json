@@ -507,7 +507,7 @@
     {
       "id": "T-pin-c1-c2-c9",
       "title": "pin-guard C1/C2/C9: three silent bypasses that move a census denominator",
-      "state": "ready",
+      "state": "in-progress",
       "depends_on": [
         "T-pin-guard"
       ],
@@ -553,7 +553,7 @@
     {
       "id": "T-remaining-gates-attacked",
       "title": "Adversarially attack the five gates the review did not reach",
-      "state": "ready",
+      "state": "in-progress",
       "depends_on": [
         "T-record-guard-escapes",
         "T-go-suite",
@@ -595,6 +595,17 @@
       ],
       "evidence": [],
       "note": "Declared in the allowance list with its entry saying it is UNRULED, rather than borrowing server_closes_transport's ruling. The detector found it on its first real run against shipped code."
+    },
+    {
+      "id": "T-plan-guard-attacked",
+      "title": "Adversarially attack plan-guard, which is new and unattacked",
+      "state": "in-progress",
+      "depends_on": [
+        "T-task-graph"
+      ],
+      "blocked_by": [],
+      "evidence": [],
+      "note": "The adversarial round defeated all three gates it touched, each with the same flaw: checking that a DECLARATION was well formed rather than that its CLAIM was still true. plan-guard was built on the opposite principle and caught a real regression on its first run, but that is not evidence it is sound. Its own stated ceiling already admits it checks that evidence HOLDS, not that it is SUFFICIENT -- the attack should measure how bad that is rather than restate it."
     }
   ]
 }
