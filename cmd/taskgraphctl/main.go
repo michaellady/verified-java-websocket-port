@@ -71,20 +71,21 @@ const TaskGraphPath = "assurance/plan/task-graph.json"
 // the reason the package comment gives: rewriting the plan's ceiling to say the
 // gate checked sufficiency exited 0, and the gate printed the rewrite as its own
 // disclosure. A ceiling is a property of the CODE.
-const CeilingText = "This gate checks the plan's INTERNAL consistency and that " +
-	"each done node's cited evidence still holds. It does NOT check that the " +
-	"evidence is SUFFICIENT for the claim -- a node may cite a weak-but-true " +
-	"fact and pass, and this was MEASURED rather than assumed: of the 13 done " +
-	"nodes at the time of the measurement, 5 could have every source file of " +
-	"the work they name deleted from the tree with this gate still at exit 0, " +
-	"because their evidence was `path_exists` of a file the work did not create " +
-	"or a `grep` for an identifier a comment can carry. The remaining 8 cite a " +
-	"value the work itself produced. Rule 6 refuses evidence that cannot fail; " +
-	"it cannot refuse evidence that is merely weak. It does not discover work: " +
-	"a task nobody wrote down is invisible here, so the graph is a floor on " +
-	"what remains, never a total -- and nothing counts the nodes, so deleting " +
-	"one is silent. And `command` evidence is recorded but never verified, " +
-	"deliberately, so it cannot masquerade as a checked claim."
+const CeilingText = "This gate checks the plan's INTERNAL consistency and that each done node's " +
+	"cited evidence still holds. It does NOT check that the evidence is " +
+	"SUFFICIENT for the claim -- a node may cite a weak-but-true fact and pass " +
+	"-- and that gap was MEASURED rather than assumed. Of the 13 done nodes at " +
+	"the time of the measurement, 5 stayed at exit 0 with every source file of " +
+	"the work they name DELETED from the tree; a 6th stayed at exit 0 with a " +
+	"1453-line detector replaced by a three-line comment still carrying the " +
+	"identifier its grep looks for; the other 7 cite a value the work itself " +
+	"produced, and 6 of those 7 were broken here by perturbing that value. Rule " +
+	"6 refuses evidence that CANNOT fail; it cannot refuse evidence that is " +
+	"merely weak. It does not discover work: a task nobody wrote down is " +
+	"invisible here, so the graph is a floor on what remains, never a total -- " +
+	"and nothing counts the nodes against anything, so deleting one is silent. " +
+	"And `command` evidence is recorded but never verified, deliberately, so it " +
+	"cannot masquerade as a checked claim."
 
 type Evidence struct {
 	Kind    string `json:"kind"`
