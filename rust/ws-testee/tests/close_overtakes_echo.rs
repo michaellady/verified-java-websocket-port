@@ -424,7 +424,7 @@ fn a_client_role_endpoint_echoes_before_answering_a_close_in_the_same_read() {
             ws_driver::connection_driver(ConnectionConfig::default(), ws_core::Role::Server);
         let mut report = empty_report();
         assert!(
-            drive_until_open(&mut driver, &mut stream, &prompt_bounds(), &mut report),
+            drive_until_open(&mut driver, &mut stream, &prompt_bounds(), &mut report).opened,
             "the peer's server handshake must complete"
         );
         // Flush the 101 the peer's own core composed.
@@ -465,7 +465,7 @@ fn a_client_role_endpoint_echoes_before_answering_a_close_in_the_same_read() {
     let mut report = empty_report();
     let bounds = prompt_bounds();
     assert!(
-        drive_until_open(&mut driver, &mut stream, &bounds, &mut report),
+        drive_until_open(&mut driver, &mut stream, &bounds, &mut report).opened,
         "the subject client handshake must complete"
     );
     handshake_done.send(()).expect("the peer is still waiting");

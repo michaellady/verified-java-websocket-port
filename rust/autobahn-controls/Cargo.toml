@@ -1,0 +1,46 @@
+[package]
+name = "autobahn-controls"
+description = "US-019 AC4 Autobahn discrimination instruments: an empty/stub NEGATIVE CONTROL that implements NO WebSocket behavior (no handshake, no framing — every Autobahn case must FAIL against it), plus four PLANTED PROTOCOL MUTANTS that speak the real ws_core protocol and each differ from the shipped adapters in exactly ONE documented way (see manifest.json). Every binary serves both Autobahn roles (fuzzingclient-mode server, fuzzingserver-mode client agent) so the same control is scorable in either mode. These are calibration instruments for the case-manifest discrimination proof, not port crates; no story acceptance is claimed."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "autobahn_controls"
+path = "src/lib.rs"
+
+# Verification-instrument stance: like ws-core and candidate-stub, this crate
+# is dependency-free by design. It may depend ONLY on the in-workspace path
+# crates it is calibrated against — the mutants MUST run the shipped protocol
+# so their single planted deviation is the only difference between them and
+# the real port, and the negative control uses no protocol code at all (raw
+# std::net::TcpStream only). Adding any non-path dependency would break the
+# US-009 AC1 zero-dependency audit surface.
+[dependencies]
+ws-core = { path = "../ws-core" }
+ws-driver = { path = "../ws-driver" }
+ws-testee = { path = "../ws-testee" }
+
+[dev-dependencies]
+
+[[bin]]
+name = "us019-negative-control"
+path = "src/bin/us019-negative-control.rs"
+
+[[bin]]
+name = "us019-mutant-no-echo"
+path = "src/bin/us019-mutant-no-echo.rs"
+
+[[bin]]
+name = "us019-mutant-opcode-swap"
+path = "src/bin/us019-mutant-opcode-swap.rs"
+
+[[bin]]
+name = "us019-mutant-payload-truncate"
+path = "src/bin/us019-mutant-payload-truncate.rs"
+
+[[bin]]
+name = "us019-mutant-pong-suppressed"
+path = "src/bin/us019-mutant-pong-suppressed.rs"

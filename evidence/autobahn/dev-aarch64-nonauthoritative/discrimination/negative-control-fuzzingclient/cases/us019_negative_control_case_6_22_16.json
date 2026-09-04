@@ -1,0 +1,52 @@
+{
+   "agent": "us019-negative-control",
+   "behavior": "FAILED",
+   "behaviorClose": "FAILED",
+   "case": 184,
+   "closedByMe": false,
+   "createStats": true,
+   "createWirelog": true,
+   "description": "Send a text message with payload which is valid UTF-8 in one fragment.<br><br>Payload: 0xf1bfbfbf",
+   "droppedByMe": false,
+   "duration": 1787885919062,
+   "expectation": "The message is echo'ed back to us.",
+   "expected": {},
+   "expectedClose": {},
+   "failedByMe": false,
+   "httpRequest": "GET / HTTP/1.1\r\nUser-Agent: AutobahnTestSuite/25.10.1-0.10.9\r\nHost: host.docker.internal:9010\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nSec-WebSocket-Key: 13KfTdfKfozdZFnIU3nBhA==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+   "httpResponse": "?",
+   "id": "6.22.16",
+   "isServer": false,
+   "localCloseCode": null,
+   "localCloseReason": null,
+   "received": [],
+   "remoteCloseCode": null,
+   "remoteCloseReason": null,
+   "reportCompressionRatio": false,
+   "reportTime": false,
+   "result": "Actual events differ from any expected.",
+   "resultClose": "The WebSocket opening handshake was never completed!",
+   "rxFrameStats": {},
+   "rxOctetStats": {},
+   "started": "2026-08-28T02:58:38.800Z",
+   "trafficStats": null,
+   "txFrameStats": {},
+   "txOctetStats": {
+      "253": 1
+   },
+   "wasClean": false,
+   "wasCloseHandshakeTimeout": false,
+   "wasNotCleanReason": "peer dropped the TCP connection without previous WebSocket closing handshake",
+   "wasOpenHandshakeTimeout": false,
+   "wasServerConnectionDropTimeout": false,
+   "wirelog": [
+      [
+         "TO",
+         [
+            253,
+            "474554202f20485454502f312e310d0a557365722d4167656e743a204175746f6261686e5465737453756974652f32352e31302e312d302e31302e390d0a486f ..."
+         ],
+         false
+      ]
+   ]
+}
