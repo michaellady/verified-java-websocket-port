@@ -316,7 +316,11 @@ path named in the object**, not "no digest matches the file". Also added:
   **empty**, six rows appeared, each named and adjudicated in section 3.
 - C1, C2, C9a replayed against the fix: exit **1** each, row printed each.
   C9b replayed: exit **0**, silent, as disclosed.
-- `make -C rust gates` exit code recorded in section 8.
+- `make -C rust gates` exit **0**, read from the process (run detached, exit code
+  written to its own file). Inside that chain: `gate=pin-dangling result=PASS`
+  with the census above, `gate=go-suite result=PASS packages=62 run=60`,
+  `gate=record-content-precondition result=PASS cases=16 firing=8 silent=8`,
+  and the ledger, plan, fixture and oracle-hierarchy gates all PASS.
 
 ## 8. What was fixed, what was refused
 
@@ -332,3 +336,6 @@ path named in the object**, not "no digest matches the file". Also added:
   strings. It changes what the corpus contains and lands its rows on the formal
   denominator's declared basis. Owner action in section 4. Disclosed in the
   printed ceiling and pinned by a test.
+
+`pin-guard` exits **0** with all 11 original allowances still acknowledged, four
+new ones declared, and one refusal disclosed rather than hidden.
