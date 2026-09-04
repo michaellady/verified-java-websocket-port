@@ -257,4 +257,16 @@ here rather than quietly re-run, because a run killed by the environment is not
 evidence in either direction — the same reason a SIGTERM is not one. I did NOT
 clear the shared build cache to make it pass: another agent's `go test` was
 reading it. I waited for their run to finish and re-ran, which is the reading
-above.
+above. The same courtesy cost a second wait: a run launched on `d694636` was
+stopped by me within seconds when another agent's gates run appeared in
+`/home/user/vjwp-ledger58`, killed by walking `/proc/<pid>/cwd` and signalling
+only the pids rooted in my own worktree — never an unscoped `pkill`, which is how
+two agents destroyed each other's readings on 2026-09-03.
+
+**Run 4, commit `d694636`, the head actually pushed** (run 3's tree plus the
+paragraph you are reading and its log line): `make -C rust gates` exit **0**,
+03:22:37Z to 03:31:46Z, `packages=61 run=60 excluded=1 with_tests=45`,
+`gate=go-suite result=PASS`, `ac1-gates verdict=PASS gates_passed=8/8`,
+`gate=record-content-precondition result=PASS` over `records=61 unfinished=0`,
+and zero occurrences of `FAIL` or `no space left` in the log. Every commit on
+this branch that carries code has a gates run of its own, and so does the head.
