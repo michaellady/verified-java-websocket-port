@@ -424,6 +424,41 @@ Each item is a real limit, not a hedge.
 
 ---
 
+## 6b. Mainline moved under this sweep, and the plan change was re-checked against it
+
+Base `6986e95`; while this sweep ran, mainline advanced to `818be9c`, merging
+`claude/gate-attack-round-2` and `claude/plan-node-deletion`. The second of those
+**hardens the very gate this record's plan change is checked by** — new rule 12,
+*"an id this plan ever committed may not silently vanish"* — and it rewrites both
+`cmd/taskgraphctl` and `assurance/plan/task-graph.json`. A plan edit that passes
+the guard at its own base and fails the hardened one would be work handed over
+broken, so it was tested rather than assumed.
+
+In a throwaway detached worktree at `818be9c` (removed afterwards; mainline's ref
+verified byte-identical before and after, and nothing pushed to it):
+
+1. Pristine mainline against its own new guard: **exit 0**. *I first read this as
+   a FAIL and it was my own error* — an earlier `git add -f` had left my copies
+   staged, so `git checkout --` restored the index rather than `HEAD`. Caught by
+   `git status --porcelain` showing `M` on a file I had called pristine. Recorded
+   because "mainline is red" is exactly the claim that must never be published
+   without re-deriving it.
+2. My three changes applied **onto** mainline's plan — the node's state, evidence
+   and note; my two blocked nodes; my three owner actions — keeping mainline's
+   own ceiling text and all of its nodes: **exit 0, `result=PASS`, nodes=35,
+   done=18, owner_actions=19**, no `NODE_DISAPPEARED`, no ceiling finding.
+
+So the plan change is compatible with the hardened guard. What a merge will still
+need is the ordinary three-way reconciliation of `assurance/plan/task-graph.json`,
+because mainline rewrote its `ceiling` field to match its new `CeilingText`
+constant while this branch carries the constant its own base defines. That is a
+merge task, not a defect on either side, and it is named here so the merger is
+not surprised by it.
+
+`git diff --stat 6986e95..HEAD` is four files — this record, the two findings,
+and the plan — with **no Rust source, no ledger byte and no PRD text touched**,
+so every measurement here still describes the tree it was taken from.
+
 ## 7. Corpus and denominators — unchanged
 
 Nothing was re-baselined. Recomputed and equal to the committed values:
