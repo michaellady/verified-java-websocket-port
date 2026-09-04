@@ -492,7 +492,109 @@ version check in `internal/portplan/reproduce.go`, or the `go-suite` exclusion
 list was touched** — retiring a real check to make an unrelated package green is
 the exact substitution this record exists to refuse.
 
-GATES_EXIT_CODE_PLACEHOLDER
+**`make -C rust gates` → EXIT 2.** It stops at `pin-guard`, and the failure is
+NOT this branch's. Running the eleven targets individually gives the whole
+picture rather than only the first stop:
+
+| target | exit | whose |
+| --- | ---: | --- |
+| `fmt-check` | **0** | |
+| `clippy` | **0** | |
+| `fixture-guard` | **0** | `result=PASS files=59 loops=344 violations=0 waivers=0` |
+| `record-guard` | **0** | `records=70 unfinished=0 superseded=1 finished=69` |
+| `pin-guard` | **1** (chain exit **2**) | inherited — §9.1 |
+| `plan-guard` | **0** | `nodes=33 done=16 ready=3 in_progress=2 blocked=12`, `result=PASS` |
+| `go-suite` | **2** | inherited — §9.2 |
+| `test` | **0** | `cargo test --workspace --all-targets --all-features` |
+| `test-release` | **0** | |
+| `ac1-gates` | **2** | inherited — §9.3 |
+| `ledger-gates` | **0** | ran with `VJWP_PROTECTED_STORE` exported |
+| `oracle-hierarchy-gates` | **0** | |
+
+`ledger-gates` was NOT run without the store on this branch; the refusal it
+would produce is a refusal, never a pass, and round 4 records that reading.
+
+### 9.1 `pin-guard` — one drifted pin, arriving with the merge, measured
+
+```
+gate=pin-dangling json_artifacts=3500 unparsable=0 candidates=1 explained=53 covered=23 allowed=15 missing_targets=0
+gate=pin-dangling artifact=evidence/formal/us023-coverage-report.json pointer=$.inputs[4]
+  names=evidence/linkage/rust-identity-verification.json
+  declared=sha256:afc0ef4f… actual=sha256:31a625e2…
+```
+
+Four readings, none inferred:
+
+- `sha256sum evidence/linkage/rust-identity-verification.json` here → **31a625e2…**
+- the same path at mainline `claude/feature/verified-java-websocket-port` →
+  **afc0ef4f…**, which is exactly what the report pins. **Mainline is
+  self-consistent and this gate passes there.**
+- `git log -1 -- evidence/linkage/rust-identity-verification.json` → `6416805`,
+  a `claude/us019-native-run` merge. That branch REGENERATED the file and did not
+  refresh the pin.
+- `git log -1 -- evidence/formal/us023-coverage-report.json` → `4ccf415`, a
+  MAINLINE commit that fixed this very pin against mainline's copy of the file.
+
+So the drift is created by merging `claude/us019-native-run`'s regenerated
+artifact over mainline's refreshed pin. **This branch's commit touches six files
+— a record, four test files and the task graph — and none of them is under
+`evidence/`.** It is round 4 §4.3 and §4.4, unchanged, now firing because
+mainline moved.
+
+**NOT FIXED HERE, deliberately.** The remedy is regenerating derived US-023
+artifacts, which is round 4's owner action 1 and belongs to
+`claude/us019-native-run`'s own landing. The gate's own allowance text on the
+neighbouring rows says `DENOMINATOR, HARD STOP … Never re-baseline`, and
+re-pointing a digest from a survivor-sweep branch is the exact move this project
+has paid to forbid.
+
+### 9.2 `go-suite` — `internal/formalcoverage`, the same inherited cause
+
+`internal/formalcoverage` fails four tests, all of them the retained-artifact
+reconciliations (`TestRetainedReconciliationIsExactlyWhatTheDenominatorsDerive`,
+`TestRetainedReportsAreExactlyWhatTheEvidenceDerives`,
+`TestVerifyExitsZeroOnTheRetainedArtifacts`, `TestEveryAxisIsPrintedOnOneScreen`).
+`assurance/formal/denominator-reconciliation.json` is byte-identical to mainline
+on this branch (`git diff --stat` over that path is empty), and
+`claude/us019-native-run` adds the `rust/autobahn-controls` crate to the Rust
+workspace without refreshing it — round 4 §4.4 measured that the refresh changes
+16 lines and moves NO denominator.
+
+Two readings worth keeping from the same run, because they say the environment
+was staged correctly rather than papered over:
+
+- `internal/formalplan` — **ok, 344.088s**, with the `.quarantine` symlink in
+  place.
+- `internal/portplan` — **ok, 14.840s**, with the pinned JDK 17.0.19 on `PATH`.
+  Without that export it fails `JAVAC_UNAVAILABLE` against the container's
+  default `javac 21.0.10`, which reads like a broken pin and is not one.
+
+### 9.3 `ac1-gates` — `adapter-linkage`, also inherited
+
+```
+gate=adapter-linkage finding=ADAPTER_PROTOCOL_BRANCH ws-testee/src/io_loop.rs:831 fn drive_until_open
+gate=adapter-linkage finding=ADAPTER_PROTOCOL_BRANCH ws-testee/src/io_loop.rs:950 fn drive_until_open
+gate=adapter-linkage finding=STALE_PROTOCOL_BRANCH_ALLOWANCE fingerprint 2c05c5aeae1c8921 matched no branch this run
+ac1-gates verdict=FAIL gates_passed=7/8
+```
+
+`rust/ws-testee/src/io_loop.rs` differs from mainline by **167 insertions and 38
+deletions**, all of them `claude/us019-native-run`'s, and `git log -1` on it
+names that branch's merge `e8a9f06`. This branch adds no Rust production code at
+all: its four new files are tests. The declared allowance's fingerprint no longer
+matches because that branch moved the branch site, and the gate is doing exactly
+what it exists to do. **Not fixed here for the same reason as §9.1** — F016 is
+already an owner item about this gate's declarations, and re-fingerprinting an
+allowance from a survivor sweep would retire a live architecture check.
+
+### 9.4 The one thing this section must not be read as
+
+Three gate failures, all three traced to `claude/us019-native-run` by a reading
+of `git log` and a digest recomputation, are still THREE GATE FAILURES on this
+branch's tree. `make -C rust gates` exits **2** here and this branch is not
+landable on that basis alone, quite apart from the standing BLOCK on the US-019
+work. Nothing in this round makes it landable and nothing here should be read as
+saying so.
 
 ---
 
@@ -517,7 +619,19 @@ GATES_EXIT_CODE_PLACEHOLDER
 1. **Decide the 111-vs-110 site count** (§0.1). Round 4's `.sweep/mutate.py` is
    gitignored; either it is committed so the 110 can be re-derived, or the 110 is
    restated as the count that particular enumerator produced.
-2. **`OA-autobahn-reruns` still gates 6 of the 16 open survivors** (§6.3) —
+2. **On `claude/us019-native-run`, refresh the derived US-023 artifacts.** Round
+   4 named this and it is now failing TWO gates rather than one: `pin-guard`
+   (§9.1) and `go-suite`/`internal/formalcoverage` (§9.2). With
+   `VJWP_PROTECTED_STORE` exported, `go run ./cmd/formalcoverctl reconcile -repo .`
+   then `go run ./cmd/formalcoverctl report -repo .`, and commit what they
+   rewrite. Round 4 measured that it moves no denominator. It is that branch's to
+   apply, not a survivor sweep's.
+3. **On `claude/us019-native-run`, re-declare the adapter-linkage allowance for
+   `ws-testee/src/io_loop.rs` `drive_until_open`** (§9.3). That branch moved the
+   branch site; the allowance fingerprint `2c05c5aeae1c8921` matches nothing and
+   two sites are now undeclared. This is F016 territory and a declaration
+   decision, not a sweep's to make.
+4. **`OA-autobahn-reruns` still gates 6 of the 16 open survivors** (§6.3) —
    unless the fake-suite fixture route is taken, which needs no owner action.
-3. **Unchanged from round 4:** the four unreachable-check dispositions in its
+5. **Unchanged from round 4:** the four unreachable-check dispositions in its
    §3.1-3.4, and `OA-autobahn-archive`.

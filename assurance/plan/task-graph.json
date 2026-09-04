@@ -625,6 +625,12 @@
           "note": "both survivor floors side by side: round 4's 70 and this round's 106; the new one is a strictly larger sweep, not a correction"
         },
         {
+          "kind": "grep",
+          "path": "drafts/self-review/us019-survivor-residue.md",
+          "pattern": "\\*\\*`make -C rust gates` → EXIT 2\\.\\*\\*",
+          "note": "the gates exit code this round measured, and the per-target table behind it: three failures, all three traced by git log and a digest recomputation to claude/us019-native-run, none of them this branch's"
+        },
+        {
           "kind": "git_tracked",
           "path": "internal/autobahnsuite/residue_closure_test.go",
           "note": "30 Go probes that close 15 switch-arm and 31 conjunct survivors"
@@ -662,7 +668,7 @@
           "note": "recorded, never verified by this gate"
         }
       ],
-      "note": "SWEPT, and the residue it found is NOT all closed -- see T-us019-residue-open and T-us019-residue-live-suite. 180 new sites (29 switch arms, 84 Rust checks, 67 Go conjuncts), 7 of which admit no compiling mutant; 173 scored. Baseline 106 survivors: 75 closed by a named probe, 15 proved unreachable, 16 still open. Round 4's 110 sites / 70 survivors are a SEPARATE population and are never added to these. HARD STOP REPORTED, NOT RESOLVED: a go/ast enumeration of round 4's own four files finds 111 if-conditions, not 110; round 4's enumerator is gitignored and cannot be re-derived.",
+      "note": "SWEPT, and the residue it found is NOT all closed -- see T-us019-residue-open and T-us019-residue-live-suite. 180 new sites (29 switch arms, 84 Rust checks, 67 Go conjuncts), 7 of which admit no compiling mutant; 173 scored. Baseline 106 survivors: 75 closed by a named probe, 15 proved unreachable, 16 still open. Round 4's 110 sites / 70 survivors are a SEPARATE population and are never added to these. HARD STOP REPORTED, NOT RESOLVED: a go/ast enumeration of round 4's own four files finds 111 if-conditions, not 110; round 4's enumerator is gitignored and cannot be re-derived. make -C rust gates exits 2 on this tree: pin-guard, go-suite/internal/formalcoverage and ac1-gates/adapter-linkage all fail, all three inherited from claude/us019-native-run and none fixed here.",
       "story": "US-019"
     },
     {
