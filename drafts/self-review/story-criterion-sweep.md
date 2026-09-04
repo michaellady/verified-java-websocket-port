@@ -637,6 +637,20 @@ no Autobahn run.
 
 ## 7. Gates
 
+**Environment note, measured rather than inferred.** A second worktree
+(`/home/user/vjwp-gateattack`) was running `make -C rust gates` concurrently for
+part of this session, and the contention is large enough to matter to anyone
+reading a timing: `internal/assurance` took **188.6s** in the first, quieter run
+and **680.3s** in the second — a 3.6x slowdown on the same package, same tree,
+same head. The repository already documents this hazard for `internal/benchplan`
+and `internal/formalplan` (204.9s/257.7s uncontended, 496s/467s contended) and
+prescribes `-timeout 40m`, which `rust/Makefile:117` already passes. Two of my
+own gate attempts were killed by SIGTERM mid-run — the first by my own tool
+timeout at `go-suite`, the second at `pin-guard` — and **neither was a gate
+failure**: `fmt-check`, `clippy`, `fixture-guard`, `record-guard` and
+`pin-guard` had all printed PASS before the kill. A terminated run is not a
+result, in either direction, and is not reported as one here.
+
 - `cargo test -p ws-testee --all-targets` at `4cf3f8f`: **exit 0**.
 - `cargo test -p ws-testee --all-targets --no-fail-fast`, variant applied:
   **exit 101**, 5 named failures.
