@@ -500,11 +500,13 @@ moved; `ws-core` is byte-identical to `4cf3f8f` in this worktree.
 criterion.** Sequence 58 says so from the inside: *"this ledger's authority model
 has one normative pole (RFC 6455) plus three observation sources with no field
 for a project criterion, so the conflict can only be stated here."* I confirmed
-it from the outside: only four Go files reference `docs/prd-pack/` at all
-(`internal/ac5class/register.go`, `internal/mutdenom/model.go`,
-`internal/oraclerank/rank.go`, and the last as a doc comment), and every US-011
-AC2 mention in Go code is prose inside
-`internal/deltaledger/definitions_stale_port_corrections.go`. The US-020 AC2
+it from the outside: **exactly three** Go files mention `prd-pack` at all
+(`grep -rln "prd-pack" --include="*.go" .` →
+`internal/ac5class/register.go`, `internal/mutdenom/model.go`,
+`internal/oraclerank/rank.go`), only the first of those turns a criterion into a
+checked artifact, and every US-011 AC2 mention in Go code is prose inside
+`internal/deltaledger/definitions_stale_port_corrections.go`. (I first wrote
+"four" here from recall and the grep says three; the number is the grep's.) The US-020 AC2
 mechanism that does exist (`internal/oraclerank`) cannot see either instance: its
 handshake family scores accept/reject/incomplete VERDICTS, not the 101 response
 field set, and its Autobahn family reads a run that predates both fixes. **So
