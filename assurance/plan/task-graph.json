@@ -411,13 +411,72 @@
     },
     {
       "id": "T-pr4",
-      "title": "PR #4: fast-forward to the completed survivor round",
-      "state": "ready",
+      "title": "PR #4: the US-019 line landed, and the three gate failures it cost resolved",
+      "state": "done",
       "depends_on": [],
       "blocked_by": [
         "OA-pr4-fast-forward"
       ],
-      "evidence": []
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "internal/autobahnsuite/reconcile.go",
+          "note": "the package that DID NOT EXIST on mainline (`git ls-tree HEAD internal/autobahnsuite/` was empty), which is why nothing on the US-019 line could land; git tracks it here"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "rust/autobahn-controls/src/cli.rs",
+          "note": "the other absent package, and the file the survivor sweep found untested; on this tree it is tracked, so the sweep's evidence is re-derivable at last"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/formal/us023-coverage-report.json",
+          "pattern": "31a625e269c28858",
+          "note": "fix 1: the drifted pin re-pointed from afc0ef4f to the current bytes of evidence/linkage/rust-identity-verification.json"
+        },
+        {
+          "kind": "grep",
+          "path": "assurance/formal/denominator-reconciliation.json",
+          "pattern": "autobahn_controls",
+          "note": "fix 2: the reconciliation refreshed for the added crate. It moved NO denominator -- catalog_obligations, proof_targets and both unmapped counts are what mainline states"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "40a62857c4563017",
+          "note": "fix 3: drive_until_open's allowance re-pinned to the merged function's fingerprint, so adapter-linkage stops reporting ADAPTER_PROTOCOL_BRANCH"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "Fingerprint:\\s+\"2c05c5aeae1c8921",
+          "note": "and the mainline fingerprint it replaced is no longer DECLARED by any allowance, so STALE_PROTOCOL_BRANCH_ALLOWANCE cannot be satisfied by a leftover entry. The pattern binds the Fingerprint FIELD rather than the bare digest on purpose: the digest itself still appears in that entry's reason, which discloses what the allowance was re-pinned FROM, and a grep_absent on the bare string would force that disclosure to be deleted to stay green."
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "OWNER RULING \\(OA-drive-until-open-branch, 2026-09-04\\)",
+          "note": "OA-drive-until-open-branch applied: the allowance records the ruling where it read NOT RULED ON"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "native_digest_manifest_files",
+          "note": "fix 4, which the ruling could not have named: the prose claim that only this merge made visible, because the gate is mainline's and the record it reads is the US-019 line's. BOUND, not allowed -- the stated count and the document agree, and the binding re-derives it"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/us019-landing.md",
+          "note": "the landing record: what merged, each fix with its before/after gate output, the denominator question answered, and what is left"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust gates",
+          "note": "recorded, never verified by this gate"
+        }
+      ],
+      "story": "US-019",
+      "note": "DONE ON claude/us019-landing, NOT ON MAINLINE, and the difference is the point. OA-pr4-fast-forward ruled the US-019 line lands; origin/claude/us019-survivor-residue at caa44e5 is merged here, carrying us019-survivor-closure-2 at f9b9520 and us019-native-run beneath it. The one conflict, this plan, was resolved as a union by id with nothing dropped from either side. The three gate failures the ruling names are fixed as three separate commits, each with the failing gate quoted before and after and never a bulk regeneration. WHAT REMAINS IS NOT MINE: the merge of this branch into claude/feature/verified-java-websocket-port is the coordinator's, and this node's evidence is deliberately shaped so that it CANNOT hold on a mainline where that merge did not happen -- the two git_tracked items name packages absent from mainline, so plan-guard goes red there rather than quietly reading done."
     },
     {
       "id": "T-pr1",
@@ -751,7 +810,7 @@
           "note": "recorded, never verified by this gate"
         }
       ],
-      "note": "SWEPT, and the residue it found is NOT all closed -- see T-us019-residue-open and T-us019-residue-live-suite. 180 new sites (29 switch arms, 84 Rust checks, 67 Go conjuncts), 7 of which admit no compiling mutant; 173 scored. Baseline 106 survivors: 75 closed by a named probe, 15 proved unreachable, 16 still open. Round 4's 110 sites / 70 survivors are a SEPARATE population and are never added to these. HARD STOP REPORTED, NOT RESOLVED: a go/ast enumeration of round 4's own four files finds 111 if-conditions, not 110; round 4's enumerator is gitignored and cannot be re-derived. make -C rust gates exits 2 on this tree: pin-guard, go-suite/internal/formalcoverage and ac1-gates/adapter-linkage all fail, all three inherited from claude/us019-native-run and none fixed here.",
+      "note": "SWEPT, and the residue it found is NOT all closed -- see T-us019-residue-open and T-us019-residue-live-suite. 180 new sites (29 switch arms, 84 Rust checks, 67 Go conjuncts), 7 of which admit no compiling mutant; 173 scored. Baseline 106 survivors: 75 closed by a named probe, 15 proved unreachable, 16 still open. Round 4's 110 sites / 70 survivors are a SEPARATE population and are never added to these. HARD STOP REPORTED, NOT RESOLVED: a go/ast enumeration of round 4's own four files finds 111 if-conditions, not 110; round 4's enumerator is gitignored and cannot be re-derived. make -C rust gates exited 2 on the tree that round measured, and its record still reads EXIT 2 because that reading was true of that branch: pin-guard, go-suite/internal/formalcoverage and ac1-gates/adapter-linkage all failed, all three inherited from claude/us019-native-run and none fixed there. ALL THREE ARE FIXED HERE, under T-pr4, which quotes each gate before and after.",
       "story": "US-019"
     },
     {
@@ -1235,6 +1294,31 @@
         }
       ],
       "note": "Round 5's A1 fix is right and it leaves a foreseeable trap, so this carries it out of a done node's prose where it would be lost. retentionStatements[0] is VERBATIM a sentence inside the shared `ownerDecision` constant in definitions.go -- the citation the comment says is 'appended to every rationale'. So carrying the standing US-010..US-016 authority now ASSERTS RETENTION, whether the author meant it or not, and contradictsRetention then forbids rfc-governs, fix-in-port and intentional-correction on that record. MEASURED BEFORE BEING CALLED A PROBLEM, and the measurement exonerates the fix: 45 of the 59 committed records carry the sentence and ALL 45 declare `unresolved`, which retention agrees with; the 14 that do not include every fix-in-port (3), the intentional-correction (1) and every adopt-java (3). Zero false positives on the chain as it stands. The hazard is entirely forward-looking: the next record that legitimately IS a fix-in-port and cites the same owner decision the ordinary way will be refused, and its author has to work out that a citation is carrying a disposition claim. THE CONSTRAINT THAT SHAPES ANY FIX: rationales are HASHED into record digests and the frozen prefix runs through sequence 35, so the constant cannot be reworded for existing records -- that would rewrite sealed history. A fix can only be a second citation variant without the retention clause, for records that are not retentions, plus a note telling an author which to use. Small, but it must be written before someone hits it rather than after. | LEFT READY DELIBERATELY, NOT BUILT, and the reason is the same standard the rest of this work is held to. The fix is a second citation constant without the retention clause. Adding it today means shipping a constant no record uses, with no test that could fail and no caller to bind it -- an unverifiable declaration, which is the exact shape five adversarial rounds have spent themselves finding. The trap has ZERO false positives on the chain as it stands (45 of 45 retention-asserting records declare `unresolved`), so nothing is broken and nothing is waiting. The requirement becomes concrete the moment someone writes a non-retention record citing that owner decision, and the variant should be written then, by them, with the record that needs it. A future heartbeat should NOT pick this up and build it speculatively -- it is recorded so the next author is not ambushed, which is the whole job."
+    },
+    {
+      "id": "T-drive-until-open-second-site",
+      "title": "The second ReadyState branch in drive_until_open, declared on a shared fingerprint",
+      "state": "blocked",
+      "story": "US-019",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-drive-until-open-second-site"
+      ],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "rust/ws-testee/src/io_loop.rs",
+          "pattern": "while cursor < rest\\.len\\(\\) && driver\\.state\\(\\) == ReadyState::NotYetConnected",
+          "note": "the second site itself, located by its code rather than its line number"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "OA-drive-until-open-second-site",
+          "note": "the allowance discloses that it covers a site the ruling did not name, instead of passing silently"
+        }
+      ],
+      "note": "Reported, not absorbed. Both sites live in one function and adapter-linkage pins an allowance to the function's normalized token stream, so declaring the ruled site declares this one too. That is the gate's design, not a widening chosen here, and it is written into the allowance's own reason."
     }
   ],
   "owner_actions": [
@@ -1417,6 +1501,12 @@
       "state": "open",
       "what_is_needed": "Decide whether the Rust lint gates get a suppression rule, and which kind. `make -C rust fmt-check` is defeated by #[rustfmt::skip] on a mis-formatted item and `make -C rust clippy` by #[allow(clippy::<lint>)] on an item that trips it -- both demonstrated at exit 0 with the mutant compiling. Neither target has a waiver ceiling, a suppression scan or a census, while fixture-guard four lines above them in the same Makefile has all three and calls raising its ceiling 'a decision, not a formality'.",
       "why_it_blocks": "The two options are not the same decision. The granular per-lint allow attributes already occur in first-party crates, so a ceiling over that population is a measurement denominator an agent may not invent. The BLANKET forms -- allow(warnings), allow(clippy::all), allow(clippy::pedantic), a [lints] table and rustfmt::skip -- do not occur anywhere in the Rust tree today, so refusing those outright is an absolute like forbid-unsafe and creates no denominator. Owner rules which of the two is built."
+    },
+    {
+      "id": "OA-drive-until-open-second-site",
+      "state": "open",
+      "what_is_needed": "Confirm or refuse an extension of OA-drive-until-open-branch that landing the US-019 line forced. That ruling was made against mainline's drive_until_open, where the function held ONE branch on core ReadyState. The merged function holds two: the ruled site at rust/ws-testee/src/io_loop.rs:831 (`if driver.state() != ReadyState::NotYetConnected`), and a second at :950 (`while cursor < rest.len() && driver.state() == ReadyState::NotYetConnected`) added by claude/us019-native-run, which feeds the handshake one byte at a time so a read cannot straddle the 101/first-frame boundary. adapter-linkage fingerprints the ENCLOSING FUNCTION, so one allowance covers both and the second site cannot be declared or refused apart from the first. It is declared on that mechanical ground and reported here rather than counted as ruled on.",
+      "why_it_blocks": "The gate is green either way, so nothing stops on this. What is at stake is whether the owner's ruling is being read wider than it was written: either :950 is the same readiness poll and the ruling covers it, or it is a protocol decision and belongs in the core, in which case the allowance as re-pinned is too broad."
     }
   ]
 }
