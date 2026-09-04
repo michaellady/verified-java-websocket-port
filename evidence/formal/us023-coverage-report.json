@@ -35,8 +35,8 @@
     },
     {
       "path": "evidence/linkage/rust-identity-verification.json",
-      "sha256": "sha256:afc0ef4fd6231d66ad9d80d871b110a2b27682f26bcf0d7c146b99a9fbaddb49",
-      "git_blob": "0dc9e438aba7a7fa4be0062afd44268734c38d63"
+      "sha256": "sha256:31a625e269c28858675302575ab3ec0b6763ca16947455ac64ea40619c730924",
+      "git_blob": "91dc655f24e34aa0a2ea5c84caaf503137d27c51"
     },
     {
       "path": "assurance/formal/catalog-correction-proposal.json",
