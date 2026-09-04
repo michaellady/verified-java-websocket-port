@@ -131,6 +131,7 @@ Gate censuses, before and after:
 | pin-guard `candidates` / `explained` / `covered` / `allowed` / `missing_targets` | 0 / 53 / 23 / 15 / 0 | unmoved |
 | pin-guard result | PASS | PASS |
 | plan-guard result | PASS | PASS |
+| plan-guard census | nodes=46 done=26 ready=6 blocked=14, owner_actions=29 open=19 | nodes=47 done=27 ready=5 blocked=15, owner_actions=30 open=20 |
 | record-guard prose result | PASS | PASS |
 
 ## 4. Which numbers moved, and why each was the authorised move
@@ -171,7 +172,7 @@ overwrite. Measured in a scratch tree:
   1.1.0 against `../../schemas/formal-proof-targets-1.1.0.schema.json`, a file
   this plane does not carry. It holds two targets where this line holds ten.
   With it in place, `formalcoverctl verify` exits 1 at
-  `proof-target document id is "" , not formal-proof-targets.us006`. The diff
+  `proof-target document id is "", not formal-proof-targets.us006`. The diff
   against HEAD is 1779 insertions and 211 deletions in the other direction, so
   copying it in also deletes the US-006 refreeze that landed at `4ccf415`.
 * `evidence/intake/semantic-id-migration-map.json` at that anchor declares
