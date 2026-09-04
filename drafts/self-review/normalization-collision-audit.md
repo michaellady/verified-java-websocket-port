@@ -25,11 +25,23 @@ Five projections exist. Nothing else can answer a request.
 | `behaviour.failure` | `response.rs failure_response` | 9 | `error.code`, `error.close_code`, `final_state`, `counts`×7 |
 | `behaviour.output_limit` | `response.rs output_limit_response` | 6 | `error.code` only |
 | `behaviour.envelope_error` | `response.rs envelope_error_response` | 5 | **nothing — the transcript cannot be loaded at all** |
-| `handshake.judged` | `handshake_adapter.rs respond` | 6–8 | `java_observable`, `reject_channel`, `close_code`, `sec_websocket_accept` |
+| `handshake.judged` | `handshake_adapter.rs respond` | 6, 7 or 9 | `java_observable`, `reject_channel`, `reject_stage`, `close_code`, `sec_websocket_accept` |
 
 The key counts are **recomputed from real responses**, not authored;
 `PartitionCensus` refuses any observed response shape that no projection
-classifies, so the table cannot go stale silently.
+classifies.
+
+**That guard does not cover this table's key-count column, and the
+`handshake.judged` row is where it showed.** The row above read `6–8` and named
+four scored keys until it was corrected on
+`claude/normalization-collision-closure-2`; the measured counts are 9 (reject),
+7 (accept) and 6 (`incomplete`), and `reject_stage` is a fifth scored key. It
+went stale because `ClassifyHandshakeKeys` returns `handshake.judged` for **any**
+key set containing `java_observable`, so adding a key to the reject shape can
+never make the partition check fire — the shape stayed classified while the count
+rotted. `PartitionCensus` guards the partition, not the arity. The claim that
+"the table cannot go stale silently" was too strong and is withdrawn; see
+`drafts/self-review/normalization-collision-supersession.md`.
 
 The scorers are the real ones: `internal/corpora.EvaluateOracleResponse` and
 `evaluateHandshakeLiveResponse`, plus `diffregress.CompareResponses`.
@@ -60,7 +72,7 @@ uses — to the two answers. Identity fields (`request_id`, `request_digest`,
 | NC-04 | `behaviour.failure` | the FIN bit of a rejected frame, **in the shipped corpus** | pair, moved `frames[0].fin` | **no** |
 | NC-07 | `handshake.judged` | the whole HTTP head incl. subprotocol/extension negotiation | wire | partly |
 | NC-08 | `handshake.judged` | everything about an incomplete handshake | wire | **no** |
-| NC-09 | `handshake.judged` | all distinction within one reject channel; `close_code` is a constant | wire | yes — the live mapping's own `granularity_statement` |
+| NC-09 | `handshake.judged` | all distinction within one reject channel **and stage**; `close_code` is a constant | wire | yes — the live mapping's own `granularity_statement` |
 
 Three of the seven were already disclosed somewhere in the tree. I say so in
 each probe's `Disclosure` field rather than presenting them as discoveries.
@@ -106,21 +118,42 @@ argued** — recomputed by `MeasureTranscript` from the committed evidence.
 
 ### 49/49
 
-- The 49 handshake cases produce only **26 distinct scored observations**.
-- **27 of the 49 cases share their observation with at least one other case.**
-- The **largest equivalence class holds 11 cases** — eleven different
-  handshakes, one scored row.
-- Breakdown of the collapse: 11 cases → one `reject`/`invalid_handshake`/1002
-  row; 9 → one `reject`/`not_matched`/1002 row; 4 → one bare `incomplete`; 3
-  server-side accepts → one bare `accept`. Only 22 accepts carry a computed
-  value (the accept key).
-- So 49/49 certifies **at most 26 distinguishable answers, not 49**.
+- The 49 handshake cases produce only **29 distinct scored observations**.
+- **23 of the 49 cases share their observation with at least one other case.**
+- The **largest equivalence class holds 10 cases** — ten different handshakes,
+  one scored row.
+- Breakdown of the collapse, **measured** by driving the 49 committed cases
+  through the harness and classing the answers with identity stripped:
+  20 `reject` rows fall into **three** classes — 10 ×
+  `invalid_handshake`/`translate`/1002, 9 × `not_matched`/`accept_predicate`/1002,
+  and 1 × `invalid_handshake`/`response_build`/1002; 4 `incomplete` rows fall
+  into **one** bare class; and 25 `accept` rows fall into **25** classes, because
+  every one of the 25 now carries a distinct `sec_websocket_accept`.
+  3 + 1 + 25 = 29 distinct; 10 + 9 + 4 = 23 sharing; largest 10.
+- So 49/49 certifies **at most 29 distinguishable answers, not 49**.
 
-Both numbers were cross-checked: I computed the handshake census independently
-in a throwaway script before writing the Go code, got 26/27/11, and the Go
-census initially disagreed (25/27/12). The cause was a real defect — my `Seed`
-dropped `context.client_key`, which ten `server_response` cases need — and
-fixing it made the two agree. The disagreement is why I caught it.
+**These three numbers were 26 / 27 / 11 in this record until
+`claude/normalization-collision-closure-2` corrected them, and the correction is
+the point.** The bounds moved at `d90308a`, which added `reject_stage` and a
+client-side `sec_websocket_accept` to the projection — nothing was removed and no
+rule was relaxed, so the ceiling got *higher*, not lower: the 11-case
+`invalid_handshake` class split 10 + 1 by stage, and the 3 bare `accept` rows
+gained the key the client derives on every acceptance but never sends. This
+record's last touch (`70f104f`) is an **ancestor** of `d90308a`, and nothing in
+the tree read this prose, so it went on stating the pre-`d90308a` three as
+present tense while `audit.json` and every gate carried the new ones. That gap is
+now closed by `CheckRecordBounds` and
+`TestLandingRecordStatesTheBoundsTheDocumentMeasures`, which fail if this
+paragraph's numbers and the committed document ever disagree again.
+
+The original cross-check is kept because it is still a true account of how the
+FIRST measurement was reached, and it is still the reason a real defect was
+caught: I computed the handshake census independently in a throwaway script
+before writing the Go code, got 26/27/11, and the Go census initially disagreed
+(25/27/12). The cause was a real defect — my `Seed` dropped `context.client_key`,
+which ten `server_response` cases need — and fixing it made the two agree at
+26/27/11. What that episode does **not** establish is the current bound: the
+agreement it reached was superseded by `d90308a` three commits later.
 
 ### Claim vocabulary
 
@@ -133,18 +166,35 @@ is a proved-model or proved-production claim.
 
 ---
 
-## 4. Undecided candidates (5) — all labelled HYPOTHESIS
+## 4. Candidates
 
-None is counted as a finding. `TestEveryCandidateIsLabelledHypothesis` fails if
-one loses its label.
+The first pass left five candidates open. Three have since been decided and
+**all three came back negative** — the observation does carry the distinction —
+so the catalog now carries 2 refutation probes alongside its 7 confirmed
+collisions, counted apart so that nine decided probes cannot be read as nine
+collisions.
+
+### Decided candidates (3) — none of them a collision
+
+| id | decided by | verdict |
+| --- | --- | --- |
+| `CAND-WIREBYTES` | probe NC-10 | **REFUTED** on `behaviour.ok`. A two-octet payload under the 7-bit length form and under the 126 extended form are both accepted (`ws-core` drops the RFC's non-minimal-length rejection for Java fidelity) and the two rows differ on `counts.consumed_bytes`, `counts.input_bytes`, `events[0].bytes`, `frames[0].wire_bytes`. |
+| `CAND-CHUNKING` | probe NC-11 | **REFUTED** on `behaviour.ok`, and the run says more than the reasoning did: the pair moves on `events.length` (two events versus three) as well as `frames[0].step`. |
+| `CAND-UTF8` | check NC-UTF8-PREMISE | **EMPTY** — not merely unwitnessed. The decode is strict at every site in both crates, so the octets a lossy decoder would fold onto U+FFFD produce no `text` event at all. |
+
+A refutation is a real result and it narrows this audit rather than padding it:
+each one removes a distinction the two ceilings could otherwise have been blamed
+on.
+
+### Undecided candidates (2) — all labelled HYPOTHESIS
+
+Neither is counted as a finding. `TestEveryCandidateIsLabelledHypothesis` fails
+if one loses its label.
 
 | id | distinction | why not decided |
 | --- | --- | --- |
 | `CAND-TRANSPORT` | socket lifecycle, TCP FIN/RST | DIV-02's class. No oracle step feeds or observes a socket; the witness has to be a real peer socket (`ws-testee` loopback), not a transcript comparison. Confirmed elsewhere, out of scope here. |
 | `CAND-CROSSARRAY` | relative order of an event, a frame and a transition | The known US-013 AC5 case. The harness generates all three arrays in one pass, so no request I can write makes it emit them in a different order — seeding it needs a mutated harness (`cmd/mutctl`), not this instrument. |
-| `CAND-UTF8` | two octet sequences decoding to the same text | Whether such a pair exists depends on whether `ws_core` replaces malformed UTF-8 or rejects the frame. Not run. |
-| `CAND-WIREBYTES` | non-minimal frame length encoding | `wire_bytes` is a total, so this may well be REPRESENTED — i.e. a refuted candidate. Untested either way. |
-| `CAND-CHUNKING` | how input octets split across steps | Reasoned to be represented (`input_chunk` carries a per-step count), but a reasoned negative is not a measured one. |
 
 ---
 
