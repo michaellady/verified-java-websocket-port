@@ -670,6 +670,107 @@ func TestTheCommittedCorporaAreBoundInsideTheGate(t *testing.T) {
 	}
 }
 
+// TestACorpusManifestCannotMisdescribeTheCorpusItSeeds is round 5's half of the
+// same rule. VerifyCommittedCorporaReDerive re-derives the two corpus FILES;
+// until round 5 it asked nothing about the manifests beside them, and each of
+// the four states below reached `deltaledgerctl --check` at exit 0 with the
+// whole internal/corpora test package green.
+//
+// Each probe edits ONE field of ONE manifest and asserts the refusal names it,
+// so a probe that goes red for another reason is not read as a pass.
+func TestACorpusManifestCannotMisdescribeTheCorpusItSeeds(t *testing.T) {
+	for _, probe := range []struct {
+		name     string
+		manifest string
+		edit     func(map[string]any)
+		want     string
+	}{
+		{
+			name:     "the public manifest understates its own corpus's length",
+			manifest: PublicCorpusManifestRelativePath,
+			edit:     func(m map[string]any) { firstArtifact(t, m)["bytes"] = float64(1) },
+			want:     "declares scenarios.jsonl at 1 bytes",
+		},
+		{
+			name:     "the public manifest declares a digest the corpus does not have",
+			manifest: PublicCorpusManifestRelativePath,
+			edit:     func(m map[string]any) { firstArtifact(t, m)["sha256"] = zeroDigest },
+			want:     "The manifest is the artifact that says what the corpus IS",
+		},
+		{
+			name:     "the handshake manifest declares a digest the corpus does not have",
+			manifest: HandshakeCorpusManifestRelativePath,
+			edit:     func(m map[string]any) { firstArtifact(t, m)["sha256"] = zeroDigest },
+			want:     "corpora/handshake/manifest.json declares cases.jsonl at " + zeroDigest,
+		},
+		{
+			name:     "the handshake manifest names a seed its corpus was never derived from",
+			manifest: HandshakeCorpusManifestRelativePath,
+			edit: func(m map[string]any) {
+				m["generator"].(map[string]any)["public_seed"] = "a-seed-this-corpus-was-never-derived-from"
+			},
+			want: "Two manifests naming two seeds for one derivation",
+		},
+		{
+			name:     "a manifest describes a file this rule does not re-derive",
+			manifest: HandshakeCorpusManifestRelativePath,
+			edit: func(m map[string]any) {
+				artifacts := m["artifacts"].([]any)
+				m["artifacts"] = append(artifacts, map[string]any{
+					"path": "cases-extra.jsonl", "bytes": float64(1),
+					"sha256": zeroDigest, "classification": "PUBLIC", "stored_in_repo": true,
+				})
+			},
+			want: "lists 2 artifacts",
+		},
+	} {
+		t.Run(probe.name, func(t *testing.T) {
+			root := degradedRoot(t, func(root string) {
+				path := filepath.Join(root, filepath.FromSlash(probe.manifest))
+				raw, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("read %s: %v", probe.manifest, err)
+				}
+				var document map[string]any
+				if err := json.Unmarshal(raw, &document); err != nil {
+					t.Fatalf("decode %s: %v", probe.manifest, err)
+				}
+				probe.edit(document)
+				encoded, err := json.MarshalIndent(document, "", "  ")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+					t.Fatalf("write %s: %v", probe.manifest, err)
+				}
+			})
+			err := VerifyCommittedCorporaReDerive(root)
+			if err == nil {
+				t.Fatalf("%s was edited and the production gate accepted it", probe.manifest)
+			}
+			if !strings.Contains(err.Error(), probe.want) {
+				t.Fatalf("refused, but not on the edited field (want %q): %v", probe.want, err)
+			}
+		})
+	}
+}
+
+// zeroDigest is a well-formed sha256 no artifact in this repository has.
+const zeroDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+func firstArtifact(t *testing.T, manifest map[string]any) map[string]any {
+	t.Helper()
+	artifacts, ok := manifest["artifacts"].([]any)
+	if !ok || len(artifacts) == 0 {
+		t.Fatal("the manifest lists no artifacts; this test's premise has moved")
+	}
+	entry, ok := artifacts[0].(map[string]any)
+	if !ok {
+		t.Fatal("the manifest's first artifact is not an object")
+	}
+	return entry
+}
+
 // TestTheClassRecordCannotAnswerForANonMember pins the exclusion this branch
 // added in its own adversarial pass. The locally-caused escape hatch is "an
 // authoritative record names it", and the CLASS record names non-members in the
