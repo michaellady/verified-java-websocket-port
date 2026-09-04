@@ -226,9 +226,14 @@ func TestAnalyseDanglingReportsAStalePinAndItsPointer(t *testing.T) {
 	}
 }
 
-// The single-path guard: an object naming TWO tracked files cannot be attributed
-// to either, so it must not be reported. Attack A4 survived without this.
-func TestAnalyseDanglingSkipsObjectsNamingMoreThanOnePath(t *testing.T) {
+// C1, the bypass this test used to protect. An object naming TWO tracked files
+// still cannot be attributed to EITHER of them -- attack A4's point, which
+// stands -- but "cannot be attributed" is not "must not be reported". The old
+// guard exited the whole object on `len(paths) != 1`, so adding one more tracked
+// path to any object hid every drifted digest in it at exit 0 with no line
+// printed. The row is now reported and NAMES BOTH paths, which attributes to
+// neither and still says what is wrong.
+func TestASecondTrackedPathNoLongerHidesADriftedDigest(t *testing.T) {
 	root := scratchRepo(t, map[string]string{
 		"one.txt": "one\n",
 		"two.txt": "two\n",
@@ -240,9 +245,140 @@ func TestAnalyseDanglingSkipsObjectsNamingMoreThanOnePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analyse: %v", err)
 	}
+	if len(census.candidates) != 1 {
+		t.Fatalf("a digest matching NEITHER named path must be reported, got %d: %+v",
+			len(census.candidates), census.candidates)
+	}
+	candidate := census.candidates[0]
+	if candidate.namedPath != "one.txt,two.txt" {
+		t.Errorf("the row must name both paths rather than pick one: %q", candidate.namedPath)
+	}
+	if !strings.Contains(candidate.actual, ",") {
+		t.Errorf("the row must carry both current digests: %q", candidate.actual)
+	}
+}
+
+// The other half of the same rule, and the reason C1's fix does not fire on
+// everything: an object naming two paths where a digest IS the current digest of
+// one of them is accounted for and stays silent. This is the live shape of
+// e3-formal-receipt.json $.models_authored[0], whose .tla and .cfg digests both
+// match; its sibling [1] is a real finding precisely because neither of its
+// digests does.
+func TestAMultiPathObjectWhoseDigestsAllMatchStaysSilent(t *testing.T) {
+	oneDigest := sha256.Sum256([]byte("one\n"))
+	twoDigest := sha256.Sum256([]byte("two\n"))
+	root := scratchRepo(t, map[string]string{
+		"one.txt": "one\n",
+		"two.txt": "two\n",
+		"consumer.json": `{"pair":{"a":"one.txt","b":"two.txt",` +
+			`"a_sha256":"sha256:` + hex.EncodeToString(oneDigest[:]) + `",` +
+			`"b_sha256":"sha256:` + hex.EncodeToString(twoDigest[:]) + `"}}`,
+	})
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
 	if len(census.candidates) != 0 {
-		t.Errorf("an object naming two paths must not be attributed to either: %+v",
+		t.Errorf("every digest is the current digest of a path named here: %+v",
 			census.candidates)
+	}
+}
+
+// C2. One correct digest used to immunise every drifted digest beside it,
+// because the walk `return`ed out of the whole object on the first match. A
+// digest is now subtracted on its own account or not at all. This is the live
+// shape of denominator-reconciliation.json, where `on_disk_sha256` matches and
+// `catalog_declared_sha256` -- the pin the document exists to report as drifted
+// -- did not survive it.
+func TestAMatchingSiblingDigestNoLongerImmunisesADriftedOne(t *testing.T) {
+	current := sha256.Sum256([]byte("the real content\n"))
+	root := scratchRepo(t, map[string]string{
+		"subject.txt": "the real content\n",
+		"consumer.json": `{"pin":{"path":"subject.txt",` +
+			`"on_disk_sha256":"sha256:` + hex.EncodeToString(current[:]) + `",` +
+			`"declared_sha256":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}}`,
+	})
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(census.candidates) != 1 {
+		t.Fatalf("the drifted digest must be reported despite its correct sibling, got %d: %+v",
+			len(census.candidates), census.candidates)
+	}
+	candidate := census.candidates[0]
+	if candidate.declared != strings.Repeat("0", 64) {
+		t.Errorf("the reported digest must be the DRIFTED one, not the matching one: %q",
+			candidate.declared)
+	}
+}
+
+// C9, the half that is fixed. `digestOf` failing used to `return` out of the
+// object before any check ran, so deleting the pinned file was a clean exit 0
+// in the gate whose name is `dangling`. It is now MISSING_PIN_TARGET, counted
+// separately from `candidates` because no digest has drifted -- the subject of
+// the digest is gone, which is worse.
+func TestDeletingThePinnedTargetIsReportedNotSwallowed(t *testing.T) {
+	root := scratchRepo(t, map[string]string{
+		"subject.txt": "the real content\n",
+		"consumer.json": `{"pins":[{"path":"subject.txt",` +
+			`"digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}]}`,
+	})
+	if err := os.Remove(filepath.Join(root, "subject.txt")); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(census.missing) != 1 {
+		t.Fatalf("a pin whose tracked target is gone must be reported, got %d: %+v",
+			len(census.missing), census.missing)
+	}
+	gone := census.missing[0]
+	if gone.namedPath != "subject.txt" || gone.pointer != "$.pins[0]" {
+		t.Errorf("the missing-target row must locate the pin: %+v", gone)
+	}
+	if len(census.candidates) != 0 {
+		t.Errorf("a missing target is not a drifted digest: %+v", census.candidates)
+	}
+}
+
+// C9, the half that is NOT fixed, pinned as a DISCLOSED false negative. A pin
+// naming an UNTRACKED path is invisible to this census: `splitPinFields` only
+// recognises what git tracks, and widening that corpus was measured and refused
+// (26 rows on the formal denominator's declared basis under git's own
+// ever-tracked set, 662 under a path-shape guess). This test exists so the hole
+// cannot be closed, or quietly widened, without someone reading the ceiling that
+// declares it.
+func TestAPinNamingAnUntrackedPathIsADisclosedFalseNegative(t *testing.T) {
+	root := scratchRepo(t, map[string]string{
+		"consumer.json": `{"pins":[{"path":"gone/from/the/index.txt",` +
+			`"digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}]}`,
+	})
+
+	census, err := analyseDangling(root)
+	if err != nil {
+		t.Fatalf("analyse: %v", err)
+	}
+	if len(census.candidates) != 0 || len(census.missing) != 0 {
+		t.Fatalf("behaviour changed: untracked pin targets are now seen (%d candidates, "+
+			"%d missing). That is a WIDER corpus than `git ls-files`; if it is intended, "+
+			"the ceiling's disclosure (2) and the measured row counts must be rewritten "+
+			"in the same change", len(census.candidates), len(census.missing))
+	}
+	for _, required := range []string{
+		"A pin naming an UNTRACKED path is NOT SEEN AT ALL",
+		"corpora/frame/codec.json",
+		"MISSING_PIN_TARGET",
+	} {
+		if !strings.Contains(danglingCeiling, required) {
+			t.Errorf("the printed ceiling no longer discloses %q, so the census would be "+
+				"short by an amount nobody is told about", required)
+		}
 	}
 }
 
@@ -664,6 +800,49 @@ func TestAdjudicatedTrueDanglingPinsAreStillReported(t *testing.T) {
 // Every coverage claim must name a check that is actually there. A claim whose
 // covering assertion has vanished is the same lie a stale test exclusion tells:
 // it reports rows as verified elsewhere when nothing verifies them.
+// Every refusal this gate can make, exercised in isolation. Without this the
+// MISSING_PIN_TARGET refusal was unbound: `missing_targets=0` in the live tree,
+// so neutering `if len(census.missing) > 0` left `go test` green AND the gate at
+// exit 0 -- a deletion attack that nothing caught. A gate whose refusals are
+// only exercised by whatever the tree happens to contain is a gate that stops
+// refusing the day the tree goes clean.
+func TestEveryRefusalThisGateCanMakeIsExercised(t *testing.T) {
+	if reason := danglingRefusal(danglingCensus{}, nil, nil, 0); reason != "" {
+		t.Errorf("a clean census must PASS, got refusal %q", reason)
+	}
+	for _, testCase := range []struct {
+		name     string
+		census   danglingCensus
+		stale    []string
+		orphaned []string
+		remain   int
+		mentions string
+	}{
+		{"stale coverage claim", danglingCensus{}, []string{"x"}, nil, 0,
+			"outlived the check"},
+		{"unparsable artifact",
+			danglingCensus{unparsablePaths: []string{"a.json"}}, nil, nil, 0, "do not parse"},
+		{"missing pin target",
+			danglingCensus{missing: []pin{{artifact: "a.json", namedPath: "gone.txt"}}},
+			nil, nil, 0, "worktree no longer holds"},
+		{"orphaned allowance", danglingCensus{}, nil, []string{"x"}, 0,
+			"outlived the finding"},
+		{"undeclared drift", danglingCensus{}, nil, nil, 1,
+			"not among the declared allowances"},
+	} {
+		reason := danglingRefusal(testCase.census, testCase.stale, testCase.orphaned,
+			testCase.remain)
+		if reason == "" {
+			t.Errorf("%s must refuse, it PASSED", testCase.name)
+			continue
+		}
+		if !strings.Contains(reason, testCase.mentions) {
+			t.Errorf("%s refused with %q, which does not say %q",
+				testCase.name, reason, testCase.mentions)
+		}
+	}
+}
+
 func TestEveryCoverageClaimNamesACheckThatExists(t *testing.T) {
 	root := repoRoot(t)
 	if stale := verifyCoverage(root); len(stale) != 0 {
@@ -752,10 +931,15 @@ func TestEveryAllowanceNamesWhatWouldLetItBeDeleted(t *testing.T) {
 			t.Errorf("%s states %d bytes of owner action, floor is %d",
 				key, len(entry.owner), floor)
 		}
-		if len(entry.declared) != 64 {
-			t.Errorf("%s pins %q, which is not a bare 64-hex digest; an allowance that "+
-				"does not pin the declared value would survive the pin being edited",
-				key, entry.declared)
+		// A row whose object carries more than one unaccounted digest pins
+		// ALL of them, comma-joined, so editing EITHER loses the
+		// acknowledgement. Every element must still be a bare 64-hex digest.
+		for _, part := range strings.Split(entry.declared, ",") {
+			if len(part) != 64 {
+				t.Errorf("%s pins %q, which is not a bare 64-hex digest; an allowance that "+
+					"does not pin the declared value would survive the pin being edited",
+					key, entry.declared)
+			}
 		}
 	}
 }

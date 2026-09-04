@@ -90,6 +90,12 @@
       "state": "open",
       "what_is_needed": "Rule on a SECOND adapter-side protocol branch, found by the new detector on its first real run and ruled on by nobody: `drive_until_open` at rust/ws-testee/src/io_loop.rs:745 branches on core ReadyState -- `if driver.state() != ReadyState::NotYetConnected { return true; }`. Same shape as server_closes_transport, which you ruled stays. Keep it and declare it, or move it into the core.",
       "why_it_blocks": "It is declared in the gate's allowance list only so the gate can pass, with its entry stating that it is UNRULED. That is an honest placeholder, not a decision, and it should not sit there indefinitely."
+    },
+    {
+      "id": "OA-pin-path-corpus",
+      "state": "open",
+      "what_is_needed": "Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
+      "why_it_blocks": "Widening moves rows onto the formal denominator's declared basis, which is already DENOMINATOR, HARD STOP. It belongs with the plane-correspondence decision the three existing hard-stop allowances wait on, and should be decided together with it."
     }
   ],
   "nodes": [
@@ -522,18 +528,29 @@
     {
       "id": "T-pin-c1-c2-c9",
       "title": "pin-guard C1/C2/C9: three silent bypasses that move a census denominator",
-      "state": "in-progress",
+      "state": "done",
       "depends_on": [
         "T-pin-guard"
       ],
       "blocked_by": [],
       "evidence": [
         {
+          "kind": "grep",
+          "path": "cmd/pinconsumerctl/main.go",
+          "pattern": "missing_targets"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/pinconsumerctl/main.go",
+          "pattern": "danglingRefusal"
+        },
+        {
           "kind": "command",
-          "cmd": "go run ./cmd/pinconsumerctl dangling -root ."
+          "cmd": "go run ./cmd/pinconsumerctl dangling -root .",
+          "note": "85 rows before, 91 after, ZERO disappeared; candidates=0 explained=53 covered=23 allowed=15 missing_targets=0"
         }
       ],
-      "note": "Recorded, not fixed, by the adversarial round: a second tracked path, a sibling digest that matches, and untracking the pinned target each hide a real drift at exit 0 with NO LINE PRINTED. Each moves a denominator, which is why they were left."
+      "note": "C1, C2 and C9a fixed; C9b refused and declared as OA-pin-path-corpus. Four true positives surfaced, including e3-formal-receipt.json $.models_authored[1]: close-model.tla declared 36370b0f but is 29f1c8f1, drifted at 8f19e2b -- a commit literally titled 'fix the vacuous close invariant' that never updated the receipt attesting to it. Its sibling frame-model.tla matches and stays silent, which is the control."
     },
     {
       "id": "T-other-record-prose",
@@ -621,6 +638,20 @@
       "blocked_by": [],
       "evidence": [],
       "note": "The adversarial round defeated all three gates it touched, each with the same flaw: checking that a DECLARATION was well formed rather than that its CLAIM was still true. plan-guard was built on the opposite principle and caught a real regression on its first run, but that is not evidence it is sound. Its own stated ceiling already admits it checks that evidence HOLDS, not that it is SUFFICIENT -- the attack should measure how bad that is rather than restate it."
+    },
+    {
+      "id": "T-pin-path-corpus",
+      "title": "Decide pin-guard's path corpus (bypass C9b)",
+      "state": "blocked",
+      "depends_on": [
+        "T-pin-c1-c2-c9"
+      ],
+      "blocked_by": [
+        "OA-pin-path-corpus",
+        "OA-catalog-plane-denominator"
+      ],
+      "evidence": [],
+      "note": "Measured both widenings rather than guessing: +662 path-shaped, +26 git-ever-tracked. Deliberately not fixed."
     }
   ]
 }
