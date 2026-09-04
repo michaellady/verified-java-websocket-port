@@ -96,6 +96,24 @@
       "state": "open",
       "what_is_needed": "Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
       "why_it_blocks": "Widening moves rows onto the formal denominator's declared basis, which is already DENOMINATOR, HARD STOP. It belongs with the plane-correspondence decision the three existing hard-stop allowances wait on, and should be decided together with it."
+    },
+    {
+      "id": "OA-F018-master-nongoal",
+      "state": "open",
+      "what_is_needed": "Rule on docs/prd-pack/06a-prd-metadata-goal-through-sandbox.md:91, the master PRD nonGoal 'Do not preserve undocumented Java quirks when a declared standard or neutral suite has higher oracle priority'. Does it reach the 39 propositions evidence/oracle-hierarchy/adjudication-register.json enrols (20 governed by rank-2 Autobahn, 18 by rank-1 RFC 6455, 1 by rank-3)? If not, say whether that is because of what 'undocumented' modifies, or because a child-plane decision may amend a master-plane nonGoal.",
+      "why_it_blocks": "No owner decision in the store names the master PRD, its nonGoals or any master story (grep exits 1). The 2026-08-27 amendment is scoped to AC clauses of US-010..US-016 and a nonGoal is not an AC clause; JAVA_FAITHFUL_PLUS_SAFE carries plane 'verified-java-websocket-port-claude'. So the port's whole Java-faithful stance is compliant on one reading and forbidden on another, and nothing in the tree settles it. No port change is implied by either answer."
+    },
+    {
+      "id": "OA-F019-master-us020-ac5",
+      "state": "open",
+      "what_is_needed": "Rule on docs/prd-pack/03-master-stories-intake-lsp-protocol-labzero.md:13, master US-020 AC5. (a) Do the 52 'unresolved' dispositions count as AC5's 'unresolved' on their face, or does internal/deltaledger/definitions.go's account govern and make 45 of them AC5's 'preserve'? (b) Should AC5's 'unresolved deltas block completion' have a mechanism? It has none. (c) Sequence 53 is the only live unresolved delta citing no owner decision at all.",
+      "why_it_blocks": "The published count 52 is the criterion's number under neither reading. internal/lab/ledger.go:78-80 and internal/deltaledger/definitions.go:23-29 define the same token opposite ways. The blocking half is NOT breached on this plane (9/27, not the canonical child's 27/27), but no gate implements it, so it could not fire if this plane declared completion."
+    },
+    {
+      "id": "OA-master-prd-metadata-gap",
+      "state": "open",
+      "what_is_needed": "Supply the seven master prd.json metadata keys that the PRD pack does not reproduce, or confirm none carries a criterion constraining port behaviour. docs/prd-pack/01-structure-and-index.md declares 'metadata | object (39 keys)' and lists 32 as reproduced; 06a/06b/06c carry exactly those 32.",
+      "why_it_blocks": "The metadata half of the master-story sweep is a floor of 32/39. A criterion living in one of the seven unreproduced keys is invisible to any sweep run inside this repository, and prd.json is at HQ. This cannot be closed from here."
     }
   ],
   "nodes": [
@@ -571,16 +589,52 @@
     {
       "id": "T-sweep-master-stories",
       "title": "Sweep the master stories and PRD metadata for the F010 class",
-      "state": "ready",
+      "state": "done",
       "depends_on": [],
       "blocked_by": [],
       "evidence": [
         {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/master-story-sweep.md"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/master-story-sweep.md",
+          "pattern": "\\| \\*\\*total\\*\\* \\| \\*\\*24\\*\\* \\| \\*\\*184\\*\\* \\|"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/master-story-sweep.md",
+          "pattern": "floor of 32/39"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/findings/F018-a-master-nongoal-no-decision-reaches.md"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/findings/F019-a-criterion-hidden-behind-its-own-namesake.md"
+        },
+        {
+          "kind": "grep",
+          "path": "docs/prd-pack/06a-prd-metadata-goal-through-sandbox.md",
+          "pattern": "Do not preserve undocumented Java quirks when a declared standard or neutral suite has higher oracle priority"
+        },
+        {
+          "kind": "grep",
+          "path": "docs/prd-pack/03-master-stories-intake-lsp-protocol-labzero.md",
+          "pattern": "preserve, intentionally-correct with authoritative before-and-after evidence, or unresolved; unresolved deltas block completion"
+        },
+        {
           "kind": "command",
-          "cmd": "go run ./cmd/recordguardctl gate -root ."
+          "cmd": "go run ./cmd/recordguardctl precondition drafts/self-review/master-story-sweep.md drafts/self-review/findings/F018-a-master-nongoal-no-decision-reaches.md drafts/self-review/findings/F019-a-criterion-hidden-behind-its-own-namesake.md"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/oraclerankctl --root . && git status --porcelain"
         }
       ],
-      "note": "The story-criterion sweep covered the three child PRD parts only, and its negative is not robust to a narrower reading of the amendment than the one it used."
+      "note": "Corpus DERIVED, not read off a list: 24 master stories / 184 AC bullets over docs/prd-pack/02-05 (agrees with the PRD's own 'userStories | array (24)'), and 32 metadata sections over 06a/06b/06c -- a FLOOR, because 01-structure-and-index.md declares 39 metadata keys and only 32 are reproduced. Two findings: F018 (the master nonGoal at 06a:91 that no owner decision reaches, 39 higher-oracle overrides measured by cmd/oraclerankctl) and F019 (master US-020 AC5, hidden behind internal/ac5class which implements the CHILD's US-020 AC5). The load-bearing structural result: the 2026-08-27 amendment reaches NOTHING in this corpus, so every clearance here rests on the child-plane JAVA_FAITHFUL_PLUS_SAFE decision instead, and the narrow reading of its plane scope flips both findings."
     },
     {
       "id": "T-remaining-gates-attacked",
@@ -652,6 +706,32 @@
       ],
       "evidence": [],
       "note": "Measured both widenings rather than guessing: +662 path-shaped, +26 git-ever-tracked. Deliberately not fixed."
+    },
+    {
+      "id": "T-f018-master-nongoal-disposition",
+      "title": "Record the master nonGoal ruling once the owner gives it",
+      "state": "blocked",
+      "depends_on": [
+        "T-sweep-master-stories"
+      ],
+      "blocked_by": [
+        "OA-F018-master-nongoal"
+      ],
+      "evidence": [],
+      "note": "Whichever way OA-F018-master-nongoal is ruled, the answer belongs in F018 as an addendum and, if the nonGoal is held to reach them, in the 39 enrolled propositions' dispositions. No port byte moves either way; what moves is whether the stance is compliant or merely tolerated."
+    },
+    {
+      "id": "T-f019-ac5-vocabulary-and-mechanism",
+      "title": "Reconcile the ledger's 'unresolved' with master US-020 AC5, and decide whether its blocking rule gets a gate",
+      "state": "blocked",
+      "depends_on": [
+        "T-sweep-master-stories"
+      ],
+      "blocked_by": [
+        "OA-F019-master-us020-ac5"
+      ],
+      "evidence": [],
+      "note": "Two in-tree definitions of the same token disagree (internal/lab/ledger.go:78-80 'the decision is owed' vs internal/deltaledger/definitions.go:23-29 'deliberately retained'). Whichever the owner picks, one of those comments needs correcting, and the frozen prefix means the 45 retained records cannot be re-spelled -- so the remedy is a published mapping or a gate, not an edit."
     }
   ]
 }
