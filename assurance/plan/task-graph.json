@@ -69,9 +69,11 @@
     },
     {
       "id": "OA-catalog-plane-denominator",
-      "state": "open",
+      "state": "ruled",
       "what_is_needed": "The catalog plane-correspondence decision. Three denominator_basis pins name anchor 1ff89fa, which is not an ancestor of HEAD -- it exists only on read-only codex/race-catchup.",
-      "why_it_blocks": "A DENOMINATOR. A hard stop: never re-baselined from inside the loop."
+      "why_it_blocks": "A DENOMINATOR. A hard stop: never re-baselined from inside the loop.",
+      "ruled_at": "2026-09-04",
+      "ruling": "BRING THE BASIS ARTIFACTS ONTO THIS LINE. Copy the artifacts anchored at 1ff89fa into this plane and re-anchor the three denominator_basis pins to a commit that IS an ancestor of HEAD. This moves the formal denominator's declared basis, so the before/after must be REPORTED side by side and never absorbed silently."
     },
     {
       "id": "OA-pr4-fast-forward",
@@ -83,9 +85,11 @@
     },
     {
       "id": "OA-pr1-disposition",
-      "state": "open",
+      "state": "ruled",
       "what_is_needed": "Decide PR #1's fate. Its head shares no common ancestor with the live line and is superseded, not stranded (F015).",
-      "why_it_blocks": "Two draft PRs into an empty main with nothing saying which line is live."
+      "why_it_blocks": "Two draft PRs into an empty main with nothing saying which line is live.",
+      "ruled_at": "2026-09-04",
+      "ruling": "CLOSE PR #1 with a comment recording why: the symbol-set comparison (all 8 sbx paths present here; sbx_adapter.go declares all 14 of its exported symbols plus 11 more; comm -23 empty), and PR #5 named as the live line. Superseded, not stranded."
     },
     {
       "id": "OA-drive-until-open-branch",
@@ -98,8 +102,8 @@
     {
       "id": "OA-pin-path-corpus",
       "state": "open",
-      "what_is_needed": "Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
-      "why_it_blocks": "Widening moves rows onto the formal denominator's declared basis, which is already DENOMINATOR, HARD STOP. It belongs with the plane-correspondence decision the three existing hard-stop allowances wait on, and should be decided together with it."
+      "what_is_needed": "DEFERRED BY THE OWNER on 2026-09-04, deliberately and not by neglect: decide this WITH OA-catalog-plane-denominator, not separately. Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
+      "why_it_blocks": "Held until OA-catalog-plane-denominator is executed. The +26 widening's 24 rows land on the formal denominator's declared basis, and that decision MOVES that basis -- so measuring the widening now would measure it against a basis about to change. Re-measure both widenings after the basis moves, against the new one."
     },
     {
       "id": "OA-governance-mirror-coverage",
@@ -579,7 +583,7 @@
     {
       "id": "T-denominator-basis",
       "title": "Three denominator_basis pins whose anchor is not an ancestor of HEAD",
-      "state": "blocked",
+      "state": "ready",
       "depends_on": [],
       "blocked_by": [
         "OA-catalog-plane-denominator"
@@ -600,7 +604,7 @@
     {
       "id": "T-pr1",
       "title": "PR #1: decide the superseded parallel line",
-      "state": "blocked",
+      "state": "ready",
       "depends_on": [],
       "blocked_by": [
         "OA-pr1-disposition"
