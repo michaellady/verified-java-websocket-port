@@ -837,7 +837,7 @@
     {
       "id": "T-drive-until-open",
       "title": "Rule on the second adapter-side protocol branch the detector found",
-      "state": "ready",
+      "state": "done",
       "story": "US-018",
       "depends_on": [
         "T-F016-gate"
@@ -845,8 +845,28 @@
       "blocked_by": [
         "OA-drive-until-open-branch"
       ],
-      "evidence": [],
-      "note": "Declared in the allowance list with its entry saying it is UNRULED, rather than borrowing server_closes_transport's ruling. The detector found it on its first real run against shipped code."
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "OWNER RULING \\(OA-drive-until-open-branch, 2026-09-04\\)"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/rustgatectl/protocol_branch.go"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/rustgatectl -root .",
+          "note": "ac1-gates 8/8 on the committed tree at 0fb75f8"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "second at :950"
+        }
+      ],
+      "note": "Declared in the allowance list with its entry saying it is UNRULED, rather than borrowing server_closes_transport's ruling. The detector found it on its first real run against shipped code. | DONE: applied during the US-019 landing, because the merge rewrote the file the allowance fingerprints and the branch moved from :745 to :831 -- found by its code, not its line number. The placeholder is gone from the tree; a grep_absent for NOT RULED ON is part of the evidence so it cannot come back unnoticed. The second site the merge introduced is NOT covered by this ruling and is OA-drive-until-open-second-site. | My first evidence item here was WRONG and plan-guard refused it: I claimed grep_absent on \"NOT RULED ON\", and the phrase legitimately survives inside the new reason text, which says the entry \"now records that ruling instead of NOT RULED ON\". An absence claim about a string that the fix itself quotes is exactly the kind of evidence that reads true and is false. Replaced with a grep for the second site's disclosure, which is a positive fact about the fixed file."
     },
     {
       "id": "T-plan-guard-attacked",
@@ -1340,6 +1360,15 @@
         }
       ],
       "note": "Reported, not absorbed. Both sites live in one function and adapter-linkage pins an allowance to the function's normalized token stream, so declaring the ruled site declares this one too. That is the gate's design, not a widening chosen here, and it is written into the allowance's own reason."
+    },
+    {
+      "id": "T-held-draft-population",
+      "title": "Derive the held-draft population and declare legacy-13's exemption",
+      "state": "ready",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [],
+      "note": "OA-held-draft-legacy-13 was RULED and had no node blocked on it, so the ruling had nowhere to be done -- a decision with no work item is how an answered question quietly stops being acted on. The ruling: derive VerifyProposalDraftsAreLedgered's population from the directory rather than the hardcoded list of seven, and carry legacy-13-bare-lf-server-basis-correction.json as a DECLARED EXEMPTION with a staleness check, in the shape this repository already uses four times. Explicitly NOT by appending to the ledger to make it green. Eleven drafts exist; the seven listed are each genuinely ledgered and three of the four unlisted are not record proposals by the rule's own reader."
     }
   ],
   "owner_actions": [
