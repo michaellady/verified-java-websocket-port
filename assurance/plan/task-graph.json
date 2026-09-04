@@ -748,7 +748,7 @@
     },
     {
       "id": "T-remaining-gates-attacked",
-      "title": "Adversarially attack the five gates the review did not reach",
+      "title": "Adversarially attack the five gates the review did not reach (four attacked; oracle-hierarchy sampled)",
       "state": "done",
       "depends_on": [
         "T-record-guard-escapes",
@@ -839,7 +839,7 @@
           "pattern": "non-path dependencies"
         }
       ],
-      "note": "Round 3 attacked ledger-gates, oracle-hierarchy-gates, the ac1-gates members round 2 only read, the four Rust gates and fixture-guard's residual. ac1-gates fell 7 ways, ledger-gates 2, the Rust test targets 1, fixture-guard 2. Fixed in place and each fix carries a deletion attack. The frozen ledger prefix and the oracle adjudication both held under attack. Three residues are owner actions because closing them moves or creates a denominator. | Integrator addendum: A7's fix widened externalDependencies() to COUNT path-vendored packages (the old code skipped any package whose cargo `source` was empty, which is every path dep) but left all six message sites calling the set 'non-path dependencies' -- a noun that now asserts the opposite of what is counted, and one of the six is load-bearing: it is the FAIL branch that fires when dependencies exist and no audit tool does. Renamed to 'out-of-workspace dependencies'. Verified the license fix independently rather than from the report: the control is ac1-gates 8/8, a LICENSE reading 'This software is NOT distributed under the Apache License, Version 2.0' -- which satisfies the old Contains && Contains predicate by inspection -- now FAILS naming both the digest mismatch and the missing clause, and the restored tree is 8/8 again. Round 3's correction of round 2's forbid count re-derived here too: 32 test roots, `grep -l` finds 9, and two of the nine (scaffold_smoke.rs:41, protocol.rs:488) are DOC COMMENTS quoting the attribute, so 7 is right."
+      "note": "Round 3 attacked ledger-gates, oracle-hierarchy-gates, the ac1-gates members round 2 only read, the four Rust gates and fixture-guard's residual. ac1-gates fell 7 ways, ledger-gates 2, the Rust test targets 1, fixture-guard 2. Fixed in place and each fix carries a deletion attack. The frozen ledger prefix and the oracle adjudication both held under attack. Three residues are owner actions because closing them moves or creates a denominator. | Integrator addendum: A7's fix widened externalDependencies() to COUNT path-vendored packages (the old code skipped any package whose cargo `source` was empty, which is every path dep) but left all six message sites calling the set 'non-path dependencies' -- a noun that now asserts the opposite of what is counted, and one of the six is load-bearing: it is the FAIL branch that fires when dependencies exist and no audit tool does. Renamed to 'out-of-workspace dependencies'. Verified the license fix independently rather than from the report: the control is ac1-gates 8/8, a LICENSE reading 'This software is NOT distributed under the Apache License, Version 2.0' -- which satisfies the old Contains && Contains predicate by inspection -- now FAILS naming both the digest mismatch and the missing clause, and the restored tree is 8/8 again. Round 3's correction of round 2's forbid count re-derived here too: 32 test roots, `grep -l` finds 9, and two of the nine (scaffold_smoke.rs:41, protocol.rs:488) are DOC COMMENTS quoting the attribute, so 7 is right. | TITLE NARROWED at the 08:22 heartbeat, because the node claimed more than its own record establishes. Round 3 attacked ac1-gates (seven bypasses), ledger-gates (two, plus a serious frozen-prefix attempt that HELD), the Rust test targets and fixture-guard. It did NOT attack oracle-hierarchy-gates in any real sense -- its own section 8 says 'one evidence probe in two polarities and a reading of four files' -- and it lists eight ledger-gates rules it never touched, and says fmt-check and clippy were 'run, not attacked'. Marking that done over all five is exactly the sufficiency gap plan-guard's ceiling admits it cannot catch: the cited evidence HOLDS, and is weaker than the claim. Residue carried by T-gates-residue-attacked."
     },
     {
       "id": "T-us019-survivors-open",
@@ -1084,6 +1084,17 @@
       ],
       "evidence": [],
       "note": "Round 4 reported 110 `if` conditions across its four files. A go/ast enumeration of those same files returns 111 -- baseline.go 43, independence.go 16, reconcile.go 27, suite.go 25 -- which I re-derived independently of the report that raised it, getting the same total and the same per-file split. Round 4's enumerator was .sweep/mutate.py, which f9b9520 GITIGNORED, so its 110 cannot be re-derived by anyone. Round 4's numbers are left exactly as recorded and nothing was re-baselined. The lesson is the deleted derivation, not the off-by-one: a measurement whose enumerator is gone is a number no one can check, and this repository's own graph note still recites 70 of 110 on mainline."
+    },
+    {
+      "id": "T-gates-residue-attacked",
+      "title": "The gate surface three rounds left unattacked, named by the rounds themselves",
+      "state": "ready",
+      "depends_on": [
+        "T-remaining-gates-attacked"
+      ],
+      "blocked_by": [],
+      "evidence": [],
+      "note": "Not blocked by anything and not invented: every item is quoted from round 3's own section 8. (1) oracle-hierarchy-gates is the ONLY gate nobody has defeated, and the reason is that nobody has really tried -- 'one evidence probe in two polarities and a reading of four files'. Untouched: the join-degeneracy and collision analyses, the independence probe, the neutral derivation, and the 488 rank-two propositions. Given that every gate anyone has attacked in three rounds has fallen, 'undefeated' here means 'unexamined', and the record says so. (2) Eight ledger-gates rules were never attacked: observation provenance, the handshake mapping census, the protocol-rejection class, the supersession rules, VerifyAdjudication, the held proposal drafts, the corpora re-derivation, and the live-mapping source binding. (3) fmt-check and clippy were run, not attacked. A fourth item is recorded as UNREACHABLE rather than unattacked and should not be re-attempted blindly: the unsafe_usage prose has zero inventory entries, and creating one needs either network egress or the vendored path dependency that A7's fix now refuses first -- so a reviewed entry claiming 'no unsafe' for a crate full of it would still pass, and nothing here can demonstrate it."
     }
   ]
 }
