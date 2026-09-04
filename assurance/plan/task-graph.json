@@ -1,0 +1,558 @@
+{
+  "schema_version": "1.0.0",
+  "statement": "The work plan, as data with a gate, replacing the prose board's 'read it and pick one bounded unit'. Every done node cites evidence this gate RE-DERIVES on each run; a done node whose only evidence is a command nobody runs is UNVERIFIABLE_DONE and fails. Readiness and blockage are recomputed, never read: a node cannot be ready while a dependency is unfinished or an owner action it names is open, and it cannot stay blocked once every owner action it names is ruled. That last rule exists because a ruling arrives from OUTSIDE this file and nothing here would otherwise notice.",
+  "ceiling": "This gate checks the plan's INTERNAL consistency and that each done node's cited evidence still holds. It does NOT check that the evidence is SUFFICIENT for the claim -- a node may cite a weak-but-true fact and pass. It does not discover work: a task nobody wrote down is invisible here, so the graph is a floor on what remains, never a total. And `command` evidence is recorded but never verified, deliberately, so it cannot masquerade as a checked claim.",
+  "owner_actions": [
+    {
+      "id": "OA-F010-AC2-banner",
+      "state": "ruled",
+      "what_is_needed": "Confirm the 2026-08-27 amendment's 'every AC clause' reaches US-011 AC2's banner clause.",
+      "ruled_at": "2026-09-04",
+      "ruling": "CONFIRMED: it reaches it. DIV-06 emitting Date and Server: TooTallNate Java-WebSocket is compliance, not violation. Grounded in us010-016-ac-amendment-owner-decision-2026-08-27.json (sha256 26849b5e...) and us009-us008-owner-decisions-2026-08-27.json key us009_normativity (JAVA_FAITHFUL_PLUS_SAFE)."
+    },
+    {
+      "id": "OA-F016-placement",
+      "state": "ruled",
+      "what_is_needed": "Decide whether server_closes_transport(role, state) belongs in the adapter.",
+      "ruled_at": "2026-09-04",
+      "ruling": "KEEP THE PLACEMENT, FIX THE GATE. io_loop.rs argues the transport/protocol split explicitly and cites Java's own structure; the defect is that the architecture gate cannot see the shape."
+    },
+    {
+      "id": "OA-jdk-vendor",
+      "state": "ruled",
+      "what_is_needed": "internal/portplan byte-compares a regenerated oracle report against one recording jdk_vendor 'Homebrew'; a Linux Temurin regeneration differs in that one line, all 969 declarations identical.",
+      "ruled_at": "2026-09-04",
+      "ruling": "MAKE THE CHECK VENDOR-AGNOSTIC."
+    },
+    {
+      "id": "OA-ledger-58-disposition",
+      "state": "ruled",
+      "what_is_needed": "Ledger sequence 58 reads disposition=unresolved, appended as 'facts decided, disposition owed'.",
+      "ruled_at": "2026-09-04",
+      "ruling": "adopt-java, with mismatch_class staying underspecified-behavior."
+    },
+    {
+      "id": "OA-autobahn-archive",
+      "state": "open",
+      "what_is_needed": "The pinned Autobahn source archive. Its GitHub URL 403s through this proxy; place the file where the session can reach it.",
+      "why_it_blocks": "US-019 finding 7 cannot close and the AC4 discrimination runs cannot be prepared without it."
+    },
+    {
+      "id": "OA-autobahn-reruns",
+      "state": "open",
+      "what_is_needed": "Autobahn re-runs of the 247-case manifest. The loop never triggers these.",
+      "why_it_blocks": "Closes ledger 51/52, settles DIV-02/03/05/07, completes US-019 AC4."
+    },
+    {
+      "id": "OA-macos-arm64-host",
+      "state": "open",
+      "what_is_needed": "A macOS arm64 host. internal/lab's CONTROLLED_CANARY needs Darwin sandbox-exec; it is PLATFORM_EXECUTOR_UNSUPPORTED on Linux.",
+      "why_it_blocks": "One of the two Go-suite exclusions, and US-018 AC2's macOS leg."
+    },
+    {
+      "id": "OA-aws-benchmark-host",
+      "state": "open",
+      "what_is_needed": "The AWS benchmark run for US-008/US-009. Triggered ONLY by adding a label to a PR, which provisions a host at roughly $4/hour. The loop never labels.",
+      "why_it_blocks": "US-008's confirmation numbers do not exist without it."
+    },
+    {
+      "id": "OA-docker-sbx-replay",
+      "state": "open",
+      "what_is_needed": "The Docker sbx replay for child US-009 AC1.",
+      "why_it_blocks": "US-009 AC1 cannot close."
+    },
+    {
+      "id": "OA-F014-code-binding",
+      "state": "open",
+      "what_is_needed": "test-manifest.json's execution_code_binding pins two internal/lab sources whose bytes have moved: re-run the authoritative run, or stop calling it a binding.",
+      "why_it_blocks": "Two of pin-guard's eleven declared allowances are this finding."
+    },
+    {
+      "id": "OA-catalog-plane-denominator",
+      "state": "open",
+      "what_is_needed": "The catalog plane-correspondence decision. Three denominator_basis pins name anchor 1ff89fa, which is not an ancestor of HEAD -- it exists only on read-only codex/race-catchup.",
+      "why_it_blocks": "A DENOMINATOR. A hard stop: never re-baselined from inside the loop."
+    },
+    {
+      "id": "OA-pr4-fast-forward",
+      "state": "open",
+      "what_is_needed": "Fast-forward PR #4 to claude/us019-survivor-closure-2 at f9b9520, which is strictly ahead of its head.",
+      "why_it_blocks": "PR #4 is not landable on its own terms and its base is stale."
+    },
+    {
+      "id": "OA-pr1-disposition",
+      "state": "open",
+      "what_is_needed": "Decide PR #1's fate. Its head shares no common ancestor with the live line and is superseded, not stranded (F015).",
+      "why_it_blocks": "Two draft PRs into an empty main with nothing saying which line is live."
+    }
+  ],
+  "nodes": [
+    {
+      "id": "T-record-guard",
+      "title": "record-guard: refuse a landing whose self-review record is still a stub",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "(?m)^gates:.*record-guard"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/main.go"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust record-guard"
+        }
+      ],
+      "note": "Its disclosed ceiling was measured by an adversarial round and held: strip the self-declarations from all six historical stubs and 1 of 6 is still caught."
+    },
+    {
+      "id": "T-record-guard-escapes",
+      "title": "record-guard: close the unpaired-delimiter and backticked-status escapes",
+      "state": "done",
+      "depends_on": [
+        "T-record-guard"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/testdata/synthetic/unpaired-delimiter.md"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./cmd/recordguardctl/"
+        }
+      ],
+      "note": "One stray unpaired quote made the div05 stub -- the document this gate exists to refuse -- pass at exit 0. And backticked STATUS passed while plain STATUS was refused: anti-correlated with honesty."
+    },
+    {
+      "id": "T-go-suite",
+      "title": "go-suite: run the Go packages inside gates, with exclusions declared",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "(?m)^gates:.*go-suite"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/gosuitectl/main.go"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/gosuitectl/main.go",
+          "pattern": "EXCLUSION_NO_LONGER_FAILS"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust go-suite"
+        }
+      ],
+      "note": "Each exclusion is now RUN and its failure quoted. Also discloses that of 59 run packages only 44 carry a test file and 5 test files are not compiled."
+    },
+    {
+      "id": "T-pin-guard",
+      "title": "pin-guard: a drifted digest pin fails on the run it appears",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "(?m)^gates:.*pin-guard"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/pinconsumerctl/main.go",
+          "pattern": "STALE_ALLOWANCE"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust pin-guard"
+        }
+      ],
+      "note": "Eleven genuinely drifted pins are declared, each pinned to its own declared digest. The allowance list resisted every attack in the adversarial round, because it re-derives."
+    },
+    {
+      "id": "T-task-graph",
+      "title": "task-graph: the plan as data, with a gate that re-derives every done node",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "assurance/plan/task-graph.json"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/taskgraphctl/main.go"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/taskgraphctl/main.go",
+          "pattern": "UNVERIFIABLE_DONE"
+        },
+        {
+          "kind": "command",
+          "cmd": "make -C rust plan-guard"
+        }
+      ]
+    },
+    {
+      "id": "T-F011-quarantine",
+      "title": "F011: untrack the self-referential .quarantine symlink",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "git_not_tracked",
+          "path": ".quarantine"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/findings/F011-a-diff-claim-checked-on-one-axis-and-false-on-another.md"
+        }
+      ],
+      "note": "A tracked path overrides .gitignore, so the directory could never exist and nothing could be written into it. This is why the quarantine was empty -- not the proxy refusal I had recorded."
+    },
+    {
+      "id": "T-committed-binary",
+      "title": "Remove the 3.9 MiB pinconsumerctl binary I committed",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "git_not_tracked",
+          "path": "pinconsumerctl"
+        },
+        {
+          "kind": "grep",
+          "path": ".gitignore",
+          "pattern": "(?m)^/pinconsumerctl$"
+        }
+      ]
+    },
+    {
+      "id": "T-plane-citation",
+      "title": "Repair the plane-correspondence citations DIV-05 moved",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "assurance/formal/plane-correspondence.json",
+          "pattern": "\"nearest_declaration_line\": 1003"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./internal/formalcoverage/ ./cmd/formalcoverctl/"
+        }
+      ]
+    },
+    {
+      "id": "T-record-prose-bound",
+      "title": "Bind a landing record's prose to the document it cites",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "internal/normcollide/recordbounds.go"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/normalization-collision-audit.md",
+          "pattern": "29 distinct scored observations"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./internal/normcollide/"
+        }
+      ],
+      "note": "F017: my polarity test bound audit.json's value to the census and said nothing about the sentence quoting it, which still read 26."
+    },
+    {
+      "id": "T-legacy-19",
+      "title": "Legacy record 19: answer its blocking question by executing it",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "evidence/java/observations/legacy-19-highbit64-response.jsonl"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/java/observations/legacy-19-highbit64-response.jsonl",
+          "pattern": "\"close_code\": ?1009"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/deltaledgerctl --root . --check"
+        }
+      ],
+      "note": "Marked OWNER ACTION only because the quarantine could not hold the jar (F011). Pinned Java answers 1009, not the RFC's 1002. Not a hang -- a typed rejection."
+    },
+    {
+      "id": "T-handshake-ceiling",
+      "title": "Raise the handshake discrimination ceiling from 26 to 29 of 49",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "evidence/normalization-collisions/audit.json",
+          "pattern": "\"handshake_distinct_scored_observations\": ?29"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./internal/normcollide/"
+        }
+      ],
+      "note": "49/49 certifies at most 29 distinguishable answers. 23 cases share one; largest class 10."
+    },
+    {
+      "id": "T-jdk-vendor-agnostic",
+      "title": "Make the jdk_vendor comparison vendor-agnostic and drop portplan's exclusion",
+      "state": "in-progress",
+      "story": "US-018",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-jdk-vendor"
+      ],
+      "evidence": [
+        {
+          "kind": "command",
+          "cmd": "go test -timeout 40m ./internal/portplan/",
+          "note": "must pass on a vendor-only difference and still fail on any other single line"
+        }
+      ]
+    },
+    {
+      "id": "T-F016-gate",
+      "title": "Make the architecture gate detect adapter-side branching on core protocol state",
+      "state": "in-progress",
+      "story": "US-018",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-F016-placement"
+      ],
+      "evidence": [
+        {
+          "kind": "command",
+          "cmd": "make -C rust ac1-gates",
+          "note": "a seeded match on (Role, ReadyState) must FAIL; the declared instance must PASS; the declaration must FAIL when the instance is removed"
+        }
+      ]
+    },
+    {
+      "id": "T-ledger-58",
+      "title": "Supersede ledger sequence 58 with disposition adopt-java",
+      "state": "in-progress",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-ledger-58-disposition",
+        "OA-F010-AC2-banner"
+      ],
+      "evidence": [
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/deltaledgerctl --root . --check"
+        }
+      ]
+    },
+    {
+      "id": "T-us019-ac4",
+      "title": "US-019 AC4: no-echo and opcode-swap discrimination",
+      "state": "blocked",
+      "story": "US-019",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-autobahn-reruns"
+      ],
+      "evidence": [],
+      "note": "Incomplete at 66/247 and 181/247; discrimination OUTSTANDING."
+    },
+    {
+      "id": "T-us019-finding7",
+      "title": "US-019 finding 7: bind the manifest to the pinned Autobahn source",
+      "state": "blocked",
+      "story": "US-019",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-autobahn-archive"
+      ],
+      "evidence": [],
+      "note": "NARROWED, not closed. Both closure routes measured shut: archive HTTP 403, provenance commit absent."
+    },
+    {
+      "id": "T-us018-macos",
+      "title": "US-018 AC2: the macOS arm64 leg",
+      "state": "blocked",
+      "story": "US-018",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-macos-arm64-host"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "T-us008-confirmation",
+      "title": "US-008: benchmark confirmation numbers",
+      "state": "blocked",
+      "story": "US-008",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-aws-benchmark-host"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "T-us009-ac1-sbx",
+      "title": "US-009 AC1: Docker sbx replay",
+      "state": "blocked",
+      "story": "US-009",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-docker-sbx-replay"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "T-F014",
+      "title": "F014: the code binding verified against a copy of itself",
+      "state": "blocked",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-F014-code-binding"
+      ],
+      "evidence": [],
+      "note": "Fixing it requires deleting its two pin-guard allowances in the same commit, or the gate fails as STALE_ALLOWANCE. That is deliberate."
+    },
+    {
+      "id": "T-denominator-basis",
+      "title": "Three denominator_basis pins whose anchor is not an ancestor of HEAD",
+      "state": "blocked",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-catalog-plane-denominator"
+      ],
+      "evidence": [],
+      "note": "A DENOMINATOR. Hard stop -- never re-baselined from inside the loop."
+    },
+    {
+      "id": "T-pr4",
+      "title": "PR #4: fast-forward to the completed survivor round",
+      "state": "blocked",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-pr4-fast-forward"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "T-pr1",
+      "title": "PR #1: decide the superseded parallel line",
+      "state": "blocked",
+      "depends_on": [],
+      "blocked_by": [
+        "OA-pr1-disposition"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "T-pin-c1-c2-c9",
+      "title": "pin-guard C1/C2/C9: three silent bypasses that move a census denominator",
+      "state": "ready",
+      "depends_on": [
+        "T-pin-guard"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/pinconsumerctl dangling -root ."
+        }
+      ],
+      "note": "Recorded, not fixed, by the adversarial round: a second tracked path, a sibling digest that matches, and untracking the pinned target each hide a real drift at exit 0 with NO LINE PRINTED. Each moves a denominator, which is why they were left."
+    },
+    {
+      "id": "T-other-record-prose",
+      "title": "Bind the remaining records' prose to the documents they cite",
+      "state": "ready",
+      "depends_on": [
+        "T-record-prose-bound"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "command",
+          "cmd": "go test ./internal/normcollide/"
+        }
+      ],
+      "note": "recordbounds binds ONE record. Every other record's prose in the tree is pinned to nothing -- stated as that work's own ceiling."
+    },
+    {
+      "id": "T-sweep-master-stories",
+      "title": "Sweep the master stories and PRD metadata for the F010 class",
+      "state": "ready",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/recordguardctl gate -root ."
+        }
+      ],
+      "note": "The story-criterion sweep covered the three child PRD parts only, and its negative is not robust to a narrower reading of the amendment than the one it used."
+    },
+    {
+      "id": "T-remaining-gates-attacked",
+      "title": "Adversarially attack the five gates the review did not reach",
+      "state": "ready",
+      "depends_on": [
+        "T-record-guard-escapes",
+        "T-go-suite",
+        "T-pin-guard"
+      ],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "command",
+          "cmd": "make -C rust gates"
+        }
+      ],
+      "note": "The round covered record-guard, go-suite and pin-guard. fixture-guard, ledger-gates, oracle-hierarchy-gates, ac1-gates and plan-guard are unattacked. All three it touched fell."
+    },
+    {
+      "id": "T-us019-survivors-open",
+      "title": "Close the survivor-sweep residue that remains open",
+      "state": "ready",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "command",
+          "cmd": "go test -timeout 40m ./internal/autobahnsuite/"
+        }
+      ],
+      "note": "64 of 70 closed, 6 proved unreachable. 70 is a FLOOR: switch arms, all Rust-side checks, and conjuncts inside composite booleans were never swept."
+    }
+  ]
+}

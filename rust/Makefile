@@ -4,9 +4,9 @@
 # The root Makefile is intentionally untouched; wiring these targets into the
 # root build is a follow-up owned by the pipeline stories.
 
-.PHONY: gates fmt-check clippy fixture-guard record-guard pin-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
+.PHONY: gates fmt-check clippy fixture-guard record-guard pin-guard plan-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
-gates: fmt-check clippy fixture-guard record-guard pin-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
+gates: fmt-check clippy fixture-guard record-guard pin-guard plan-guard go-suite test test-release ac1-gates ledger-gates oracle-hierarchy-gates
 
 fmt-check:
 	cargo fmt --all -- --check
@@ -81,6 +81,26 @@ fixture-guard:
 #     records extracted verbatim from git — the div05 stub at blob 359940cd
 #     among them — printing what fired and the sentence it was read from, and
 #     refusing to PASS if it read no records at all.
+# The work plan, as data rather than prose.
+#
+# What this replaces read a markdown board and picked "one bounded unit" per
+# firing. The one-unit rule was ignored every firing, priorities were re-derived
+# from prose each time, and blocked-versus-ready lived only in whoever was
+# reading. A prose plan also ROTS: `normalization-collision-audit.md` stated 26
+# distinct observations while the artifact it cited measured 29, for hours,
+# because nothing read the prose.
+#
+# So the plan is checked. Dangling references and cycles fail; readiness is
+# recomputed rather than read; a node cannot stay blocked once every owner action
+# it names is ruled (the state an outside ruling silently invalidates); and --
+# the load-bearing rule -- a `done` node must cite evidence this gate RE-DERIVES,
+# not merely name some. `command` evidence is recorded and never counted, so it
+# cannot masquerade as a verified claim. On its first run this gate caught F011's
+# `.quarantine` symlink tracked again, re-added by an agent's `git add -A`.
+plan-guard:
+	cd .. && go test -count=1 ./cmd/taskgraphctl/
+	cd .. && go run ./cmd/taskgraphctl -root .
+
 # Digest pins that name a file whose bytes have moved.
 #
 # This census was INFORMATIONAL until now: `dangling` exited 1 with eleven rows

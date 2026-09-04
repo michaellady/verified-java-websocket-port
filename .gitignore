@@ -28,6 +28,12 @@ rust/**/target/
 # Quarantined upstream inputs. The Java-WebSocket archive is digest-pinned in
 # evidence/intake/source-pins.json and re-acquired on demand; it is never committed.
 .quarantine/
+# ...and the bare path, because `.quarantine/` matches a DIRECTORY only. Agents
+# isolate by symlinking .quarantine into their worktree, and `git add -A` then
+# stages the SYMLINK -- which is how F011's self-referential link was committed,
+# and how it came BACK at f26e062 after being removed. A tracked path overrides
+# .gitignore, so the directory can never exist and nothing can be written into it.
+.quarantine
 java-semantic-oracle/build/
 /terraform/bootstrap/.terraform/
 /terraform/bootstrap/.terraform.lock.hcl
@@ -68,3 +74,4 @@ java-semantic-oracle/build/
 /stressrepeatctl
 /tlcdriver
 /pinconsumerctl
+/.gates-run.log

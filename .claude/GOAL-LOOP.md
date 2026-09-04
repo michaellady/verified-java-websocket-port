@@ -331,7 +331,30 @@ record exactly which owner or independent step remains.
 If GitHub tooling is unavailable in a firing, push the branch and record the
 PR-to-open in the log; never block the work on it.
 
-## Priority queue (ordered; each firing takes the first item whose preconditions hold)
+## Priority queue — SUPERSEDED 2026-09-04 by `assurance/plan/task-graph.json`
+
+**Do not take work from the list below.** The owner replaced the prose board with
+a checked plan on 2026-09-04. Work comes from `ready` nodes in
+`assurance/plan/task-graph.json`, read with `go run ./cmd/taskgraphctl -root .`
+and enforced by `plan-guard` in the gates chain.
+
+Why it moved, from this file's own iteration log: the "ONE bounded unit per
+firing" rule was ignored every firing; priorities were re-derived from prose each
+time; blocked-versus-ready lived only in whoever was reading; and prose ROTS —
+`normalization-collision-audit.md` stated 26 distinct observations while the
+artifact it cited measured 29, for hours, because nothing read the prose. This
+file is that same file class.
+
+**THIS FILE REMAINS THE SOURCE OF TRUTH FOR CONVENTIONS** — the validation
+contract, the ceilings that must never be stated bare, the sanctioned
+regeneration flags, the owner-gate rules, the worktree and `.quarantine`
+discipline, and the iteration log. Read it for those. The queue below is kept as
+history, not as instruction.
+
+<details>
+<summary>Historical priority queue (superseded; do not action)</summary>
+
+
 
 - **P0 Environment proof: DONE (iterations 1 to 3, 2026-09-02).** Public
   differential port 74/74, live Java 74/74; handshake exam port 49/49 and live
@@ -460,6 +483,8 @@ PR-to-open in the log; never block the work on it.
   publication and signing are owner gates; the Java/refinement side of the
   24-obligation denominator and the five remaining Rust/mutation obligations
   are where this plane can move the number.
+
+</details>
 
 ## Story board (titles from the child PRD index in `docs/prd-pack/01-structure-and-index.md`)
 
