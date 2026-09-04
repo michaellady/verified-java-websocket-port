@@ -57,15 +57,13 @@ func inRegions(off int, regions []region) bool {
 func cfgTestRegions(masked string) ([]region, []string) {
 	var out []region
 	var gaps []string
-	needle := "#[cfg(test)]"
 	from := 0
 	for {
-		idx := strings.Index(masked[from:], needle)
-		if idx < 0 {
+		at, after, ok := nextCfgTestAttribute(masked, from)
+		if !ok {
 			return out, gaps
 		}
-		at := from + idx
-		from = at + len(needle)
+		from = after
 		if name, ok := bodylessModule(masked, from); ok {
 			gaps = append(gaps, fmt.Sprintf(
 				"declares `mod %s;` with no inline body: the fixture code is in %s.rs or "+
@@ -73,7 +71,7 @@ func cfgTestRegions(masked string) ([]region, []string) {
 					"never scanned", name, name, name))
 			continue
 		}
-		open, ok := nextBrace(masked, at+len(needle))
+		open, ok := nextBrace(masked, after)
 		if !ok {
 			gaps = append(gaps, fmt.Sprintf(
 				"no module body found within %d bytes of a #[cfg(test)] at offset %d, so "+
@@ -88,6 +86,129 @@ func cfgTestRegions(masked string) ([]region, []string) {
 		}
 		out = append(out, region{start: open, end: end})
 		from = end
+	}
+}
+
+// nextCfgTestAttribute finds the next TEST-GATING cfg attribute at or after
+// `from`, returning the offset of its `#` and the offset just past its `]`.
+//
+// ROUND 3, ATTACKS F-R2 AND F-R3. This scan used to be
+// `strings.Index(masked, "#[cfg(test)]")` -- one spelling, matched as bytes.
+// Two files placed in rust/ws-core/src/, each carrying a count-shaped
+// liveness guard of exactly the shape this tool exists to refuse, were both
+// skipped WHOLE at exit 0 with the census line byte-identical to the clean
+// tree (`files=49 loops=310 violations=0 unscanned=0`):
+//
+//	#[cfg(all(test, not(miri)))]   mod tests { ... }
+//	#[cfg( test )]                 mod tests { ... }
+//
+// Worse than the H2 case round 2 closed: H2 at least produced an `unscanned=`
+// gap, because the needle had matched and only the BODY was unreachable.
+// Here the needle never matched, so the gap list -- which is keyed on it --
+// had nothing to report, and `if len(regions) == 0 { return nil }` in the
+// caller dropped the file in silence.
+//
+// So the attribute is recognised by what it MEANS. Any `#[cfg(...)]` whose
+// predicate names the bare identifier `test` gates test-only code.
+//
+// CEILING, stated rather than guarded: `#[cfg(not(test))]` names `test` and
+// means production, so it is excluded by name; and `#[cfg_attr(test, ...)]`
+// is not a cfg gate on an item and is not recognised. Every one of the 16
+// cfg-test attributes under rust/ today is the plain `#[cfg(test)]` on a
+// `mod` line, so neither edge is exercised by this tree.
+func nextCfgTestAttribute(masked string, from int) (int, int, bool) {
+	for i := from; i < len(masked); {
+		idx := strings.Index(masked[i:], "#[")
+		if idx < 0 {
+			return 0, 0, false
+		}
+		at := i + idx
+		open := at + 1 // the '['
+		end, ok := matchBracket(masked, open)
+		if !ok {
+			return 0, 0, false
+		}
+		body := masked[open+1 : end-1]
+		if cfgPredicateGatesTest(body) {
+			return at, end, true
+		}
+		i = at + 2
+	}
+	return 0, 0, false
+}
+
+// matchBracket returns the index just past the `]` matching the `[` at open.
+func matchBracket(masked string, open int) (int, bool) {
+	depth := 0
+	for i := open; i < len(masked); i++ {
+		switch masked[i] {
+		case '[':
+			depth++
+		case ']':
+			depth--
+			if depth == 0 {
+				return i + 1, true
+			}
+		}
+	}
+	return 0, false
+}
+
+// cfgPredicateGatesTest reports whether an attribute body is a `cfg(...)`
+// whose predicate names the bare identifier `test` outside a `not(...)`.
+func cfgPredicateGatesTest(body string) bool {
+	trimmed := strings.TrimSpace(body)
+	if !strings.HasPrefix(trimmed, "cfg") {
+		return false
+	}
+	rest := strings.TrimSpace(trimmed[len("cfg"):])
+	if !strings.HasPrefix(rest, "(") {
+		return false
+	}
+	// `feature = "test"` must not count, so string literals are removed
+	// before the identifier search.
+	var stripped strings.Builder
+	inString := false
+	for i := 0; i < len(rest); i++ {
+		c := rest[i]
+		if inString {
+			if c == '\\' {
+				i++
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		if c == '"' {
+			inString = true
+			continue
+		}
+		stripped.WriteByte(c)
+	}
+	predicate := stripped.String()
+	if strings.Contains(strings.ReplaceAll(strings.ReplaceAll(predicate, " ", ""), "\t", ""), "not(test)") {
+		return false
+	}
+	return containsBareIdentifier(predicate, "test")
+}
+
+// containsBareIdentifier reports whether ident appears in s delimited by
+// non-identifier bytes on both sides.
+func containsBareIdentifier(s, ident string) bool {
+	isWord := func(c byte) bool {
+		return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
+	}
+	for i := 0; ; {
+		idx := strings.Index(s[i:], ident)
+		if idx < 0 {
+			return false
+		}
+		at := i + idx
+		after := at + len(ident)
+		if (at == 0 || !isWord(s[at-1])) && (after >= len(s) || !isWord(s[after])) {
+			return true
+		}
+		i = after
 	}
 }
 

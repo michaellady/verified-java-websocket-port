@@ -154,7 +154,7 @@ func run(root string, check bool) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("ok: ledger integrity verified (frozen prefix through sequence %d, evidence document schemas, "+
+		fmt.Printf("ok: ledger integrity verified (frozen prefix through sequence %d, ledger envelope, evidence document schemas, "+
 			"observation provenance, handshake mapping census, protocol-rejection class, census evidence and ledger "+
 			"binding, supersessions, adjudication, held proposal drafts, legacy-record adjudications, "+
 			"unledgered_disagreements recomputed = %d, records_without_mismatch_class recomputed = %d)\n",

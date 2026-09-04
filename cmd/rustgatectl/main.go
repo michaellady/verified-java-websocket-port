@@ -25,6 +25,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -266,12 +268,38 @@ type externalDependency struct {
 	Source  string
 }
 
+// externalDependencies returns every package in the resolved graph that is
+// NOT a workspace member.
+//
+// ROUND 3, ATTACK A7. This used to be "every package cargo gave a non-empty
+// `source`", which is a DECLARATION cargo writes for registry and git
+// dependencies and leaves NULL for path dependencies. A third-party crate
+// vendored under third_party/ and reached by `path = "../../third_party/..."`
+// from outside the workspace directory is therefore neither a member nor
+// "external": it was invisible to this gate, to the audit gate and to the
+// forbid-unsafe scan at once, while being compiled into ws-core. Membership
+// is the question actually being asked -- is this code ours? -- so it is the
+// question that is asked. A path dependency that resolves OUTSIDE the
+// repository is reported with its resolved manifest directory, because
+// `source` is empty for it and "" would read as a missing field.
 func (m *cargoMetadata) externalDependencies() []externalDependency {
+	members := make(map[string]bool, len(m.WorkspaceMembers))
+	for _, id := range m.WorkspaceMembers {
+		members[id] = true
+	}
 	var out []externalDependency
 	for _, p := range m.Packages {
-		if p.Source != nil && *p.Source != "" {
-			out = append(out, externalDependency{Name: p.Name, Version: p.Version, Source: *p.Source})
+		if members[p.ID] {
+			continue
 		}
+		source := ""
+		if p.Source != nil {
+			source = *p.Source
+		}
+		if source == "" {
+			source = "path:" + filepath.ToSlash(filepath.Dir(p.ManifestPath))
+		}
+		out = append(out, externalDependency{Name: p.Name, Version: p.Version, Source: source})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
@@ -485,6 +513,104 @@ func scanRootsForForbid(rootFiles []string) []string {
 	return violations
 }
 
+// unsafeTokenLine returns the 1-based line of the first `unsafe` KEYWORD in
+// the source -- skipping line and block comments and string/raw-string
+// literals, and requiring word boundaries so `unsafe_code` in
+// `#![forbid(unsafe_code)]` or `#[allow(unsafe_op_in_unsafe_fn)]` is not a
+// hit. ok is false when the source contains no unsafe keyword.
+func unsafeTokenLine(source string) (int, bool) {
+	i, n := 0, len(source)
+	line := 1
+	isWord := func(c byte) bool {
+		return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
+	}
+	countLines := func(from, to int) {
+		line += strings.Count(source[from:to], "\n")
+	}
+	for i < n {
+		switch {
+		case source[i] == '\n':
+			line++
+			i++
+		case source[i] == '/' && i+1 < n && source[i+1] == '/':
+			for i < n && source[i] != '\n' {
+				i++
+			}
+		case source[i] == '/' && i+1 < n && source[i+1] == '*':
+			end, ok := skipBlockComment(source, i)
+			if !ok {
+				return 0, false
+			}
+			countLines(i, end)
+			i = end
+		case source[i] == '"':
+			end, ok := skipStringLiteral(source, i)
+			if !ok {
+				return 0, false
+			}
+			countLines(i, end)
+			i = end
+		case source[i] == 'r' && i+1 < n && (source[i+1] == '"' || source[i+1] == '#'):
+			if end, ok := skipRawStringLiteral(source, i); ok {
+				countLines(i, end)
+				i = end
+			} else {
+				i++
+			}
+		case strings.HasPrefix(source[i:], "unsafe"):
+			after := i + len("unsafe")
+			beforeOK := i == 0 || !isWord(source[i-1])
+			afterOK := after >= n || !isWord(source[after])
+			if beforeOK && afterOK {
+				return line, true
+			}
+			i = after
+		default:
+			i++
+		}
+	}
+	return 0, false
+}
+
+// ungovernedRoot is a first-party crate root that this gate does NOT require
+// to carry #![forbid(unsafe_code)].
+type ungovernedRoot struct {
+	path string
+	kind string
+	pkg  string
+}
+
+// ungovernedFirstPartyRoots returns every first-party crate root that is not
+// a member lib/bin: member `test`/`bench`/`example`/`custom-build` targets,
+// and every target of a non-member package whose manifest lives inside the
+// repository.
+func (r *gateRunner) ungovernedFirstPartyRoots(meta *cargoMetadata) []ungovernedRoot {
+	members := make(map[string]bool, len(meta.WorkspaceMembers))
+	for _, id := range meta.WorkspaceMembers {
+		members[id] = true
+	}
+	var out []ungovernedRoot
+	for _, pkg := range meta.Packages {
+		inRepo := strings.HasPrefix(filepath.ToSlash(pkg.ManifestPath), filepath.ToSlash(r.root)+"/")
+		isMember := members[pkg.ID]
+		if !isMember && !inRepo {
+			continue // a registry or git dependency; the inventory gate owns it
+		}
+		for _, target := range pkg.Targets {
+			kind := "unknown"
+			if len(target.Kind) > 0 {
+				kind = target.Kind[0]
+			}
+			if isMember && (kind == "lib" || kind == "bin") {
+				continue // governed above; its count must not move
+			}
+			out = append(out, ungovernedRoot{path: target.SrcPath, kind: kind, pkg: pkg.Name})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].path < out[j].path })
+	return out
+}
+
 func (r *gateRunner) gateForbidUnsafe(meta *cargoMetadata, metaErr error) (bool, string) {
 	const g = "forbid-unsafe"
 	if metaErr != nil {
@@ -514,7 +640,51 @@ func (r *gateRunner) gateForbidUnsafe(meta *cargoMetadata, metaErr error) (bool,
 	if len(roots) == 0 {
 		return false, "no first-party lib/bin crate roots found — scan surface empty, refusing to pass vacuously"
 	}
-	return true, fmt.Sprintf("%d first-party crate roots (lib+bin) all carry #![forbid(unsafe_code)]", len(roots))
+
+	// ROUND 3, ATTACKS A1, A2 AND A7. The scan above asks whether the lib and
+	// bin roots CARRY the attribute. It does not ask whether the workspace
+	// contains unsafe code, and those are different questions: a cargo target
+	// of kind `test`, `bench`, `example` or `custom-build` is its own crate
+	// root, governed by no attribute here. `unsafe { std::ptr::read(raw) }`
+	// in rust/ws-core/tests/messages.rs, and the same in a rust/ws-core/
+	// build.rs that runs at BUILD time, each left this gate at exit 0 with
+	// the detail line below byte-identical. So every ungoverned first-party
+	// root is scanned for the unsafe KEYWORD, and a root that carries the
+	// attribute itself is exempt because the compiler is then enforcing it.
+	// The lib+bin count is deliberately untouched: widening the ATTRIBUTE
+	// requirement to all 42 roots would move a declared count and is an owner
+	// decision (OA-forbid-unsafe-scan-surface), while catching the unsafe
+	// itself does not.
+	ungoverned := r.ungovernedFirstPartyRoots(meta)
+	attributed, unguarded := 0, 0
+	var unsafeFindings []string
+	for _, u := range ungoverned {
+		data, err := os.ReadFile(u.path)
+		if err != nil {
+			unsafeFindings = append(unsafeFindings, fmt.Sprintf("%s: unreadable ungoverned crate root: %v", u.path, err))
+			continue
+		}
+		if hasForbidUnsafe(string(data)) {
+			attributed++
+			continue
+		}
+		unguarded++
+		if line, ok := unsafeTokenLine(string(data)); ok {
+			unsafeFindings = append(unsafeFindings, fmt.Sprintf(
+				"%s:%d: `unsafe` in a %s crate root (package %s) that carries no #![forbid(unsafe_code)]; this root is outside the lib+bin attribute scan, so nothing else in this gate sees it",
+				u.path, line, u.kind, u.pkg))
+		}
+	}
+	r.note(g, "step=ungoverned-scan roots=%d with_attribute=%d unguarded=%d unsafe_found=%d",
+		len(ungoverned), attributed, unguarded, len(unsafeFindings))
+	for _, f := range unsafeFindings {
+		r.note(g, "violation=%q", f)
+	}
+	if len(unsafeFindings) > 0 {
+		return false, fmt.Sprintf("%d ungoverned first-party crate root(s) contain unsafe code", len(unsafeFindings))
+	}
+	return true, fmt.Sprintf("%d first-party crate roots (lib+bin) all carry #![forbid(unsafe_code)]; %d ungoverned first-party root(s) (%d attributed, %d unguarded) contain no unsafe keyword",
+		len(roots), len(ungoverned), attributed, unguarded)
 }
 
 // --- gate 2: dependency-unsafe inventory ------------------------------------
@@ -877,8 +1047,18 @@ func (r *gateRunner) gateMSRV(meta *cargoMetadata, metaErr error) (bool, string)
 			}
 		}
 	}
+	// ROUND 3. This gate's own honesty contract says checks outside its claim
+	// are "recorded as explicit pending= notes, never silently passed". That
+	// held only in the branch where NO older toolchain exists. On a host where
+	// one DOES -- this one, where `stable` resolves to 1.94.1 against an MSRV
+	// of 1.95.0 -- olderAvailable went true, the differential was never run,
+	// and no note was printed either: the one case where the check could have
+	// executed was the one case it vanished in. Both branches now say what
+	// happened.
 	if !olderAvailable {
 		r.note(g, "pending=%q", "no installed toolchain is older than the MSRV, so a below-MSRV differential build cannot execute on this host; recorded pending toolchain availability")
+	} else {
+		r.note(g, "pending=%q", "an installed toolchain IS older than the MSRV, so the below-MSRV differential COULD execute here; this gate does not run it, because a below-MSRV build that SUCCEEDED would be a finding about the MSRV declaration rather than a failure of this gate. Recorded pending an owner ruling (OA-below-msrv-differential), never silently skipped")
 	}
 
 	// The build-under-MSRV check. The MSRV equals the pinned toolchain
@@ -900,9 +1080,59 @@ func (r *gateRunner) gateMSRV(meta *cargoMetadata, metaErr error) (bool, string)
 
 // --- gate 4: license --------------------------------------------------------
 
-// licenseFileLooksApache2 checks for the canonical Apache-2.0 header lines.
-func licenseFileLooksApache2(content string) bool {
-	return strings.Contains(content, "Apache License") && strings.Contains(content, "Version 2.0")
+// canonicalApache2Digest is the SHA-256 of the canonical, unmodified
+// Apache-2.0 licence text as published by the Apache Software Foundation --
+// the bytes this repository's LICENSE carries today.
+const canonicalApache2Digest = "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+
+// apache2ClauseSkeleton is the ordered structure only the real licence has.
+// It is the DIAGNOSTIC half: when the digest does not match, this says where
+// the document stops being Apache-2.0 instead of only that it differs.
+var apache2ClauseSkeleton = []string{
+	"Apache License",
+	"Version 2.0, January 2004",
+	"TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION",
+	"1. Definitions.",
+	"2. Grant of Copyright License.",
+	"3. Grant of Patent License.",
+	"4. Redistribution.",
+	"5. Submission of Contributions.",
+	"6. Trademarks.",
+	"7. Disclaimer of Warranty.",
+	"8. Limitation of Liability.",
+	"9. Accepting Warranty or Additional Liability.",
+	"END OF TERMS AND CONDITIONS",
+	"APPENDIX: How to apply the Apache License to your work.",
+}
+
+// licenseIdentityProblem re-derives the IDENTITY of the root LICENSE instead
+// of checking that a declaration about it is well formed.
+//
+// ROUND 3, ATTACK A3. The predicate here was
+// `Contains("Apache License") && Contains("Version 2.0")`. A LICENSE reading
+// "PROPRIETARY SOFTWARE LICENSE / All Rights Reserved / This software is NOT
+// distributed under the Apache License, Version 2.0" satisfied both
+// substrings, and the gate printed "root LICENSE is Apache-2.0" at exit 0
+// over a licence that says the opposite. Two substrings are a form check on
+// prose; a digest over the whole document is the identity.
+//
+// It returns "" when the file IS the canonical licence.
+func licenseIdentityProblem(content string) string {
+	sum := sha256.Sum256([]byte(content))
+	if hex.EncodeToString(sum[:]) == canonicalApache2Digest {
+		return ""
+	}
+	at := 0
+	for _, anchor := range apache2ClauseSkeleton {
+		idx := strings.Index(content[at:], anchor)
+		if idx < 0 {
+			return fmt.Sprintf("root LICENSE is not the canonical Apache-2.0 text (sha256 %s, want %s): the clause %q is missing or out of order",
+				hex.EncodeToString(sum[:]), canonicalApache2Digest, anchor)
+		}
+		at += idx + len(anchor)
+	}
+	return fmt.Sprintf("root LICENSE carries the whole Apache-2.0 clause skeleton but its bytes are not the canonical text (sha256 %s, want %s); an edited licence is a different licence",
+		hex.EncodeToString(sum[:]), canonicalApache2Digest)
 }
 
 func (r *gateRunner) gateLicense(meta *cargoMetadata, metaErr error) (bool, string) {
@@ -916,8 +1146,8 @@ func (r *gateRunner) gateLicense(meta *cargoMetadata, metaErr error) (bool, stri
 	if err != nil {
 		return false, fmt.Sprintf("root LICENSE missing: %v", err)
 	}
-	if !licenseFileLooksApache2(string(licenseData)) {
-		return false, "root LICENSE does not carry the Apache License, Version 2.0 header"
+	if problem := licenseIdentityProblem(string(licenseData)); problem != "" {
+		return false, problem
 	}
 	workspaceManifest, err := os.ReadFile(filepath.Join(r.rustDir, "Cargo.toml"))
 	if err != nil {
@@ -1010,10 +1240,25 @@ func (r *gateRunner) gateLockfile() (bool, string) {
 	if string(before) != string(after) {
 		return false, "cargo build --locked modified Cargo.lock"
 	}
-	if exit, _ := r.execStep(g, "git-diff-cargo-lock", r.root, false, "git", "-C", r.root, "diff", "--exit-code", "--", "rust/Cargo.lock"); exit != 0 {
-		return false, "rust/Cargo.lock differs from the committed lockfile (git diff --exit-code nonzero)"
+	// ROUND 3, ATTACKS A4 AND A5. This step used to be `git diff --exit-code
+	// -- rust/Cargo.lock`, which compares the working tree to the INDEX and
+	// says nothing about what is committed. Two ways past it, both at exit 0
+	// with this gate printing "Cargo.lock byte-identical and git-clean":
+	//   * `git rm --cached rust/Cargo.lock` -- an UNTRACKED path has no diff,
+	//     so the "reproducible lockfile" gate passed with no committed
+	//     lockfile at all;
+	//   * edit the lockfile and `git add` it -- a STAGED change is invisible
+	//     to `git diff`, and every real change stages before it commits.
+	// Tracked-ness is asserted first, then the comparison is against HEAD.
+	if exit, _ := r.execStep(g, "git-lockfile-tracked", r.root, false,
+		"git", "-C", r.root, "ls-files", "--error-unmatch", "--", "rust/Cargo.lock"); exit != 0 {
+		return false, "rust/Cargo.lock is not tracked by git: there is no committed lockfile for the build to be reproducible against"
 	}
-	return true, "cargo build --locked and cargo metadata --locked succeeded; Cargo.lock byte-identical and git-clean"
+	if exit, _ := r.execStep(g, "git-diff-cargo-lock-head", r.root, false,
+		"git", "-C", r.root, "diff", "--exit-code", "HEAD", "--", "rust/Cargo.lock"); exit != 0 {
+		return false, "rust/Cargo.lock differs from the committed lockfile at HEAD (git diff --exit-code HEAD nonzero; a staged edit is still a difference)"
+	}
+	return true, "cargo build --locked and cargo metadata --locked succeeded; Cargo.lock byte-identical, git-tracked and equal to HEAD"
 }
 
 // --- gate 7: good/bad scaffold canaries --------------------------------------
@@ -1023,6 +1268,41 @@ type canaryResult struct {
 	scanExit   int
 	clippyExit int
 	testExit   int
+	// checkExit is `cargo check --all-targets` on the same crate. It
+	// separates "clippy refused a LINT" from "the crate does not compile".
+	// exitNotRun on the good canary, which does not need the distinction.
+	checkExit int
+	// clippyLints is how many distinct `clippy::<lint>` names clippy named
+	// in its own output. See evaluateCanaryPolarity.
+	clippyLints int
+}
+
+// clippyLintNames extracts the distinct `clippy::<lint>` names a clippy run
+// reported, from clippy's own output.
+func clippyLintNames(output string) []string {
+	const marker = "clippy::"
+	seen := map[string]bool{}
+	var out []string
+	for i := 0; ; {
+		idx := strings.Index(output[i:], marker)
+		if idx < 0 {
+			break
+		}
+		at := i + idx + len(marker)
+		j := at
+		for j < len(output) && (output[j] == '_' || output[j] == '-' ||
+			output[j] >= 'a' && output[j] <= 'z' || output[j] >= 'A' && output[j] <= 'Z' ||
+			output[j] >= '0' && output[j] <= '9') {
+			j++
+		}
+		if name := output[at:j]; name != "" && !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+		i = at
+	}
+	sort.Strings(out)
+	return out
 }
 
 // evaluateCanaryPolarity encodes the polarity contract: the good scaffold
@@ -1046,6 +1326,26 @@ func evaluateCanaryPolarity(good, bad canaryResult) []string {
 	if bad.clippyExit == 0 {
 		violations = append(violations, fmt.Sprintf("bad canary %s PASSED clippy -D warnings — the lint gate cannot detect a violation", bad.name))
 	}
+	// ROUND 3, ATTACK A6. A nonzero clippy exit is a DECLARATION that
+	// something failed; it is not evidence that the LINT gate works.
+	// Replacing bad-scaffold's `if flag == true` with a call to an undefined
+	// function left clippy at exit 101 with zero `clippy::` lints in its
+	// output, and this gate printed "polarity proven: ... bad-scaffold failed
+	// scan and clippy as required (exits 1/101)" — the census line
+	// byte-identical to a run where the lint really did fire. The polarity is
+	// re-derived from the DIFFERENCE instead: the crate must COMPILE (so the
+	// refusal is attributable to the lint and not to a broken crate) and
+	// clippy must NAME at least one clippy lint.
+	if bad.checkExit != 0 {
+		violations = append(violations, fmt.Sprintf(
+			"bad canary %s does not compile (cargo check %s); a crate that fails to build cannot prove the LINT gate detects anything — its clippy refusal is attributable to the build, not to a lint",
+			bad.name, exitDescription(bad.checkExit)))
+	}
+	if bad.clippyLints == 0 {
+		violations = append(violations, fmt.Sprintf(
+			"bad canary %s failed clippy but clippy named no clippy::<lint> in its output; a nonzero exit is not proof that the lint gate fired",
+			bad.name))
+	}
 	// Review 01a0446e: a command that never ran (no ProcessState) is NOT a
 	// detection — for either canary, on any step, it is its own violation.
 	for _, probe := range []struct {
@@ -1058,6 +1358,7 @@ func evaluateCanaryPolarity(good, bad canaryResult) []string {
 		{good.name, "tests", good.testExit},
 		{bad.name, "forbid scan", bad.scanExit},
 		{bad.name, "clippy", bad.clippyExit},
+		{bad.name, "cargo check", bad.checkExit},
 	} {
 		if probe.exit == exitNoProcessState {
 			violations = append(violations, fmt.Sprintf(
@@ -1091,7 +1392,7 @@ func (r *gateRunner) runCanary(name string, runTests bool) (canaryResult, error)
 	if _, err := os.Stat(filepath.Join(dir, "Cargo.toml")); err != nil {
 		return canaryResult{}, fmt.Errorf("canary crate %s missing: %v", name, err)
 	}
-	result := canaryResult{name: name, testExit: exitNotRun}
+	result := canaryResult{name: name, testExit: exitNotRun, checkExit: exitNotRun}
 
 	roots := canaryRoots(dir)
 	if len(roots) == 0 {
@@ -1107,7 +1408,16 @@ func (r *gateRunner) runCanary(name string, runTests bool) (canaryResult, error)
 		r.note(g, "step=%s:forbid-scan violation=%q", name, v)
 	}
 
-	result.clippyExit, _ = r.execStep(g, name+":clippy", dir, false, "cargo", "clippy", "--all-targets", "--", "-D", "warnings")
+	clippyExit, clippyOut := r.execStep(g, name+":clippy", dir, false, "cargo", "clippy", "--all-targets", "--", "-D", "warnings")
+	result.clippyExit = clippyExit
+	lints := clippyLintNames(clippyOut)
+	result.clippyLints = len(lints)
+	fmt.Fprintf(r.stdout, "gate=%s step=%s:clippy-lints count=%d names=%q\n", g, name, len(lints), strings.Join(lints, ","))
+	result.checkExit = exitNotRun
+	if !runTests {
+		// The bad canary only: see evaluateCanaryPolarity.
+		result.checkExit, _ = r.execStep(g, name+":check", dir, false, "cargo", "check", "--all-targets")
+	}
 	if runTests {
 		result.testExit, _ = r.execStep(g, name+":test", dir, false, "cargo", "test")
 	}
@@ -1135,6 +1445,6 @@ func (r *gateRunner) gateCanaries() (bool, string) {
 	if len(violations) > 0 {
 		return false, fmt.Sprintf("canary polarity broken: %d violations", len(violations))
 	}
-	return true, fmt.Sprintf("polarity proven: good-scaffold passed scan/clippy/test (exits %d/%d/%d); bad-scaffold failed scan and clippy as required (exits %d/%d)",
-		good.scanExit, good.clippyExit, good.testExit, bad.scanExit, bad.clippyExit)
+	return true, fmt.Sprintf("polarity proven: good-scaffold passed scan/clippy/test (exits %d/%d/%d); bad-scaffold failed scan and clippy as required (exits %d/%d), compiles (cargo check exit %d) and clippy named %d clippy lint(s), so the refusal is the LINT",
+		good.scanExit, good.clippyExit, good.testExit, bad.scanExit, bad.clippyExit, bad.checkExit, bad.clippyLints)
 }
