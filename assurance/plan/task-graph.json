@@ -106,7 +106,7 @@
     {
       "id": "OA-record-census-prose",
       "state": "open",
-      "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Six records recite 41, 55, 55, 61 and 41 against a census that reads 66.",
+      "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Ten sentences across six records recite that census; five are inside code fences and are honest transcripts, and five are in the records' own voice, reciting 41, 41, 55, 55 and 61 against a census that reads 66.",
       "why_it_blocks": "Binding it makes every future record fail record-guard against an unrelated older record until that record is restated -- a treadmill, and a gate that punishes writing records. Whether that cost is worth paying is a judgement about how this project wants its history to read, not a measurement."
     }
   ],

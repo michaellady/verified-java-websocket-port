@@ -67,9 +67,11 @@ make every honest history a failure, so the scan reuses `maskOtherVoices` from
 `cmd/recordguardctl/scan.go` — the same discriminator, and the same reasoning
 `supersession-is-not-unfinished.md` gives for it. Fenced and quoted lines are
 skipped; the mask decides *voice* only, and the raw line is what gets matched,
-because the mask also blanks the inline code spans the citations live in. Without
-this, the raw count is 160 count-shaped lines in fences alone, almost all of them
-true statements about the past.
+because the mask also blanks the inline code spans the citations live in. The two
+measurements: a line scan that does not distinguish voice finds **270**
+cardinality lines in the same markdown records; the gate counts **241** in the
+records' own voice. The difference is transcripts, and almost every one of them
+is a true statement about the past.
 
 **Enumerable, and why that line is drawn by the document.** A sentence is a
 candidate only when this gate could *count* the population it names, and that is
