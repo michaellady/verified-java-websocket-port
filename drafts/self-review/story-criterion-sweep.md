@@ -563,6 +563,15 @@ bullets and found no instance of.
    the prose of one of the ~30 rationales I did not read in full would have been
    missed.
 
+**Mainline moved under this sweep, and it does not touch the swept surface.**
+Base `4cf3f8f`; while the sweep ran, mainline advanced three commits to
+`0f40195` (`84f946a`, `ce5ef4b`, `0f40195`).
+`git diff --stat 4cf3f8f..origin/claude/feature/verified-java-websocket-port`
+is `.claude/GOAL-LOOP.md` (+15) and one new findings file (+81) and nothing
+else — no PRD text, no ledger byte, no Rust source. So every measurement here
+still describes mainline. This branch adds exactly one tracked file over its
+base.
+
 **Corpus and denominators, unchanged.** 58 ledger records, 136 AC bullets, the
 247-case pinned manifest, 74/74 public corpus, 49/49 handshake exam. Nothing was
 re-baselined and `origin/codex/race-catchup` was not touched or read.
