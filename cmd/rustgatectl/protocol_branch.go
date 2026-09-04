@@ -845,7 +845,7 @@ func findProtocolBranchSites(path, source string, governed []governedEnum) ([]pr
 	var sites []protocolBranchSite
 	seen := map[string]bool{}
 	add := func(i int, rule, evidence string) {
-		item := items.at(i)
+		item := itemAt(items, tokens, i)
 		key := fmt.Sprintf("%s|%d|%s|%s", path, tokens[i].Line, rule, evidence)
 		if seen[key] {
 			return
@@ -877,8 +877,15 @@ func findProtocolBranchSites(path, source string, governed []governedEnum) ([]pr
 			switch {
 			case inAny(patterns, i):
 				add(i, "variant-in-pattern", evidence)
-			case isEqualityOperand(tokens, i, i+width):
+			case isComparisonOperand(tokens, i, i+width):
 				add(i, "variant-in-equality", evidence)
+			case isComparisonMethodArgument(tokens, i):
+				add(i, "variant-in-comparison-call", evidence)
+			case inAny(conditions, i) && !insideCallArguments(tokens, i, conditions):
+				// A variant named inside a condition but NOT handed to a call
+				// is deciding: `if [ReadyState::Open, ..].contains(&s)`,
+				// `if s > ReadyState::Open`.
+				add(i, "variant-in-condition", evidence)
 			}
 			i += width - 1
 			continue
@@ -935,16 +942,93 @@ func (v *adapterVocabulary) variantPathAt(tokens []rustToken, i int) (string, st
 	return "", "", 0
 }
 
-// isEqualityOperand reports whether the path spanning [start, end) is an
-// operand of `==` or `!=`.
-func isEqualityOperand(tokens []rustToken, start, end int) bool {
-	if start > 0 && (tokens[start-1].Text == "==" || tokens[start-1].Text == "!=") {
+// comparisonOperators are the operators whose operands are compared rather than
+// carried. Ordering operators are included because a future core enum that
+// derives Ord would otherwise be comparable without a finding.
+var comparisonOperators = map[string]bool{
+	"==": true, "!=": true, "<": true, ">": true, "<=": true, ">=": true,
+}
+
+// isComparisonOperand reports whether the path spanning [start, end) is an
+// operand of a comparison operator.
+func isComparisonOperand(tokens []rustToken, start, end int) bool {
+	if start > 0 && comparisonOperators[tokens[start-1].Text] {
 		return true
 	}
-	if end < len(tokens) && (tokens[end].Text == "==" || tokens[end].Text == "!=") {
+	if end < len(tokens) && comparisonOperators[tokens[end].Text] {
 		return true
 	}
 	return false
+}
+
+// comparisonMethods are the method spellings of the comparison operators.
+// `d.state().eq(&ReadyState::Closing)` decides exactly as `d.state() ==
+// ReadyState::Closing` does, and it names no operator at all: against an
+// earlier draft of this gate that got a protocol branch into shipped adapter
+// code at exit 0, because the variant sat in a call ARGUMENT, which every other
+// rule treats as a value position.
+var comparisonMethods = map[string]bool{
+	"eq": true, "ne": true, "lt": true, "gt": true, "le": true, "ge": true,
+	"cmp": true, "partial_cmp": true, "contains": true, "eq_ignore_ascii_case": true,
+}
+
+// isComparisonMethodArgument reports whether the token at i is an operand of a
+// comparison method call -- on EITHER side. Both of these decide, and neither
+// writes an operator:
+//
+//	d.state().eq(&ReadyState::Closing)                 // argument side
+//	[ReadyState::Closing, ReadyState::Closed].contains(&d.state())  // receiver side
+func isComparisonMethodArgument(tokens []rustToken, i int) bool {
+	for _, group := range enclosingGroups(tokens, i) {
+		// Argument side: the group is the call's argument list.
+		if tokens[group.Start].Text == "(" && group.Start >= 2 {
+			if prev, name := tokens[group.Start-2].Text, tokens[group.Start-1].Text; comparisonMethods[name] &&
+				(prev == "." || prev == "::") {
+				return true
+			}
+		}
+		// Receiver side: the group is followed by `.method(`.
+		end := group.End - 1
+		if end+2 < len(tokens) && tokens[end+1].Text == "." &&
+			comparisonMethods[tokens[end+2].Text] {
+			return true
+		}
+	}
+	return false
+}
+
+// enclosingGroups lists the bracket groups containing token i, innermost first,
+// stopping at the enclosing statement or block.
+func enclosingGroups(tokens []rustToken, i int) []tokenSpan {
+	var groups []tokenSpan
+	depth := map[string]int{")": 0, "]": 0}
+	for j := i; j > 0; j-- {
+		switch tokens[j].Text {
+		case ")":
+			depth[")"]++
+		case "]":
+			depth["]"]++
+		case "(":
+			if depth[")"] > 0 {
+				depth[")"]--
+				continue
+			}
+			if end := matchingDelimiter(tokens, j); end > 0 {
+				groups = append(groups, tokenSpan{j, end + 1})
+			}
+		case "[":
+			if depth["]"] > 0 {
+				depth["]"]--
+				continue
+			}
+			if end := matchingDelimiter(tokens, j); end > 0 {
+				groups = append(groups, tokenSpan{j, end + 1})
+			}
+		case ";", "{", "}":
+			return groups
+		}
+	}
+	return groups
 }
 
 // --- enclosing item and fingerprint ----------------------------------------
@@ -957,7 +1041,7 @@ type itemSpan struct {
 type itemIndex []itemSpan
 
 func (idx itemIndex) at(i int) itemSpan {
-	best := itemSpan{name: "<item>", span: tokenSpan{0, 0}}
+	best := itemSpan{}
 	for _, item := range idx {
 		if item.span.contains(i) {
 			if best.span.End == 0 || item.span.End-item.span.Start < best.span.End-best.span.Start {
@@ -968,6 +1052,41 @@ func (idx itemIndex) at(i int) itemSpan {
 	return best
 }
 
+// itemAt returns the enclosing named item, falling back to the innermost brace
+// group when a site is inside no `fn` or macro at all (a branch written in a
+// `macro_rules!` body, a const initializer). Without the fallback such a site
+// hashed the EMPTY span -- every one of them shared the sha256 of "", so two
+// different hidden branches were indistinguishable. It still FAILED, since a
+// site with no allowance always does, but the fingerprint it reported was a
+// constant rather than a description of the code.
+func itemAt(idx itemIndex, tokens []rustToken, i int) itemSpan {
+	if found := idx.at(i); found.span.End != 0 {
+		return found
+	}
+	return itemSpan{name: "<item>", span: enclosingBraceSpan(tokens, i)}
+}
+
+// enclosingBraceSpan returns the innermost brace group containing i, or the
+// whole token stream when i is at the top level.
+func enclosingBraceSpan(tokens []rustToken, i int) tokenSpan {
+	depth := 0
+	for j := i; j >= 0; j-- {
+		switch tokens[j].Text {
+		case "}":
+			depth++
+		case "{":
+			if depth > 0 {
+				depth--
+				continue
+			}
+			if end := matchingDelimiter(tokens, j); end > 0 {
+				return tokenSpan{j, end + 1}
+			}
+		}
+	}
+	return tokenSpan{0, len(tokens)}
+}
+
 // enclosingItems indexes every `fn` in a token stream by name and body span, so
 // a finding can be pinned to the function it lives in rather than to a line
 // number. Line numbers drift; a function's normalized body does not move
@@ -975,6 +1094,18 @@ func (idx itemIndex) at(i int) itemSpan {
 func enclosingItems(tokens []rustToken) itemIndex {
 	var items itemIndex
 	for i := 0; i+1 < len(tokens); i++ {
+		if tokens[i].Text == "macro_rules" && i+3 < len(tokens) &&
+			tokens[i+1].Text == "!" && isIdentStart(tokens[i+2].Text[0]) {
+			if open := indexOfBlockOpen(tokens, i+3); open > 0 {
+				if close := matchingDelimiter(tokens, open); close > 0 {
+					items = append(items, itemSpan{
+						name: "macro_rules!" + tokens[i+2].Text,
+						span: tokenSpan{i, close + 1},
+					})
+				}
+			}
+			continue
+		}
 		if tokens[i].Text != "fn" || !isIdentStart(tokens[i+1].Text[0]) {
 			continue
 		}

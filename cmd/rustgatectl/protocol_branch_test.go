@@ -351,3 +351,132 @@ func TestTwoEvidenceRowsFromOneFunctionAreOneInstance(t *testing.T) {
 		t.Fatal("two operands of one decision are one instance")
 	}
 }
+
+// A02/A08/A09. Comparison without the comparison OPERATOR. Against an earlier
+// draft `d.state().eq(&ReadyState::Closing)` got a protocol branch into shipped
+// adapter code at exit 0: the variant sat in a call argument, which every other
+// rule treats as a value position.
+func TestComparisonWithoutAnOperatorIsStillABranch(t *testing.T) {
+	for name, body := range map[string]string{
+		"eq-method":       "fn p(d: &D) -> bool { d.state().eq(&ReadyState::Closing) }\n",
+		"ne-method":       "fn p(d: &D) -> bool { d.role().ne(&Role::Server) }\n",
+		"partial-eq-path": "fn p(d: &D) -> bool { PartialEq::eq(&d.state(), &ReadyState::Open) }\n",
+		"membership": "fn p(d: &D) -> bool " +
+			"{ [ReadyState::Closing, ReadyState::Closed].contains(&d.state()) }\n",
+	} {
+		mustBranch(t, name, body)
+	}
+}
+
+// A13. A branch written inside a `macro_rules!` body has no enclosing `fn`.
+// Before the fallback every such site hashed the EMPTY token span -- the
+// sha256 of "" -- so two different hidden branches were indistinguishable and
+// the fingerprint described nothing.
+func TestBranchInAMacroBodyIsAttributedAndFingerprinted(t *testing.T) {
+	governed := deriveGovernedEnums(coreFixture())
+	source := "use ws_core::{ReadyState, Role};\n" +
+		"macro_rules! decide {\n    ($s:expr) => { match $s { ReadyState::Closing => 8u8, _ => 0 } };\n}\n"
+	sites, _ := findProtocolBranchSites("a.rs", source, governed)
+	if len(sites) == 0 {
+		t.Fatal("a branch inside a macro body must still be detected")
+	}
+	emptyHash := fingerprintTokens(nil, tokenSpan{0, 0})
+	for _, site := range sites {
+		if site.Fingerprint == emptyHash {
+			t.Error("a site with no enclosing fn must not hash the empty span")
+		}
+		if site.Enclosing != "macro_rules!decide" {
+			t.Errorf("want the macro named as the enclosing item, got %q", site.Enclosing)
+		}
+	}
+}
+
+// A variant used inside a condition without being an operand, a pattern, or a
+// call argument -- indexing a table by protocol state still decides from it.
+func TestVariantUsedInAConditionWithoutAnOperatorIsABranch(t *testing.T) {
+	for name, body := range map[string]string{
+		"index-by-state":  "fn p(t: &[bool]) -> bool { if t[ReadyState::Open as usize] { true } else { false } }\n",
+		"index-by-role":   "fn p(t: &[bool]) { while t[Role::Server as usize] { g(); } }\n",
+		"scrutinee-index": "fn p(t: &[u8]) -> u8 { match t[Role::Client as usize] { 0 => 1, _ => 0 } }\n",
+	} {
+		mustBranch(t, name, body)
+	}
+}
+
+// A site with no enclosing `fn` and no enclosing `macro_rules!` must still get
+// a fingerprint that describes something. Before the fallback it hashed the
+// EMPTY span, so every such site shared one constant.
+func TestSiteWithNoEnclosingItemStillFingerprints(t *testing.T) {
+	governed := deriveGovernedEnums(coreFixture())
+	sites, _ := findProtocolBranchSites("a.rs",
+		"use ws_core::{ReadyState, Role};\n"+
+			"const READY: bool = matches!(ReadyState::Open, ReadyState::Open);\n", governed)
+	if len(sites) == 0 {
+		t.Fatal("a branch in a const initializer must still be detected")
+	}
+	empty := fingerprintTokens(nil, tokenSpan{0, 0})
+	for _, site := range sites {
+		if site.Fingerprint == empty {
+			t.Errorf("site %+v hashed the empty span", site)
+		}
+	}
+}
+
+// --- disclosed ceilings -----------------------------------------------------
+//
+// These are the attacks that got a protocol branch past this gate and are NOT
+// closed. They are pinned as tests so the disclosure in
+// drafts/self-review/f016-protocol-branch-gate.md cannot silently drift from
+// what the detector actually does: if a later change closes one of these, this
+// test fails and the disclosure has to be rewritten rather than left stale.
+//
+// Each shares one root cause: this is a token-level scan with NO type
+// inference. It knows a value is protocol state only when a governed variant is
+// spelled out, or when a binding was annotated with a governed type IN THE SAME
+// FILE. Break either link and the value becomes opaque.
+func TestDisclosedCeilings(t *testing.T) {
+	for name, body := range map[string]string{
+		// A10. The cast leaves the condition; the condition sees only an integer.
+		"two-step-numeric-cast": "fn p(s: ReadyState) -> u8 " +
+			"{ let n = s as u8; if n == 2 { 8 } else { 0 } }\n",
+		// A11. The projection leaves the condition; the condition sees a &str.
+		"two-step-projection": "fn p(r: Role) -> u8 " +
+			"{ let name = r.wire_name(); if name == \"server\" { 8 } else { 0 } }\n",
+		// A12. The binding is named only INSIDE a string literal, and string
+		// contents are collapsed to one token so a `=>` in a string cannot
+		// invent match arms.
+		"debug-format-capture": "fn p(state: ReadyState) -> u8 " +
+			"{ if format!(\"{state:?}\") == \"Closing\" { 8 } else { 0 } }\n",
+		// The `isCall` guard: a METHOD whose name collides with a governed
+		// binding is not assumed to return protocol state. Detecting it would
+		// need the method's return type, which a token scan does not have.
+		// A METHOD whose name collides with a governed FIELD declared in the
+		// same file is not assumed to return protocol state. Deciding that
+		// would need the method's return type, which a token scan does not
+		// have -- and assuming it would flag `driver.state()` in the shipped
+		// adapter purely because some struct there has a `state:` field.
+		"method-name-collides-with-governed-field": "struct R { state: ReadyState }\n" +
+			"fn p(d: &D) -> bool { if d.state().is_open() { true } else { false } }\n",
+	} {
+		if sites := scanFixture(t, adapterWith(body)); len(sites) != 0 {
+			t.Errorf("%s: this ceiling is now CLOSED (%d sites). That is an improvement, "+
+				"but the disclosure in drafts/self-review/f016-protocol-branch-gate.md "+
+				"now overstates the limitation and must be updated.", name, len(sites))
+		}
+	}
+}
+
+// The gate scans rust/ws-testee/src only. A protocol branch moved into
+// ws-driver or ws-core is outside what "adapter-side" means and outside what
+// this gate reads; nothing here would see it.
+func TestDisclosedCeilingScopeIsTheAdapterCrateOnly(t *testing.T) {
+	governed := deriveGovernedEnums(coreFixture())
+	sites, _ := findProtocolBranchSites("ws-driver/src/lib.rs",
+		"use ws_core::{ReadyState, Role};\n"+
+			"pub fn policy(r: Role, s: ReadyState) -> u8 "+
+			"{ match (r, s) { (Role::Server, ReadyState::Closing) => 8, _ => 0 } }\n", governed)
+	if len(sites) == 0 {
+		t.Fatal("the RULE itself must fire on this shape; only the gate's file SCOPE " +
+			"excludes it, and that distinction is what the disclosure rests on")
+	}
+}
