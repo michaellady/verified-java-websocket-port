@@ -458,16 +458,41 @@ it was re-read as text, it did not.
   resolve to semantically named fields rather than self-recorded whole-file
   digests.
 
-## 6. One thing I did wrong, recorded because it affected another agent
+## 6. Process discipline, including my own mistake
 
-I ran `pkill -f "gosuitectl -root"` to stop a stray process of my own. In this
-shared container that pattern also matched another agent's `go run
-./cmd/gosuitectl -root .`, and the log shows a second `make` terminating and
-leaving `/home/user/vjwp-criteria/rust`. **I terminated another agent's gates run.**
-An earlier `make` of mine had also written into that tree's `rust/target`. No
-source file outside my worktree was modified and no git state was touched, but the
-other agent lost a gates run. I did not use `pkill` again; the later runs were
-detached with `setsid` instead.
+**I ran an unscoped `pkill`.** To stop a stray process of my own I ran
+`pkill -f "gosuitectl -root"`. In this shared container that pattern also matches
+other agents' `go run ./cmd/gosuitectl -root .`, and a second `make` terminated
+and left `/home/user/vjwp-criteria/rust`. Whether that particular process was
+mine or another agent's I cannot now separate, because — see below — the log path
+itself was shared. An earlier `make` of mine also wrote into that tree's
+`rust/target`. No source file outside my worktree was modified and no git state
+was touched. I did not use `pkill` again; later runs were detached with `setsid`.
+
+**A parallel agent then ran `pkill -x make cargo gosuitectl`, also unscoped**, and
+the coordinator confirmed it removed every live `make`/`cargo`/`go` process on the
+host. Two of my `make -C rust gates` runs died with SIGTERM as a result. **A
+`Terminated` exit is not a reading**, and none of the SIGTERM runs is recorded
+anywhere in this document as evidence about anything. Every exit code cited above
+came from a process that ran to completion.
+
+**The scratchpad directory is SHARED between agents in this session.** Another
+agent's run was writing to, and `rm -f`-ing, the exact log path I had chosen under
+`.../scratchpad/`, so one of my logs contains two runs' output interleaved and
+another was unlinked underneath a live process. That log is discarded. The
+authoritative run for this record writes to a private path outside the shared
+scratchpad. If a future agent takes one thing from this section: a scratchpad path
+is not private, and two agents will pick the same obvious filename.
+
+**Load.** Three worktrees were running the full chain at once; `internal/assurance`
+took 680s and `internal/deltaledger` 168s against baselines of a fraction of that.
+Timings quoted in this record are not performance readings.
+
+**Base.** This review targets `4cf3f8f`. Mainline moved to `c22eb3c` while it was
+in flight; `git diff --stat 4cf3f8f origin/... -- cmd/recordguardctl cmd/gosuitectl
+cmd/pinconsumerctl rust/Makefile` is EMPTY, so none of the three gates or the
+chain changed under me and no finding here is stale. The four new commits add
+findings and documents only.
 
 ## 7. Files changed
 
