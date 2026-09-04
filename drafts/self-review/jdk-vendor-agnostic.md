@@ -231,4 +231,9 @@ line", which my change made false), the `run=59 excluded=2`/`with_tests=44`
 census sentence in `cmd/gosuitectl/main.go` (now stated as measured on
 2026-09-04, with the B2/B3 figures left as the history they are), and one
 sentence of this record. No executable line differs between run 1 and run 2.
-Its reading is in the commit message of the commit that carries it.
+
+Run 2, commit `a7edbd4`: `make -C rust gates` exit **0**, 02:31:00Z to
+02:39:30Z, `gate=go-suite packages=61 run=60 excluded=1 with_tests=45
+no_test_files=15 unbuilt_test_files=5`, `gate=go-suite result=PASS`,
+`ok ... internal/portplan 15.176s`, `ac1-gates verdict=PASS gates_passed=8/8`,
+ledger-gates ok, and ZERO `FAIL` lines in the whole 1800-line log.
