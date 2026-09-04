@@ -75,3 +75,4 @@ java-semantic-oracle/build/
 /tlcdriver
 /pinconsumerctl
 /.gates-run.log
+.sweep/

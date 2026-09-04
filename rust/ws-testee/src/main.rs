@@ -15,7 +15,8 @@ use std::process::exit;
 
 use ws_core::ConnectionConfig;
 use ws_testee::{
-    ClientFixture, IoBounds, ServerFixture, run_client_once, run_server_once, run_server_sessions,
+    AgentFixture, ClientFixture, IoBounds, ServerFixture, autobahn_config, run_client_once,
+    run_server_once, run_server_sessions,
 };
 
 const EXIT_OK: i32 = 0;
@@ -29,9 +30,10 @@ fn main() {
         Some("server") => server(&arguments[2..]),
         Some("serve") => serve(&arguments[2..]),
         Some("client") => client(&arguments[2..]),
+        Some("autobahn-client") => autobahn_client(&arguments[2..]),
         _ => {
             eprintln!(
-                "usage: ws-testee server <loopback-addr> [write-chunk] | ws-testee serve <loopback-addr> <sessions> | ws-testee client <loopback-addr> <target> <host> <message> [ping-hex|-] [write-chunk]"
+                "usage: ws-testee server <loopback-addr> [write-chunk] | ws-testee serve <loopback-addr> <sessions> | ws-testee client <loopback-addr> <target> <host> <message> [ping-hex|-] [write-chunk] | ws-testee autobahn-client <loopback-addr> <host> <agent> [first last]"
             );
             EXIT_USAGE
         }
@@ -120,27 +122,6 @@ fn server(arguments: &[String]) -> i32 {
     }
 }
 
-/// Ceiling-tier `ws_core` limits for the Autobahn fixture (E5). Adapter
-/// WIRING only: the industry fuzzingclient's selected families (1-7, 10)
-/// carry up to 64 KiB messages and 51-fragment auto-fragmentation, which
-/// exceed the corpus-tier per-connection defaults (64 frames / 64 KiB
-/// input). Every value stays within the documented builder ceilings; what
-/// happens when a limit trips is untouched core behavior.
-fn autobahn_serve_config() -> ConnectionConfig {
-    ConnectionConfig::builder()
-        .max_frame_payload_bytes(1_048_576)
-        .max_message_bytes(1_048_576)
-        .max_buffered_bytes(1_048_576)
-        .max_input_bytes(1_048_576)
-        .max_frames(4096)
-        .max_actions(1024)
-        .event_queue_capacity(16_384)
-        .command_queue_capacity(4096)
-        .write_queue_capacity(4096)
-        .build()
-        .expect("ceiling-tier limits are valid by construction")
-}
-
 fn serve(arguments: &[String]) -> i32 {
     if arguments.len() != 2 {
         eprintln!("usage-error");
@@ -176,7 +157,7 @@ fn serve(arguments: &[String]) -> i32 {
         }
     }
     let fixture = ServerFixture {
-        config: autobahn_serve_config(),
+        config: autobahn_config(),
         bounds: IoBounds::default(),
     };
     let mut reported = 0_u64;
@@ -193,6 +174,104 @@ fn serve(arguments: &[String]) -> i32 {
             println!("setup={outcome:?} served={reported}");
             EXIT_SETUP
         }
+    }
+}
+
+/// `autobahn-client <loopback-addr> <host> <agent> [first last]`: the
+/// fuzzingserver-mode CLIENT agent (US-019 AC3).
+///
+/// Prints one deterministic line per case plus a terminal summary, all read
+/// from the real connection reports. The EXIT CODE reports only whether the
+/// HARNESS ran: a case ending in a typed protocol failure is the correct
+/// outcome for the cases that provoke one and never fails this process. The
+/// conformance verdict is wstest's own report, read separately.
+fn autobahn_client(arguments: &[String]) -> i32 {
+    if arguments.len() != 3 && arguments.len() != 5 {
+        eprintln!("usage-error");
+        return EXIT_USAGE;
+    }
+    let Ok(address) = arguments[0].parse::<SocketAddr>() else {
+        eprintln!("usage-error");
+        return EXIT_USAGE;
+    };
+    let (host, agent) = (&arguments[1], &arguments[2]);
+    if !ws_testee::valid_agent_name(agent) {
+        eprintln!("usage-error");
+        return EXIT_USAGE;
+    }
+    let range = if arguments.len() == 5 {
+        match (arguments[3].parse::<u32>(), arguments[4].parse::<u32>()) {
+            (Ok(first), Ok(last)) if first >= 1 && last >= first => Some((first, last)),
+            _ => {
+                eprintln!("usage-error");
+                return EXIT_USAGE;
+            }
+        }
+    } else {
+        None
+    };
+    let fixture = AgentFixture {
+        address,
+        host,
+        agent,
+        config: autobahn_config(),
+        bounds: IoBounds::default(),
+    };
+    // Step 1: read the suite's own selected-case count, and ALWAYS print
+    // that connection's report — a suite-side refusal (a rejected Host
+    // header, a failed upgrade) shows up here and nowhere else.
+    let counted = match ws_testee::fetch_case_count(&fixture) {
+        Ok(counted) => counted,
+        Err(outcome) => {
+            println!("setup={outcome:?}");
+            return EXIT_SETUP;
+        }
+    };
+    println!("count-connection={}", counted.report.summary());
+    let Some(case_count) = counted.count else {
+        println!("setup=NoCaseCount texts={:?}", counted.report.texts);
+        return EXIT_SETUP;
+    };
+    println!("case-count={case_count}");
+
+    // Step 2: run the cases, streaming each result as it completes so a long
+    // sweep is observable while it runs.
+    let cases = match ws_testee::run_cases(&fixture, case_count, range, &mut |case| {
+        println!("case={} {}", case.case, case.report.summary());
+    }) {
+        Ok(cases) => cases,
+        Err(outcome) => {
+            println!("setup={outcome:?}");
+            return EXIT_SETUP;
+        }
+    };
+
+    // Step 3: flush the suite's reports.
+    let reports = match ws_testee::update_reports(&fixture) {
+        Ok(report) => report,
+        Err(outcome) => {
+            println!("setup={outcome:?}");
+            return EXIT_SETUP;
+        }
+    };
+    let sweep = ws_testee::AgentSweep {
+        case_count,
+        cases,
+        reports_updated: reports.outcome == ws_testee::LoopOutcome::Terminal,
+    };
+    println!("reports-connection={}", reports.summary());
+    println!(
+        "ran={} terminal={} protocol-failures={} harness-faults={} reports-updated={}",
+        sweep.cases.len(),
+        sweep.terminal(),
+        sweep.protocol_failures(),
+        sweep.harness_faults(),
+        sweep.reports_updated,
+    );
+    if sweep.harness_faults() == 0 && sweep.reports_updated {
+        EXIT_OK
+    } else {
+        EXIT_UNCLEAN
     }
 }
 
