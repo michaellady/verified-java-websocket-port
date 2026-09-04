@@ -421,7 +421,7 @@ func TestRedRemovedRFCPinFailsRankOne(t *testing.T) {
 	if _, err := ReadRFCPin(mirror); err == nil {
 		t.Fatal("RED FAILED: the rfc6455-text pin was removed and rank one still read a pin")
 	}
-	if _, err := Bindings(mirror); err == nil {
+	if _, err := Bindings(mirror, nil); err == nil {
 		t.Fatal("RED FAILED: the rfc6455-text pin was removed and the bindings still built")
 	}
 }
@@ -455,7 +455,7 @@ func TestRedUnpinnedRFCTextIsRefused(t *testing.T) {
 	if _, err := RFCTextPresent(mirror, pin); err == nil {
 		t.Fatal("RED FAILED: unpinned bytes at the RFC path were accepted as the normative text")
 	}
-	if _, err := Bindings(mirror); err == nil {
+	if _, err := Bindings(mirror, nil); err == nil {
 		t.Fatal("RED FAILED: the bindings built over unpinned RFC bytes")
 	}
 }

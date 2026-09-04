@@ -175,7 +175,12 @@ func Findings(reg Register, families []Family) []Finding {
 	// co-vote such a pair contributes is a property of the join.
 	for _, f := range families {
 		for _, jd := range f.JoinDegeneracy {
-			if !jd.Degenerate {
+			// Fires on the keys the census JOINS ON, not on the whole
+			// lookup table: a counterexample at a key no committed case
+			// reaches cannot make the co-votes this census counted into
+			// a measurement, and before this line one such row deleted
+			// both of these findings with every printed number intact.
+			if !jd.DegenerateOverJoinedKeys {
 				continue
 			}
 			cov, dis := familyCoVotes(reg, jd)
@@ -186,7 +191,7 @@ func Findings(reg Register, families []Family) []Finding {
 					"%s The independence probe scores this pair in this family because the two ranks are read from different documents, and it reports %d co-votes and %d disagreements there. Those %d co-votes carry no information about whether %s is a separate oracle from %s: %d was the only number the join could produce.",
 					jd.Statement, cov, dis, cov, jd.Higher, jd.Lower, dis),
 				Basis: []string{
-					fmt.Sprintf("families[%s].join_degeneracy[0].disagreement_structurally_impossible = %v", jd.Family, jd.Degenerate),
+					fmt.Sprintf("families[%s].join_degeneracy[0].disagreement_structurally_impossible_over_the_keys_this_census_joins_on = %v over %d joined keys (whole %d-key table: %v)", jd.Family, jd.DegenerateOverJoinedKeys, jd.JoinedKeysConsidered, jd.KeysConsidered, jd.Degenerate),
 					fmt.Sprintf("families[%s].join_degeneracy[0].lower_rank_verdicts_reachable_from_each_higher_verdict = %v", jd.Family, jd.ReachableVerdicts),
 					fmt.Sprintf("independence_probe[%s vs %s].by_family[%s] = co_votes %d, disagreements %d", jd.Higher, jd.Lower, jd.Family, cov, dis),
 				},
@@ -230,7 +235,7 @@ func hollowCoVoteQualifier(p PairProbe, families []Family) string {
 	degenerate := map[string]bool{}
 	for _, f := range families {
 		for _, jd := range f.JoinDegeneracy {
-			if jd.Degenerate && jd.Higher == p.Higher && jd.Lower == p.Lower {
+			if jd.DegenerateOverJoinedKeys && jd.Higher == p.Higher && jd.Lower == p.Lower {
 				degenerate[jd.Family] = true
 			}
 		}
