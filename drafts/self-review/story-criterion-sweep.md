@@ -507,9 +507,17 @@ it from the outside: **exactly three** Go files mention `prd-pack` at all
 checked artifact, and every US-011 AC2 mention in Go code is prose inside
 `internal/deltaledger/definitions_stale_port_corrections.go`. (I first wrote
 "four" here from recall and the grep says three; the number is the grep's.) The US-020 AC2
-mechanism that does exist (`internal/oraclerank`) cannot see either instance: its
-handshake family scores accept/reject/incomplete VERDICTS, not the 101 response
-field set, and its Autobahn family reads a run that predates both fixes. **So
+mechanism that does exist (`internal/oraclerank`) cannot see either instance, and
+the reason is structural rather than incidental. Its handshake family carries only
+`Verdict` and `RejectCode` (`census.go:442-451`) — accept, reject or incomplete —
+never a response field set; `subject_handshake_header_names`, the dimension the
+divergence sweep uses for DIV-06 and DIV-07, appears NOWHERE under
+`internal/oraclerank/`. And `census.go:438-439` says the rest out loud:
+*"Rank five abstains: no per-case Rust handshake transcript is committed."* **In
+the one family that covers the handshake, the port's own observation does not
+participate at all**, so no rank comparison there can reach what the port emits.
+Its Autobahn family does carry rank five, but reads the 518b77aa run, which
+predates both fixes. **So
 this class is not merely undetected by accident — no gate in the tree is capable
 of detecting it, and both instances were found by a human reading a PRD.**
 
