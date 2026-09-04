@@ -366,6 +366,30 @@ protocol branch past it in two statements. What it now does that it did not do
 this morning is fail on every one-statement form, including the one AC1's third
 bullet names, and refuse to let a ruled instance cover an unruled copy.
 
+## The full gate suite
+
+`make -C rust gates` run detached from the worktree, exit code read from a file
+the run wrote rather than from the terminal:
+
+```
+$ cat .f016-logs/gates.exit
+0
+gate=adapter-linkage verdict=PASS detail="adapter linkage exact over 5 production
+  sources; edges exact; no protocol surface or parser branch; 3 protocol-state
+  branch site(s) over 27 governed core enums, all declared"
+ac1-gates verdict=PASS gates_passed=8/8
+```
+
+Zero `verdict=FAIL` / `result=FAIL` / `^FAIL` lines across the whole log.
+`cmd/rustgatectl` passes inside the suite's own `go-suite` phase, and
+`fmt-check`, `clippy`, `fixture-guard`, `record-guard`, `pin-guard`,
+`ledger-gates` and `oracle-hierarchy-gates` all completed. `VJWP_PROTECTED_STORE`
+was exported for the run, as the ledger gate requires by design.
+
+`go run ./cmd/recordguardctl precondition
+drafts/self-review/f016-protocol-branch-gate.md` reads `signals=0
+verdict=READS-FINISHED`, `result=PASS`, exit 0.
+
 ## Files
 
 - `cmd/rustgatectl/protocol_branch.go` — the detector, the vocabulary
