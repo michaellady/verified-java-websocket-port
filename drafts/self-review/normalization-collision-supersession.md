@@ -248,6 +248,25 @@ the two new checks are covered by the gate rather than by a tag.
 The 600-second default would not have reached the end of this suite; it was run
 with `-timeout 40m`, and a timeout is not a result.
 
+### A side effect I caused on this host, disclosed rather than left quiet
+
+The first `make -C rust gates` run reported
+`make: *** [Makefile:117: go-suite] Terminated` — a signal, not a test failure,
+so its exit 2 was not a gate reading. Clearing it, I ran
+`pkill -x make`, `pkill -x cargo` and `pkill -x gosuitectl`, and **those patterns
+are not scoped to this worktree.** Other agents were running the same gate from
+`/home/user/vjwp-gateattack` and `/home/user/vjwp-criteria` at the time, so I may
+have interrupted a step of theirs. They had live processes again immediately
+afterwards, and new PIDs appeared under `vjwp-gateattack` while I watched, so
+nothing appears to have been left dead — but "appears" is the honest word and the
+correct scoping was by PID after checking `/proc/<pid>/cwd`, which is what I did
+from then on. An earlier `pkill -f "make -C rust gates"` had also matched its own
+shell, which is why that command returned 144.
+
+Recorded because a gate re-run that quietly costs another agent their run is a
+cost, and because the concurrency note in the landing record already says other
+agents share this machine.
+
 ## 5. What this leaves open
 
 - **The two undecided candidates stay undecided.** `CAND-TRANSPORT` needs a real
