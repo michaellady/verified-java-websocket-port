@@ -248,6 +248,33 @@ the two new checks are covered by the gate rather than by a tag.
 The 600-second default would not have reached the end of this suite; it was run
 with `-timeout 40m`, and a timeout is not a result.
 
+### The full gate
+
+```
+make -C rust gates                                                  exit 0
+```
+
+All fifteen steps ran, in order, with no failure marker anywhere in the log:
+`cargo fmt --check`, `cargo clippy --workspace --all-targets --all-features
+-D warnings`, fixture-guard, record-guard, pin-guard, go-suite,
+`cargo test --workspace --all-targets --all-features`,
+`cargo test --workspace --release`, `rustgatectl`, `deltaledgerctl --check`,
+`oraclerankctl --check`. The four gates that report a verdict line:
+
+```
+gate=fixture-liveness-guard        result=PASS
+gate=record-content-precondition   result=PASS
+gate=pin-dangling                  result=PASS  (no undeclared drift; 11 acknowledged findings)
+gate=go-suite                      result=PASS  (59 packages run, 2 excluded by name with a reason)
+```
+
+The exit code was read from the process — the run was detached with `setsid` and
+wrote `RUST_GATES_EXIT=$?` to its own log — not inferred from the absence of
+complaints. `go-suite` alone took roughly fifty minutes, held up by
+`internal/formalplan`, because three other agents' worktrees were running their
+own suites on the same four cores at load averages between 25 and 80. Those are
+contended wall-clock times and none of them is a performance measurement.
+
 ### A side effect I caused on this host, disclosed rather than left quiet
 
 The first `make -C rust gates` run reported
