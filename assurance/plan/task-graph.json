@@ -102,6 +102,18 @@
       "state": "open",
       "what_is_needed": "Decide whether evidence/governance/owner-decision-digests.json should mirror more than the 7 records it covers today. The store holds 63. I measured the gap rather than inferring it: deleting evidence/governance/decisions/us007-attempt-0101-owner-authorization.json (uncovered) leaves `deltaledgerctl --check` at exit 0, still printing \"7 governance record digest(s) recomputed from the protected store and matched\" -- true, and true of 7. The current 7 are DERIVED, not chosen: the mirror's own statement says an entry is admitted when a ledger record cites that record's sha256, so a record nothing cites is deliberately absent. Widening it to all 63 replaces that derivation with an enumeration, moves a declared count, and re-opens the disclosure question settled by governance-publish-records-owner-decision-2026-08-29.json. Three options: leave it derived and keep the narrow claim; widen to all 63 and drop the citation derivation; or add a second, weaker arm that fails on the DELETION of any store record (a count and a name list) while leaving digest coverage derived.",
       "why_it_blocks": "It is a denominator and a disclosure question at once, which is exactly the pair this project stops at. The rust/Makefile comment that claimed all 63 has been corrected to say 7 in the meantime, so nothing currently overclaims -- but the 56 uncovered records are unprotected against deletion and a reader should not have to measure that themselves."
+    },
+    {
+      "id": "OA-governance-statement",
+      "state": "open",
+      "what_is_needed": "Rule on evidence/governance/owner-decision-digests.json $.statement, which asserts the owner-decision records are 'deliberately NOT committed' while git tracks all seven it mirrors, byte-identical to the digests. The publication was ruled at governance-publish-records-owner-decision-2026-08-29.json; this is stale prose, not a disclosure incident.",
+      "why_it_blocks": "It cannot be corrected by editing the file: internal/deltaledger.VerifyGovernance requires the document to equal BuildOwnerDecisionManifest's output, whose Statement is the Go constant OwnerDecisionManifestStatement, so the statement is verified against a copy of itself. The correction is a change to that constant plus a regeneration, and it restates a governance posture."
+    },
+    {
+      "id": "OA-record-census-prose",
+      "state": "open",
+      "what_is_needed": "Decide whether prose reciting the SIZE of drafts/self-review/ should be bound to it. Six records recite 41, 55, 55, 61 and 41 against a census that reads 66.",
+      "why_it_blocks": "Binding it makes every future record fail record-guard against an unrelated older record until that record is restated -- a treadmill, and a gate that punishes writing records. Whether that cost is worth paying is a judgement about how this project wants its history to read, not a measurement."
     }
   ],
   "nodes": [
@@ -561,18 +573,84 @@
     {
       "id": "T-other-record-prose",
       "title": "Bind the remaining records' prose to the documents they cite",
-      "state": "ready",
+      "state": "done",
       "depends_on": [
         "T-record-prose-bound"
       ],
       "blocked_by": [],
       "evidence": [
         {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/prose.go"
+        },
+        {
+          "kind": "path_exists",
+          "path": "cmd/recordguardctl/prose_test.go"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/record-prose-corpus.md"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/record-prose-corpus.md"
+        },
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "(?m)^\\tcd \\.\\. && go run \\./cmd/recordguardctl prose -root \\.$"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/main.go",
+          "pattern": "(?m)^\\tcase \"prose\":$"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "UNDISPOSITIONED_CLAIM"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "STALE_ALLOWANCE"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose.go",
+          "pattern": "STALE_COVERAGE_CLAIM"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "func TestMutatingTheProseGoesRedAndNamesTheField"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "func TestMutatingTheDocumentAlsoGoesRed"
+        },
+        {
           "kind": "command",
-          "cmd": "go test ./internal/normcollide/"
+          "cmd": "go run ./cmd/recordguardctl prose -root ."
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "TestAQuotedBesideThisREADMEDoesNotBindTheQuotingRecord"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "TestMirroringDoesNotDisturbTheCheckout"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/recordguardctl/prose_test.go",
+          "pattern": "os\\.Link\\(p, target\\)"
         }
       ],
-      "note": "recordbounds binds ONE record. Every other record's prose in the tree is pinned to nothing -- stated as that work's own ceiling."
+      "note": "Twelve records bound by twenty bindings, every value re-derived from the cited document on each run; no expected value anywhere in the table. The census (241 cardinality sentences, 11 with an enumerable population, all dispositioned) fails an UNDISPOSITIONED_CLAIM, so the binding table is a floor and not a hand-picked list. Four true positives declared, none fixed by edit. Ceiling: 230 sentences name a population this gate cannot enumerate. | On merge the gate caught its own first customer: a review record REPORTING the governance README's miscount necessarily quotes \"beside this README\", and the deictic rule bound that quotation to the quoting record's own directory, reporting an UNDISPOSITIONED_CLAIM about drafts/self-review/. maskOtherVoices does not reach it -- the quotation is inline, not a block. Fixed by requiring the source to BE a README for that phrase, which is exact rather than a heuristic about quoting. Verified both ways after the fix: correcting the README to 63 fires STALE_ALLOWANCE, making it wrong differently (61) fires PROSE_DISAGREES_WITH_DOCUMENT re-deriving 63 from the directory, and the unmodified tree is PASS. | Second defect at merge: mirrorTree HARD-LINKED the checkout, raising st_nlink on every source file, and internal/assurance requires assurance/lifecycle.json to be an immutable single-link file. Packages run concurrently, so a mirror alive here failed a test there -- go-suite red in two packages this branch does not touch, reading exactly like contention. Now a byte copy (36 MB, 3014 files, under a second), with the property asserted directly rather than sampled: the regression test was shown to FAIL on the old behaviour, naming nlink=2."
     },
     {
       "id": "T-sweep-master-stories",
@@ -749,6 +827,32 @@
       ],
       "evidence": [],
       "note": "Found by the round-2 attack, measured independently here. The Makefile's unqualified claim that \"Deleting or editing a governance record fails this target\" was corrected to name the 7; the coverage question itself is the owner's."
+    },
+    {
+      "id": "T-governance-statement-supersession",
+      "title": "Supersede the digests-only statement in owner-decision-digests.json",
+      "state": "blocked",
+      "depends_on": [
+        "T-other-record-prose"
+      ],
+      "blocked_by": [
+        "OA-governance-statement"
+      ],
+      "evidence": [],
+      "note": "record-prose declares it as an allowance today: the finding is TRUE, re-derived on every run (7 of 7 mirrored records git-tracked), and the allowance fails the moment the statement stops asserting it. See drafts/self-review/record-prose-corpus.md TP-2."
+    },
+    {
+      "id": "T-record-census-prose",
+      "title": "Decide whether a recited record-census count is bindable prose",
+      "state": "blocked",
+      "depends_on": [
+        "T-other-record-prose"
+      ],
+      "blocked_by": [
+        "OA-record-census-prose"
+      ],
+      "evidence": [],
+      "note": "Reported and deliberately NOT bound. record-content-precondition.md:470 says 'The census currently reads records=41' against a census of 66. See drafts/self-review/record-prose-corpus.md TP-4."
     }
   ]
 }
