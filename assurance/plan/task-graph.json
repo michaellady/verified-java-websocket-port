@@ -1098,13 +1098,37 @@
     {
       "id": "T-us019-site-count-underivable",
       "title": "A published site count of 110 that re-derives as 111, from an enumerator that was deleted",
-      "state": "ready",
+      "state": "done",
       "depends_on": [],
       "blocked_by": [
         "OA-pr4-fast-forward"
       ],
-      "evidence": [],
-      "note": "Round 4 reported 110 `if` conditions across its four files. A go/ast enumeration of those same files returns 111 -- baseline.go 43, independence.go 16, reconcile.go 27, suite.go 25 -- which I re-derived independently of the report that raised it, getting the same total and the same per-file split. Round 4's enumerator was .sweep/mutate.py, which f9b9520 GITIGNORED, so its 110 cannot be re-derived by anyone. Round 4's numbers are left exactly as recorded and nothing was re-baselined. The lesson is the deleted derivation, not the off-by-one: a measurement whose enumerator is gone is a number no one can check, and this repository's own graph note still recites 70 of 110 on mainline."
+      "evidence": [
+        {
+          "kind": "git_tracked",
+          "path": "drafts/self-review/findings/F020-a-measurement-whose-enumerator-was-deleted.md"
+        },
+        {
+          "kind": "grep",
+          "path": "drafts/self-review/findings/F020-a-measurement-whose-enumerator-was-deleted.md",
+          "pattern": "111"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "internal/autobahnsuite/baseline.go"
+        },
+        {
+          "kind": "grep",
+          "path": ".gitignore",
+          "pattern": "\\.sweep/"
+        },
+        {
+          "kind": "command",
+          "cmd": "go/ast walk of *ast.IfStmt over the four non-test files of internal/autobahnsuite",
+          "note": "43+16+27+25 = 111, re-derived on mainline after the US-019 line landed"
+        }
+      ],
+      "note": "Round 4 reported 110 `if` conditions across its four files. A go/ast enumeration of those same files returns 111 -- baseline.go 43, independence.go 16, reconcile.go 27, suite.go 25 -- which I re-derived independently of the report that raised it, getting the same total and the same per-file split. Round 4's enumerator was .sweep/mutate.py, which f9b9520 GITIGNORED, so its 110 cannot be re-derived by anyone. Round 4's numbers are left exactly as recorded and nothing was re-baselined. The lesson is the deleted derivation, not the off-by-one: a measurement whose enumerator is gone is a number no one can check, and this repository's own graph note still recites 70 of 110 on mainline. | RECORDED as F020. The repair was only possible BECAUSE the US-019 line landed: until then internal/autobahnsuite did not exist on mainline, so NEITHER number could be re-derived here. Round 4's 110 stays exactly as published and is not edited anywhere -- it remains uncheckable, because .gitignore:80 ignores .sweep/ and the enumerator is gone. The 111 is now re-derivable by anyone from the committed sources plus a stated method, which is the durable form. Deliberately NOT bound to a gate: that would fail the build whenever anyone adds an `if` to a file unrelated to the sweep, which is a treadmill and a denominator invented from inside a fix. The problem was never that 111 was unenforced; it was that 110 was uncheckable."
     },
     {
       "id": "T-gates-residue-attacked",
