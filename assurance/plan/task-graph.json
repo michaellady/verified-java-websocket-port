@@ -84,6 +84,12 @@
       "state": "open",
       "what_is_needed": "Decide PR #1's fate. Its head shares no common ancestor with the live line and is superseded, not stranded (F015).",
       "why_it_blocks": "Two draft PRs into an empty main with nothing saying which line is live."
+    },
+    {
+      "id": "OA-drive-until-open-branch",
+      "state": "open",
+      "what_is_needed": "Rule on a SECOND adapter-side protocol branch, found by the new detector on its first real run and ruled on by nobody: `drive_until_open` at rust/ws-testee/src/io_loop.rs:745 branches on core ReadyState -- `if driver.state() != ReadyState::NotYetConnected { return true; }`. Same shape as server_closes_transport, which you ruled stays. Keep it and declare it, or move it into the core.",
+      "why_it_blocks": "It is declared in the gate's allowance list only so the gate can pass, with its entry stating that it is UNRULED. That is an honest placeholder, not a decision, and it should not sit there indefinitely."
     }
   ],
   "nodes": [
@@ -347,7 +353,7 @@
     {
       "id": "T-F016-gate",
       "title": "Make the architecture gate detect adapter-side branching on core protocol state",
-      "state": "in-progress",
+      "state": "done",
       "story": "US-018",
       "depends_on": [],
       "blocked_by": [
@@ -355,11 +361,21 @@
       ],
       "evidence": [
         {
+          "kind": "path_exists",
+          "path": "cmd/rustgatectl/protocol_branch.go"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/protocol_branch.go",
+          "pattern": "ADAPTER_PROTOCOL_BRANCH|protocol_branch"
+        },
+        {
           "kind": "command",
           "cmd": "make -C rust ac1-gates",
-          "note": "a seeded match on (Role, ReadyState) must FAIL; the declared instance must PASS; the declaration must FAIL when the instance is removed"
+          "note": "a seeded match on (Role, ReadyState) takes ac1-gates from 8/8 to 7/8, exit 2"
         }
-      ]
+      ],
+      "note": "Closes F016. The detector re-derives the governed enums from the ws-core sources and the names the adapter can reach them by from its own `use` trees, which is what closes the root-re-export gap a module-path-keyed list could never see. It cannot see protocol state decided AFTER conversion -- two-step laundering defeats it in two statements -- and those four holes are pinned as tests that fail if a later change closes them, so the disclosure cannot drift from the code."
     },
     {
       "id": "T-ledger-58",
@@ -553,6 +569,20 @@
         }
       ],
       "note": "64 of 70 closed, 6 proved unreachable. 70 is a FLOOR: switch arms, all Rust-side checks, and conjuncts inside composite booleans were never swept."
+    },
+    {
+      "id": "T-drive-until-open",
+      "title": "Rule on the second adapter-side protocol branch the detector found",
+      "state": "blocked",
+      "story": "US-018",
+      "depends_on": [
+        "T-F016-gate"
+      ],
+      "blocked_by": [
+        "OA-drive-until-open-branch"
+      ],
+      "evidence": [],
+      "note": "Declared in the allowance list with its entry saying it is UNRULED, rather than borrowing server_closes_transport's ruling. The detector found it on its first real run against shipped code."
     }
   ]
 }

@@ -158,6 +158,24 @@ record exactly which owner or independent step remains.
    to mean. Still run `go build ./... && go test -count=1 ./...` as step 4 says —
    it is the one thing that also exercises the two excluded packages.
 
+   **AGENT WORKTREES FILL THE DISK, AND A FULL DISK LOOKS EXACTLY LIKE A TEST
+   REGRESSION.** Each worktree costs ~0.9-1.2 GB once its `rust/target` and Go
+   build cache exist. On 2026-09-04, sixteen worktrees took the session to
+   **24 MB free, 100% used**, and `make -C rust gates` came back exit 2 with
+   `assurance/formal/kani/runner` and `cmd/assurectl` failing — four tests that
+   write temp dirs or build binaries. Nothing was wrong with the code: with space
+   freed, both packages exit 0 unchanged.
+
+   So before diagnosing a NEW test failure, run `df -h /home/user`. "Avail" near
+   zero is the answer, and it is not a finding about the tree.
+
+   Clean up after an agent finishes: confirm its branch is pushed
+   (`git rev-parse <b>` equals `git rev-parse origin/<b>`), then
+   `git worktree remove <path> --force` and `git worktree prune`. Removing a
+   worktree does NOT delete its branch, so nothing is lost. Never remove a
+   worktree with a live process — check with
+   `readlink /proc/<pid>/cwd` rather than guessing from the agent's status.
+
    **A `git worktree` DOES NOT GET `.quarantine/`, AND THAT HAS NOW MIS-LED TWO
    AGENTS INTO REPORTING A THIRD ENVIRONMENTAL FAILURE.** `.quarantine/` is
    gitignored, so it exists only in the checkout that populated it. In a fresh

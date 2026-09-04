@@ -309,13 +309,73 @@ func (r *gateRunner) gateAdapterLinkage(meta *cargoMetadata, metaErr error) (boo
 	}
 	findings = append(findings, scanAdapterSources(sources)...)
 
+	// The protocol-state half of AC1's third bullet (F016). The governed
+	// vocabulary is re-derived from ws-core on every run rather than listed,
+	// which is also how `Role` and `ReadyState` are reached at all: they are
+	// ROOT RE-EXPORTS, invisible to the module-path-keyed
+	// forbiddenProtocolSurface list.
+	coreSources, coreErr := readRustSources(r.rustDir, filepath.Join("ws-core", "src"))
+	if coreErr != nil {
+		return false, fmt.Sprintf("cannot read core sources for protocol-state derivation: %v", coreErr)
+	}
+	branchFindings, sites, governed := scanProtocolBranches(sources, coreSources)
+	findings = append(findings, branchFindings...)
+
+	governedNames := make([]string, 0, len(governed))
+	for _, enum := range governed {
+		governedNames = append(governedNames, enum.Name)
+	}
+
 	r.note(g, "production_sources=%d required_seams=%d forbidden_surface=%d forbidden_branch=%d",
 		len(sources), len(requiredLinkageSubstrings), len(forbiddenProtocolSurface), len(forbiddenProtocolBranch))
+	r.note(g, "core_sources=%d governed_protocol_enums=%d governed=%s seam_enums=%d branch_sites=%d declared_allowances=%d cfg_test_items_skipped=%d",
+		len(coreSources), len(governed), strings.Join(governedNames, ","),
+		len(protocolSeamEnums), len(sites), len(protocolBranchAllowance), cfgTestItems)
+	for _, site := range sites {
+		r.note(g, "branch_site=%s:%d fn=%s rule=%s evidence=%q fingerprint=%s declared=%t",
+			site.Path, site.Line, site.Enclosing, site.Rule, site.Evidence,
+			site.Fingerprint, allowanceIndexFor(site) >= 0)
+	}
 	for _, finding := range findings {
 		r.note(g, "finding=%s detail=%q", finding.Kind, finding.Detail)
 	}
 	if len(findings) > 0 {
 		return false, fmt.Sprintf("%d adapter architecture findings", len(findings))
 	}
-	return true, fmt.Sprintf("adapter linkage exact over %d production sources; edges exact; no protocol surface or parser branch", len(sources))
+	return true, fmt.Sprintf(
+		"adapter linkage exact over %d production sources; edges exact; no protocol surface "+
+			"or parser branch; %d protocol-state branch site(s) over %d governed core enums, "+
+			"all declared", len(sources), len(sites), len(governed))
+}
+
+// readRustSources reads every .rs file under rustDir/relative, keyed by the
+// path relative to rustDir.
+func readRustSources(rustDir, relative string) (map[string]string, error) {
+	root := filepath.Join(rustDir, relative)
+	sources := make(map[string]string)
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".rs") {
+			return nil
+		}
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		rel, relErr := filepath.Rel(rustDir, path)
+		if relErr != nil {
+			rel = path
+		}
+		sources[filepath.ToSlash(rel)] = string(data)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("no .rs sources under %s", root)
+	}
+	return sources, nil
 }
