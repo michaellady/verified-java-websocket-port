@@ -75,17 +75,20 @@ const CeilingText = "This gate checks the plan's INTERNAL consistency and that e
 	"cited evidence still holds. It does NOT check that the evidence is " +
 	"SUFFICIENT for the claim -- a node may cite a weak-but-true fact and pass " +
 	"-- and that gap was MEASURED rather than assumed. Of the 13 done nodes at " +
-	"the time of the measurement, 5 stayed at exit 0 with every source file of " +
-	"the work they name DELETED from the tree; a 6th stayed at exit 0 with a " +
-	"1453-line detector replaced by a three-line comment still carrying the " +
-	"identifier its grep looks for; the other 7 cite a value the work itself " +
-	"produced, and 6 of those 7 were broken here by perturbing that value. Rule " +
-	"6 refuses evidence that CANNOT fail; it cannot refuse evidence that is " +
-	"merely weak. It does not discover work: a task nobody wrote down is " +
-	"invisible here, so the graph is a floor on what remains, never a total -- " +
-	"and nothing counts the nodes against anything, so deleting one is silent. " +
-	"And `command` evidence is recorded but never verified, deliberately, so it " +
-	"cannot masquerade as a checked claim."
+	"the time of the measurement, 5 stayed at exit 0 with the IMPLEMENTATION of " +
+	"the work they name destroyed, two of them with the scanner's source files " +
+	"deleted outright, because `path_exists` establishes only that the named " +
+	"file exists and a `grep` for an identifier is satisfied by any dead " +
+	"mention of it; a 6th stayed at exit 0 with a 1453-line detector replaced " +
+	"by a three-line comment carrying the identifier its grep looks for; the " +
+	"other 7 cite a value the work itself produced, and 6 of those 7 were " +
+	"broken here by perturbing that value. Rule 6 refuses evidence that CANNOT " +
+	"fail; it cannot refuse evidence that is merely weak. It does not discover " +
+	"work: a task nobody wrote down is invisible here, so the graph is a floor " +
+	"on what remains, never a total -- and nothing counts the nodes against " +
+	"anything, so deleting one is silent. And `command` evidence is recorded " +
+	"but never verified, deliberately, so it cannot masquerade as a checked " +
+	"claim."
 
 type Evidence struct {
 	Kind    string `json:"kind"`
