@@ -211,3 +211,84 @@ exists and is already named for exactly it.
 - `rust/ws-core/tests/handshake_server_response.rs:71-78` — `response_head`,
   checked and cleared: it asserts nothing about the field set, so the coupling
   is the count assertion alone and not the shared helper.
+
+## Addendum 3, 2026-09-04: the question was already answered, eight days before it was asked
+
+A standing owner decision resolves this, and three analyses of it — the original
+finding, addendum 1, and addendum 2's blast-radius measurement, all mine — never
+consulted the decisions directory. A sweep agent found it; I verified it.
+
+`evidence/governance/decisions/us010-016-ac-amendment-owner-decision-2026-08-27.json`,
+sha256 `26849b5e…`, decided **2026-08-27** — seven days before DIV-06 landed.
+
+### The operative sentence, in full
+
+> **AMEND ACs TO JAVA-FAITHFUL:** every AC clause of US-010..US-016 that requires
+> rejecting, transforming, or augmenting behavior which the pinned live-verified
+> Java-WebSocket 1.6.0 exhibits is amended to bind instead to the recorded
+> fidelity authority (`internal/corpora/derive.go` reference model + live
+> oracle/handshake confirmations). Each Java-vs-RFC divergence MUST be recorded
+> in the behavior delta ledger… Safety-critical bounds are NOT relaxed:
+> `forbid(unsafe_code)`, bounded allocation/backpressure, checked config limits,
+> and the hard safety ceilings retained in the merged design all remain binding.
+> Evidence-machinery clauses (fuzz/property/mutation campaigns, linkage graphs,
+> formal runs, Autobahn where named) are NOT waived by this amendment — **only
+> the behavioral stance is amended.**
+
+### Applying it, with every carve-out checked
+
+US-011 AC2 is in range (US-010..US-016). Its banner clause requires the port to
+suppress `Date` and `Server: TooTallNate Java-WebSocket`, which the pinned Java
+**does** emit — so it is a clause requiring the port to TRANSFORM behaviour the
+pinned Java exhibits. The three carve-outs, each tested rather than waved past:
+
+- **Safety-critical bounds?** No. A vendor banner is not `unsafe_code`, an
+  allocation bound, a config limit, or a safety ceiling.
+- **Evidence machinery?** No. It is not a fuzz, property, mutation, linkage,
+  formal or Autobahn clause.
+- **Behavioral stance?** Yes — it is precisely a statement about what bytes go on
+  the wire, which is the one thing the amendment does amend.
+
+So on the plain text, AC2's banner clause is **already amended to bind to Java
+fidelity**, and DIV-06 emitting the banner is not a violation but compliance.
+
+### The one honest reason for doubt
+
+The document's `context` names the families the closure audit found in conflict —
+mask and noncanonical-length rejection, the RFC close-code table and echo
+matching, the RFC handshake validation gate, automatic-pong policy, control
+payload caps. **AC2's banner clause is not among them.** And AC2 is unlike them
+in kind: those clauses are RFC-strict restatements, while "no Java-specific Date
+or Server banner" is *stricter than* RFC 6455, which requires only `Upgrade`,
+`Connection` and `Sec-WebSocket-Accept` and forbids nothing.
+
+That is a reason for the owner to CONFIRM the reading, not a carve-out in the
+text. The decision says "every AC clause … that requires rejecting, transforming,
+or augmenting", not "every RFC-strict AC clause"; the context explains why the
+audit happened, the decision states what was amended.
+
+### What this changes
+
+- F010's three options collapse. There is no amendment to make: one exists.
+- Addendum 2's measured costs stand as costs of a change that should not be made.
+  Removing `Server` would fail 4 ws-core tests and removing `Date` 3, and the
+  load-bearing casualty either way is byte-exactness against the pinned jar —
+  which is exactly the fidelity authority this amendment binds to.
+- The ledger already cites this decision, and
+  `evidence/governance/owner-decision-digests.json` carries its digest in the
+  verified set the ledger gate recomputes. It is live, not a draft.
+- The owner's remaining action is one line: confirm that "every AC clause"
+  reaches a clause stricter than the RFC, or say it does not.
+
+### The method failure, which is the part worth keeping
+
+Three passes over one question, each more careful than the last about the TEXT of
+AC2 and the BYTES of the response, and not one of them asked whether the question
+had already been decided. `evidence/governance/decisions/` is a directory of
+answers; F010 never grepped it. Addendum 1 re-read AC2 in full context and still
+did not. Addendum 2 measured blast radius for three options, one of which was
+"amend AC2" — while the amendment sat in the tree, digest-verified, cited by the
+ledger the same finding discusses.
+
+Reading the criterion more carefully cannot find a decision that overrides it.
+The check that would have is cheap and was never run.
