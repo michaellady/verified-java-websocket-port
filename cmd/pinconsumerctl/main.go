@@ -700,17 +700,28 @@ const danglingCeiling = "candidates are objects where a tracked path and a sha25
 	" reported, as MISSING_PIN_TARGET counted in missing_targets=, and it FAILS" +
 	" the gate -- git says the path is real, so nothing there is a guess." +
 	" (2) A pin naming an UNTRACKED path is NOT SEEN AT ALL, and that is a" +
-	" deliberate refusal, not an oversight. It is live:" +
+	" deliberate refusal, not an oversight. ITS LIVE EXAMPLE IS GONE, and by the" +
+	" artifact arriving rather than by the hole closing:" +
 	" obligation-catalog.json $.denominator_basis[2] names corpora/frame/codec.json," +
-	" deleted from this plane, and this census has never counted it (reconcile.go" +
-	" does, as BASIS_PIN_PATH_IS_ABSENT_FROM_THIS_PLANE). Closing it needs a WIDER" +
-	" corpus and both widenings were measured: paths git has EVER tracked adds 26" +
-	" rows, 24 of them the vendored catalog's rust_bindings, and re-admits ignored" +
-	" trees -- `.quarantine` is in that set, which is F011 exactly; path-SHAPED" +
-	" strings adds 662, most of them version numbers like `21.0.4`. Either changes" +
-	" what the corpus contains and lands its rows on the formal denominator's" +
-	" declared basis, so the hole is disclosed here instead of being closed from" +
-	" inside a gate fix." +
+	" which was absent from this plane and which this census therefore never" +
+	" counted; on 2026-09-04, under owner action OA-catalog-plane-denominator, that" +
+	" artifact was brought onto this line byte-identically to the blob the pin" +
+	" declares, so the pin now sits inside `git ls-files`, its declared digest IS" +
+	" the file's current one, and reconcile.go reports it as" +
+	" BASIS_PIN_MATCHES_FILE_ON_DISK. The MECHANISM is untouched, no allowance" +
+	" moved, and the corpus decision is still the owner's (OA-pin-path-corpus)." +
+	" Closing the hole needs a WIDER corpus and both widenings were measured when" +
+	" this census read 1997 artifacts: paths git has EVER tracked added 26 rows --" +
+	" 24 the vendored catalog's rust_bindings, and 2 the codec.json pin and its" +
+	" reconciliation mirror -- and re-admits ignored trees, `.quarantine` being in" +
+	" that set, which is F011 exactly; path-SHAPED strings added 662, most of them" +
+	" version numbers like `21.0.4`. NEITHER TOTAL IS CURRENT: compare the artifact" +
+	" count in the census line above with the 1997 those two were measured over." +
+	" What WAS re-measured on 2026-09-04 is the part the codec.json move touches:" +
+	" its 2 rows have left the ever-tracked widening, and the other 24 remain, on" +
+	" all four of the source paths they name. Either widening changes what the" +
+	" corpus contains and lands rows on the formal denominator's declared basis," +
+	" so the hole is disclosed here instead of being closed from inside a gate fix." +
 	" `explained=` counts candidates SUBTRACTED because the digest was recomputed" +
 	" from CURRENT bytes and proven to cover something else: a field the named" +
 	" file carries (assurance/concurrency/plan.json's `observed_head` is the" +

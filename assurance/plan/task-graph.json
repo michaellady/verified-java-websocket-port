@@ -400,14 +400,15 @@
     },
     {
       "id": "T-denominator-basis",
-      "title": "Three denominator_basis pins whose anchor is not an ancestor of HEAD",
-      "state": "ready",
+      "title": "denominator_basis pins whose anchor is not an ancestor of HEAD",
+      "state": "blocked",
       "depends_on": [],
       "blocked_by": [
-        "OA-catalog-plane-denominator"
+        "OA-catalog-plane-denominator",
+        "OA-basis-anchor-vs-catalog-immutability"
       ],
       "evidence": [],
-      "note": "A DENOMINATOR. Hard stop -- never re-baselined from inside the loop."
+      "note": "A DENOMINATOR. Hard stop -- never re-baselined from inside the loop. FIVE pins name 1ff89fa, not three: the three the ruling and pin-guard's allowance table mean are $.denominator_basis[1], [3] and [4], the three pin-guard SEES. [0] is invisible because its declared digest is the file's current one; [2] was invisible because its target path was untracked, which is bypass C9b and OA-pin-path-corpus. The ruling's first clause is DONE for the one pin where it was lossless -- see T-basis-artifact-onto-this-line. It is refused for [1], [3] and [4]: the artifacts at 1ff89fa under those paths are not older versions of this line's files but different documents. proof-targets.json at 1ff89fa carries plan_id and 2 targets against schema 1.1.0, where this line carries document_id formal-proof-targets.us006 and 10 against 1.0.0, and copying it in makes formalcoverctl refuse at `proof-target document id is \"\"`. semantic-id-migration-map.json at 1ff89fa declares schema 1.1.0, whose schema file this plane does not carry and which internal/portplan pins at 1.0.0. compatibility-surface.json is shape-compatible and copying it in would revert commit 93f5444. The second clause is refused for all five: see OA-basis-anchor-vs-catalog-immutability."
     },
     {
       "id": "T-pr4",
@@ -1369,6 +1370,54 @@
       "blocked_by": [],
       "evidence": [],
       "note": "OA-held-draft-legacy-13 was RULED and had no node blocked on it, so the ruling had nowhere to be done -- a decision with no work item is how an answered question quietly stops being acted on. The ruling: derive VerifyProposalDraftsAreLedgered's population from the directory rather than the hardcoded list of seven, and carry legacy-13-bare-lf-server-basis-correction.json as a DECLARED EXEMPTION with a staleness check, in the shape this repository already uses four times. Explicitly NOT by appending to the ledger to make it green. Eleven drafts exist; the seven listed are each genuinely ledgered and three of the four unlisted are not record proposals by the rule's own reader."
+    },
+    {
+      "id": "T-basis-artifact-onto-this-line",
+      "title": "The one basis artifact absent from this plane, brought onto this line byte-identically",
+      "state": "done",
+      "depends_on": [],
+      "blocked_by": [],
+      "evidence": [
+        {
+          "kind": "path_exists",
+          "path": "corpora/frame/codec.json",
+          "note": "the artifact obligation-catalog.json $.denominator_basis[2] declares, at blob da9a7d0734b9db12a44e123ff1c33df2849fdef6 and sha256:984e59e8...b1b4d606, byte-identical to Codex 1ff89fa"
+        },
+        {
+          "kind": "git_tracked",
+          "path": "corpora/frame/codec.json",
+          "note": "tracked, so pin-guard's `git ls-files` corpus now contains the pin's target; the census moved 3500 -> 3501 with candidates, explained, covered and allowed all unmoved"
+        },
+        {
+          "kind": "grep",
+          "path": "assurance/formal/denominator-reconciliation.json",
+          "pattern": "(?s)\"corpora/frame/codec\\.json\".{0,450}BASIS_PIN_MATCHES_FILE_ON_DISK",
+          "note": "re-derived by formalcoverctl reconcile; the pin agreed on the run this landed"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "assurance/formal/denominator-reconciliation.json",
+          "pattern": "BASIS_PIN_PATH_IS_ABSENT_FROM_THIS_PLANE",
+          "note": "the state that no longer holds for any of the five pins; it returns the moment a basis pin's path leaves this plane again"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/pinconsumerctl/main.go",
+          "pattern": "ITS LIVE EXAMPLE IS GONE",
+          "note": "the C9b disclosure restated in the same commit: the ceiling had said codec.json was `deleted from this plane`, which this change made false"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/self-review/plane-basis.md",
+          "note": "the before/after report the ruling required"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/formalcoverctl verify -repo .",
+          "note": "recorded, never counted: exit 0 before and after, with exactly one census line removed"
+        }
+      ],
+      "note": "Executes the first clause of OA-catalog-plane-denominator for the single pin where it was possible without destroying anything: corpora/frame/codec.json existed in NO commit on this line, so writing the declared blob there is additive. Nothing was re-anchored and the vendored catalog was not touched. Measured effect on the formal denominator: three fields, all inside catalog_declared_basis_pins[2]; every count in the reconciliation and every ratio in the US-023 report unmoved."
     }
   ],
   "owner_actions": [
@@ -1472,7 +1521,7 @@
       "id": "OA-pin-path-corpus",
       "state": "open",
       "what_is_needed": "DEFERRED BY THE OWNER on 2026-09-04, deliberately and not by neglect: decide this WITH OA-catalog-plane-denominator, not separately. Decide the path corpus pin-guard scans. Today it is `git ls-files`, which cannot see a pin whose target was UNTRACKED (bypass C9b). Both widenings were measured over all 1997 artifacts: path-SHAPED strings add +662 rows (matching things like `1.0.0` and `v0.1.1`), and git's ever-tracked set adds +26 rows -- 24 of them `obligation-catalog.json $.rust_bindings[0..23]` plus `$.denominator_basis[2]` and its reconciliation mirror, every one on the formal denominator's declared basis. It also re-admits `.quarantine`, which is F011 exactly.",
-      "why_it_blocks": "Held until OA-catalog-plane-denominator is executed. The +26 widening's 24 rows land on the formal denominator's declared basis, and that decision MOVES that basis -- so measuring the widening now would measure it against a basis about to change. Re-measure both widenings after the basis moves, against the new one."
+      "why_it_blocks": "Held until OA-catalog-plane-denominator is executed. The +26 widening's 24 rows land on the formal denominator's declared basis, and that decision MOVES that basis -- so measuring the widening now would measure it against a basis about to change. Re-measure both widenings after the basis moves, against the new one. PARTIAL RE-MEASUREMENT 2026-09-04, after the codec.json artifact was brought onto this line: the 2 rows that named corpora/frame/codec.json have LEFT the ever-tracked widening (that path is now in `git ls-files`, and its declared digest is the file's current one, so it is neither a widening row nor a candidate), and the other 24 remain, on all four of the rust/connection-core and rust/websocket-driver source paths they name, each still ever-tracked and not now-tracked. So the ever-tracked widening lands 24 rows on the declared basis rather than 26. NEITHER TOTAL SURVIVES: both widenings were measured over 1997 JSON artifacts and an ever-tracked set of 2388 paths; this tree now carries 3501 tracked JSON artifacts and an ever-tracked set of 5321 paths of which 856 are no longer tracked, so both totals need a full re-derivation and neither is obsolete. `.quarantine` is still in the ever-tracked set, so the F011 re-admission hazard is unchanged."
     },
     {
       "id": "OA-governance-mirror-coverage",
@@ -1557,6 +1606,12 @@
       "state": "open",
       "what_is_needed": "Confirm or refuse an extension of OA-drive-until-open-branch that landing the US-019 line forced. That ruling was made against mainline's drive_until_open, where the function held ONE branch on core ReadyState. The merged function holds two: the ruled site at rust/ws-testee/src/io_loop.rs:831 (`if driver.state() != ReadyState::NotYetConnected`), and a second at :950 (`while cursor < rest.len() && driver.state() == ReadyState::NotYetConnected`) added by claude/us019-native-run, which feeds the handshake one byte at a time so a read cannot straddle the 101/first-frame boundary. adapter-linkage fingerprints the ENCLOSING FUNCTION, so one allowance covers both and the second site cannot be declared or refused apart from the first. It is declared on that mechanical ground and reported here rather than counted as ruled on.",
       "why_it_blocks": "The gate is green either way, so nothing stops on this. What is at stake is whether the owner's ruling is being read wider than it was written: either :950 is the same readiness poll and the ruling covers it, or it is a protocol decision and belongs in the core, in which case the allowance as re-pinned is too broad."
+    },
+    {
+      "id": "OA-basis-anchor-vs-catalog-immutability",
+      "state": "open",
+      "what_is_needed": "RAISED 2026-09-04 by executing OA-catalog-plane-denominator, not by neglect. That ruling's second clause -- re-anchor the denominator_basis pins to a commit that IS an ancestor of HEAD -- cannot be performed without editing assurance/formal/obligation-catalog.json, whose byte identity is the only detector this plane has for drift from the read-only Codex plane. MEASURED, not argued: re-anchoring all five pins to HEAD changes 395 bytes and moves the catalog from sha256:21112518.../be929320... to sha256:d0258b8a.../e10ec7b6..., and `formalcoverctl verify` then REFUSES the whole derivation at exit 1 with `the catalog on disk is ... not the vendored Codex catalog`. Landing it would also require editing internal/formalcoverage/identity.go's two asserted constants -- which exist so that `a silent revendoring fails` -- internal/javabind/coverage_test.go's `Codex original` assertion, and the catalog identity pinned in assurance/formal/plane-correspondence.json, assurance/formal/catalog-correction-proposal.json, assurance/formal/java-binding-spec.json, assurance/formal/denominator-reconciliation.json, evidence/java/formal-bindings/coverage-projection.json, evidence/java/formal-bindings/receipt.json and both evidence/formal/us023-coverage-report files. catalog-correction-proposal.json states the immutability rule with four reasons and sets this_document_modifies_the_catalog=false. The owner decides: (a) authorise the catalog edit and the constant changes explicitly, knowing byte-equality with Codex is then gone forever; (b) rule that the git.commit field is PROVENANCE -- where the bytes came from -- and is correct as it stands once the bytes are on this line, which is what the port-seam-dossier and codec.json pins already demonstrate; or (c) take plane-correspondence.json's option (b) properly and re-vendor the catalog from the Codex plane's current state.",
+      "why_it_blocks": "A DENOMINATOR IDENTITY. The catalog is the shared denominator two planes measure against; editing it from this side makes every number over it a number about this plane's own opinion. Never re-baselined from inside the loop."
     }
   ]
 }
