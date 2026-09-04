@@ -35,6 +35,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/portplan"
 )
 
 // excluded is the complete set of packages this gate does not run, each with the
@@ -66,6 +68,25 @@ func main() {
 				"broken. This is a refusal, not a failure, and not a skip.",
 			"ln -s /home/user/verified-java-websocket-port/.quarantine "+*root+"/.quarantine")
 		os.Exit(2)
+	}
+
+	// The SECOND precondition, and it was missing while the first was enforced.
+	// `internal/portplan` pins javac 17.0.19 and this container's default javac is
+	// 21.0.10, so with the pinned JDK off PATH the package fails
+	// JAVAC_UNAVAILABLE -- which reads as a broken pin or a version regression and
+	// is neither. The comment further down this file already recorded that shape;
+	// recording it was not enough, because the failure still arrives as a red
+	// package at the bottom of a 250-line log. It cost a full diagnosis cycle on
+	// 2026-09-04, and the asymmetry was the giveaway: ledger-gates REFUSES by name
+	// when VJWP_PROTECTED_STORE is unset, while this one let a missing PATH look
+	// like a regression. So it refuses too, and names the export.
+	if javac, err := exec.LookPath("javac"); err != nil {
+		refuseJavac("no javac on PATH at all", *root)
+	} else if out, err := exec.Command(javac, "-version").CombinedOutput(); err != nil {
+		refuseJavac("javac -version failed: "+err.Error(), *root)
+	} else if !strings.Contains(string(out), portplan.PinnedJavacVersion) {
+		refuseJavac(fmt.Sprintf("javac on PATH is %q, and internal/portplan pins %s",
+			firstLine(string(out)), portplan.PinnedJavacVersion), *root)
 	}
 
 	packages, err := listPackages(*root)
@@ -360,4 +381,25 @@ func buildConstraint(path string) string {
 		}
 	}
 	return "no //go:build line found"
+}
+
+// refuseJavac exits 2 with the remedy named. It is a refusal, not a failure: the
+// tree may be perfectly good, and a gate that cannot tell says so.
+func refuseJavac(observed, root string) {
+	fmt.Printf("gate=go-suite result=REFUSED reason=%q remedy=%q\n",
+		"the pinned JDK is not on PATH, so internal/portplan cannot be told apart from a "+
+			"genuinely broken package: "+observed+". This is a refusal, not a failure, "+
+			"and not a skip.",
+		"export PATH=/home/user/verified-java-websocket-port/.quarantine/jdk-"+
+			portplan.PinnedJavacVersion+"+10/bin:$PATH")
+	os.Exit(2)
+}
+
+func firstLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "javac ") {
+			return strings.TrimSpace(line)
+		}
+	}
+	return strings.TrimSpace(s)
 }

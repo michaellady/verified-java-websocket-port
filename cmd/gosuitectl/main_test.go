@@ -196,3 +196,25 @@ func TestTheRunSetIsTheComplementOfTheExclusions(t *testing.T) {
 		t.Error("the gate would run nothing")
 	}
 }
+
+// The JDK refusal's message is only useful if it names the javac it actually
+// found, and javac's output here is not one line: the agent proxy sets
+// JAVA_TOOL_OPTIONS, so javac prints a "Picked up ..." banner carrying a proxy
+// port, a truststore path and a 40-entry nonProxyHosts list BEFORE the version.
+// Quoting that whole blob into a refusal reason is how the underlying "javac
+// 21.0.10" got lost in a 250-line gates log for an hour.
+func TestTheJavacRefusalNamesTheVersionAndNotTheProxyBanner(t *testing.T) {
+	noisy := "Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/root/.ccr/java-truststore.p12 " +
+		"-Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=34715 -Dhttp.nonProxyHosts=localhost|127.0.0.1\n" +
+		"javac 21.0.10"
+	if got := firstLine(noisy); got != "javac 21.0.10" {
+		t.Fatalf("the refusal must name the javac it found, got %q", got)
+	}
+	if got := firstLine("javac 17.0.19\n"); got != "javac 17.0.19" {
+		t.Fatalf("the quiet case must survive too, got %q", got)
+	}
+	// And it must not invent a version when javac says something unexpected.
+	if got := firstLine("some other tool\n"); got != "some other tool" {
+		t.Fatalf("unrecognised output must be passed through, got %q", got)
+	}
+}

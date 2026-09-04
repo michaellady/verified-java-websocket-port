@@ -67,6 +67,8 @@ java-semantic-oracle/build/
 /normcollidectl
 /oraclerankctl
 /pinconsumerctl
+/gosuitectl
+/taskgraphctl
 /portplanctl
 /recordguardctl
 /rustgatectl
