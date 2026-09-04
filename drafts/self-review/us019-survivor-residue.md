@@ -283,10 +283,13 @@ site:
 
 > **`rust/autobahn-controls/src/cli.rs` had no test at all.** It is the two-role
 > entry point every control binary runs — the only code in the crate the
-> Autobahn harness actually invokes — and all 36 of its enumerated sites
-> survived, because no test file referenced `run_negative_control` or
-> `run_mutant`. `manifest.rs`, `mutants.rs` and `negative_control.rs` test the
-> LIBRARY the CLI calls, thoroughly; nothing tested the CLI.
+> Autobahn harness actually invokes — and of its **38 enumerated sites, 5 admit
+> no compiling mutant and every one of the remaining 33 SURVIVED**, because no
+> test file referenced `run_negative_control` or `run_mutant`. `manifest.rs`,
+> `mutants.rs` and `negative_control.rs` test the LIBRARY the CLI calls,
+> thoroughly; nothing tested the CLI. The Class-B population splits by file as
+> `cli.rs` 38, `mutant.rs` 25, `agent.rs` 13, `inert.rs` 8 — so 45% of the class
+> is one untested file.
 
 A second, smaller one: `manifest.rs`'s identity check asserts that each
 `Mutant::id()` is PRESENT in `manifest.json`, which is satisfied by two variants
