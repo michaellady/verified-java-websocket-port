@@ -283,6 +283,15 @@ honesty contract (*"a scanner that matched nothing and reported PASS is theatre"
 already refuses to leave unsaid. Live tree after the fix:
 `files=49 loops=310 violations=0 unscanned=0`, exit **0** — identical.
 
+One residual, unfixed and unexercised: a `#[cfg(test)]` attached to anything
+OTHER than a module — `#[cfg(test)] use …;`, say — still falls through to
+`nextBrace`, which adopts the next brace at depth zero as if it were the module's.
+That is pre-existing and my change does not make it worse, but it is the same
+defect as H2b in a different dress. All **16** `#[cfg(test)]` occurrences under
+`rust/` today sit on a `mod` line, so nothing exercises it. Closing it means
+requiring the attribute to be followed by `mod`, which would refuse a shape no
+crate here uses; I left it and named it instead.
+
 What fixture-guard did NOT lose: its polarity self-check (`cases=7 firing=4
 silent=3`) is the re-derive mechanism of the family that survived round 1, and I
 did not attack the A/B/C shape detectors themselves, the waiver ceiling, or
