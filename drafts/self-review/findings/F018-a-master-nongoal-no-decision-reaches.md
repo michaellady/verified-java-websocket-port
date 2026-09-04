@@ -58,9 +58,31 @@ repository runs — not an argument.**
 ## That the quirks are undocumented, in the ledger's own hashed words
 
 Recomputed over `evidence/java/behavior-delta-ledger.json`: 59 records, 52
-`unresolved`, 3 `adopt-java`, 3 `fix-in-port`, 1 `intentional-correction`. Of
-those, 31 rationales assert RFC determinacy against the port's behaviour. Six
-verbatim, each a preimage hashed into its record's digest:
+`unresolved`, 3 `adopt-java`, 3 `fix-in-port`, 1 `intentional-correction`. **26**
+rationales assert an RFC requirement.
+
+**A correction to my own count, recorded rather than replaced.** I first wrote
+31, from a regex loose enough to match the bare substring `violat`. Tightening
+it gives 26 — and 26 is still not the number that supports this finding, because
+**seven of those records run the OTHER way**: sequences 36, 37, 38 (the
+client-side handshake budgets) and 45, 46, 47 (the server-side budget
+corrections that supersede 14, 15, 16) are all
+`SAFE STRENGTHENING, NOT A LENIENCY DIVERGENCE` — the port keeps a handshake
+budget shipped Java has none of — and sequence 19
+says ws_core *"deliberately does NOT emulate the untested negative-length
+path"*. Those are the port being **stricter** than Java, which is outside this
+class by direction — and it is precisely the error
+`drafts/self-review/story-criterion-sweep.md` §5 records against itself, having
+classified sequences 14-16 and 45-47 from their subject lines and found on
+reading them that they were the reverse. I made the same mistake with a regex
+instead of a subject line.
+
+Dropping the seven and one superseded record leaves **18 live records where the
+RFC requires something and the port follows Java instead**: sequences 1, 2, 3, 4,
+5, 6, 8, 17, 18, 23, 25, 29, 39, 42, 44, 48, 50, 53. **The 39 overrides above are
+unaffected** — they come from the adjudication register, computed from corpus and
+Autobahn evidence, not from this count. Six of the 18, verbatim, each a preimage
+hashed into its record's digest:
 
 - seq 1 — *"the RFC requires a Host header; the live pinned Java server accepted
   the request with no Host header (**never examined**)"*
@@ -88,9 +110,12 @@ grep -rn "undocumented Java quirks" .   →  1 hit: the PRD line itself
 grep -rn "higher oracle priority"   .   →  1 hit: the same line
 ```
 
-One Go file in the tree cites a master story at all —
-`internal/mutdenom/model.go:404`, about US-002's dual-blind rule. Every other PRD
-citation in Go points at `docs/prd-pack/07c-child-prd-us020-us027.md`, the child.
+Exactly one Go PACKAGE in the tree cites a master story at all —
+`internal/mutdenom`, at `model.go:403` and `check.go:499`, both about US-002's
+dual-blind rule. (I first wrote "one Go file" from a filename-only grep;
+widening it to the phrase `master (prd|story|us-0)` returns two files in that
+same package and nothing else.) Every other PRD citation in Go points at
+`docs/prd-pack/07c-child-prd-us020-us027.md`, the child.
 No gate, no ledger rationale, no self-review record, and no owner decision names
 this line.
 

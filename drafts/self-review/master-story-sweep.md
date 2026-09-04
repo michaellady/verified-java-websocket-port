@@ -153,8 +153,18 @@ repository runs, not argued.
 
 **And the quirks are Java's accidents, in the ledger's own hashed words.**
 Recomputed over `evidence/java/behavior-delta-ledger.json` (59 records; 52
-`unresolved`, 3 `adopt-java`, 3 `fix-in-port`, 1 `intentional-correction`), 31
-rationales assert RFC determinacy against the port's behaviour. Six verbatim:
+`unresolved`, 3 `adopt-java`, 3 `fix-in-port`, 1 `intentional-correction`), **26**
+rationales assert an RFC requirement. **I first published 31 here from a loose
+regex that also matched the substring `violat`, and the corrected number is
+lower on two counts, both of which I had to check rather than assume.** Seven of
+the 26 run the OTHER way — safe strengthenings where the port is *stricter* than
+Java (sequences 36, 37, 38, the client-side handshake budgets, and 45, 46, 47, the
+server-side budget corrections that supersede 14, 15, 16; plus 19, ws_core's
+deliberate non-emulation of the untested negative-length path) — and that is
+exactly the direction error the prior sweep documented against itself. One more
+is superseded. **The honest count is 18 live records where the RFC requires
+something and the port follows Java instead**: sequences 1, 2, 3, 4, 5, 6, 8,
+17, 18, 23, 25, 29, 39, 42, 44, 48, 50, 53. Six verbatim:
 
 - seq 1 — *"the RFC requires a Host header; the live pinned Java server accepted
   the request with no Host header (never examined)"*
@@ -173,10 +183,12 @@ behaviours of the Java implementation, which is what an *undocumented* quirk is.
 
 **The clause has never been read.** `grep -rn "undocumented Java quirks"` over
 the whole tree returns **1 hit: the PRD line itself.** `grep -rn "higher oracle
-priority"` returns the same single line. Exactly one Go file in the repository
-cites a master story at all (`internal/mutdenom/model.go:404`, about US-002's
-dual-blind rule); every other PRD citation in Go points at
-`docs/prd-pack/07c-child-prd-us020-us027.md`.
+priority"` returns the same single line. Exactly one Go **package** in the
+repository cites a master story at all — `internal/mutdenom`, at `model.go:403`
+and `check.go:499`, both about US-002's dual-blind rule. (I first wrote "one Go
+file" from a filename-only grep; widening it to the phrase
+`master (prd|story|us-0)` returns those two files and nothing else.) Every other
+PRD citation in Go points at `docs/prd-pack/07c-child-prd-us020-us027.md`.
 
 Full argument, both readings, and the timeline that bears on them:
 `drafts/self-review/findings/F018-a-master-nongoal-no-decision-reaches.md`.
@@ -257,7 +269,7 @@ Nothing an owner rules changes any of these; they are facts about the tree.
 |---|---|---|
 | `nonGoals` "Do not use first-party unsafe Rust" | `forbid(unsafe_code)` present in all five crates; `grep -rn "unsafe "` over `rust/*/src/` returns **1** line, a doc comment | satisfied |
 | `qualityGates` "No undeclared stub, `todo!`, `unimplemented!` …" | `grep -rn "todo!\|unimplemented!" rust/*/src/` returns **0**; `#[ignore]` in `rust/` returns **0** | satisfied |
-| `nonGoals` "Do not require TLS/WSS, RFC 7692 …, proxies, reconnect, Android, or Java API parity"; master US-007 AC2's exclusion list | `grep -rniE "tls\|wss\|proxy\|reconnect\|permessage\|deflate\|android"` over `rust/*/src/` returns **0** production hits | satisfied |
+| `nonGoals` "Do not require TLS/WSS, RFC 7692 …, proxies, reconnect, Android, or Java API parity"; master US-007 AC2's exclusion list | `grep -rniE "\btls\b\|\bwss\b\|\bproxy\b\|reconnect\|permessage\|deflate\|android"` over `rust/*/src/`, unfiltered, returns exactly **1** line — `rust/ws-testee/src/lib.rs:9`, the doc comment declaring their absence (*"no TLS, proxy, reconnect, async runtime"*). Zero implementations | satisfied |
 | master US-021 AC6, master US-023 AC2, `qualityGates` "LSP output is DeveloperToolRun with `assurance_claims: []`" | every `assurance_claims` in `assurance/` is `[]`; the three schemas pin `maxItems: 0` | satisfied |
 | master US-020 AC5 **second half** — "never erases the original finding or adjudication history" | frozen prefix through sequence 35 intact; `supersessions` carries 6 links (14→45, 15→46, 16→47, 34→57, 55→58, 58→59), all superseded records still in the chain | satisfied |
 | `architectureNotes` "every Java/Rust/spec disagreement enters the Behavior Delta Ledger"; `qualityGates` "Zero unexplained … differential mismatches" | `unledgered_disagreements` recomputes to **0** | satisfied |
@@ -309,10 +321,13 @@ criterion that forbids something **this port does**.
   cleared in §4a or are unrun gates named in §6.
 - **US-004** — the formal preflight. AC3 is the §4b row above.
 - **US-020** — AC5 is Finding 2. AC7 (readiness ladder, no state skipped) and AC8
-  (the pinned Java executable stays runnable) are satisfied: readiness is
-  `CUTOVER_BLOCKED`, and the oracle is rebuildable from `java-oracle/` against the
-  pinned jar (`java-oracle/pom.xml:28-29`, `org.java-websocket:Java-WebSocket`).
-  AC9 lowers a ceiling rather than forbidding a behaviour.
+  (the pinned Java executable stays runnable) are satisfied: no readiness state is
+  claimed past the ladder's foot — master US-008's own Notes record *"US-026
+  remains CUTOVER_BLOCKED without live traffic, measured rollback/soak, or
+  executable Java fallback drill"* — and the oracle is rebuildable from
+  `java-oracle/` against the pinned jar (`java-oracle/pom.xml:28-29`,
+  `org.java-websocket:Java-WebSocket`). AC9 lowers a ceiling rather than
+  forbidding a behaviour.
 - **US-007** — this lab's planning story. AC2's exclusion list is §4a. AC5's
   *"explicit oracle-priority and divergence policy"* is satisfied by child US-020
   AC2 and `internal/oraclerank`. AC1/AC3/AC4/AC6/AC7 constrain the child PRD's
@@ -450,8 +465,106 @@ replace nothing.
 
 ## 9. Gates
 
-Recorded in §10 of this record after the run, with the exit code read from the
-process rather than from a summary line.
+### 9a. Two runs were discarded before one was trusted, and why
+
+**Run 1 — REFUSED, not failed, and a refusal is not a pass.**
+`make -C rust gates` with only `VJWP_PROTECTED_STORE` exported stopped at
+`go-suite`:
+
+```
+gate=go-suite result=REFUSED reason=".quarantine/ is not staged in this tree, so
+  the packages that consume the pinned Java source cannot be told apart from ones
+  that are genuinely broken. This is a refusal, not a failure, and not a skip."
+  remedy="ln -s /home/user/verified-java-websocket-port/.quarantine ./.quarantine"
+make: *** [Makefile:137: go-suite] Error 1        exit 2
+```
+
+Remedied exactly as the gate prescribes: the `.quarantine` symlink was created,
+and `.gitignore:36` — which exists specifically because *"agents isolate by
+symlinking .quarantine into their worktree"* — keeps it out of git. Verified with
+`git check-ignore -v .quarantine` and an empty `git status --porcelain`. The
+pinned JDK was also put on PATH (`javac 17.0.19`, against the container default
+`javac 21.0.10`), because without it `internal/portplan` fails
+`JAVAC_UNAVAILABLE` in a way that reads like a broken pin and is not.
+**Nothing was relaxed to get past either condition.**
+
+**Run 2 — DISCARDED as unattributable, which is the more interesting one.**
+Run 2 was progressing normally when its log turned out to be shared. The head of
+my own log file read:
+
+```
+VJWP_PROTECTED_STORE=/home/user/vjwp-prose/evidence/governance/decisions
+make: Entering directory '/home/user/vjwp-prose/rust'
+```
+
+A **different session**, working in `/home/user/vjwp-prose`, was writing to the
+same path in what is nominally a session-private scratchpad directory. Confirmed
+from `/proc`: its process tree has `cwd=/home/user/vjwp-prose` and its wrapper
+script runs the same `make -C rust gates`. My own run was alive and legitimate
+throughout (`pid 5532 make -C rust gates cwd=/home/user/vjwp-stories`,
+`pid 9331 formalplan.test cwd=/home/user/vjwp-stories/internal/formalplan`) — but
+its **stdout and its exit file were no longer attributable to it**, and an exit
+code I cannot attribute is not a measurement of my tree. It was discarded rather
+than reported.
+
+This is F012's class in a new place: F012 was two agents in one working *tree*;
+this is two agents in one output *directory*, and it is quieter, because nothing
+breaks — you simply read someone else's number and believe it. **The only reason
+it was caught is that the log's first line names a worktree, so attribution was
+checkable at all.** A log without that line would have been indistinguishable.
+
+My processes were stopped by a kill scoped through `/proc/<pid>/cwd`, never by
+pattern — four pids, every one verified under `/home/user/vjwp-stories` before
+and after — and the other session's run was left untouched.
+
+### 9b. The trusted run — exit 0
+
+Re-run with output isolated to a uniquely named private directory and a header
+line that makes attribution checkable, which is the whole lesson of 9a:
+
+```
+WORKTREE=/home/user/vjwp-stories
+javac=javac 17.0.19
+STORE=/home/user/vjwp-stories/evidence/governance/decisions
+...
+make: Leaving directory '/home/user/vjwp-stories/rust'
+```
+
+**`make -C rust gates` → exit 0**, read from `echo $?` written by the run's own
+wrapper into that private file, never from a summary line.
+
+- **89** `test result: ok` blocks; **51** `ok` Go package lines; **0** lines
+  matching `FAILED|panic:|^--- FAIL`; zero `make: ***` lines.
+- Every gate verdict, unique: `adapter-linkage`, `audit`, `canaries`,
+  `dependency-inventory`, `fixture-liveness-guard`, `forbid-unsafe`, `go-suite`,
+  `license`, `lockfile`, `msrv`, `pin-dangling`, `record-content-precondition`,
+  `task-graph` — **all PASS**. `ac1-gates verdict=PASS gates_passed=8/8`.
+- `go-suite packages=62 run=61 excluded=1`, and the one exclusion is declared
+  and re-derived rather than skipped: `internal/lab`,
+  *"CONTROLLED_CANARY requires Darwin sandbox-exec; PLATFORM_EXECUTOR_UNSUPPORTED"*
+  — the standing `OA-macos-arm64-host` owner action, and the gate records that
+  the excluded package was RUN and still fails, so the exclusion is measured.
+- The ledger governance arm ran with the protected store **reachable**, not
+  refused: *"owner-decision-digests.json equals the derivation and 7 governance
+  record digest(s) recomputed from the protected store and matched."*
+
+**The gate re-derived this sweep's own headline number.** Its final step is
+`go run ./cmd/oraclerankctl --root . --check`, which printed:
+
+> 640 propositions adjudicated; 589 Java/Rust agreements, **39** of them
+> overridden by a higher oracle and every one enrolled in
+> `evidence/oracle-hierarchy/adjudication-register.json`
+
+That is F018's count of the master nonGoal's trigger condition, recomputed by the
+repository's own gate in a run this record did not author. It is the strongest
+form the measurement could take here.
+
+**Timing, recorded because a reading without it invites a false regression
+report.** The other session's concurrent gates run put nine competing processes
+on four CPUs for part of this run: `internal/assurance` took 21.8s in a quiet
+window and over 150s under that contention, consistent with the 3.6x slowdown
+this repository already documents. `df -h /` read **9.3G available** before the
+run, so no result here is a full disk wearing a regression's clothes.
 
 ## Status
 
