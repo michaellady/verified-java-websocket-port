@@ -64,17 +64,19 @@ func TestSupersessionIsMachineVisible(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read supersession links: %v", err)
 	}
-	if len(links) != 5 {
-		t.Fatalf("the chain carries %d supersession link(s); this branch supersedes sequences 14, 15, 16, 34 and 55",
-			len(links))
+	if len(links) != 6 {
+		t.Fatalf("the chain carries %d supersession link(s); this branch supersedes sequences 14, 15, 16, 34, 55 "+
+			"and 58", len(links))
 	}
 	// 14-16 are the wrong-RFC-basis budget corrections (45-47). 34 and 55 are
 	// the two records whose DESCRIPTION OF THE PORT was made false by later
 	// landings — DIV-05's inbound feed policy and DIV-06's response fields —
-	// corrected at 57 and 58. The count is spelled out per sequence rather
+	// corrected at 57 and 58. 58 is corrected in turn at 59: its FACTS were
+	// right and its DISPOSITION was not, because the owner ruling it said was
+	// owed had already been given. The count is spelled out per sequence rather
 	// than compared as a number, so adding a supersession fails here with the
 	// sequence named instead of with an arithmetic complaint.
-	wanted := map[uint64]bool{14: true, 15: true, 16: true, 34: true, 55: true}
+	wanted := map[uint64]bool{14: true, 15: true, 16: true, 34: true, 55: true, 58: true}
 	for _, link := range links {
 		if !wanted[link.SupersededSequence] {
 			t.Errorf("unexpected superseded sequence %d", link.SupersededSequence)
@@ -93,13 +95,13 @@ func TestSupersessionIsMachineVisible(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authoritative sequences: %v", err)
 	}
-	if len(authoritative) != len(committed.Records)-5 {
-		t.Fatalf("%d authoritative sequences over %d records; five are superseded",
+	if len(authoritative) != len(committed.Records)-6 {
+		t.Fatalf("%d authoritative sequences over %d records; six are superseded (14, 15, 16, 34, 55 and 58)",
 			len(authoritative), len(committed.Records))
 	}
 	for _, sequence := range authoritative {
 		switch sequence {
-		case 14, 15, 16, 34, 55:
+		case 14, 15, 16, 34, 55, 58:
 			t.Errorf("superseded sequence %d is still reported authoritative", sequence)
 		}
 	}
@@ -470,9 +472,9 @@ func TestAQuotedSupersedesTokenIsNotAWithdrawal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the committed chain's own anchored tokens no longer parse: %v", err)
 	}
-	if len(links) != 5 {
-		t.Fatalf("the committed chain carries %d supersession links, expected the three prefix corrections plus "+
-			"the two stale-port corrections at 57 and 58", len(links))
+	if len(links) != 6 {
+		t.Fatalf("the committed chain carries %d supersession links, expected the three prefix corrections, the "+
+			"two stale-port corrections at 57 and 58, and the disposition correction at 59", len(links))
 	}
 
 	// Find a record that supersedes nothing, and have it QUOTE a canonical

@@ -349,3 +349,67 @@ one of them the plane-wide stance that governs every behavioral question this
 port asks. Four passes over F010 — the finding, two addenda, and a blast-radius
 measurement pricing an amendment that already existed — and the directory of
 answers went unread until an agent swept it.
+
+## Addendum 5, 2026-09-04: the owner ruled, and F010 is CLOSED
+
+**Status: CLOSED.** The owner decision this finding asked for has been made.
+
+On **2026-09-04** the owner ruled on the one line addendum 3 said was left —
+whether the 2026-08-27 amendment's *"every AC clause"* reaches a clause that is
+STRICTER than RFC 6455 rather than a restatement of it. **It does.** US-011
+AC2's banner clause is in range, and DIV-06 emitting `Date` and
+`Server: TooTallNate Java-WebSocket` is **compliance, not violation**.
+
+The owner also ruled that **ledger sequence 58's disposition becomes
+`adopt-java`**, with `mismatch_class` staying `underspecified-behavior`.
+
+Both governing decisions are the ones addenda 3 and 4 identified, and the
+arguments for each are theirs; this addendum does not restate them:
+
+- addendum 3 — `us010-016-ac-amendment-owner-decision-2026-08-27.json`,
+  sha256 `26849b5e…`, and the carve-out-by-carve-out test of its operative
+  sentence against AC2's banner clause.
+- addendum 4 — `us009-us008-owner-decisions-2026-08-27.json`, key
+  `us009_normativity`, choice `JAVA_FAITHFUL_PLUS_SAFE`, the plane-wide stance
+  with no enumeration to argue about.
+
+### What the ruling changed in the tree, and what it did not
+
+The ledger is append-only with a frozen prefix through sequence 35, and
+corrections happen by SUPERSESSION, never by editing a record. So the ruling is
+recorded as **sequence 59** (`delta-19de2302…`), which supersedes sequence 58,
+carries `adopt-java` / `underspecified-behavior`, and cites both decisions by
+digest inside its own hashed rationale. Sequence 58 stays byte-identical in the
+chain with its digest intact, so the question and its answer stand next to each
+other. `evidence/java/ledger-supersessions.json` gains the sixth link.
+
+**No port byte changed.** Addendum 2's measured costs — 4 ws-core tests to
+remove `Server`, 3 to remove `Date`, with byte-exactness against the pinned jar
+the load-bearing casualty either way — are now the costs of a change that is
+not going to be made. The `Connection` echo half was never in question and is
+untouched.
+
+**The mismatch class did not move with the disposition, and that is deliberate.**
+Per F013, the class says where the mismatch LIVES, not what the port should do.
+RFC 6455 §4.2.2 lists the fields the 101 response is REQUIRED to carry and does
+not determine whether ADDITIONAL fields may appear, so the RFC genuinely does
+not settle this observable — which was true while the disposition was
+`unresolved` and is still true now that a project-level authority has settled
+what to DO. Sequence 59 says that in its own hashed bytes rather than leaving a
+reader to infer that the pair moves together.
+
+**The test-hygiene point from addendum 2 is untouched by the ruling and still
+stands unfixed**: the field-count assertion living inside
+`the_connection_field_echoes_the_requests_value_rather_than_a_literal` belongs
+in `the_101_response_carries_javas_five_field_names_in_javas_order`. It was
+filed as worth fixing "whatever is decided", and the decision does not decide
+it.
+
+### The method failure this finding is actually about
+
+Addendum 4 already said it: four passes over one question, and the directory of
+answers went unread until an agent swept it. The ruling closes the question; it
+does not retire the lesson. What is new here is only that the confirmation
+addendum 3 asked for was given, in one line, on the date above.
+
+Landing record: `drafts/self-review/ledger-58-adopt-java.md`.

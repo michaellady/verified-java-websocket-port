@@ -380,7 +380,7 @@
     {
       "id": "T-ledger-58",
       "title": "Supersede ledger sequence 58 with disposition adopt-java",
-      "state": "in-progress",
+      "state": "done",
       "depends_on": [],
       "blocked_by": [
         "OA-ledger-58-disposition",
@@ -388,10 +388,22 @@
       ],
       "evidence": [
         {
+          "kind": "grep",
+          "path": "evidence/java/behavior-delta-ledger.json",
+          "pattern": "\"sequence\": 59"
+        },
+        {
+          "kind": "grep",
+          "path": "evidence/java/behavior-delta-ledger.json",
+          "pattern": "response-server-and-date-fields\\.adopted"
+        },
+        {
           "kind": "command",
-          "cmd": "go run ./cmd/deltaledgerctl --root . --check"
+          "cmd": "go run ./cmd/deltaledgerctl --root . --check",
+          "note": "59 records, frozen prefix through 35 intact, records_without_mismatch_class still 49"
         }
-      ]
+      ],
+      "note": "Recorded by SUPERSESSION, not by edit: sequence 58 keeps its bytes and sequence 59 answers it. All 58 pre-existing records verified byte-identical -- differing set empty. Rationale cites both 2026-08-27 decisions by digest (26849b5e, 3a9b24c4) and the owner's 2026-09-04 confirmation. No corpus or measurement denominator moved."
     },
     {
       "id": "T-us019-ac4",

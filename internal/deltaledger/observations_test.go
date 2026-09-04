@@ -483,29 +483,76 @@ func TestUnledgeredCountReportsNonzeroAndTheReadinessGateRefuses(t *testing.T) {
 	// exactly 1 rather than a number this test would have to derive from the
 	// thing it is testing.
 	//
-	// IT MUST ALSO SIT AFTER EVERY SUPERSEDED SEQUENCE, and that constraint is
-	// new. This test names sequence 17 until the stale-port corrections at 57
-	// and 58 were appended; a Supersession names its target BY SEQUENCE as well
-	// as by delta id, so removing a definition that sits BEFORE a superseded
-	// record renumbers that record and the link stops resolving — a loud,
-	// correct refusal, but a different one from the digest-arm failure under
-	// test, and it masked it. Sequence 56 is after 55, the last superseded
-	// sequence, so removing it renumbers nothing that is named. If a future
-	// change makes it load-bearing, or appends a supersession of a record after
-	// it, this test fails loudly and a different isolated record should be
-	// named here.
+	// THE RENUMBERING CONSTRAINT, AND WHY IT IS NOW HANDLED RATHER THAN AVOIDED.
+	// This test named sequence 17 until the stale-port corrections at 57 and 58
+	// were appended; a Supersession names its target BY SEQUENCE as well as by
+	// delta id, so removing a definition that sits BEFORE a superseded record
+	// renumbers that record and the link stops resolving — a loud, correct
+	// refusal, but a different one from the digest-arm failure under test, and
+	// it masked it. The remedy then was "name an isolated record after the last
+	// superseded sequence", and sequence 56 was after 55.
+	//
+	// SEQUENCE 59 SUPERSEDES 58, so the last superseded sequence is now 58 and
+	// NO record satisfying the isolation criteria sits after it: the only record
+	// past 58 is 59 itself, which is a superseding correction and carries no
+	// committed observation, so removing it would orphan nothing and the
+	// expected count could not be 1. The previous remedy has run out of
+	// candidates, which the earlier version of this comment predicted without
+	// saying what to do when it did.
+	//
+	// So the companion removal is COMPUTED instead of the isolated record being
+	// moved. Any definition declaring a supersession of a sequence AFTER the
+	// isolated one comes out with it, because its link is the only thing the
+	// renumbering can break. NOTHING IS LOOSENED BY THAT: each companion is
+	// required below to contribute no committed observation, so it cannot move
+	// the count under test, and the "exactly 1" assertion is unchanged and still
+	// fails loudly if that ever stops being true.
 	const isolated = "org.java-websocket.handshake.field-emission-order"
+	isolatedSequence := 0
+	for index, definition := range definitions {
+		if definition.Subject == isolated {
+			isolatedSequence = index + 1
+		}
+	}
+	if isolatedSequence == 0 {
+		t.Fatalf("%s is no longer in the definition set; name another isolated record", isolated)
+	}
 	var removed Definition
+	var companions []string
 	var truncated []Definition
 	for _, definition := range definitions {
 		if definition.Subject == isolated {
 			removed = definition
 			continue
 		}
+		namesLater := false
+		for _, one := range definition.Supersedes {
+			if one.Sequence > isolatedSequence {
+				namesLater = true
+			}
+		}
+		if namesLater {
+			companions = append(companions, definition.Subject)
+			continue
+		}
 		truncated = append(truncated, definition)
 	}
-	if removed.Subject == "" {
-		t.Fatalf("%s is no longer in the definition set; name another isolated record", isolated)
+
+	// Every companion must be observation-free, checked against the COMMITTED
+	// observation set rather than argued. A companion that carried one would
+	// add its own orphan to the count and the count would stop isolating the
+	// removal under test.
+	committedObservations, err := ReadObservations(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read observations: %v", err)
+	}
+	for _, companion := range companions {
+		for _, observation := range committedObservations.Observed {
+			if observation.SubjectRef == "semantic:"+companion+":provisional-v1" {
+				t.Fatalf("companion removal %s carries a committed observation, so removing it would add an orphan "+
+					"this test attributes to %s; name a different isolated record", companion, isolated)
+			}
+		}
 	}
 
 	degradedDocument, err := BuildLedgerFileFrom(ledgerTestRepoRoot, committed, truncated)

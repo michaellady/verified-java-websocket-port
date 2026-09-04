@@ -5,7 +5,7 @@
   "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
   "status": "BLOCKED_PENDING_BASELINE",
   "normative_authority": "rfc6455",
-  "head": "sha256:1f47cd6260491a87c2eac8427724a9071f13ede758c84e3f3483faff18b8a585",
+  "head": "sha256:f10dd526fd73b4b321a16d2a439901375b8be67235be4aca61daad75b3d81195",
   "records": [
     {
       "schema_version": "1.0.0",
@@ -1685,6 +1685,35 @@
         "mismatch_class": "underspecified-behavior"
       },
       "record_digest": "sha256:1f47cd6260491a87c2eac8427724a9071f13ede758c84e3f3483faff18b8a585"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 59,
+      "previous_digest": "sha256:1f47cd6260491a87c2eac8427724a9071f13ede758c84e3f3483faff18b8a585",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-19de2302e80753564b622f718692411fd251a704bcd0f6c739d93f1e4d5612ca",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.adopted:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.2"
+        ],
+        "rfc_expectation_digest": "sha256:0bb710cb7c5131ec963f72c01edb65d021c6797aa53a36748f4240277453cc89",
+        "rfc_value_digest": "sha256:8f505e3698264d65250d0c6899ba86e6b8c28ffbdb58b3cf629bc4a1dace0791",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:postProcessHandshakeResponseAsServer",
+        "java_observation_digest": "sha256:b961d98f2d049adcc947639a339d204e7c20e84695c8c514785fd1d5d4e7f5c4",
+        "java_value_digest": "sha256:76d76f9e7b778885cf896e68832bc75a62f340a08f7ed80db880a5d13a43a9e4",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:19de2302e80753564b622f718692411fd251a704bcd0f6c739d93f1e4d5612ca",
+        "normative_authority": "rfc6455",
+        "disposition": "adopt-java",
+        "rationale": "SUPERSEDES ledger-sequence=58 delta=delta-b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55 subject=semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.corrected:provisional-v1 reason=the-disposition-it-holds-open-was-already-ruled-and-the-owner-confirmed-the-reading-on-2026-09-04; SUPERSEDING ADJUDICATION for ledger sequence 58 (server 101 response fields). WHAT IT CORRECTS IS A DISPOSITION, NOT A FACT: every measurement sequence 58 binds is still true, and this record restates them rather than revising them. Sequence 58 held `unresolved` on the ground that US-011 AC2 forbids the Date field and the Server banner the port emits, and that only the owner could say whether AC2 stands or is amended. THE OWNER HAD ALREADY RULED, EIGHT DAYS BEFORE THE FIX LANDED, AND CONFIRMED THE READING ON 2026-09-04. FIRST DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974) amends every AC clause of US-010..US-016 that requires rejecting, transforming or augmenting behaviour the pinned Java-WebSocket 1.6.0 exhibits, to bind instead to the recorded fidelity authority. US-011 AC2 is in that range and its banner clause requires the port to SUPPRESS two fields the pinned Java emits, so it is a clause the operative sentence reaches; each carve-out was tested rather than waved past — a vendor banner is not a safety-critical bound, not an evidence-machinery clause, and a statement about which bytes go on the wire is precisely the behavioural stance the amendment does amend. SECOND DECISION, which needs no enumeration to be read: us009-us008-owner-decisions-2026-08-27.json (workspace orchestrator protected store, sha256 3a9b24c4b7ee607d981f52e6881ad2476cf03cff01da89bb29461b97f2f99593) key us009_normativity, choice JAVA_FAITHFUL_PLUS_SAFE, mirrors shipped observable behaviour EXACTLY and carves out only shipped UNSAFETY, enumerated as bounded memory, checked arithmetic and exactly-once terminal callbacks; a Server banner and a Date field are none of those, and that stance reaches the handshake by name. THE OWNER CONFIRMED ON 2026-09-04 that the amendment's `every AC clause` does reach US-011 AC2's banner clause even though that clause is STRICTER than the RFC rather than a restatement of it — the single doubt left open when this conflict was filed. DISPOSITION adopt-java: the port reproduces shipped Java's five-field response byte-exact against the pinned jar's own output and the two decisions above are what license it, so emitting Date and the Server banner is COMPLIANCE and not the violation sequence 58 recorded it as. MISMATCH CLASS STAYS underspecified-behavior, AND THE REASON IT DOES NOT MOVE WITH THE DISPOSITION IS STATED SO IT IS NOT READ AS AN OVERSIGHT: the class says WHERE THE MISMATCH LIVES, not what the port should do. RFC 6455 4.2.2 lists required fields and does not determine whether additional fields may appear, so the RFC does not settle this observable — true while the disposition was unresolved, still true now that a project-level authority has settled what to DO. NO PORT BYTE CHANGES AT THIS LANDING and no US-011 AC2 text is edited: the amendment binds that clause without rewriting it. NO AUTOBAHN CLAIM IS MADE: re-running the suite is an owner gate and this record's Autobahn preimages are the honest non-execution markers. OWNER DECISION: protected/ledger-frozen-prefix-owner-decision-2026-08-28.json (workspace orchestrator protected store, sha256 bb3cd0da7f4aed014290dab3dc35b2ec87f41d3d7e7a8c7449816159e9d837c7, recomputed by VerifyCitedOwnerDecisions when the store is reachable; decided 2026-08-28T12:54:30Z) rules SUPERSEDE, DO NOT REWRITE: the superseded record stays byte-identical in the chain and this one is appended beside it, so the error stays visible next to its correction.",
+        "mismatch_class": "underspecified-behavior"
+      },
+      "record_digest": "sha256:f10dd526fd73b4b321a16d2a439901375b8be67235be4aca61daad75b3d81195"
     }
   ],
   "append_implementation": "hash-chained-cas",
@@ -1728,6 +1757,14 @@
       "superseding_sequence": 58,
       "superseding_delta_id": "delta-b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55",
       "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 58,
+      "superseded_delta_id": "delta-b0350fc5055f1a66e894ef34547f8cc7c6c40382e353c1ea752b12c8801bfa55",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.corrected:provisional-v1",
+      "superseding_sequence": 59,
+      "superseding_delta_id": "delta-19de2302e80753564b622f718692411fd251a704bcd0f6c739d93f1e4d5612ca",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields.adopted:provisional-v1"
     }
   ],
   "unledgered_disagreements": 0,
