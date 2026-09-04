@@ -1364,11 +1364,54 @@
     {
       "id": "T-held-draft-population",
       "title": "Derive the held-draft population and declare legacy-13's exemption",
-      "state": "ready",
+      "state": "done",
       "depends_on": [],
       "blocked_by": [],
-      "evidence": [],
-      "note": "OA-held-draft-legacy-13 was RULED and had no node blocked on it, so the ruling had nowhere to be done -- a decision with no work item is how an answered question quietly stops being acted on. The ruling: derive VerifyProposalDraftsAreLedgered's population from the directory rather than the hardcoded list of seven, and carry legacy-13-bare-lf-server-basis-correction.json as a DECLARED EXEMPTION with a staleness check, in the shape this repository already uses four times. Explicitly NOT by appending to the ledger to make it green. Eleven drafts exist; the seven listed are each genuinely ledgered and three of the four unlisted are not record proposals by the rule's own reader."
+      "evidence": [
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/proposal_drafts.go",
+          "pattern": "func ClassifyProposalDrafts\\(root string\\) \\(DraftCensus, error\\)"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "internal/deltaledger/proposal_drafts.go",
+          "pattern": "drafts/ledger-proposals/divergence-sweep-1\\.json"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/proposal_drafts.go",
+          "pattern": "STALE_EXEMPTION %s: the exemption excuses this draft for having no record in the committed chain"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/proposal_drafts.go",
+          "pattern": "contains no record proposal at all"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/deltaledgerctl/main.go",
+          "pattern": "held-draft population DERIVED from %s/ \\(files=%d record_proposals=%d "
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/adjudication_test.go",
+          "pattern": "func TestTheHeldDraftPopulationIsDerivedAndItsExemptionIsRECHECKED\\(t \\*testing\\.T\\)"
+        },
+        {
+          "kind": "path_exists",
+          "path": "drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json"
+        },
+        {
+          "kind": "command",
+          "cmd": "go run ./cmd/deltaledgerctl --root . --check"
+        },
+        {
+          "kind": "command",
+          "cmd": "go test ./internal/deltaledger/ -run TestTheHeldDraftPopulationIsDerivedAndItsExemptionIsRECHECKED -timeout 40m"
+        }
+      ],
+      "note": "DONE under OA-held-draft-legacy-13. VerifyProposalDraftsAreLedgered's population is now derived from drafts/ledger-proposals/ by shape (a proposed_record.delta.delta_id) UNION declared kind, so escaping it takes gutting both, and a gutted file matches no declared non-proposal kind and fails as unclassified. The derivation classifies every .json in the directory and the gate PRINTS the census: eleven files, eight record proposals, three declared non-proposals, one declared exemption. legacy-13 is carried as a pinned exemption re-checked three ways -- stale when the chain carries the identity, when the derivation stops classifying the path as a record proposal, and when the pinned delta_id moves -- and the exemption never reaches the identity recomputation, only the demand that a record exist. Both directions were proved against the live gate and are quoted in drafts/self-review/ruled-implementations.md: removing the exemption takes ledger-gates to exit 1 naming legacy-13, and pointing it at the already-ledgered server-close-parity draft takes it to exit 1 as STALE_EXEMPTION. No ledger record was appended."
     }
   ],
   "owner_actions": [

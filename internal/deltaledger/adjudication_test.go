@@ -436,15 +436,30 @@ func TestVerifyProposalDraftsAreLedgeredBindsContentNotNames(t *testing.T) {
 	})
 }
 
-// mirrorDraftsForProbe copies the seven committed drafts into a scratch root so
-// a probe never edits the repository.
+// mirrorDraftsForProbe copies the WHOLE drafts/ledger-proposals/ directory into
+// a scratch root so a probe never edits the repository.
+//
+// It used to copy the seven paths the hardcoded list named, which would now be a
+// probe against a different population than the one the rule derives: the four
+// unlisted files decide three classifications and one exemption between them,
+// and a mirror missing them would make every probe below pass for the wrong
+// reason.
 func mirrorDraftsForProbe(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "drafts", "ledger-proposals"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, filepath.FromSlash(ProposalDraftsDir)), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	for _, relative := range ProposalDraftPaths() {
+	entries, err := os.ReadDir(filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(ProposalDraftsDir)))
+	if err != nil {
+		t.Fatalf("read the draft directory: %v", err)
+	}
+	copied := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		relative := ProposalDraftsDir + "/" + entry.Name()
 		raw, err := os.ReadFile(filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(relative)))
 		if err != nil {
 			t.Fatalf("read %s: %v", relative, err)
@@ -452,6 +467,10 @@ func mirrorDraftsForProbe(t *testing.T) string {
 		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(relative)), raw, 0o644); err != nil {
 			t.Fatalf("write %s: %v", relative, err)
 		}
+		copied++
+	}
+	if copied == 0 {
+		t.Fatal("mirrored no drafts at all, so every probe built on this root would pass over an empty population")
 	}
 	return root
 }
@@ -485,4 +504,219 @@ func TestTheFrozenPrefixAndTheWholePreVocabularyTailSurvivedTheFieldAddition(t *
 	if committed.Records[PreVocabularySequence-1].Delta.MismatchClass != "" {
 		t.Fatal("the last pre-vocabulary record carries a class")
 	}
+}
+
+// TestTheHeldDraftPopulationIsDerivedAndItsExemptionIsRECHECKED is the polarity
+// suite for the 2026-09-04 correction under OA-held-draft-legacy-13.
+//
+// Two things are proved here and they are different things. The first is that
+// the population is really the DIRECTORY: the rule now sees eleven files, holds
+// eight of them to the full binding, and names the other three by the kind they
+// declare. The second is that the one declared exemption is an EXEMPTION and
+// not a bypass -- every arm of its staleness check is fired below, and the arm
+// that matters most is the last one: an exemption does not excuse the draft from
+// rebuilding its own identity, only from being in the chain.
+//
+// The list this replaced could not have failed any of these. That is the point.
+func TestTheHeldDraftPopulationIsDerivedAndItsExemptionIsRECHECKED(t *testing.T) {
+	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read the committed ledger: %v", err)
+	}
+
+	t.Run("the derivation sees every file in the directory", func(t *testing.T) {
+		census, err := ClassifyProposalDrafts(ledgerTestRepoRoot)
+		if err != nil {
+			t.Fatalf("classify: %v", err)
+		}
+		entries, err := os.ReadDir(filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(ProposalDraftsDir)))
+		if err != nil {
+			t.Fatalf("read the directory: %v", err)
+		}
+		onDisk := 0
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
+				onDisk++
+			}
+		}
+		// The population is the directory or it is a list again. Comparing
+		// against a recount of the directory rather than against the number 11
+		// is deliberate: a hardcoded 11 is the same defect one size larger.
+		if len(census.Files) != onDisk {
+			t.Fatalf("the derivation classified %d file(s) and the directory holds %d .json file(s); a population "+
+				"that is not the directory is a list", len(census.Files), onDisk)
+		}
+		for _, file := range census.Files {
+			if file.Problem != "" {
+				t.Fatalf("%s: %s", file.Relative, file.Problem)
+			}
+			if !file.RecordProposal && file.Why == "" {
+				t.Fatalf("%s is out of the population with no reason stated", file.Relative)
+			}
+		}
+		if len(census.Proposals()) < len(heldDraftExemptions)+1 {
+			t.Fatalf("derived %d record proposal(s), which cannot both carry the exemptions and check anything",
+				len(census.Proposals()))
+		}
+	})
+
+	t.Run("removing the exemption fails the draft it excuses", func(t *testing.T) {
+		defer restoreHeldDraftExemptions(t)()
+		heldDraftExemptions = nil
+		err := VerifyProposalDraftsAreLedgered(ledgerTestRepoRoot, committed.Records)
+		if err == nil {
+			t.Fatal("with no exemption declared, the unledgered draft was still accepted, so the derivation is " +
+				"not reaching it and the exemption is decorative")
+		}
+		if !strings.Contains(err.Error(), "legacy-13-bare-lf-server-basis-correction.json") ||
+			!strings.Contains(err.Error(), "which no record in the committed chain carries") {
+			t.Fatalf("refused, but not on the draft the exemption is about: %v", err)
+		}
+	})
+
+	t.Run("an exemption whose draft IS in the chain is stale", func(t *testing.T) {
+		defer restoreHeldDraftExemptions(t)()
+		// server-close-parity is genuinely ledgered, so an exemption for it
+		// excuses a finding that no longer exists. This is the shape a real
+		// stale entry takes: the owner appends the record and nobody deletes
+		// the acknowledgement.
+		heldDraftExemptions = []HeldDraftExemption{{
+			Relative:        "drafts/ledger-proposals/server-close-parity.json",
+			DeclaredDeltaID: "delta-516914f1e75aaf2c86bd082772a98b204ee217f86b54cecca648826688e40b82",
+			Owner:           "probe",
+		}}
+		err := VerifyProposalDraftsAreLedgered(ledgerTestRepoRoot, committed.Records)
+		if err == nil {
+			t.Fatal("an exemption for a draft the chain already carries was accepted; an exemption nothing " +
+				"re-checks is a bypass")
+		}
+		if !strings.Contains(err.Error(), "STALE_EXEMPTION") ||
+			!strings.Contains(err.Error(), "The acknowledgement outlived the finding and must be deleted") {
+			t.Fatalf("refused, but not as a stale exemption: %v", err)
+		}
+	})
+
+	t.Run("an exemption whose pinned identity moved is stale", func(t *testing.T) {
+		defer restoreHeldDraftExemptions(t)()
+		moved := heldDraftExemptions[0]
+		moved.DeclaredDeltaID = strings.TrimSuffix(moved.DeclaredDeltaID, "6") + "7"
+		heldDraftExemptions = []HeldDraftExemption{moved}
+		err := VerifyProposalDraftsAreLedgered(ledgerTestRepoRoot, committed.Records)
+		if err == nil {
+			t.Fatal("an exemption pinning an identity the draft does not declare was accepted, so the draft " +
+				"could be edited under its own exemption")
+		}
+		if !strings.Contains(err.Error(), "The draft was edited under its own exemption") {
+			t.Fatalf("refused, but not on the moved pin: %v", err)
+		}
+	})
+
+	t.Run("an exemption naming a file the derivation does not see is stale", func(t *testing.T) {
+		defer restoreHeldDraftExemptions(t)()
+		heldDraftExemptions = []HeldDraftExemption{{
+			Relative:        ProposalDraftsDir + "/a-draft-that-was-deleted.json",
+			DeclaredDeltaID: "delta-" + strings.Repeat("0", 64),
+			Owner:           "probe",
+		}}
+		err := VerifyProposalDraftsAreLedgered(ledgerTestRepoRoot, committed.Records)
+		if err == nil {
+			t.Fatal("an exemption for a file that does not exist was accepted, so it would exempt whatever " +
+				"next took that path")
+		}
+		if !strings.Contains(err.Error(), "does not see at all") {
+			t.Fatalf("refused, but not on the vanished subject: %v", err)
+		}
+	})
+
+	t.Run("an exemption for a file that stopped being a record proposal is stale", func(t *testing.T) {
+		defer restoreHeldDraftExemptions(t)()
+		root := mirrorDraftsForProbe(t)
+		// Gutted into a declared NON-proposal: the escape route an exemption
+		// must not survive, because the file it was written about is gone in
+		// every sense but the name.
+		path := filepath.Join(root, filepath.FromSlash(heldDraftExemptions[0].Relative))
+		if err := os.WriteFile(path, []byte(`{"draft_kind":"divergence-closure-record"}`), 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		err := VerifyProposalDraftsAreLedgered(root, committed.Records)
+		if err == nil {
+			t.Fatal("an exemption survived its subject being rewritten into something else entirely")
+		}
+		if !strings.Contains(err.Error(), "no longer classifies this file as one") {
+			t.Fatalf("refused, but not on the changed classification: %v", err)
+		}
+	})
+
+	t.Run("the exemption does not excuse the draft from rebuilding its own identity", func(t *testing.T) {
+		root := mirrorDraftsForProbe(t)
+		relative := heldDraftExemptions[0].Relative
+		path := filepath.Join(root, filepath.FromSlash(relative))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read the mirrored draft: %v", err)
+		}
+		var document map[string]any
+		if err := json.Unmarshal(raw, &document); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		preimages := document["digest_preimages"].(map[string]any)
+		preimages["java_value_digest"] = preimages["java_value_digest"].(string) + "."
+		edited, err := json.MarshalIndent(document, "", "  ")
+		if err != nil {
+			t.Fatalf("encode: %v", err)
+		}
+		if err := os.WriteFile(path, edited, 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		// THE HALF THE EXEMPTION MUST NOT REACH. The draft is exempt from being
+		// in the chain. It is not exempt from being evidence.
+		err = VerifyProposalDraftsAreLedgered(root, committed.Records)
+		if err == nil {
+			t.Fatal("an exempted draft whose preimages no longer produce its declared identity was accepted; the " +
+				"exemption is then excusing the recomputation, which is the whole binding")
+		}
+		if !strings.Contains(err.Error(), "declares delta_id") {
+			t.Fatalf("refused, but not on the recomputed identity: %v", err)
+		}
+	})
+
+	t.Run("a file that declares no kind this rule classifies fails", func(t *testing.T) {
+		root := mirrorDraftsForProbe(t)
+		path := filepath.Join(root, filepath.FromSlash(ProposalDraftsDir+"/unclassified.json"))
+		if err := os.WriteFile(path, []byte(`{"note":"not a kind anyone declared"}`), 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		err := VerifyProposalDraftsAreLedgered(root, committed.Records)
+		if err == nil {
+			t.Fatal("a file in the draft directory that is neither a record proposal nor a declared non-proposal " +
+				"was silently ignored, which is how the four unlisted drafts escaped the list")
+		}
+		if !strings.Contains(err.Error(), "declares no kind this rule classifies") {
+			t.Fatalf("refused, but not on the unclassified file: %v", err)
+		}
+	})
+
+	t.Run("an empty population is not a pass", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(root, filepath.FromSlash(ProposalDraftsDir)), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		err := VerifyProposalDraftsAreLedgered(root, committed.Records)
+		if err == nil {
+			t.Fatal("a derivation over an empty directory reported agreement; a derived population that can be " +
+				"emptied buys silence the hardcoded list could not")
+		}
+		if !strings.Contains(err.Error(), "contains no record proposal at all") {
+			t.Fatalf("refused, but not on the empty population: %v", err)
+		}
+	})
+}
+
+// restoreHeldDraftExemptions saves the declared table and returns the restore.
+// The probes swap a package-level var, so a probe that forgot to put it back
+// would leave every later test running against a table nobody declared.
+func restoreHeldDraftExemptions(t *testing.T) func() {
+	t.Helper()
+	saved := append([]HeldDraftExemption(nil), heldDraftExemptions...)
+	return func() { heldDraftExemptions = saved }
 }

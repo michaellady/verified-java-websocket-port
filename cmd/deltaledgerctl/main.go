@@ -150,6 +150,33 @@ func run(root string, check bool) error {
 			deltaledger.LedgerRelativePath, len(built.Records), built.Head, deltaledger.LedgerSchemaVersion)
 		fmt.Printf("ok: %s equals the chain's supersession map (%d link(s), also declared in the ledger document)\n",
 			deltaledger.SupersessionsRelativePath, len(supersessions.Links))
+		// THE HELD-DRAFT POPULATION, PRINTED WHERE THE RESULT IS READ. The
+		// summary line below says "held proposal drafts" verified, and for as
+		// long as that population was a hardcoded list of seven it said so over
+		// four files nobody had classified. A derived population is only as
+		// honest as its census, so every .json in the directory is named here
+		// with the reason it is in or out, and every declared exemption is named
+		// with the owner action that retires it. A number moving with nothing
+		// said is the failure this printout exists to prevent.
+		draftCensus, err := deltaledger.ClassifyProposalDrafts(root)
+		if err != nil {
+			return err
+		}
+		exemptions := deltaledger.HeldDraftExemptions()
+		fmt.Printf("ok: held-draft population DERIVED from %s/ (files=%d record_proposals=%d "+
+			"not_record_proposals=%d declared_exemptions=%d)\n",
+			deltaledger.ProposalDraftsDir, len(draftCensus.Files), len(draftCensus.Proposals()),
+			len(draftCensus.Files)-len(draftCensus.Proposals()), len(exemptions))
+		for _, file := range draftCensus.Files {
+			if file.RecordProposal {
+				continue
+			}
+			fmt.Printf("     held-draft not_a_record_proposal=%s why=%q\n", file.Relative, file.Why)
+		}
+		for _, exemption := range exemptions {
+			fmt.Printf("     held-draft exempted=%s delta_id=%s owner=%q\n",
+				exemption.Relative, exemption.DeclaredDeltaID, exemption.Owner)
+		}
 		legacy, err := deltaledger.ReadLegacyAdjudications(root)
 		if err != nil {
 			return err
