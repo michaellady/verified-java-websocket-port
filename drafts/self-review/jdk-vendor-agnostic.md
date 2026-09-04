@@ -237,3 +237,24 @@ Run 2, commit `a7edbd4`: `make -C rust gates` exit **0**, 02:31:00Z to
 no_test_files=15 unbuilt_test_files=5`, `gate=go-suite result=PASS`,
 `ok ... internal/portplan 15.176s`, `ac1-gates verdict=PASS gates_passed=8/8`,
 ledger-gates ok, and ZERO `FAIL` lines in the whole 1800-line log.
+
+**Run 3, commit `ea27194`, the exact head that ships** (run 2's tree plus this
+record's own gates section and one `.claude/GOAL-LOOP.md` log line, both
+markdown): `make -C rust gates` exit **0**, 02:59:43Z to 03:08:43Z, the same
+`packages=61 run=60 excluded=1 with_tests=45`, `gate=go-suite result=PASS`,
+`ok ... internal/portplan 19.962s`, `ac1-gates verdict=PASS gates_passed=8/8`,
+and zero occurrences of `FAIL` anywhere in the log.
+
+**A FOURTH RUN IS ON THE RECORD BECAUSE IT EXITED 2, AND IT IS NOT A GATE
+READING.** The first attempt at run 3, 02:41:36Z to 02:43:44Z, exited 2 with
+`gate=go-suite result=FAIL`. Every one of its 114 failing lines traces to
+`no space left on device` — 103 say so literally and the rest are `[build
+failed]` on packages whose compile could not write. Another agent was running
+`make -C rust gates` in `/home/user/vjwp-main` at the same moment, and the shared
+`/` had 9.9G free against an 11G `go-build` cache. It never reached the
+comparison this change touches. Kept in `.runlogs/gates3-enospc.log` and named
+here rather than quietly re-run, because a run killed by the environment is not
+evidence in either direction — the same reason a SIGTERM is not one. I did NOT
+clear the shared build cache to make it pass: another agent's `go test` was
+reading it. I waited for their run to finish and re-ran, which is the reading
+above.
