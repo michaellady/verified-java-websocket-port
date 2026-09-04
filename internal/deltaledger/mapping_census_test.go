@@ -125,9 +125,9 @@ func TestASupersededRecordDoesNotCoverAnything(t *testing.T) {
 		mutated[index].Rationale = "citations removed by this test"
 		stripped++
 	}
-	if stripped != 5 {
-		t.Fatalf("stripped %d superseding records, expected the three budget corrections plus the two stale-port "+
-			"corrections at sequences 57 and 58", stripped)
+	if stripped != 6 {
+		t.Fatalf("stripped %d superseding records, expected the three budget corrections, the two stale-port "+
+			"corrections at sequences 57 and 58, and the disposition correction at sequence 59", stripped)
 	}
 
 	err := VerifyHandshakeMappingCensus(ledgerTestRepoRoot, mutated)
