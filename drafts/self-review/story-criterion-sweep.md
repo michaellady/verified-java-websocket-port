@@ -630,6 +630,15 @@ no Autobahn run.
   `rust/ws-core/Cargo.toml`, `rust/ws-driver/src/lib.rs` (feed policy,
   `compose_violation_close`), `rust/ws-testee/src/io_loop.rs`.
 - `.claude/GOAL-LOOP.md` rows US-009 through US-020 and both criteria-audit
-  passes — which is how I know US-012 through US-016 had never been audited
-  against their criteria, and that US-011's AC1/AC3/AC4/AC5 and US-010's
-  AC1/AC2/AC3/AC5 had not either.
+  passes. That is how I know which stories the two passes did NOT reach, quoted
+  verbatim at `:536-539`: *"Not audited in the first pass, and named rather than
+  implied: US-001 to US-016, US-020, and US-022 to US-027 kept their pre-PRD
+  statuses. The second pass below closes US-020 and US-022 to US-027; US-001 to
+  US-016 and US-021's own AC1/AC2/AC4/AC5 remain future work, one story at a
+  time."* With the 2026-09-03 first pass over US-010 and US-011 on top of that,
+  **US-001 through US-009 and US-012 through US-016 have never been audited
+  against their acceptance criteria, and neither have US-010's AC1/AC2/AC3/AC5
+  nor US-011's AC1/AC3/AC4/AC5.** This sweep is therefore the first reading of
+  US-002 AC5 and US-009 AC2/AC3/AC4 against the shipped port — and it read them
+  only for THIS defect class, which is a single question, not an audit. A story
+  audit of any of those rows may find things a class sweep is not looking for.
