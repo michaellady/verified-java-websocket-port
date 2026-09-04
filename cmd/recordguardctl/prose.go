@@ -416,6 +416,26 @@ func proseClaims() []proseClaim {
 			why:     "TP-3's re-derived value, bound to the same array",
 		},
 
+		// The master-story sweep's two recitations of the ledger's size. Both
+		// were correct when written and both were UNDISPOSITIONED, which is the
+		// census doing its job on records that landed after it: a number a
+		// record recomputed is exactly the kind that goes stale silently. Bound
+		// rather than allowed, because there is nothing wrong with them.
+		{
+			record:  "drafts/self-review/findings/F018-a-master-nongoal-no-decision-reaches.md",
+			field:   "behavior_delta_ledger_records (recomputed)",
+			pattern: regexp.MustCompile(`behavior-delta-ledger\.json.{0,3}: (\d+) records`),
+			derive:  deriveJSONArrayLen("evidence/java/behavior-delta-ledger.json", "records"),
+			why:     "the finding's own recomputation, bound to the array it recomputed",
+		},
+		{
+			record:  "drafts/self-review/master-story-sweep.md",
+			field:   "behavior_delta_ledger_records (recomputed)",
+			pattern: regexp.MustCompile(`behavior-delta-ledger\.json.{0,3} \((\d+) records;`),
+			derive:  deriveJSONArrayLen("evidence/java/behavior-delta-ledger.json", "records"),
+			why:     "the sweep's own recomputation, bound to the array it recomputed",
+		},
+
 		// Controls that AGREE, on three different derivations, so a green run
 		// is evidence that the derivations run rather than that they are absent.
 		{
