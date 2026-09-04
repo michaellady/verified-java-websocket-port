@@ -179,11 +179,33 @@ record-guard:
 	cd .. && go run ./cmd/recordguardctl gate -root .
 	cd .. && go run ./cmd/recordguardctl prose -root .
 
+# ROUND-3 FINDING R1. These two targets read an EXIT CODE and nothing else,
+# and libtest exits 0 over a test it skipped. Appending
+#
+#     #[test] #[ignore] fn attack_r1_this_assertion_is_false() { assert_eq!(1, 2); }
+#
+# to rust/ws-core/tests/messages.rs left `cargo fmt --all -- --check` at 0,
+# `cargo clippy --workspace --all-targets --all-features -- -D warnings` at 0
+# and `cargo test --workspace --all-targets --all-features` at 0, with the
+# only trace one line reading `test attack_r1_... ... ignored` inside a
+# 41KB log and a workspace-wide tally of `1 ignored` that nothing parses.
+# That is round 1's B2/B3 -- a failing test behind a build tag passing
+# go-suite -- in Rust dress; go-suite was fixed for it and this was not,
+# which is the pattern round 2 named: a defect class does not stay fixed
+# where it was found.
+#
+# `--include-ignored` closes it BY CONSTRUCTION rather than by counting:
+# there are ZERO `#[ignore]` attributes under rust/ today, so this changes
+# which tests run not at all, and it makes that a property the gate enforces
+# instead of a fact that happens to hold. A test that genuinely must not run
+# in the gate needs `#[cfg(...)]` or its own target, both of which are
+# visible, rather than an attribute that reads as "skip me" to the one
+# number nobody checks.
 test:
-	cargo test --workspace --all-targets --all-features
+	cargo test --workspace --all-targets --all-features -- --include-ignored
 
 test-release:
-	cargo test --workspace --release
+	cargo test --workspace --release -- --include-ignored
 
 # US-009 AC1 workspace gates: forbid(unsafe_code) enforcement scan,
 # dependency-unsafe inventory, MSRV, license, audit, reproducible lockfile,
@@ -192,6 +214,36 @@ test-release:
 # go test ./cmd/rustgatectl/). The runner reads and prints every external
 # command's exit code verbatim (gate=... step=... exit=N lines) and exits
 # nonzero if any gate fails, which fails this target and `gates` with it.
+# ROUND 3 attacked the members round 2 only READ, and seven of them fell.
+# Each fix below is a RE-DERIVATION replacing a form check, and none of them
+# moves the count this target already printed:
+#   * forbid-unsafe scanned member lib+bin roots ONLY. `unsafe { ptr::read }`
+#     in rust/ws-core/tests/messages.rs (a crate root of kind `test`) and the
+#     same in a rust/ws-core/build.rs that RUNS at build time each left this
+#     target at exit 0 with `10 first-party crate roots ... all carry
+#     #![forbid(unsafe_code)]` byte-identical. The 10 is untouched; the 32
+#     ungoverned first-party roots are now scanned for the unsafe KEYWORD.
+#     Whether those 32 should be required to carry the attribute is an owner
+#     decision (OA-forbid-unsafe-scan-surface) because it moves the 10.
+#   * license accepted any file containing the strings "Apache License" and
+#     "Version 2.0". A PROPRIETARY, all-rights-reserved notice saying the
+#     software is NOT under Apache-2.0 contains both, and the gate printed
+#     "root LICENSE is Apache-2.0" over it. The identity is now the digest of
+#     the canonical text, with the ordered clause skeleton as the diagnostic.
+#   * dependency-inventory and audit defined "external" as a non-empty cargo
+#     `source`, which is NULL for a path dependency. A crate vendored under
+#     third_party/ and linked into ws-core from outside the workspace
+#     directory was neither a member nor external: three gates reported a
+#     clean tree at once. External is now "not a workspace member".
+#   * lockfile ran `git diff --exit-code -- rust/Cargo.lock`, which compares
+#     the worktree to the INDEX. `git rm --cached` (no committed lockfile at
+#     all) and a staged edit both passed as "git-clean". It now asserts the
+#     path is tracked and diffs against HEAD.
+#   * canaries proved polarity from a nonzero clippy exit. Replacing the bad
+#     scaffold's lint with a call to an undefined function kept the exit at
+#     101 with ZERO clippy lints named and the census line identical. The bad
+#     canary must now COMPILE and clippy must NAME a lint, so the refusal is
+#     attributable to the lint rather than to a broken crate.
 ac1-gates:
 	cd .. && go run ./cmd/rustgatectl -root .
 

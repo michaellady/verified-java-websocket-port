@@ -247,27 +247,194 @@ func TestVersionOlderThan(t *testing.T) {
 
 // --- license policy ---------------------------------------------------------
 
-func TestLicenseFileLooksApache2Polarity(t *testing.T) {
-	apache := "                                 Apache License\n                           Version 2.0, January 2004\n"
-	if !licenseFileLooksApache2(apache) {
-		t.Fatal("real Apache-2.0 header must pass")
+// TestLicenseIdentityIsReDerivedNotPatternMatched is ROUND 3 ATTACK A3.
+//
+// The predicate this replaces was Contains("Apache License") &&
+// Contains("Version 2.0"). The first case below is the LICENSE that defeated
+// it: a proprietary, all-rights-reserved notice that says in so many words
+// that the software is NOT under Apache-2.0, and carries both substrings.
+func TestLicenseIdentityIsReDerivedNotPatternMatched(t *testing.T) {
+	proprietary := "                        PROPRIETARY SOFTWARE LICENSE\n" +
+		"                              All Rights Reserved\n\n" +
+		"   This software is NOT distributed under the Apache License,\n" +
+		"   Version 2.0, or under any other open-source licence.\n"
+	if licenseIdentityProblem(proprietary) == "" {
+		t.Fatal("A3: a proprietary licence carrying the strings \"Apache License\" and \"Version 2.0\" must NOT be accepted as Apache-2.0")
 	}
-	mit := "MIT License\n\nPermission is hereby granted...\n"
-	if licenseFileLooksApache2(mit) {
-		t.Fatal("MIT text must fail the Apache-2.0 check")
+	if licenseIdentityProblem("MIT License\n\nPermission is hereby granted...\n") == "" {
+		t.Fatal("MIT text must fail the Apache-2.0 identity check")
 	}
-	if licenseFileLooksApache2("") {
+	if licenseIdentityProblem("") == "" {
 		t.Fatal("empty license text must fail")
+	}
+	// A truncated Apache-2.0 -- header present, clauses gone -- must fail,
+	// and the diagnostic must name the clause it stopped at.
+	truncated := "                                 Apache License\n                           Version 2.0, January 2004\n"
+	problem := licenseIdentityProblem(truncated)
+	if problem == "" {
+		t.Fatal("a truncated Apache-2.0 must fail")
+	}
+	if !strings.Contains(problem, "TERMS AND CONDITIONS") {
+		t.Fatalf("the diagnostic must name the first missing clause, got %q", problem)
+	}
+	// The committed LICENSE is the canonical text and must pass.
+	data, err := os.ReadFile(filepath.Join(repoRootForTest(t), "LICENSE"))
+	if err != nil {
+		t.Fatalf("read LICENSE: %v", err)
+	}
+	if problem := licenseIdentityProblem(string(data)); problem != "" {
+		t.Fatalf("the committed LICENSE must be recognised as canonical Apache-2.0: %s", problem)
+	}
+}
+
+// repoRootForTest walks up from the test's working directory to the
+// repository root (the directory holding go.mod).
+func repoRootForTest(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	for i := 0; i < 8; i++ {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		dir = filepath.Dir(dir)
+	}
+	t.Fatal("could not find the repository root")
+	return ""
+}
+
+// TestUnsafeTokenLine is ROUND 3 ATTACKS A1 AND A2: the scan that finds
+// `unsafe` in a crate root the attribute requirement does not cover.
+func TestUnsafeTokenLine(t *testing.T) {
+	cases := []struct {
+		name   string
+		source string
+		want   int
+		found  bool
+	}{
+		{"A1 unsafe in a test crate root", "#[test]\nfn t() {\n    let x = 1u32;\n    let _ = unsafe { std::ptr::read(&x) };\n}\n", 4, true},
+		{"A2 unsafe in a build script", "fn main() {\n    let _ = unsafe { std::ptr::read(&0u32) };\n}\n", 2, true},
+		{"the forbid attribute is not an unsafe token", "#![forbid(unsafe_code)]\nfn a() {}\n", 0, false},
+		{"unsafe_op_in_unsafe_fn is not an unsafe token", "#![allow(unsafe_op_in_unsafe_fn)]\n", 0, false},
+		{"unsafe inside a line comment", "// this is unsafe\nfn a() {}\n", 0, false},
+		{"unsafe inside a doc comment", "//! talks about unsafe code\nfn a() {}\n", 0, false},
+		{"unsafe inside a block comment", "/* unsafe\n   still unsafe */\nfn a() {}\n", 0, false},
+		{"unsafe inside a string literal", "fn a() { let s = \"unsafe\"; let _ = s; }\n", 0, false},
+		{"unsafe inside a raw string literal", "fn a() { let s = r#\"unsafe\"#; let _ = s; }\n", 0, false},
+		{"unsafe after a skipped comment keeps the line count", "// one\n/* two\n   three */\nunsafe fn f() {}\n", 4, true},
+	}
+	for _, tc := range cases {
+		line, ok := unsafeTokenLine(tc.source)
+		if ok != tc.found || line != tc.want {
+			t.Errorf("%s: unsafeTokenLine = (%d, %v), want (%d, %v)", tc.name, line, ok, tc.want, tc.found)
+		}
+	}
+}
+
+// TestExternalDependenciesAreNonMembersNotNonPathDeps is ROUND 3 ATTACK A7.
+//
+// A crate vendored under third_party/ and reached by a path dependency from
+// OUTSIDE the workspace directory has a NULL cargo `source`. Under the old
+// definition it was neither a member nor external, so the inventory gate, the
+// audit gate and the forbid scan all reported a clean tree while its unsafe
+// code was compiled into ws-core.
+func TestExternalDependenciesAreNonMembersNotNonPathDeps(t *testing.T) {
+	registry := "registry+https://github.com/rust-lang/crates.io-index"
+	meta := &cargoMetadata{
+		WorkspaceMembers: []string{"member 0.0.0 (path+file:///repo/rust/ws-core)"},
+		Packages: []cargoPackage{
+			{ID: "member 0.0.0 (path+file:///repo/rust/ws-core)", Name: "ws-core", Version: "0.0.0", ManifestPath: "/repo/rust/ws-core/Cargo.toml"},
+			{ID: "vendored 0.0.0 (path+file:///repo/third_party/attackdep)", Name: "attackdep", Version: "0.0.0", ManifestPath: "/repo/third_party/attackdep/Cargo.toml"},
+			{ID: "reg 1.0.0", Name: "someregistrycrate", Version: "1.0.0", Source: &registry, ManifestPath: "/home/u/.cargo/registry/someregistrycrate/Cargo.toml"},
+		},
+	}
+	got := meta.externalDependencies()
+	if len(got) != 2 {
+		t.Fatalf("want 2 external dependencies (the vendored path dep and the registry dep), got %d: %+v", len(got), got)
+	}
+	if got[0].Name != "attackdep" {
+		t.Fatalf("A7: the vendored path dependency must be external, got %+v", got)
+	}
+	if !strings.HasPrefix(got[0].Source, "path:") {
+		t.Fatalf("a path dependency's source must be reported as its resolved directory, not the empty string; got %q", got[0].Source)
+	}
+	if got[1].Source != registry {
+		t.Fatalf("a registry dependency must keep its cargo source, got %q", got[1].Source)
+	}
+	// The polarity: a workspace with only members has no external dependency.
+	onlyMembers := &cargoMetadata{
+		WorkspaceMembers: []string{"member 0.0.0 (path+file:///repo/rust/ws-core)"},
+		Packages:         []cargoPackage{{ID: "member 0.0.0 (path+file:///repo/rust/ws-core)", Name: "ws-core", ManifestPath: "/repo/rust/ws-core/Cargo.toml"}},
+	}
+	if n := len(onlyMembers.externalDependencies()); n != 0 {
+		t.Fatalf("a members-only workspace must report 0 external dependencies, got %d", n)
+	}
+}
+
+// TestClippyLintNames is the extraction the canary polarity now rests on.
+func TestClippyLintNames(t *testing.T) {
+	withLints := "error: this if-then-else expression returns a bool literal\n" +
+		"   = note: `-D clippy::needless-bool` implied by `-D warnings`\n" +
+		"error: equality checks against true are unnecessary\n" +
+		"   = note: `-D clippy::bool-comparison` implied by `-D warnings`\n"
+	got := clippyLintNames(withLints)
+	if len(got) != 2 || got[0] != "bool_comparison" || got[1] != "needless_bool" {
+		t.Fatalf("want the two lint names sorted, got %v", got)
+	}
+	// clippy names the same lint both ways in one run; the count must be of
+	// LINTS, not of spellings.
+	bothSpellings := "`-D clippy::needless-bool` implied by `-D warnings`\n" +
+		"to override `-D warnings` add `#[allow(clippy::needless_bool)]`\n"
+	if got := clippyLintNames(bothSpellings); len(got) != 1 || got[0] != "needless_bool" {
+		t.Fatalf("the hyphen and underscore spellings are one lint, got %v", got)
+	}
+	// A6: a crate that does not compile fails clippy with no lint at all.
+	compileError := "error[E0425]: cannot find function `attack_a6_no_such_function` in this scope\n" +
+		" --> src/lib.rs:23:5\nerror: could not compile `bad-scaffold` (lib) due to 1 previous error\n"
+	if got := clippyLintNames(compileError); len(got) != 0 {
+		t.Fatalf("A6: a pure compile error names no clippy lint, got %v", got)
 	}
 }
 
 // --- canary polarity contract ----------------------------------------------
 
 func TestEvaluateCanaryPolarity(t *testing.T) {
-	good := canaryResult{name: "good-scaffold", scanExit: 0, clippyExit: 0, testExit: 0}
-	bad := canaryResult{name: "bad-scaffold", scanExit: 1, clippyExit: 101, testExit: exitNotRun}
+	good := canaryResult{name: "good-scaffold", scanExit: 0, clippyExit: 0, testExit: 0, checkExit: exitNotRun}
+	bad := canaryResult{name: "bad-scaffold", scanExit: 1, clippyExit: 101, testExit: exitNotRun, checkExit: 0, clippyLints: 2}
 	if violations := evaluateCanaryPolarity(good, bad); len(violations) != 0 {
 		t.Fatalf("correct polarity must pass, got %v", violations)
+	}
+
+	// ROUND 3 ATTACK A6: the bad canary's clippy refusal must be a LINT.
+	// Replacing its `if flag == true` with a call to an undefined function
+	// left clippy at exit 101 with no clippy lint named, and the gate printed
+	// the same "exits 1/101" census as a run where the lint really fired.
+	compileErrorNotLint := bad
+	compileErrorNotLint.checkExit = 101
+	compileErrorNotLint.clippyLints = 0
+	violations := evaluateCanaryPolarity(good, compileErrorNotLint)
+	if len(violations) != 2 {
+		t.Fatalf("A6: a bad canary that fails to compile and names no lint must produce both findings, got %v", violations)
+	}
+	// Each half must fire on its own, so neither can be deleted behind the
+	// other.
+	onlyNoLint := bad
+	onlyNoLint.clippyLints = 0
+	if v := evaluateCanaryPolarity(good, onlyNoLint); len(v) != 1 {
+		t.Fatalf("A6: a compiling bad canary whose clippy named no lint must produce exactly one finding, got %v", v)
+	}
+	onlyBroken := bad
+	onlyBroken.checkExit = 101
+	if v := evaluateCanaryPolarity(good, onlyBroken); len(v) != 1 {
+		t.Fatalf("A6: a bad canary that does not compile must produce exactly one finding even when clippy named a lint, got %v", v)
+	}
+	// A cargo check that never ran is not a detection either.
+	neverRan := bad
+	neverRan.checkExit = exitNoProcessState
+	if v := evaluateCanaryPolarity(good, neverRan); len(v) == 0 {
+		t.Fatal("A6: a cargo check that never produced a process state must be its own violation")
 	}
 
 	brokenGood := good

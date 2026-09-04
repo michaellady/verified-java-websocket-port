@@ -279,3 +279,60 @@ func TestScanTreeSeesSomething(t *testing.T) {
 		t.Fatalf("the walker saw files=%d loops=%d, which is too few to be a real scan of rust/", res.files, res.loops)
 	}
 }
+
+// TestCfgTestAttributeIsRecognisedByMeaningNotSpelling is ROUND 3 attacks
+// F-R2 and F-R3. Both files below carry a count-shaped liveness guard inside
+// a test-gated module, and both were skipped WHOLE — no region, and no
+// `unscanned=` gap either, because the gap list was keyed on the one byte
+// string the scan was looking for.
+func TestCfgTestAttributeIsRecognisedByMeaningNotSpelling(t *testing.T) {
+	body := "mod tests {\n    fn t() {\n        let mut polls = 0usize;\n        loop { polls += 1; assert!(polls < 4096); }\n    }\n}\n"
+	gating := []string{
+		"#[cfg(test)]\n",
+		"#[cfg( test )]\n",
+		"#[cfg(all(test, not(miri)))]\n",
+		"#[cfg(any(test, feature = \"x\"))]\n",
+		"#[cfg(test,)]\n",
+	}
+	for _, attr := range gating {
+		regions, gaps := cfgTestRegions(maskSource(attr + body))
+		if len(regions) != 1 {
+			t.Errorf("%q must yield exactly one fixture region, got %d regions and gaps %v", attr, len(regions), gaps)
+		}
+	}
+	notGating := []string{
+		"#[cfg(not(test))]\n",
+		"#[cfg(feature = \"test\")]\n",
+		"#[cfg(unix)]\n",
+		"#[cfg(target_os = \"linux\")]\n",
+		"#[derive(Debug)]\n",
+	}
+	for _, attr := range notGating {
+		regions, gaps := cfgTestRegions(maskSource(attr + body))
+		if len(regions) != 0 || len(gaps) != 0 {
+			t.Errorf("%q must NOT be read as a fixture attribute, got %d regions and gaps %v", attr, len(regions), gaps)
+		}
+	}
+}
+
+// TestCfgPredicateGatesTest pins the predicate reader on its own.
+func TestCfgPredicateGatesTest(t *testing.T) {
+	cases := map[string]bool{
+		"cfg(test)":                        true,
+		"cfg( test )":                      true,
+		"cfg(all(test, not(miri)))":        true,
+		"cfg(any(test, feature=\"x\"))":    true,
+		"cfg(not(test))":                   false,
+		"cfg(feature = \"test\")":          false,
+		"cfg(test_util)":                   false,
+		"cfg(unix)":                        false,
+		"derive(Debug)":                    false,
+		"cfg_attr(test, allow(dead_code))": false,
+		"":                                 false,
+	}
+	for body, want := range cases {
+		if got := cfgPredicateGatesTest(body); got != want {
+			t.Errorf("cfgPredicateGatesTest(%q) = %v, want %v", body, got, want)
+		}
+	}
+}

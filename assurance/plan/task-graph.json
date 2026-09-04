@@ -138,6 +138,26 @@
       "state": "open",
       "what_is_needed": "NARROWED at merge; the number itself is no longer wrong. cmd/gosuitectl/main.go's dated measurement read 'packages=61 run=60 excluded=1 with_tests=45' while the gate printed 62/61/46, and the integrator corrected it rather than leaving it. The reviewer who found it left it on the ground that editing another gate's recorded measurement is re-baselining, which is the right instinct and the wrong call here: re-baselining is moving a denominator a CLAIM RESTS ON so the claim passes, and nothing rests on this comment -- no gate reads it, and the gate's real census is re-derived and printed every run. What it was, was FALSE. The correction is not a swap: the cause is recorded beside it and was re-derived rather than argued -- `git ls-tree` gives 64 package directories at a7edbd4 and 65 at the merge, `comm` names cmd/taskgraphctl as the single addition with nothing removed, and that accounts for +1 to packages, run and with_tests exactly. The measurement was taken on the jdk-vendor branch, was CORRECT there, and became false when the merge brought in a package its base did not have. That is the F011 class. WHAT REMAINS FOR YOU is the smaller question: should a gate's prose carry dated censuses at all, when a branch measurement is true on its branch and unverified on the merge? Either bind them (they are in code, which is outside the prose corpus by construction -- widening to doc comments would move this gate's own denominator in the change that introduced it), or drop them and let the runtime census be the only census.",
       "why_it_blocks": "Nothing is blocked on it now that the number is true. It is left open because the general question it raises -- prose in CODE is entirely outside the record-prose corpus, and TP-5 was a live instance of that ceiling -- is a scope decision that would move a denominator if taken from inside a gate fix."
+    },
+    {
+      "id": "OA-forbid-unsafe-scan-surface",
+      "state": "open",
+      "what_is_needed": "Decide whether the 32 first-party crate roots of kind `test` must carry #![forbid(unsafe_code)] themselves. rustgatectl's forbid-unsafe gate requires the attribute on member lib+bin roots only, and prints `10 first-party crate roots (lib+bin)`. Round 3 put `unsafe { std::ptr::read(raw) }` into rust/ws-core/tests/messages.rs and into a rust/ws-core/build.rs that runs at build time; both compiled and both left that line byte-identical at exit 0. The unsafe itself is now caught by an ungoverned-root keyword scan, which moves no count. Requiring the ATTRIBUTE moves the printed 10 to 42 and needs the attribute added to the 25 roots that lack it, so it is not taken here. Measured 2026-09-04: 32 test crate roots, 7 carry a real crate-root attribute, 25 do not."
+    },
+    {
+      "id": "OA-oracle-census-anchor",
+      "state": "open",
+      "what_is_needed": "Decide whether anything should bind oracle-hierarchy-gates' printed census. `oraclerankctl --check` prints '640 propositions adjudicated; 589 Java/Rust agreements, 39 of them overridden'. The register is DERIVED and is never an input to its own recomputation, which is why it refuses an un-regenerated edit; but flipping one rfc_strict_expectation in evidence/us005-public-rfc-divergence-census.json from `closed` to `open` -- a higher oracle made to agree with the Java/Rust pair -- and regenerating the register exits 0 with the count at 38. Nothing asserts 640, 589 or 39. Binding them needs an anchor outside the gate and creates a denominator the gate is then measured against, which is round 2's ruling on the same shape at plan-guard's nodes=29."
+    },
+    {
+      "id": "OA-below-msrv-differential",
+      "state": "open",
+      "what_is_needed": "Decide whether the msrv gate should EXECUTE the below-MSRV differential on a host that has an older toolchain. rustgatectl declares that checks outside its claim are recorded as explicit pending= notes and never silently passed; that held only when NO older toolchain existed. On this host `stable` resolves to rustc 1.94.1 against an MSRV of 1.95.0, so the differential could run -- and it was neither run nor noted. Round 3 made both branches print. Running it is left open because a below-MSRV build that SUCCEEDED would be a finding about the MSRV declaration, not a failure of this gate."
+    },
+    {
+      "id": "OA-round2-forbid-count",
+      "state": "open",
+      "what_is_needed": "Rule on how to correct a cardinality in a landed record. drafts/self-review/gate-attack-round-2.md states that 9 of the 32 tests/ crate roots carry #![forbid(unsafe_code)], measured with `grep -l`. rustgatectl's tokenizer-grade hasForbidUnsafe -- which exists precisely to reject mentions inside comments and string literals -- says 7: the other two are a doc comment in rust/ws-core/tests/scaffold_smoke.rs and a string literal in rust/ws-oracle-harness/tests/protocol.rs. Round 2's sentence also says 23 roots are outside the scan surface when all 32 are. This is not edited here: the repository's convention, recorded in cmd/recordguardctl/prose.go, is SUPERSEDE, do not edit."
     }
   ],
   "nodes": [
@@ -729,7 +749,7 @@
     {
       "id": "T-remaining-gates-attacked",
       "title": "Adversarially attack the five gates the review did not reach",
-      "state": "in-progress",
+      "state": "done",
       "depends_on": [
         "T-record-guard-escapes",
         "T-go-suite",
@@ -738,11 +758,88 @@
       "blocked_by": [],
       "evidence": [
         {
+          "kind": "path_exists",
+          "path": "drafts/self-review/gate-attack-round-3.md"
+        },
+        {
+          "kind": "path_exists",
+          "path": "internal/deltaledger/envelope.go"
+        },
+        {
+          "kind": "path_exists",
+          "path": "internal/deltaledger/envelope_test.go"
+        },
+        {
+          "kind": "grep",
+          "path": "internal/deltaledger/integrity.go",
+          "pattern": "add\\(\"ledger-envelope\", VerifyLedgerEnvelope\\(root, committed\\)\\)"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "func licenseIdentityProblem\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "func \\(r \\*gateRunner\\) ungovernedFirstPartyRoots\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "git-diff-cargo-lock-head"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "func clippyLintNames\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main_test.go",
+          "pattern": "func TestExternalDependenciesAreNonMembersNotNonPathDeps\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/fixtureguardctl/regions.go",
+          "pattern": "func cfgPredicateGatesTest\\("
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/fixtureguardctl/scan_test.go",
+          "pattern": "func TestCfgTestAttributeIsRecognisedByMeaningNotSpelling\\("
+        },
+        {
+          "kind": "grep",
+          "path": "rust/Makefile",
+          "pattern": "cargo test --workspace --release -- --include-ignored"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "licenseFileLooksApache2"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/fixtureguardctl/regions.go",
+          "pattern": "needle := \"#\\[cfg\\(test\\)\\]\""
+        },
+        {
           "kind": "command",
           "cmd": "make -C rust gates"
+        },
+        {
+          "kind": "grep",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "out-of-workspace dependencies \\(path-vendored ones INCLUDED"
+        },
+        {
+          "kind": "grep_absent",
+          "path": "cmd/rustgatectl/main.go",
+          "pattern": "non-path dependencies"
         }
       ],
-      "note": "The round covered record-guard, go-suite and pin-guard. fixture-guard, ledger-gates, oracle-hierarchy-gates, ac1-gates and plan-guard are unattacked. All three it touched fell."
+      "note": "Round 3 attacked ledger-gates, oracle-hierarchy-gates, the ac1-gates members round 2 only read, the four Rust gates and fixture-guard's residual. ac1-gates fell 7 ways, ledger-gates 2, the Rust test targets 1, fixture-guard 2. Fixed in place and each fix carries a deletion attack. The frozen ledger prefix and the oracle adjudication both held under attack. Three residues are owner actions because closing them moves or creates a denominator. | Integrator addendum: A7's fix widened externalDependencies() to COUNT path-vendored packages (the old code skipped any package whose cargo `source` was empty, which is every path dep) but left all six message sites calling the set 'non-path dependencies' -- a noun that now asserts the opposite of what is counted, and one of the six is load-bearing: it is the FAIL branch that fires when dependencies exist and no audit tool does. Renamed to 'out-of-workspace dependencies'. Verified the license fix independently rather than from the report: the control is ac1-gates 8/8, a LICENSE reading 'This software is NOT distributed under the Apache License, Version 2.0' -- which satisfies the old Contains && Contains predicate by inspection -- now FAILS naming both the digest mismatch and the missing clause, and the restored tree is 8/8 again. Round 3's correction of round 2's forbid count re-derived here too: 32 test roots, `grep -l` finds 9, and two of the nine (scaffold_smoke.rs:41, protocol.rs:488) are DOC COMMENTS quoting the attribute, so 7 is right."
     },
     {
       "id": "T-us019-survivors-open",

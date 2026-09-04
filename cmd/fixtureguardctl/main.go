@@ -310,7 +310,7 @@ func selfcheck(root string, stdout, stderr io.Writer) bool {
 			continue
 		}
 		var regions []region
-		if !isTestsTreeFile(c.Path) && strings.Contains(string(src), "#[cfg(test)]") {
+		if _, _, gated := nextCfgTestAttribute(maskSource(string(src)), 0); !isTestsTreeFile(c.Path) && gated {
 			regions, _ = cfgTestRegions(maskSource(string(src)))
 		}
 		vs, loops := scanFile(c.Path, string(src), regions)

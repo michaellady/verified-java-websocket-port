@@ -95,6 +95,7 @@ func VerifyIntegrity(root string) error {
 	}
 
 	add("frozen-prefix", VerifyFrozenPrefix(committed.Records))
+	add("ledger-envelope", VerifyLedgerEnvelope(root, committed))
 	add("evidence-document-schemas", VerifyEvidenceDocumentSchemas(root))
 	add("committed-corpora-rederive", VerifyCommittedCorporaReDerive(root))
 	add("live-mapping-source-binding", VerifyLiveMappingIsBoundToItsSourceTable(root))
