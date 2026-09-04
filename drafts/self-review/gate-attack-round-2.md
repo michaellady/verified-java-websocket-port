@@ -11,7 +11,9 @@ was round 1's central finding applied everywhere else:
 > was still true. The two mechanisms that survived RE-DERIVE.
 
 **plan-guard was defeated fifteen ways and fixture-guard four.** All nineteen are
-now closed with a fix and a regression test that the pre-fix code fails.
+now closed with a fix and with a test that fails when that fix is removed —
+sixteen removals, each of which still compiles, because a mutation that breaks the
+build proves nothing.
 **ledger-gates has one coverage gap that is a HARD STOP, not a fix.**
 **oracle-hierarchy-gates resisted everything I threw at it**, which was not much,
 and I say below exactly how much.
