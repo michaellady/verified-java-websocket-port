@@ -480,7 +480,32 @@ rule left the suite green, because the brace-bound gap caught the same fixture b
 accident. The test now carries H2b, the form where a later brace stands in for the
 module, and the mutation is caught.
 
-## 9. Files changed
+## 9. Base, and mainline moving under this review
+
+This targets `8e6007d`. Mainline reached `07c2a86` while the review was in
+flight, adding the vendor-agnostic portplan fix, its record, and two plan edits —
+one of which is the node for THIS task.
+
+`git diff --stat 8e6007d origin/… -- cmd/taskgraphctl cmd/fixtureguardctl
+cmd/deltaledgerctl cmd/oraclerankctl cmd/rustgatectl internal/oraclerank
+internal/deltaledger rust/Makefile` is **EMPTY**: not one line of the gate code
+this review reads changed under it, so no finding here is stale. What mainline
+touched is `cmd/gosuitectl/main.go` (round 1's target, not this one),
+`internal/portplan`, `.claude/GOAL-LOOP.md`, a new record, and the plan DATA.
+
+The plan data is the one place my branch and mainline both wrote, so I checked
+the merge against the new rules rather than assuming: mainline's 30-node plan,
+with my `ceiling` line spliced in as a merge would leave it, produces **no**
+`VACUOUS_EVIDENCE`, `DONE_ON_UNFINISHED_DEPENDENCY`, `OPEN_WITH_A_RULING`,
+duplicate-key, unknown-field or ceiling refusal. Its three new evidence items are
+a real `path_exists`, an unanchored `grep`, and an unanchored `grep_absent`, all
+of which rule 6 accepts. The only findings the preview produced are three
+`EVIDENCE_NO_LONGER_HOLDS` for `T-jdk-vendor-agnostic`, which is correct and
+expected: that node's evidence describes mainline's TREE, and my worktree's tree
+is `8e6007d`. **The merge is compatible; it is not tested here, because testing it
+means integrating, and integrating is not this task.**
+
+## 10. Files changed
 
 - `cmd/taskgraphctl/main.go` — rule 6 (`evidenceShapeProblem`, `anchorsLines`,
   `gitEverKnew`), `EMPTY_PLAN`, `DONE_ON_UNFINISHED_DEPENDENCY`,
@@ -498,7 +523,7 @@ module, and the mutation is caught.
 - `cmd/fixtureguardctl/main_test.go`, `scan_test.go` — four unreachable-body
   fixtures and the inline-module control.
 
-## 10. The chain
+## 11. The chain
 
 
 `make -C rust gates` was run on the final tree, detached, writing its own exit
